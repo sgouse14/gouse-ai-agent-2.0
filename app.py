@@ -1,15 +1,22 @@
+from pathlib import Path
+from uuid import uuid4
+
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from gouse_ai import GouseAIAgent
 from gouse_ai.architecture import ArchitectureAnalyzer, Material
+from gouse_ai.documents import extract_text, validate_upload
 from gouse_ai.openai_client import OpenAIClient
 from gouse_ai.memory import FileMemory
 
 load_dotenv()
-app = FastAPI(title="Gouse AI Architecture Agent", version="2.1.0")
+UPLOAD_DIR = Path("data/uploads")
+UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+
+app = FastAPI(title="Gouse AI Architecture Agent", version="2.2.0")
 agent = GouseAIAgent(OpenAIClient())
 memory = FileMemory()
 architecture = ArchitectureAnalyzer()
@@ -41,6 +48,30 @@ def chat(request: ChatRequest):
     response = agent.run(request.message)
     memory.add("assistant", response.text)
     return {"response": response.text}
+
+
+@app.post("/api/documents/upload")
+async def upload_document(file: UploadFile = File(...)):
+    if not file.filename:
+        raise HTTPException(status_code=400, detail="A filename is required")
+    try:
+        validate_upload(file.filename)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    safe_name = f"{uuid4().hex}_{Path(file.filename).name}"
+    destination = UPLOAD_DIR / safe_name
+    content = await file.read()
+    destination.write_bytes(content)
+
+    summary = extract_text(destination)
+    return {
+        "filename": file.filename,
+        "stored_file": safe_name,
+        "extension": summary.extension,
+        "text_preview": summary.extracted_text[:5000],
+        "characters_extracted": len(summary.extracted_text),
+    }
 
 
 @app.post("/api/architecture/materials/analyze")
