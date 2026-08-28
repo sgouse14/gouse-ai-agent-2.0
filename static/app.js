@@ -1,32 +1,12 @@
-const chat = document.querySelector('#chat');
-const form = document.querySelector('#form');
-const input = document.querySelector('#message');
-
-function add(role, text) {
-  const item = document.createElement('div');
-  item.className = `message ${role}`;
-  item.textContent = text;
-  chat.appendChild(item);
-  chat.scrollTop = chat.scrollHeight;
-}
-
-form.addEventListener('submit', async (event) => {
-  event.preventDefault();
-  const message = input.value.trim();
-  if (!message) return;
-  add('user', message);
-  input.value = '';
-  add('assistant', 'Thinking...');
-  const placeholder = chat.lastElementChild;
-  try {
-    const response = await fetch('/api/chat', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({message})
-    });
-    const data = await response.json();
-    placeholder.textContent = data.response || data.detail || 'Something went wrong.';
-  } catch (error) {
-    placeholder.textContent = 'Connection error. Please try again.';
-  }
-});
+const chat=document.querySelector('#chat'),form=document.querySelector('#form'),input=document.querySelector('#message');let selected=null,uploaded=null;
+const add=(role,text)=>{const x=document.createElement('div');x.className=`message ${role}`;x.textContent=text;chat.appendChild(x);chat.scrollTop=chat.scrollHeight};
+async function api(url,options={}){const r=await fetch(url,options);const d=await r.json();if(!r.ok)throw new Error(d.detail||'Request failed');return d}
+function renderProjects(projects){const box=document.querySelector('#projects');box.innerHTML='';projects.forEach(p=>{const b=document.createElement('button');b.className='project'+(selected?.id===p.id?' active':'');b.textContent=p.name;b.onclick=()=>selectProject(p.id);box.appendChild(b)})}
+async function loadProjects(){const d=await api('/api/projects');renderProjects(d.projects)}
+async function selectProject(id){selected=await api(`/api/projects/${id}`);document.querySelector('#workspace-title').textContent=selected.name;document.querySelector('#project-info').textContent=`${selected.project_type} • ${selected.location||'Location not set'}\n${selected.description||''}\nFiles: ${selected.files.length} • Analyses: ${selected.analyses.length}`;document.querySelector('#attach').disabled=false;document.querySelector('#intelligence').disabled=false;document.querySelector('#report').textContent=selected.analyses.at(-1)?.analysis||'Ready for upload and analysis.';loadProjects()}
+document.querySelector('#project-form').onsubmit=async e=>{e.preventDefault();try{const p=await api('/api/projects',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:document.querySelector('#project-name').value,project_type:document.querySelector('#project-type').value,location:document.querySelector('#project-location').value,description:document.querySelector('#project-description').value})});e.target.reset();await loadProjects();await selectProject(p.id)}catch(e){alert(e.message)}};
+document.querySelector('#file').onchange=e=>{uploaded=e.target.files[0]||null};
+document.querySelector('#attach').onclick=async()=>{if(!selected||!uploaded)return alert('Select a project and choose a file');try{const fd=new FormData();fd.append('file',uploaded);const up=await api('/api/documents/upload',{method:'POST',body:fd});await api(`/api/projects/${selected.id}/files`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({stored_file:up.stored_file})});await selectProject(selected.id);document.querySelector('#report').textContent=`Uploaded: ${up.filename}\n\n${up.text_preview||'File attached successfully.'}`}catch(e){alert(e.message)}};
+document.querySelector('#intelligence').onclick=async()=>{if(!selected)return;const out=document.querySelector('#report');out.textContent='Gouse AI is analyzing the project...';try{const d=await api(`/api/projects/${selected.id}/intelligence`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({})});out.textContent=d.analysis||JSON.stringify(d,null,2);await selectProject(selected.id)}catch(e){out.textContent=`Error: ${e.message}`}};
+document.querySelector('#refresh').onclick=loadProjects;
+form.onsubmit=async e=>{e.preventDefault();const message=input.value.trim();if(!message)return;add('user',message);input.value='';add('assistant','Thinking...');const x=chat.lastElementChild;try{const d=await api('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message})});x.textContent=d.response}catch(e){x.textContent=`Error: ${e.message}`}};loadProjects();
