@@ -3,6 +3,7 @@ from pathlib import Path
 from datetime import datetime, timezone
 from uuid import uuid4
 PROFESSIONAL_TYPES={'architect','builder','material_supplier'}
+ENQUIRY_STATUSES={'open','in_progress','accepted','rejected','completed'}
 def words(text): return {w for w in re.findall(r'[a-z0-9]+',(text or '').lower()) if len(w)>2}
 class MarketplaceStore:
  def __init__(self,path='data/gouse_ai.db'): self.path=Path(path);self.path.parent.mkdir(parents=True,exist_ok=True);self.initialize()
@@ -46,3 +47,13 @@ class MarketplaceStore:
  def enquiries_for_professional(self,user_id):
   with self.connect() as db: rows=db.execute('SELECT e.id,e.professional_id,e.client_user_id,e.project_title,e.message,e.status,e.created_at FROM marketplace_enquiries e JOIN professional_profiles p ON p.id=e.professional_id WHERE p.user_id=? ORDER BY e.created_at DESC',(user_id,)).fetchall()
   return [dict(zip(['id','professional_id','client_user_id','project_title','message','status','created_at'],r)) for r in rows]
+ def update_enquiry_status(self,enquiry_id,user_id,status):
+  if status not in ENQUIRY_STATUSES: raise ValueError('Invalid enquiry status')
+  with self.connect() as db:
+   row=db.execute('SELECT e.id FROM marketplace_enquiries e JOIN professional_profiles p ON p.id=e.professional_id WHERE e.id=? AND p.user_id=?',(enquiry_id,user_id)).fetchone()
+   if not row: raise LookupError('Enquiry not found or access denied')
+   db.execute('UPDATE marketplace_enquiries SET status=? WHERE id=?',(status,enquiry_id))
+  return self.enquiry(enquiry_id)
+ def enquiry(self,enquiry_id):
+  with self.connect() as db: row=db.execute('SELECT id,professional_id,client_user_id,project_title,message,status,created_at FROM marketplace_enquiries WHERE id=?',(enquiry_id,)).fetchone()
+  return dict(zip(['id','professional_id','client_user_id','project_title','message','status','created_at'],row)) if row else None
