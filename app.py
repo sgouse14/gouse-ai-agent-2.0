@@ -12,16 +12,19 @@ from gouse_ai.documents import extract_text, validate_upload
 from gouse_ai.openai_client import OpenAIClient
 from gouse_ai.memory import FileMemory
 from gouse_ai.reporting import ArchitectureReportAgent
+from gouse_ai.vision import ArchitectureVisionAnalyzer, RenderPromptBuilder, VisionRequest
 
 load_dotenv()
 UPLOAD_DIR = Path("data/uploads")
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
-app = FastAPI(title="Gouse AI Architecture Agent", version="2.3.0")
+app = FastAPI(title="Gouse AI Architecture Agent", version="2.4.0")
 agent = GouseAIAgent(OpenAIClient())
 memory = FileMemory()
 architecture = ArchitectureAnalyzer()
 report_agent = ArchitectureReportAgent(agent)
+vision = ArchitectureVisionAnalyzer()
+render_prompts = RenderPromptBuilder()
 
 
 class ChatRequest(BaseModel):
@@ -33,6 +36,16 @@ class DocumentAnalysisRequest(BaseModel):
     question: str = ""
 
 
+class VisionAnalysisRequest(BaseModel):
+    stored_file: str
+    focus: str = "General architectural analysis"
+
+
+class RenderRequest(BaseModel):
+    description: str
+    style: str = "photorealistic"
+
+
 class MaterialInput(BaseModel):
     name: str
     category: str
@@ -40,6 +53,16 @@ class MaterialInput(BaseModel):
     quantity: float | None = Field(default=None, ge=0)
     rate: float | None = Field(default=None, ge=0)
     notes: str = ""
+
+
+def uploaded_path(stored_file: str) -> Path:
+    filename = Path(stored_file).name
+    if filename != stored_file or not filename:
+        raise HTTPException(status_code=400, detail="Invalid stored file")
+    path = UPLOAD_DIR / filename
+    if not path.exists():
+        raise HTTPException(status_code=404, detail="Uploaded file not found")
+    return path
 
 
 @app.get("/api/health")
@@ -65,48 +88,48 @@ async def upload_document(file: UploadFile = File(...)):
         validate_upload(file.filename)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-
     safe_name = f"{uuid4().hex}_{Path(file.filename).name}"
     destination = UPLOAD_DIR / safe_name
     destination.write_bytes(await file.read())
     summary = extract_text(destination)
-    return {
-        "filename": file.filename,
-        "stored_file": safe_name,
-        "extension": summary.extension,
-        "text_preview": summary.extracted_text[:5000],
-        "characters_extracted": len(summary.extracted_text),
-    }
+    return {"filename": file.filename, "stored_file": safe_name, "extension": summary.extension, "text_preview": summary.extracted_text[:5000], "characters_extracted": len(summary.extracted_text)}
 
 
 @app.post("/api/architecture/analyze-document")
 def analyze_document(request: DocumentAnalysisRequest):
-    filename = Path(request.stored_file).name
-    if filename != request.stored_file or not filename:
-        raise HTTPException(status_code=400, detail="Invalid stored file")
-    path = UPLOAD_DIR / filename
-    if not path.exists():
-        raise HTTPException(status_code=404, detail="Uploaded file not found")
-    try:
-        summary = extract_text(path)
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    path = uploaded_path(request.stored_file)
+    summary = extract_text(path)
     if not summary.extracted_text.strip():
         raise HTTPException(status_code=422, detail="No analyzable text was extracted from this file")
     report = report_agent.analyze(summary.extracted_text, summary.filename, request.question)
     return {"title": report.title, "analysis": report.analysis, "filename": summary.filename}
 
 
+@app.post("/api/architecture/analyze-image")
+def analyze_image(request: VisionAnalysisRequest):
+    path = uploaded_path(request.stored_file)
+    if path.suffix.lower() not in {".png", ".jpg", ".jpeg", ".webp"}:
+        raise HTTPException(status_code=400, detail="Vision analysis requires an uploaded image")
+    prompt = vision.build_analysis_prompt(VisionRequest(str(path), request.focus))
+    response = agent.run(prompt)
+    return {"filename": path.name, "analysis": response.text}
+
+
+@app.post("/api/architecture/render-prompt")
+def create_render_prompt(request: RenderRequest):
+    if not request.description.strip():
+        raise HTTPException(status_code=400, detail="A project description is required")
+    return {"prompt": render_prompts.build(request.description, request.style)}
+
+
 @app.post("/api/architecture/materials/analyze")
 def analyze_materials(materials: list[MaterialInput]):
-    items = [Material(**item.model_dump()) for item in materials]
-    return architecture.analyze_materials(items)
+    return architecture.analyze_materials([Material(**item.model_dump()) for item in materials])
 
 
 @app.post("/api/architecture/materials/compare")
 def compare_materials(materials: list[MaterialInput]):
-    items = [Material(**item.model_dump()) for item in materials]
-    return {"options": architecture.compare(items)}
+    return {"options": architecture.compare([Material(**item.model_dump()) for item in materials])}
 
 
 @app.get("/api/architecture/checklist")
