@@ -20,7 +20,7 @@ from gouse_ai.reporting import ArchitectureReportAgent
 from gouse_ai.vision import ArchitectureVisionAnalyzer, RenderPromptBuilder, VisionRequest
 from gouse_ai.marketplace import MarketplaceStore, ENQUIRY_STATUSES
 load_dotenv(); UPLOAD_DIR=Path('data/uploads'); UPLOAD_DIR.mkdir(parents=True,exist_ok=True)
-app=FastAPI(title='Gouse AI Architecture Agent',version='3.7.0')
+app=FastAPI(title='Gouse AI Architecture Agent',version='3.8.0')
 agent=GouseAIAgent(OpenAIClient()); memory=FileMemory(); database=Database(); auth=AuthStore(); audit=AuditLog(); projects=ProjectStore(); architecture=ArchitectureAnalyzer(); boq=BOQEngine(); report_agent=ArchitectureReportAgent(agent); intelligence=ProjectIntelligenceEngine(report_agent); vision=ArchitectureVisionAnalyzer(); render_prompts=RenderPromptBuilder(); marketplace=MarketplaceStore()
 class Credentials(BaseModel): email:EmailStr; password:str=Field(min_length=8,max_length=256)
 class ProjectCreate(BaseModel): name:str; project_type:str='architecture'; location:str=''; description:str=''
@@ -35,6 +35,7 @@ class RenderRequest(BaseModel): description:str; style:str='photorealistic'
 class MaterialInput(BaseModel): name:str; category:str; unit:str=''; quantity:float|None=Field(default=None,ge=0); rate:float|None=Field(default=None,ge=0); notes:str=''
 class BOQLineInput(BaseModel): name:str=Field(min_length=2); category:str='general'; unit:str='nos'; quantity:float=Field(ge=0); rate:float=Field(ge=0); notes:str=''
 class BOQRequest(BaseModel): items:list[BOQLineInput]=Field(min_length=1,max_length=1000); contingency_percent:float=Field(default=0,ge=0,le=100)
+class BOQGenerateRequest(BaseModel): description:str=Field(min_length=10,max_length=20000); stored_file:str|None=None
 class ProfessionalProfileInput(BaseModel): professional_type:str; name:str=Field(min_length=2); company:str=''; bio:str=''; services:str=''
 class EnquiryInput(BaseModel): project_title:str=Field(min_length=2); message:str=Field(min_length=2)
 class MatchRequest(BaseModel): requirement:str=Field(min_length=3); professional_type:str|None=None; limit:int=Field(default=10,ge=1,le=50)
@@ -62,7 +63,7 @@ def uploaded_path(stored_file):
  if not path.exists(): raise HTTPException(404,'Uploaded file not found')
  return path
 @app.get('/api/health')
-def health(): return {'status':'ok','agent':'Gouse AI Architecture','marketplace':'enabled','matching':'enabled','enquiry_management':'enabled','boq_cost_estimation':'enabled','subscription':'six_month_trial'}
+def health(): return {'status':'ok','agent':'Gouse AI Architecture','marketplace':'enabled','matching':'enabled','enquiry_management':'enabled','boq_cost_estimation':'enabled','ai_boq_generation':'enabled','subscription':'six_month_trial'}
 @app.post('/api/auth/register')
 def register(request:Credentials):
  try: auth.register(uuid4().hex,request.email,request.password)
@@ -78,6 +79,12 @@ def subscription(authorization:str|None=Header(default=None)): return auth.subsc
 @app.post('/api/boq/estimate')
 def estimate_boq(request:BOQRequest,authorization:str|None=Header(default=None)):
  require_subscription(authorization); result=boq.build([x.model_dump() for x in request.items],request.contingency_percent); return {'estimate':result,'summary':boq.summary(result)}
+@app.post('/api/boq/generate')
+def generate_boq(request:BOQGenerateRequest,authorization:str|None=Header(default=None)):
+ require_subscription(authorization); document_text=''
+ if request.stored_file: document_text=extract_text(uploaded_path(request.stored_file)).extracted_text
+ try: generated=boq.parse_generated(agent.run(boq.generation_prompt(request.description,document_text)).text); return generated
+ except ValueError as e: raise HTTPException(502,str(e))
 @app.put('/api/marketplace/profile')
 def save_profile(request:ProfessionalProfileInput,authorization:str|None=Header(default=None)):
  user_id,_=require_subscription(authorization)
