@@ -7,6 +7,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, EmailStr
 from gouse_ai import GouseAIAgent
 from gouse_ai.auth import AuthStore
+from gouse_ai.audit import AuditLog
 from gouse_ai.architecture import ArchitectureAnalyzer, Material
 from gouse_ai.database import Database
 from gouse_ai.documents import extract_text, validate_upload
@@ -18,8 +19,8 @@ from gouse_ai.projects import ProjectStore
 from gouse_ai.reporting import ArchitectureReportAgent
 from gouse_ai.vision import ArchitectureVisionAnalyzer, RenderPromptBuilder, VisionRequest
 load_dotenv(); UPLOAD_DIR=Path('data/uploads'); UPLOAD_DIR.mkdir(parents=True,exist_ok=True)
-app=FastAPI(title='Gouse AI Architecture Agent',version='3.0.0')
-agent=GouseAIAgent(OpenAIClient()); memory=FileMemory(); database=Database(); auth=AuthStore(); projects=ProjectStore(); architecture=ArchitectureAnalyzer(); professional=ProfessionalArchitectureAnalyzer(); report_agent=ArchitectureReportAgent(agent); intelligence=ProjectIntelligenceEngine(report_agent); vision=ArchitectureVisionAnalyzer(); render_prompts=RenderPromptBuilder()
+app=FastAPI(title='Gouse AI Architecture Agent',version='3.1.0')
+agent=GouseAIAgent(OpenAIClient()); memory=FileMemory(); database=Database(); auth=AuthStore(); audit=AuditLog(); projects=ProjectStore(); architecture=ArchitectureAnalyzer(); professional=ProfessionalArchitectureAnalyzer(); report_agent=ArchitectureReportAgent(agent); intelligence=ProjectIntelligenceEngine(report_agent); vision=ArchitectureVisionAnalyzer(); render_prompts=RenderPromptBuilder()
 class Credentials(BaseModel): email:EmailStr; password:str=Field(min_length=8,max_length=256)
 class ProjectCreate(BaseModel): name:str; project_type:str='architecture'; location:str=''; description:str=''
 class ProjectFileRequest(BaseModel): stored_file:str
@@ -51,7 +52,7 @@ def uploaded_path(stored_file):
  if not path.exists(): raise HTTPException(404,'Uploaded file not found')
  return path
 @app.get('/api/health')
-def health(): return {'status':'ok','agent':'Gouse AI Architecture','database':'sqlite','authentication':'enabled','collaboration':'enabled'}
+def health(): return {'status':'ok','agent':'Gouse AI Architecture','database':'sqlite','authentication':'enabled','collaboration':'enabled','audit':'enabled'}
 @app.post('/api/auth/register')
 def register(request:Credentials):
  try: auth.register(uuid4().hex,request.email,request.password)
@@ -64,49 +65,55 @@ def login(request:Credentials):
  token,user_id=result; return {'token':token,'user_id':user_id}
 @app.post('/api/projects')
 def create_project(request:ProjectCreate,authorization:str|None=Header(default=None)):
- user_id=current_user(authorization); project=projects.create(**request.model_dump()); auth.set_project_owner(project.id,user_id); return asdict(project)
+ user_id=current_user(authorization); project=projects.create(**request.model_dump()); auth.set_project_owner(project.id,user_id); audit.add(project.id,user_id,'project_created',project.name); return asdict(project)
 @app.get('/api/projects')
 def list_projects(authorization:str|None=Header(default=None)):
  user_id=current_user(authorization); return {'projects':[asdict(p) for p in projects.list() if auth.role_for_project(p.id,user_id)]}
 @app.get('/api/projects/{project_id}')
 def get_project(project_id:str,authorization:str|None=Header(default=None)): return asdict(require_project(project_id,authorization)[0])
+@app.get('/api/projects/{project_id}/activity')
+def project_activity(project_id:str,authorization:str|None=Header(default=None)):
+ require_project(project_id,authorization); return {'events':audit.list(project_id)}
 @app.get('/api/projects/{project_id}/members')
 def list_members(project_id:str,authorization:str|None=Header(default=None)):
  require_project(project_id,authorization); return {'members':auth.project_members(project_id)}
 @app.post('/api/projects/{project_id}/members')
 def add_member(project_id:str,request:TeamMemberRequest,authorization:str|None=Header(default=None)):
- require_project(project_id,authorization,{'owner'})
+ _,user_id,_=require_project(project_id,authorization,{'owner'})
  try: auth.add_project_member(project_id,request.email,request.role)
  except ValueError as exc: raise HTTPException(400,str(exc))
- return {'members':auth.project_members(project_id)}
+ audit.add(project_id,user_id,'member_added',f'{request.email} as {request.role}'); return {'members':auth.project_members(project_id)}
 @app.delete('/api/projects/{project_id}/members/{user_id}')
 def remove_member(project_id:str,user_id:str,authorization:str|None=Header(default=None)):
- require_project(project_id,authorization,{'owner'}); auth.remove_project_member(project_id,user_id); return {'members':auth.project_members(project_id)}
+ _,actor,_=require_project(project_id,authorization,{'owner'}); auth.remove_project_member(project_id,user_id); audit.add(project_id,actor,'member_removed',user_id); return {'members':auth.project_members(project_id)}
 @app.post('/api/projects/{project_id}/professional-analysis')
 def professional_project_analysis(project_id:str,authorization:str|None=Header(default=None)):
- project,_,_=require_project(project_id,authorization); result=professional.project_summary(project); result['findings']=professional.prioritize(result['findings']); return result
+ project,user_id,_=require_project(project_id,authorization); result=professional.project_summary(project); result['findings']=professional.prioritize(result['findings']); audit.add(project_id,user_id,'professional_analysis','Professional project analysis run'); return result
 @app.post('/api/projects/{project_id}/files')
 def attach_project_file(project_id:str,request:ProjectFileRequest,authorization:str|None=Header(default=None)):
- require_project(project_id,authorization,{'owner','architect','engineer'}); uploaded_path(request.stored_file)
- try:return asdict(projects.add_file(project_id,request.stored_file))
- except KeyError:raise HTTPException(404,'Project not found')
+ _,user_id,_=require_project(project_id,authorization,{'owner','architect','engineer'}); uploaded_path(request.stored_file)
+ try: result=asdict(projects.add_file(project_id,request.stored_file))
+ except KeyError: raise HTTPException(404,'Project not found')
+ audit.add(project_id,user_id,'file_attached',request.stored_file); return result
 @app.post('/api/projects/{project_id}/analyses')
 def attach_project_analysis(project_id:str,request:ProjectAnalysisRequest,authorization:str|None=Header(default=None)):
- require_project(project_id,authorization,{'owner','architect','engineer'})
- try:return asdict(projects.add_analysis(project_id,request.title,request.analysis))
- except KeyError:raise HTTPException(404,'Project not found')
+ _,user_id,_=require_project(project_id,authorization,{'owner','architect','engineer'})
+ try: result=asdict(projects.add_analysis(project_id,request.title,request.analysis))
+ except KeyError: raise HTTPException(404,'Project not found')
+ audit.add(project_id,user_id,'analysis_added',request.title); return result
 @app.post('/api/projects/{project_id}/intelligence')
 def analyze_project(project_id:str,request:ProjectIntelligenceRequest,authorization:str|None=Header(default=None)):
- project,_,_=require_project(project_id,authorization,{'owner','architect','engineer'}); result=intelligence.analyze(project,UPLOAD_DIR,request.focus); projects.add_analysis(project_id,result['title'],result['analysis']); return result
+ project,user_id,_=require_project(project_id,authorization,{'owner','architect','engineer'}); result=intelligence.analyze(project,UPLOAD_DIR,request.focus); projects.add_analysis(project_id,result['title'],result['analysis']); audit.add(project_id,user_id,'ai_intelligence_run',request.focus or 'General project intelligence'); return result
 @app.post('/api/projects/{project_id}/chat')
 def project_chat(project_id:str,request:ProjectChatRequest,authorization:str|None=Header(default=None)):
- require_project(project_id,authorization)
+ _,user_id,_=require_project(project_id,authorization)
  if not request.message.strip(): raise HTTPException(400,'Message cannot be empty')
- history=database.get_memory(project_id,limit=20); context='\n'.join(f"{x['role']}: {x['content']}" for x in history); prompt=f'Project conversation history:\n{context}\n\nCurrent request: {request.message}' if context else request.message; response=agent.run(prompt); database.add_memory(project_id,'user',request.message); database.add_memory(project_id,'assistant',response.text); return {'response':response.text,'project_id':project_id}
+ history=database.get_memory(project_id,limit=20); context='\n'.join(f"{x['role']}: {x['content']}" for x in history); prompt=f'Project conversation history:\n{context}\n\nCurrent request: {request.message}' if context else request.message; response=agent.run(prompt); database.add_memory(project_id,'user',request.message); database.add_memory(project_id,'assistant',response.text); audit.add(project_id,user_id,'ai_chat','Project chat message'); return {'response':response.text,'project_id':project_id}
 @app.get('/api/projects/{project_id}/memory')
 def get_project_memory(project_id:str,authorization:str|None=Header(default=None)): require_project(project_id,authorization); return {'items':database.get_memory(project_id)}
 @app.delete('/api/projects/{project_id}/memory')
-def clear_project_memory(project_id:str,authorization:str|None=Header(default=None)): require_project(project_id,authorization,{'owner','architect','engineer'}); database.clear_memory(project_id); return {'status':'cleared','project_id':project_id}
+def clear_project_memory(project_id:str,authorization:str|None=Header(default=None)):
+ _,user_id,_=require_project(project_id,authorization,{'owner','architect','engineer'}); database.clear_memory(project_id); audit.add(project_id,user_id,'memory_cleared','Project AI memory cleared'); return {'status':'cleared','project_id':project_id}
 @app.post('/api/chat')
 def chat(request:ChatRequest):
  if not request.message.strip(): raise HTTPException(400,'Message cannot be empty')
