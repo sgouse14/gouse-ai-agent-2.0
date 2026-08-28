@@ -18,9 +18,10 @@ from gouse_ai.professional_analysis import ProfessionalArchitectureAnalyzer
 from gouse_ai.projects import ProjectStore
 from gouse_ai.reporting import ArchitectureReportAgent
 from gouse_ai.vision import ArchitectureVisionAnalyzer, RenderPromptBuilder, VisionRequest
+from gouse_ai.marketplace import MarketplaceStore
 load_dotenv(); UPLOAD_DIR=Path('data/uploads'); UPLOAD_DIR.mkdir(parents=True,exist_ok=True)
-app=FastAPI(title='Gouse AI Architecture Agent',version='3.2.0')
-agent=GouseAIAgent(OpenAIClient()); memory=FileMemory(); database=Database(); auth=AuthStore(); audit=AuditLog(); projects=ProjectStore(); architecture=ArchitectureAnalyzer(); professional=ProfessionalArchitectureAnalyzer(); report_agent=ArchitectureReportAgent(agent); intelligence=ProjectIntelligenceEngine(report_agent); vision=ArchitectureVisionAnalyzer(); render_prompts=RenderPromptBuilder()
+app=FastAPI(title='Gouse AI Architecture Agent',version='3.3.0')
+agent=GouseAIAgent(OpenAIClient()); memory=FileMemory(); database=Database(); auth=AuthStore(); audit=AuditLog(); projects=ProjectStore(); architecture=ArchitectureAnalyzer(); professional=ProfessionalArchitectureAnalyzer(); report_agent=ArchitectureReportAgent(agent); intelligence=ProjectIntelligenceEngine(report_agent); vision=ArchitectureVisionAnalyzer(); render_prompts=RenderPromptBuilder(); marketplace=MarketplaceStore()
 class Credentials(BaseModel): email:EmailStr; password:str=Field(min_length=8,max_length=256)
 class ProjectCreate(BaseModel): name:str; project_type:str='architecture'; location:str=''; description:str=''
 class ProjectFileRequest(BaseModel): stored_file:str
@@ -33,6 +34,8 @@ class DocumentAnalysisRequest(BaseModel): stored_file:str; question:str=''
 class VisionAnalysisRequest(BaseModel): stored_file:str; focus:str='General architectural analysis'
 class RenderRequest(BaseModel): description:str; style:str='photorealistic'
 class MaterialInput(BaseModel): name:str; category:str; unit:str=''; quantity:float|None=Field(default=None,ge=0); rate:float|None=Field(default=None,ge=0); notes:str=''
+class ProfessionalProfileInput(BaseModel): professional_type:str; name:str=Field(min_length=2); company:str=''; bio:str=''; location:str=''; phone:str=''; services:str=''
+class EnquiryInput(BaseModel): project_title:str=Field(min_length=2); message:str=Field(min_length=2); location:str=''
 def current_user(authorization):
  if not authorization or not authorization.startswith('Bearer '): raise HTTPException(401,'Authentication required')
  user_id=auth.user_for_token(authorization[7:])
@@ -56,7 +59,7 @@ def uploaded_path(stored_file):
  if not path.exists(): raise HTTPException(404,'Uploaded file not found')
  return path
 @app.get('/api/health')
-def health(): return {'status':'ok','agent':'Gouse AI Architecture','database':'sqlite','authentication':'enabled','collaboration':'enabled','audit':'enabled','subscription':'six_month_trial'}
+def health(): return {'status':'ok','agent':'Gouse AI Architecture','marketplace':'enabled','subscription':'six_month_trial'}
 @app.post('/api/auth/register')
 def register(request:Credentials):
  try: auth.register(uuid4().hex,request.email,request.password)
@@ -68,8 +71,33 @@ def login(request:Credentials):
  if not result: raise HTTPException(401,'Invalid email or password')
  token,user_id=result; return {'token':token,'user_id':user_id,'subscription':auth.subscription_for_user(user_id)}
 @app.get('/api/subscription')
-def subscription(authorization:str|None=Header(default=None)):
- user_id=current_user(authorization); return auth.subscription_for_user(user_id)
+def subscription(authorization:str|None=Header(default=None)): return auth.subscription_for_user(current_user(authorization))
+@app.put('/api/marketplace/profile')
+def save_profile(request:ProfessionalProfileInput,authorization:str|None=Header(default=None)):
+ user_id,_=require_subscription(authorization)
+ try:return marketplace.upsert_profile(user_id,request.model_dump())
+ except ValueError as e:raise HTTPException(400,str(e))
+@app.get('/api/marketplace/profile')
+def my_profile(authorization:str|None=Header(default=None)):
+ user_id,_=require_subscription(authorization); return {'profile':marketplace.my_profile(user_id)}
+@app.get('/api/marketplace/professionals')
+def find_professionals(professional_type:str|None=None,location:str='',query:str='',authorization:str|None=Header(default=None)):
+ require_subscription(authorization)
+ try:return {'professionals':marketplace.search(professional_type,location,query)}
+ except ValueError as e:raise HTTPException(400,str(e))
+@app.get('/api/marketplace/professionals/{profile_id}')
+def professional_profile(profile_id:str,authorization:str|None=Header(default=None)):
+ require_subscription(authorization); profile=marketplace.get_profile(profile_id)
+ if not profile:raise HTTPException(404,'Professional not found')
+ profile.pop('user_id',None); profile.pop('phone',None); return profile
+@app.post('/api/marketplace/professionals/{profile_id}/enquiries')
+def create_enquiry(profile_id:str,request:EnquiryInput,authorization:str|None=Header(default=None)):
+ user_id,_=require_subscription(authorization)
+ try:return marketplace.create_enquiry(profile_id,user_id,request.project_title,request.message,request.location)
+ except ValueError as e:raise HTTPException(404,str(e))
+@app.get('/api/marketplace/enquiries')
+def marketplace_enquiries(authorization:str|None=Header(default=None)):
+ user_id,_=require_subscription(authorization); return {'enquiries':marketplace.enquiries_for_professional(user_id)}
 @app.post('/api/projects')
 def create_project(request:ProjectCreate,authorization:str|None=Header(default=None)):
  user_id,_=require_subscription(authorization); project=projects.create(**request.model_dump()); auth.set_project_owner(project.id,user_id); audit.add(project.id,user_id,'project_created',project.name); return asdict(project)
@@ -114,11 +142,6 @@ def project_chat(project_id:str,request:ProjectChatRequest,authorization:str|Non
  _,user_id,_=require_project(project_id,authorization)
  if not request.message.strip(): raise HTTPException(400,'Message cannot be empty')
  history=database.get_memory(project_id,limit=20); context='\n'.join(f"{x['role']}: {x['content']}" for x in history); prompt=f'Project conversation history:\n{context}\n\nCurrent request: {request.message}' if context else request.message; response=agent.run(prompt); database.add_memory(project_id,'user',request.message); database.add_memory(project_id,'assistant',response.text); audit.add(project_id,user_id,'ai_chat','Project chat message'); return {'response':response.text,'project_id':project_id}
-@app.get('/api/projects/{project_id}/memory')
-def get_project_memory(project_id:str,authorization:str|None=Header(default=None)): require_project(project_id,authorization); return {'items':database.get_memory(project_id)}
-@app.delete('/api/projects/{project_id}/memory')
-def clear_project_memory(project_id:str,authorization:str|None=Header(default=None)):
- _,user_id,_=require_project(project_id,authorization,{'owner','architect','engineer'}); database.clear_memory(project_id); audit.add(project_id,user_id,'memory_cleared','Project AI memory cleared'); return {'status':'cleared','project_id':project_id}
 @app.post('/api/chat')
 def chat(request:ChatRequest,authorization:str|None=Header(default=None)):
  require_subscription(authorization)
@@ -151,8 +174,4 @@ def professional_material_analysis(materials:list[MaterialInput],authorization:s
 def compare_materials(materials:list[MaterialInput],authorization:str|None=Header(default=None)): require_subscription(authorization); return {'options':architecture.compare([Material(**x.model_dump()) for x in materials])}
 @app.get('/api/architecture/checklist')
 def architecture_checklist(project_type:str='architectural project',authorization:str|None=Header(default=None)): require_subscription(authorization); return {'items':architecture.checklist(project_type)}
-@app.get('/api/memory')
-def get_memory(authorization:str|None=Header(default=None)): require_subscription(authorization); return {'items':memory.load()}
-@app.delete('/api/memory')
-def clear_memory(authorization:str|None=Header(default=None)): require_subscription(authorization); agent.reset(); memory.clear(); return {'status':'cleared'}
 app.mount('/',StaticFiles(directory='static',html=True),name='static')
