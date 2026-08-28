@@ -20,7 +20,7 @@ from gouse_ai.reporting import ArchitectureReportAgent
 from gouse_ai.vision import ArchitectureVisionAnalyzer, RenderPromptBuilder, VisionRequest
 from gouse_ai.marketplace import MarketplaceStore
 load_dotenv(); UPLOAD_DIR=Path('data/uploads'); UPLOAD_DIR.mkdir(parents=True,exist_ok=True)
-app=FastAPI(title='Gouse AI Architecture Agent',version='3.3.0')
+app=FastAPI(title='Gouse AI Architecture Agent',version='3.4.0')
 agent=GouseAIAgent(OpenAIClient()); memory=FileMemory(); database=Database(); auth=AuthStore(); audit=AuditLog(); projects=ProjectStore(); architecture=ArchitectureAnalyzer(); professional=ProfessionalArchitectureAnalyzer(); report_agent=ArchitectureReportAgent(agent); intelligence=ProjectIntelligenceEngine(report_agent); vision=ArchitectureVisionAnalyzer(); render_prompts=RenderPromptBuilder(); marketplace=MarketplaceStore()
 class Credentials(BaseModel): email:EmailStr; password:str=Field(min_length=8,max_length=256)
 class ProjectCreate(BaseModel): name:str; project_type:str='architecture'; location:str=''; description:str=''
@@ -34,8 +34,8 @@ class DocumentAnalysisRequest(BaseModel): stored_file:str; question:str=''
 class VisionAnalysisRequest(BaseModel): stored_file:str; focus:str='General architectural analysis'
 class RenderRequest(BaseModel): description:str; style:str='photorealistic'
 class MaterialInput(BaseModel): name:str; category:str; unit:str=''; quantity:float|None=Field(default=None,ge=0); rate:float|None=Field(default=None,ge=0); notes:str=''
-class ProfessionalProfileInput(BaseModel): professional_type:str; name:str=Field(min_length=2); company:str=''; bio:str=''; location:str=''; phone:str=''; services:str=''
-class EnquiryInput(BaseModel): project_title:str=Field(min_length=2); message:str=Field(min_length=2); location:str=''
+class ProfessionalProfileInput(BaseModel): professional_type:str; name:str=Field(min_length=2); company:str=''; bio:str=''; services:str=''
+class EnquiryInput(BaseModel): project_title:str=Field(min_length=2); message:str=Field(min_length=2)
 def current_user(authorization):
  if not authorization or not authorization.startswith('Bearer '): raise HTTPException(401,'Authentication required')
  user_id=auth.user_for_token(authorization[7:])
@@ -81,19 +81,19 @@ def save_profile(request:ProfessionalProfileInput,authorization:str|None=Header(
 def my_profile(authorization:str|None=Header(default=None)):
  user_id,_=require_subscription(authorization); return {'profile':marketplace.my_profile(user_id)}
 @app.get('/api/marketplace/professionals')
-def find_professionals(professional_type:str|None=None,location:str='',query:str='',authorization:str|None=Header(default=None)):
+def find_professionals(professional_type:str|None=None,query:str='',authorization:str|None=Header(default=None)):
  require_subscription(authorization)
- try:return {'professionals':marketplace.search(professional_type,location,query)}
+ try:return {'professionals':marketplace.search(professional_type,query)}
  except ValueError as e:raise HTTPException(400,str(e))
 @app.get('/api/marketplace/professionals/{profile_id}')
 def professional_profile(profile_id:str,authorization:str|None=Header(default=None)):
  require_subscription(authorization); profile=marketplace.get_profile(profile_id)
  if not profile:raise HTTPException(404,'Professional not found')
- profile.pop('user_id',None); profile.pop('phone',None); return profile
+ profile.pop('user_id',None); return profile
 @app.post('/api/marketplace/professionals/{profile_id}/enquiries')
 def create_enquiry(profile_id:str,request:EnquiryInput,authorization:str|None=Header(default=None)):
  user_id,_=require_subscription(authorization)
- try:return marketplace.create_enquiry(profile_id,user_id,request.project_title,request.message,request.location)
+ try:return marketplace.create_enquiry(profile_id,user_id,request.project_title,request.message)
  except ValueError as e:raise HTTPException(404,str(e))
 @app.get('/api/marketplace/enquiries')
 def marketplace_enquiries(authorization:str|None=Header(default=None)):
@@ -119,24 +119,12 @@ def add_member(project_id:str,request:TeamMemberRequest,authorization:str|None=H
 @app.delete('/api/projects/{project_id}/members/{user_id}')
 def remove_member(project_id:str,user_id:str,authorization:str|None=Header(default=None)):
  _,actor,_=require_project(project_id,authorization,{'owner'}); auth.remove_project_member(project_id,user_id); audit.add(project_id,actor,'member_removed',user_id); return {'members':auth.project_members(project_id)}
-@app.post('/api/projects/{project_id}/professional-analysis')
-def professional_project_analysis(project_id:str,authorization:str|None=Header(default=None)):
- project,user_id,_=require_project(project_id,authorization); result=professional.project_summary(project); result['findings']=professional.prioritize(result['findings']); audit.add(project_id,user_id,'professional_analysis','Professional project analysis run'); return result
-@app.post('/api/projects/{project_id}/files')
-def attach_project_file(project_id:str,request:ProjectFileRequest,authorization:str|None=Header(default=None)):
- _,user_id,_=require_project(project_id,authorization,{'owner','architect','engineer'}); uploaded_path(request.stored_file)
- try: result=asdict(projects.add_file(project_id,request.stored_file))
- except KeyError: raise HTTPException(404,'Project not found')
- audit.add(project_id,user_id,'file_attached',request.stored_file); return result
-@app.post('/api/projects/{project_id}/analyses')
-def attach_project_analysis(project_id:str,request:ProjectAnalysisRequest,authorization:str|None=Header(default=None)):
- _,user_id,_=require_project(project_id,authorization,{'owner','architect','engineer'})
- try: result=asdict(projects.add_analysis(project_id,request.title,request.analysis))
- except KeyError: raise HTTPException(404,'Project not found')
- audit.add(project_id,user_id,'analysis_added',request.title); return result
 @app.post('/api/projects/{project_id}/intelligence')
 def analyze_project(project_id:str,request:ProjectIntelligenceRequest,authorization:str|None=Header(default=None)):
  project,user_id,_=require_project(project_id,authorization,{'owner','architect','engineer'}); result=intelligence.analyze(project,UPLOAD_DIR,request.focus); projects.add_analysis(project_id,result['title'],result['analysis']); audit.add(project_id,user_id,'ai_intelligence_run',request.focus or 'General project intelligence'); return result
+@app.post('/api/projects/{project_id}/files')
+def attach_project_file(project_id:str,request:ProjectFileRequest,authorization:str|None=Header(default=None)):
+ _,user_id,_=require_project(project_id,authorization,{'owner','architect','engineer'}); uploaded_path(request.stored_file); result=asdict(projects.add_file(project_id,request.stored_file)); audit.add(project_id,user_id,'file_attached',request.stored_file); return result
 @app.post('/api/projects/{project_id}/chat')
 def project_chat(project_id:str,request:ProjectChatRequest,authorization:str|None=Header(default=None)):
  _,user_id,_=require_project(project_id,authorization)
@@ -151,25 +139,19 @@ def chat(request:ChatRequest,authorization:str|None=Header(default=None)):
 async def upload_document(file:UploadFile=File(...),authorization:str|None=Header(default=None)):
  require_subscription(authorization)
  if not file.filename: raise HTTPException(400,'A filename is required')
- try: validate_upload(file.filename)
- except ValueError as exc: raise HTTPException(400,str(exc))
- safe_name=f'{uuid4().hex}_{Path(file.filename).name}'; destination=UPLOAD_DIR/safe_name; destination.write_bytes(await file.read()); summary=extract_text(destination); return {'filename':file.filename,'stored_file':safe_name,'extension':summary.extension,'text_preview':summary.extracted_text[:5000],'characters_extracted':len(summary.extracted_text)}
+ validate_upload(file.filename); safe_name=f'{uuid4().hex}_{Path(file.filename).name}'; destination=UPLOAD_DIR/safe_name; destination.write_bytes(await file.read()); summary=extract_text(destination); return {'filename':file.filename,'stored_file':safe_name,'extension':summary.extension,'text_preview':summary.extracted_text[:5000],'characters_extracted':len(summary.extracted_text)}
 @app.post('/api/architecture/analyze-document')
 def analyze_document(request:DocumentAnalysisRequest,authorization:str|None=Header(default=None)):
- require_subscription(authorization); summary=extract_text(uploaded_path(request.stored_file))
- if not summary.extracted_text.strip(): raise HTTPException(422,'No analyzable text was extracted')
- report=report_agent.analyze(summary.extracted_text,summary.filename,request.question); return {'title':report.title,'analysis':report.analysis,'filename':summary.filename}
+ require_subscription(authorization); summary=extract_text(uploaded_path(request.stored_file)); report=report_agent.analyze(summary.extracted_text,summary.filename,request.question); return {'title':report.title,'analysis':report.analysis,'filename':summary.filename}
 @app.post('/api/architecture/analyze-image')
 def analyze_image(request:VisionAnalysisRequest,authorization:str|None=Header(default=None)):
  require_subscription(authorization); path=uploaded_path(request.stored_file)
  if path.suffix.lower() not in {'.png','.jpg','.jpeg','.webp'}: raise HTTPException(400,'Vision analysis requires an uploaded image')
- response=agent.run(vision.build_analysis_prompt(VisionRequest(str(path),request.focus))); return {'filename':path.name,'analysis':response.text}
+ return {'filename':path.name,'analysis':agent.run(vision.build_analysis_prompt(VisionRequest(str(path),request.focus))).text}
 @app.post('/api/architecture/render-prompt')
 def create_render_prompt(request:RenderRequest,authorization:str|None=Header(default=None)): require_subscription(authorization); return {'prompt':render_prompts.build(request.description,request.style)}
 @app.post('/api/architecture/materials/analyze')
 def analyze_materials(materials:list[MaterialInput],authorization:str|None=Header(default=None)): require_subscription(authorization); return architecture.analyze_materials([Material(**x.model_dump()) for x in materials])
-@app.post('/api/architecture/materials/professional-analysis')
-def professional_material_analysis(materials:list[MaterialInput],authorization:str|None=Header(default=None)): require_subscription(authorization); result=professional.analyze_materials([Material(**x.model_dump()) for x in materials]); result['findings']=professional.prioritize(result['findings']); return result
 @app.post('/api/architecture/materials/compare')
 def compare_materials(materials:list[MaterialInput],authorization:str|None=Header(default=None)): require_subscription(authorization); return {'options':architecture.compare([Material(**x.model_dump()) for x in materials])}
 @app.get('/api/architecture/checklist')
