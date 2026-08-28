@@ -2,20 +2,35 @@ import hashlib, os, secrets, sqlite3
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-ROLES={"owner","architect","engineer","viewer"}
+ROLES={"owner","architect","engineer","viewer"}; TRIAL_DAYS=183
 class AuthStore:
     def __init__(self,path="data/gouse_ai.db"):
         self.path=Path(path); self.path.parent.mkdir(parents=True,exist_ok=True); self.initialize()
     def connect(self): return sqlite3.connect(self.path)
     def initialize(self):
         with self.connect() as db:
-            db.executescript("""CREATE TABLE IF NOT EXISTS users(id TEXT PRIMARY KEY,email TEXT UNIQUE NOT NULL,password_hash TEXT NOT NULL,created_at TEXT NOT NULL);CREATE TABLE IF NOT EXISTS sessions(token_hash TEXT PRIMARY KEY,user_id TEXT NOT NULL,expires_at TEXT NOT NULL);CREATE TABLE IF NOT EXISTS project_owners(project_id TEXT PRIMARY KEY,user_id TEXT NOT NULL);CREATE TABLE IF NOT EXISTS project_members(project_id TEXT NOT NULL,user_id TEXT NOT NULL,role TEXT NOT NULL,created_at TEXT NOT NULL,PRIMARY KEY(project_id,user_id));CREATE INDEX IF NOT EXISTS idx_project_members_user ON project_members(user_id);""")
+            db.executescript("""CREATE TABLE IF NOT EXISTS users(id TEXT PRIMARY KEY,email TEXT UNIQUE NOT NULL,password_hash TEXT NOT NULL,created_at TEXT NOT NULL);CREATE TABLE IF NOT EXISTS sessions(token_hash TEXT PRIMARY KEY,user_id TEXT NOT NULL,expires_at TEXT NOT NULL);CREATE TABLE IF NOT EXISTS project_owners(project_id TEXT PRIMARY KEY,user_id TEXT NOT NULL);CREATE TABLE IF NOT EXISTS project_members(project_id TEXT NOT NULL,user_id TEXT NOT NULL,role TEXT NOT NULL,created_at TEXT NOT NULL,PRIMARY KEY(project_id,user_id));CREATE TABLE IF NOT EXISTS subscriptions(user_id TEXT PRIMARY KEY,plan TEXT NOT NULL DEFAULT 'trial',trial_started_at TEXT NOT NULL,trial_ends_at TEXT NOT NULL,subscription_status TEXT NOT NULL DEFAULT 'trialing',updated_at TEXT NOT NULL);CREATE INDEX IF NOT EXISTS idx_project_members_user ON project_members(user_id);""")
     def _hash_password(self,password,salt=None):
         salt=salt or os.urandom(16); digest=hashlib.pbkdf2_hmac("sha256",password.encode(),salt,200000); return salt.hex()+":"+digest.hex()
     def _verify(self,password,stored):
         salt,digest=stored.split(":",1); actual=self._hash_password(password,bytes.fromhex(salt)).split(":",1)[1]; return secrets.compare_digest(actual,digest)
     def register(self,user_id,email,password):
-        with self.connect() as db: db.execute("INSERT INTO users VALUES (?,?,?,?)",(user_id,email.lower().strip(),self._hash_password(password),datetime.now(timezone.utc).isoformat()))
+        now=datetime.now(timezone.utc); end=now+timedelta(days=TRIAL_DAYS)
+        with self.connect() as db:
+            db.execute("INSERT INTO users VALUES (?,?,?,?)",(user_id,email.lower().strip(),self._hash_password(password),now.isoformat()))
+            db.execute("INSERT INTO subscriptions(user_id,plan,trial_started_at,trial_ends_at,subscription_status,updated_at) VALUES (?,?,?,?,?,?)",(user_id,"trial",now.isoformat(),end.isoformat(),"trialing",now.isoformat()))
+    def subscription_for_user(self,user_id):
+        with self.connect() as db: row=db.execute("SELECT plan,trial_started_at,trial_ends_at,subscription_status FROM subscriptions WHERE user_id=?",(user_id,)).fetchone()
+        if not row:return {"plan":"none","status":"inactive","access":False}
+        plan,start,end,status=row; now=datetime.now(timezone.utc); expires=datetime.fromisoformat(end)
+        if status=="trialing" and now>=expires:
+            status="expired"
+            with self.connect() as db: db.execute("UPDATE subscriptions SET subscription_status=?,updated_at=? WHERE user_id=?",(status,now.isoformat(),user_id))
+        access=status in {"trialing","active"}; days=max(0,(expires-now).days) if status=="trialing" else 0
+        return {"plan":plan,"status":status,"access":access,"trial_started_at":start,"trial_ends_at":end,"days_remaining":days}
+    def activate_subscription(self,user_id,plan="pro"):
+        now=datetime.now(timezone.utc)
+        with self.connect() as db: db.execute("UPDATE subscriptions SET plan=?,subscription_status='active',updated_at=? WHERE user_id=?",(plan,now.isoformat(),user_id))
     def login(self,email,password):
         with self.connect() as db: row=db.execute("SELECT id,password_hash FROM users WHERE email=?",(email.lower().strip(),)).fetchone()
         if not row or not self._verify(password,row[1]): return None
