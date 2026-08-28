@@ -17,9 +17,9 @@ from gouse_ai.memory import FileMemory
 from gouse_ai.projects import ProjectStore
 from gouse_ai.reporting import ArchitectureReportAgent
 from gouse_ai.vision import ArchitectureVisionAnalyzer, RenderPromptBuilder, VisionRequest
-from gouse_ai.marketplace import MarketplaceStore
+from gouse_ai.marketplace import MarketplaceStore, ENQUIRY_STATUSES
 load_dotenv(); UPLOAD_DIR=Path('data/uploads'); UPLOAD_DIR.mkdir(parents=True,exist_ok=True)
-app=FastAPI(title='Gouse AI Architecture Agent',version='3.5.0')
+app=FastAPI(title='Gouse AI Architecture Agent',version='3.6.0')
 agent=GouseAIAgent(OpenAIClient()); memory=FileMemory(); database=Database(); auth=AuthStore(); audit=AuditLog(); projects=ProjectStore(); architecture=ArchitectureAnalyzer(); report_agent=ArchitectureReportAgent(agent); intelligence=ProjectIntelligenceEngine(report_agent); vision=ArchitectureVisionAnalyzer(); render_prompts=RenderPromptBuilder(); marketplace=MarketplaceStore()
 class Credentials(BaseModel): email:EmailStr; password:str=Field(min_length=8,max_length=256)
 class ProjectCreate(BaseModel): name:str; project_type:str='architecture'; location:str=''; description:str=''
@@ -35,6 +35,7 @@ class MaterialInput(BaseModel): name:str; category:str; unit:str=''; quantity:fl
 class ProfessionalProfileInput(BaseModel): professional_type:str; name:str=Field(min_length=2); company:str=''; bio:str=''; services:str=''
 class EnquiryInput(BaseModel): project_title:str=Field(min_length=2); message:str=Field(min_length=2)
 class MatchRequest(BaseModel): requirement:str=Field(min_length=3); professional_type:str|None=None; limit:int=Field(default=10,ge=1,le=50)
+class EnquiryStatusInput(BaseModel): status:str
 def current_user(authorization):
  if not authorization or not authorization.startswith('Bearer '): raise HTTPException(401,'Authentication required')
  user_id=auth.user_for_token(authorization[7:])
@@ -58,7 +59,7 @@ def uploaded_path(stored_file):
  if not path.exists(): raise HTTPException(404,'Uploaded file not found')
  return path
 @app.get('/api/health')
-def health(): return {'status':'ok','agent':'Gouse AI Architecture','marketplace':'enabled','matching':'enabled','subscription':'six_month_trial'}
+def health(): return {'status':'ok','agent':'Gouse AI Architecture','marketplace':'enabled','matching':'enabled','enquiry_management':'enabled','subscription':'six_month_trial'}
 @app.post('/api/auth/register')
 def register(request:Credentials):
  try: auth.register(uuid4().hex,request.email,request.password)
@@ -104,7 +105,13 @@ def create_enquiry(profile_id:str,request:EnquiryInput,authorization:str|None=He
  except ValueError as e:raise HTTPException(404,str(e))
 @app.get('/api/marketplace/enquiries')
 def marketplace_enquiries(authorization:str|None=Header(default=None)):
- user_id,_=require_subscription(authorization); return {'enquiries':marketplace.enquiries_for_professional(user_id)}
+ user_id,_=require_subscription(authorization); return {'enquiries':marketplace.enquiries_for_professional(user_id),'statuses':sorted(ENQUIRY_STATUSES)}
+@app.put('/api/marketplace/enquiries/{enquiry_id}/status')
+def update_enquiry_status(enquiry_id:str,request:EnquiryStatusInput,authorization:str|None=Header(default=None)):
+ user_id,_=require_subscription(authorization)
+ try:return marketplace.update_enquiry_status(enquiry_id,user_id,request.status)
+ except ValueError as e:raise HTTPException(400,str(e))
+ except LookupError as e:raise HTTPException(404,str(e))
 @app.post('/api/projects')
 def create_project(request:ProjectCreate,authorization:str|None=Header(default=None)):
  user_id,_=require_subscription(authorization); project=projects.create(**request.model_dump()); auth.set_project_owner(project.id,user_id); audit.add(project.id,user_id,'project_created',project.name); return asdict(project)
