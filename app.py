@@ -14,18 +14,16 @@ from gouse_ai.documents import extract_text, validate_upload
 from gouse_ai.intelligence import ProjectIntelligenceEngine
 from gouse_ai.openai_client import OpenAIClient
 from gouse_ai.memory import FileMemory
-from gouse_ai.professional_analysis import ProfessionalArchitectureAnalyzer
 from gouse_ai.projects import ProjectStore
 from gouse_ai.reporting import ArchitectureReportAgent
 from gouse_ai.vision import ArchitectureVisionAnalyzer, RenderPromptBuilder, VisionRequest
 from gouse_ai.marketplace import MarketplaceStore
 load_dotenv(); UPLOAD_DIR=Path('data/uploads'); UPLOAD_DIR.mkdir(parents=True,exist_ok=True)
-app=FastAPI(title='Gouse AI Architecture Agent',version='3.4.0')
-agent=GouseAIAgent(OpenAIClient()); memory=FileMemory(); database=Database(); auth=AuthStore(); audit=AuditLog(); projects=ProjectStore(); architecture=ArchitectureAnalyzer(); professional=ProfessionalArchitectureAnalyzer(); report_agent=ArchitectureReportAgent(agent); intelligence=ProjectIntelligenceEngine(report_agent); vision=ArchitectureVisionAnalyzer(); render_prompts=RenderPromptBuilder(); marketplace=MarketplaceStore()
+app=FastAPI(title='Gouse AI Architecture Agent',version='3.5.0')
+agent=GouseAIAgent(OpenAIClient()); memory=FileMemory(); database=Database(); auth=AuthStore(); audit=AuditLog(); projects=ProjectStore(); architecture=ArchitectureAnalyzer(); report_agent=ArchitectureReportAgent(agent); intelligence=ProjectIntelligenceEngine(report_agent); vision=ArchitectureVisionAnalyzer(); render_prompts=RenderPromptBuilder(); marketplace=MarketplaceStore()
 class Credentials(BaseModel): email:EmailStr; password:str=Field(min_length=8,max_length=256)
 class ProjectCreate(BaseModel): name:str; project_type:str='architecture'; location:str=''; description:str=''
 class ProjectFileRequest(BaseModel): stored_file:str
-class ProjectAnalysisRequest(BaseModel): title:str; analysis:str
 class ProjectIntelligenceRequest(BaseModel): focus:str=''
 class ProjectChatRequest(BaseModel): message:str
 class ChatRequest(BaseModel): message:str
@@ -36,6 +34,7 @@ class RenderRequest(BaseModel): description:str; style:str='photorealistic'
 class MaterialInput(BaseModel): name:str; category:str; unit:str=''; quantity:float|None=Field(default=None,ge=0); rate:float|None=Field(default=None,ge=0); notes:str=''
 class ProfessionalProfileInput(BaseModel): professional_type:str; name:str=Field(min_length=2); company:str=''; bio:str=''; services:str=''
 class EnquiryInput(BaseModel): project_title:str=Field(min_length=2); message:str=Field(min_length=2)
+class MatchRequest(BaseModel): requirement:str=Field(min_length=3); professional_type:str|None=None; limit:int=Field(default=10,ge=1,le=50)
 def current_user(authorization):
  if not authorization or not authorization.startswith('Bearer '): raise HTTPException(401,'Authentication required')
  user_id=auth.user_for_token(authorization[7:])
@@ -59,7 +58,7 @@ def uploaded_path(stored_file):
  if not path.exists(): raise HTTPException(404,'Uploaded file not found')
  return path
 @app.get('/api/health')
-def health(): return {'status':'ok','agent':'Gouse AI Architecture','marketplace':'enabled','subscription':'six_month_trial'}
+def health(): return {'status':'ok','agent':'Gouse AI Architecture','marketplace':'enabled','matching':'enabled','subscription':'six_month_trial'}
 @app.post('/api/auth/register')
 def register(request:Credentials):
  try: auth.register(uuid4().hex,request.email,request.password)
@@ -83,7 +82,15 @@ def my_profile(authorization:str|None=Header(default=None)):
 @app.get('/api/marketplace/professionals')
 def find_professionals(professional_type:str|None=None,query:str='',authorization:str|None=Header(default=None)):
  require_subscription(authorization)
- try:return {'professionals':marketplace.search(professional_type,query)}
+ try:
+  result=marketplace.search(professional_type,query)
+  for p in result:p.pop('user_id',None)
+  return {'professionals':result}
+ except ValueError as e:raise HTTPException(400,str(e))
+@app.post('/api/marketplace/match')
+def match_professionals(request:MatchRequest,authorization:str|None=Header(default=None)):
+ require_subscription(authorization)
+ try:return {'requirement':request.requirement,'matches':marketplace.match(request.requirement,request.professional_type,request.limit)}
  except ValueError as e:raise HTTPException(400,str(e))
 @app.get('/api/marketplace/professionals/{profile_id}')
 def professional_profile(profile_id:str,authorization:str|None=Header(default=None)):
