@@ -2,10 +2,11 @@ from pathlib import Path
 from uuid import uuid4
 from dataclasses import asdict
 from dotenv import load_dotenv
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import FastAPI, File, HTTPException, UploadFile, Header
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, EmailStr
 from gouse_ai import GouseAIAgent
+from gouse_ai.auth import AuthStore
 from gouse_ai.architecture import ArchitectureAnalyzer, Material
 from gouse_ai.database import Database
 from gouse_ai.documents import extract_text, validate_upload
@@ -17,100 +18,118 @@ from gouse_ai.projects import ProjectStore
 from gouse_ai.reporting import ArchitectureReportAgent
 from gouse_ai.vision import ArchitectureVisionAnalyzer, RenderPromptBuilder, VisionRequest
 
-load_dotenv(); UPLOAD_DIR=Path("data/uploads"); UPLOAD_DIR.mkdir(parents=True,exist_ok=True)
-app=FastAPI(title="Gouse AI Architecture Agent",version="2.8.0")
-agent=GouseAIAgent(OpenAIClient()); memory=FileMemory(); database=Database(); projects=ProjectStore(); architecture=ArchitectureAnalyzer(); professional=ProfessionalArchitectureAnalyzer()
-report_agent=ArchitectureReportAgent(agent); intelligence=ProjectIntelligenceEngine(report_agent); vision=ArchitectureVisionAnalyzer(); render_prompts=RenderPromptBuilder()
+load_dotenv(); UPLOAD_DIR=Path('data/uploads'); UPLOAD_DIR.mkdir(parents=True,exist_ok=True)
+app=FastAPI(title='Gouse AI Architecture Agent',version='2.9.0')
+agent=GouseAIAgent(OpenAIClient()); memory=FileMemory(); database=Database(); auth=AuthStore(); projects=ProjectStore(); architecture=ArchitectureAnalyzer(); professional=ProfessionalArchitectureAnalyzer(); report_agent=ArchitectureReportAgent(agent); intelligence=ProjectIntelligenceEngine(report_agent); vision=ArchitectureVisionAnalyzer(); render_prompts=RenderPromptBuilder()
 
-class ProjectCreate(BaseModel): name:str; project_type:str="architecture"; location:str=""; description:str=""
+class Credentials(BaseModel): email:EmailStr; password:str=Field(min_length=8,max_length=256)
+class ProjectCreate(BaseModel): name:str; project_type:str='architecture'; location:str=''; description:str=''
 class ProjectFileRequest(BaseModel): stored_file:str
 class ProjectAnalysisRequest(BaseModel): title:str; analysis:str
-class ProjectIntelligenceRequest(BaseModel): focus:str=""
+class ProjectIntelligenceRequest(BaseModel): focus:str=''
 class ProjectChatRequest(BaseModel): message:str
 class ChatRequest(BaseModel): message:str
-class DocumentAnalysisRequest(BaseModel): stored_file:str; question:str=""
-class VisionAnalysisRequest(BaseModel): stored_file:str; focus:str="General architectural analysis"
-class RenderRequest(BaseModel): description:str; style:str="photorealistic"
-class MaterialInput(BaseModel): name:str; category:str; unit:str=""; quantity:float|None=Field(default=None,ge=0); rate:float|None=Field(default=None,ge=0); notes:str=""
+class DocumentAnalysisRequest(BaseModel): stored_file:str; question:str=''
+class VisionAnalysisRequest(BaseModel): stored_file:str; focus:str='General architectural analysis'
+class RenderRequest(BaseModel): description:str; style:str='photorealistic'
+class MaterialInput(BaseModel): name:str; category:str; unit:str=''; quantity:float|None=Field(default=None,ge=0); rate:float|None=Field(default=None,ge=0); notes:str=''
+
+def current_user(authorization:str|None):
+ if not authorization or not authorization.startswith('Bearer '): raise HTTPException(401,'Authentication required')
+ user_id=auth.user_for_token(authorization[7:])
+ if not user_id: raise HTTPException(401,'Invalid or expired session')
+ return user_id
+
+def require_project(project_id:str,authorization:str|None):
+ user_id=current_user(authorization); project=projects.get(project_id)
+ if not project: raise HTTPException(404,'Project not found')
+ if not auth.owns_project(project_id,user_id): raise HTTPException(403,'Project access denied')
+ return project,user_id
 
 def uploaded_path(stored_file:str)->Path:
  filename=Path(stored_file).name
- if filename!=stored_file or not filename: raise HTTPException(400,"Invalid stored file")
+ if filename!=stored_file or not filename: raise HTTPException(400,'Invalid stored file')
  path=UPLOAD_DIR/filename
- if not path.exists(): raise HTTPException(404,"Uploaded file not found")
+ if not path.exists(): raise HTTPException(404,'Uploaded file not found')
  return path
 
-def project_or_404(project_id:str):
- project=projects.get(project_id)
- if not project: raise HTTPException(404,"Project not found")
- return project
-
-@app.get("/api/health")
-def health(): return {"status":"ok","agent":"Gouse AI Architecture","database":"sqlite","analysis_engine":"professional"}
-@app.post("/api/projects")
-def create_project(request:ProjectCreate): return asdict(projects.create(**request.model_dump()))
-@app.get("/api/projects")
-def list_projects(): return {"projects":[asdict(p) for p in projects.list()]}
-@app.get("/api/projects/{project_id}")
-def get_project(project_id:str): return asdict(project_or_404(project_id))
-@app.post("/api/projects/{project_id}/professional-analysis")
-def professional_project_analysis(project_id:str):
- project=project_or_404(project_id); result=professional.project_summary(project); result["findings"]=professional.prioritize(result["findings"]); return result
-@app.post("/api/projects/{project_id}/files")
-def attach_project_file(project_id:str,request:ProjectFileRequest):
- uploaded_path(request.stored_file)
+@app.get('/api/health')
+def health(): return {'status':'ok','agent':'Gouse AI Architecture','database':'sqlite','authentication':'enabled'}
+@app.post('/api/auth/register')
+def register(request:Credentials):
+ try: auth.register(uuid4().hex,request.email,request.password)
+ except Exception: raise HTTPException(409,'Email already registered')
+ return {'status':'registered'}
+@app.post('/api/auth/login')
+def login(request:Credentials):
+ result=auth.login(request.email,request.password)
+ if not result: raise HTTPException(401,'Invalid email or password')
+ token,user_id=result; return {'token':token,'user_id':user_id}
+@app.post('/api/projects')
+def create_project(request:ProjectCreate,authorization:str|None=Header(default=None)):
+ user_id=current_user(authorization); project=projects.create(**request.model_dump()); auth.set_project_owner(project.id,user_id); return asdict(project)
+@app.get('/api/projects')
+def list_projects(authorization:str|None=Header(default=None)):
+ user_id=current_user(authorization); return {'projects':[asdict(p) for p in projects.list() if auth.owns_project(p.id,user_id)]}
+@app.get('/api/projects/{project_id}')
+def get_project(project_id:str,authorization:str|None=Header(default=None)): return asdict(require_project(project_id,authorization)[0])
+@app.post('/api/projects/{project_id}/professional-analysis')
+def professional_project_analysis(project_id:str,authorization:str|None=Header(default=None)):
+ project,_=require_project(project_id,authorization); result=professional.project_summary(project); result['findings']=professional.prioritize(result['findings']); return result
+@app.post('/api/projects/{project_id}/files')
+def attach_project_file(project_id:str,request:ProjectFileRequest,authorization:str|None=Header(default=None)):
+ require_project(project_id,authorization); uploaded_path(request.stored_file)
  try:return asdict(projects.add_file(project_id,request.stored_file))
- except KeyError:raise HTTPException(404,"Project not found")
-@app.post("/api/projects/{project_id}/analyses")
-def attach_project_analysis(project_id:str,request:ProjectAnalysisRequest):
+ except KeyError:raise HTTPException(404,'Project not found')
+@app.post('/api/projects/{project_id}/analyses')
+def attach_project_analysis(project_id:str,request:ProjectAnalysisRequest,authorization:str|None=Header(default=None)):
+ require_project(project_id,authorization)
  try:return asdict(projects.add_analysis(project_id,request.title,request.analysis))
- except KeyError:raise HTTPException(404,"Project not found")
-@app.post("/api/projects/{project_id}/intelligence")
-def analyze_project(project_id:str,request:ProjectIntelligenceRequest):
- project=project_or_404(project_id); result=intelligence.analyze(project,UPLOAD_DIR,request.focus); projects.add_analysis(project_id,result["title"],result["analysis"]); return result
-@app.post("/api/projects/{project_id}/chat")
-def project_chat(project_id:str,request:ProjectChatRequest):
- project_or_404(project_id)
- if not request.message.strip(): raise HTTPException(400,"Message cannot be empty")
- history=database.get_memory(project_id,limit=20); context="\n".join(f"{x['role']}: {x['content']}" for x in history); prompt=f"Project conversation history:\n{context}\n\nCurrent request: {request.message}" if context else request.message
- response=agent.run(prompt); database.add_memory(project_id,"user",request.message); database.add_memory(project_id,"assistant",response.text); return {"response":response.text,"project_id":project_id}
-@app.get("/api/projects/{project_id}/memory")
-def get_project_memory(project_id:str): project_or_404(project_id); return {"items":database.get_memory(project_id)}
-@app.delete("/api/projects/{project_id}/memory")
-def clear_project_memory(project_id:str): project_or_404(project_id); database.clear_memory(project_id); return {"status":"cleared","project_id":project_id}
-@app.post("/api/chat")
+ except KeyError:raise HTTPException(404,'Project not found')
+@app.post('/api/projects/{project_id}/intelligence')
+def analyze_project(project_id:str,request:ProjectIntelligenceRequest,authorization:str|None=Header(default=None)):
+ project,_=require_project(project_id,authorization); result=intelligence.analyze(project,UPLOAD_DIR,request.focus); projects.add_analysis(project_id,result['title'],result['analysis']); return result
+@app.post('/api/projects/{project_id}/chat')
+def project_chat(project_id:str,request:ProjectChatRequest,authorization:str|None=Header(default=None)):
+ require_project(project_id,authorization)
+ if not request.message.strip(): raise HTTPException(400,'Message cannot be empty')
+ history=database.get_memory(project_id,limit=20); context='\n'.join(f"{x['role']}: {x['content']}" for x in history); prompt=f'Project conversation history:\n{context}\n\nCurrent request: {request.message}' if context else request.message; response=agent.run(prompt); database.add_memory(project_id,'user',request.message); database.add_memory(project_id,'assistant',response.text); return {'response':response.text,'project_id':project_id}
+@app.get('/api/projects/{project_id}/memory')
+def get_project_memory(project_id:str,authorization:str|None=Header(default=None)): require_project(project_id,authorization); return {'items':database.get_memory(project_id)}
+@app.delete('/api/projects/{project_id}/memory')
+def clear_project_memory(project_id:str,authorization:str|None=Header(default=None)): require_project(project_id,authorization); database.clear_memory(project_id); return {'status':'cleared','project_id':project_id}
+@app.post('/api/chat')
 def chat(request:ChatRequest):
- if not request.message.strip(): raise HTTPException(400,"Message cannot be empty")
- memory.add("user",request.message); response=agent.run(request.message); memory.add("assistant",response.text); return {"response":response.text}
-@app.post("/api/documents/upload")
+ if not request.message.strip(): raise HTTPException(400,'Message cannot be empty')
+ memory.add('user',request.message); response=agent.run(request.message); memory.add('assistant',response.text); return {'response':response.text}
+@app.post('/api/documents/upload')
 async def upload_document(file:UploadFile=File(...)):
- if not file.filename: raise HTTPException(400,"A filename is required")
+ if not file.filename: raise HTTPException(400,'A filename is required')
  try:validate_upload(file.filename)
  except ValueError as exc:raise HTTPException(400,str(exc)) from exc
- safe_name=f"{uuid4().hex}_{Path(file.filename).name}"; destination=UPLOAD_DIR/safe_name; destination.write_bytes(await file.read()); summary=extract_text(destination); return {"filename":file.filename,"stored_file":safe_name,"extension":summary.extension,"text_preview":summary.extracted_text[:5000],"characters_extracted":len(summary.extracted_text)}
-@app.post("/api/architecture/analyze-document")
+ safe_name=f'{uuid4().hex}_{Path(file.filename).name}'; destination=UPLOAD_DIR/safe_name; destination.write_bytes(await file.read()); summary=extract_text(destination); return {'filename':file.filename,'stored_file':safe_name,'extension':summary.extension,'text_preview':summary.extracted_text[:5000],'characters_extracted':len(summary.extracted_text)}
+@app.post('/api/architecture/analyze-document')
 def analyze_document(request:DocumentAnalysisRequest):
- summary=extract_text(uploaded_path(request.stored_file))
- if not summary.extracted_text.strip(): raise HTTPException(422,"No analyzable text was extracted")
- report=report_agent.analyze(summary.extracted_text,summary.filename,request.question); return {"title":report.title,"analysis":report.analysis,"filename":summary.filename}
-@app.post("/api/architecture/analyze-image")
+ summary=extract_text(uploaded_path(request.stored_file));
+ if not summary.extracted_text.strip(): raise HTTPException(422,'No analyzable text was extracted')
+ report=report_agent.analyze(summary.extracted_text,summary.filename,request.question); return {'title':report.title,'analysis':report.analysis,'filename':summary.filename}
+@app.post('/api/architecture/analyze-image')
 def analyze_image(request:VisionAnalysisRequest):
  path=uploaded_path(request.stored_file)
- if path.suffix.lower() not in {".png",".jpg",".jpeg",".webp"}: raise HTTPException(400,"Vision analysis requires an uploaded image")
- response=agent.run(vision.build_analysis_prompt(VisionRequest(str(path),request.focus))); return {"filename":path.name,"analysis":response.text}
-@app.post("/api/architecture/render-prompt")
-def create_render_prompt(request:RenderRequest): return {"prompt":render_prompts.build(request.description,request.style)}
-@app.post("/api/architecture/materials/analyze")
+ if path.suffix.lower() not in {'.png','.jpg','.jpeg','.webp'}: raise HTTPException(400,'Vision analysis requires an uploaded image')
+ response=agent.run(vision.build_analysis_prompt(VisionRequest(str(path),request.focus))); return {'filename':path.name,'analysis':response.text}
+@app.post('/api/architecture/render-prompt')
+def create_render_prompt(request:RenderRequest): return {'prompt':render_prompts.build(request.description,request.style)}
+@app.post('/api/architecture/materials/analyze')
 def analyze_materials(materials:list[MaterialInput]): return architecture.analyze_materials([Material(**x.model_dump()) for x in materials])
-@app.post("/api/architecture/materials/professional-analysis")
-def professional_material_analysis(materials:list[MaterialInput]):
- result=professional.analyze_materials([Material(**x.model_dump()) for x in materials]); result["findings"]=professional.prioritize(result["findings"]); return result
-@app.post("/api/architecture/materials/compare")
-def compare_materials(materials:list[MaterialInput]): return {"options":architecture.compare([Material(**x.model_dump()) for x in materials])}
-@app.get("/api/architecture/checklist")
-def architecture_checklist(project_type:str="architectural project"): return {"items":architecture.checklist(project_type)}
-@app.get("/api/memory")
-def get_memory(): return {"items":memory.load()}
-@app.delete("/api/memory")
-def clear_memory(): agent.reset(); memory.clear(); return {"status":"cleared"}
-app.mount("/",StaticFiles(directory="static",html=True),name="static")
+@app.post('/api/architecture/materials/professional-analysis')
+def professional_material_analysis(materials:list[MaterialInput]): result=professional.analyze_materials([Material(**x.model_dump()) for x in materials]); result['findings']=professional.prioritize(result['findings']); return result
+@app.post('/api/architecture/materials/compare')
+def compare_materials(materials:list[MaterialInput]): return {'options':architecture.compare([Material(**x.model_dump()) for x in materials])}
+@app.get('/api/architecture/checklist')
+def architecture_checklist(project_type:str='architectural project'): return {'items':architecture.checklist(project_type)}
+@app.get('/api/memory')
+def get_memory(): return {'items':memory.load()}
+@app.delete('/api/memory')
+def clear_memory(): agent.reset(); memory.clear(); return {'status':'cleared'}
+app.mount('/',StaticFiles(directory='static',html=True),name='static')
