@@ -17,11 +17,9 @@ from gouse_ai.professional_analysis import ProfessionalArchitectureAnalyzer
 from gouse_ai.projects import ProjectStore
 from gouse_ai.reporting import ArchitectureReportAgent
 from gouse_ai.vision import ArchitectureVisionAnalyzer, RenderPromptBuilder, VisionRequest
-
 load_dotenv(); UPLOAD_DIR=Path('data/uploads'); UPLOAD_DIR.mkdir(parents=True,exist_ok=True)
-app=FastAPI(title='Gouse AI Architecture Agent',version='2.9.0')
+app=FastAPI(title='Gouse AI Architecture Agent',version='3.0.0')
 agent=GouseAIAgent(OpenAIClient()); memory=FileMemory(); database=Database(); auth=AuthStore(); projects=ProjectStore(); architecture=ArchitectureAnalyzer(); professional=ProfessionalArchitectureAnalyzer(); report_agent=ArchitectureReportAgent(agent); intelligence=ProjectIntelligenceEngine(report_agent); vision=ArchitectureVisionAnalyzer(); render_prompts=RenderPromptBuilder()
-
 class Credentials(BaseModel): email:EmailStr; password:str=Field(min_length=8,max_length=256)
 class ProjectCreate(BaseModel): name:str; project_type:str='architecture'; location:str=''; description:str=''
 class ProjectFileRequest(BaseModel): stored_file:str
@@ -29,32 +27,31 @@ class ProjectAnalysisRequest(BaseModel): title:str; analysis:str
 class ProjectIntelligenceRequest(BaseModel): focus:str=''
 class ProjectChatRequest(BaseModel): message:str
 class ChatRequest(BaseModel): message:str
+class TeamMemberRequest(BaseModel): email:EmailStr; role:str
 class DocumentAnalysisRequest(BaseModel): stored_file:str; question:str=''
 class VisionAnalysisRequest(BaseModel): stored_file:str; focus:str='General architectural analysis'
 class RenderRequest(BaseModel): description:str; style:str='photorealistic'
 class MaterialInput(BaseModel): name:str; category:str; unit:str=''; quantity:float|None=Field(default=None,ge=0); rate:float|None=Field(default=None,ge=0); notes:str=''
-
-def current_user(authorization:str|None):
+def current_user(authorization):
  if not authorization or not authorization.startswith('Bearer '): raise HTTPException(401,'Authentication required')
  user_id=auth.user_for_token(authorization[7:])
  if not user_id: raise HTTPException(401,'Invalid or expired session')
  return user_id
-
-def require_project(project_id:str,authorization:str|None):
+def require_project(project_id,authorization,allowed=None):
  user_id=current_user(authorization); project=projects.get(project_id)
  if not project: raise HTTPException(404,'Project not found')
- if not auth.owns_project(project_id,user_id): raise HTTPException(403,'Project access denied')
- return project,user_id
-
-def uploaded_path(stored_file:str)->Path:
+ role=auth.role_for_project(project_id,user_id)
+ if not role: raise HTTPException(403,'Project access denied')
+ if allowed and role not in allowed: raise HTTPException(403,'Insufficient project permission')
+ return project,user_id,role
+def uploaded_path(stored_file):
  filename=Path(stored_file).name
  if filename!=stored_file or not filename: raise HTTPException(400,'Invalid stored file')
  path=UPLOAD_DIR/filename
  if not path.exists(): raise HTTPException(404,'Uploaded file not found')
  return path
-
 @app.get('/api/health')
-def health(): return {'status':'ok','agent':'Gouse AI Architecture','database':'sqlite','authentication':'enabled'}
+def health(): return {'status':'ok','agent':'Gouse AI Architecture','database':'sqlite','authentication':'enabled','collaboration':'enabled'}
 @app.post('/api/auth/register')
 def register(request:Credentials):
  try: auth.register(uuid4().hex,request.email,request.password)
@@ -70,25 +67,37 @@ def create_project(request:ProjectCreate,authorization:str|None=Header(default=N
  user_id=current_user(authorization); project=projects.create(**request.model_dump()); auth.set_project_owner(project.id,user_id); return asdict(project)
 @app.get('/api/projects')
 def list_projects(authorization:str|None=Header(default=None)):
- user_id=current_user(authorization); return {'projects':[asdict(p) for p in projects.list() if auth.owns_project(p.id,user_id)]}
+ user_id=current_user(authorization); return {'projects':[asdict(p) for p in projects.list() if auth.role_for_project(p.id,user_id)]}
 @app.get('/api/projects/{project_id}')
 def get_project(project_id:str,authorization:str|None=Header(default=None)): return asdict(require_project(project_id,authorization)[0])
+@app.get('/api/projects/{project_id}/members')
+def list_members(project_id:str,authorization:str|None=Header(default=None)):
+ require_project(project_id,authorization); return {'members':auth.project_members(project_id)}
+@app.post('/api/projects/{project_id}/members')
+def add_member(project_id:str,request:TeamMemberRequest,authorization:str|None=Header(default=None)):
+ require_project(project_id,authorization,{'owner'})
+ try: auth.add_project_member(project_id,request.email,request.role)
+ except ValueError as exc: raise HTTPException(400,str(exc))
+ return {'members':auth.project_members(project_id)}
+@app.delete('/api/projects/{project_id}/members/{user_id}')
+def remove_member(project_id:str,user_id:str,authorization:str|None=Header(default=None)):
+ require_project(project_id,authorization,{'owner'}); auth.remove_project_member(project_id,user_id); return {'members':auth.project_members(project_id)}
 @app.post('/api/projects/{project_id}/professional-analysis')
 def professional_project_analysis(project_id:str,authorization:str|None=Header(default=None)):
- project,_=require_project(project_id,authorization); result=professional.project_summary(project); result['findings']=professional.prioritize(result['findings']); return result
+ project,_,_=require_project(project_id,authorization); result=professional.project_summary(project); result['findings']=professional.prioritize(result['findings']); return result
 @app.post('/api/projects/{project_id}/files')
 def attach_project_file(project_id:str,request:ProjectFileRequest,authorization:str|None=Header(default=None)):
- require_project(project_id,authorization); uploaded_path(request.stored_file)
+ require_project(project_id,authorization,{'owner','architect','engineer'}); uploaded_path(request.stored_file)
  try:return asdict(projects.add_file(project_id,request.stored_file))
  except KeyError:raise HTTPException(404,'Project not found')
 @app.post('/api/projects/{project_id}/analyses')
 def attach_project_analysis(project_id:str,request:ProjectAnalysisRequest,authorization:str|None=Header(default=None)):
- require_project(project_id,authorization)
+ require_project(project_id,authorization,{'owner','architect','engineer'})
  try:return asdict(projects.add_analysis(project_id,request.title,request.analysis))
  except KeyError:raise HTTPException(404,'Project not found')
 @app.post('/api/projects/{project_id}/intelligence')
 def analyze_project(project_id:str,request:ProjectIntelligenceRequest,authorization:str|None=Header(default=None)):
- project,_=require_project(project_id,authorization); result=intelligence.analyze(project,UPLOAD_DIR,request.focus); projects.add_analysis(project_id,result['title'],result['analysis']); return result
+ project,_,_=require_project(project_id,authorization,{'owner','architect','engineer'}); result=intelligence.analyze(project,UPLOAD_DIR,request.focus); projects.add_analysis(project_id,result['title'],result['analysis']); return result
 @app.post('/api/projects/{project_id}/chat')
 def project_chat(project_id:str,request:ProjectChatRequest,authorization:str|None=Header(default=None)):
  require_project(project_id,authorization)
@@ -97,7 +106,7 @@ def project_chat(project_id:str,request:ProjectChatRequest,authorization:str|Non
 @app.get('/api/projects/{project_id}/memory')
 def get_project_memory(project_id:str,authorization:str|None=Header(default=None)): require_project(project_id,authorization); return {'items':database.get_memory(project_id)}
 @app.delete('/api/projects/{project_id}/memory')
-def clear_project_memory(project_id:str,authorization:str|None=Header(default=None)): require_project(project_id,authorization); database.clear_memory(project_id); return {'status':'cleared','project_id':project_id}
+def clear_project_memory(project_id:str,authorization:str|None=Header(default=None)): require_project(project_id,authorization,{'owner','architect','engineer'}); database.clear_memory(project_id); return {'status':'cleared','project_id':project_id}
 @app.post('/api/chat')
 def chat(request:ChatRequest):
  if not request.message.strip(): raise HTTPException(400,'Message cannot be empty')
@@ -105,8 +114,8 @@ def chat(request:ChatRequest):
 @app.post('/api/documents/upload')
 async def upload_document(file:UploadFile=File(...)):
  if not file.filename: raise HTTPException(400,'A filename is required')
- try:validate_upload(file.filename)
- except ValueError as exc:raise HTTPException(400,str(exc)) from exc
+ try: validate_upload(file.filename)
+ except ValueError as exc: raise HTTPException(400,str(exc))
  safe_name=f'{uuid4().hex}_{Path(file.filename).name}'; destination=UPLOAD_DIR/safe_name; destination.write_bytes(await file.read()); summary=extract_text(destination); return {'filename':file.filename,'stored_file':safe_name,'extension':summary.extension,'text_preview':summary.extracted_text[:5000],'characters_extracted':len(summary.extracted_text)}
 @app.post('/api/architecture/analyze-document')
 def analyze_document(request:DocumentAnalysisRequest):
