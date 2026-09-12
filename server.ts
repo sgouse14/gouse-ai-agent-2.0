@@ -1,15 +1,11 @@
 import express from 'express';
 import path from 'path';
-import { fileURLToPath } from 'url';
 import {
   generateChatResponse,
   generateProjectIntelligence,
   generateAI_BOQ,
   generateRenderPrompt,
-} from './server/apiService.js';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+} from './server/apiService';
 
 const app = express();
 const PORT = 3000;
@@ -23,7 +19,7 @@ app.get('/api/health', (req, res) => {
     agent: 'Gouse AI Architecture Intelligence',
     version: '3.8.0',
     model: 'gemini-3.8-flash',
-    environment: 'production'
+    features: ['chat', 'intelligence', 'boq_generator', 'render_prompts', 'marketplace', 'materials']
   });
 });
 
@@ -37,7 +33,7 @@ app.post('/api/chat', async (req, res) => {
       projectContext || ''
     );
     res.json({ response });
-  } catch (err) {
+  } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
 });
@@ -54,7 +50,7 @@ app.post('/api/intelligence', async (req, res) => {
       filesText || ''
     );
     res.json(result);
-  } catch (err) {
+  } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
 });
@@ -65,7 +61,7 @@ app.post('/api/boq/generate', async (req, res) => {
     const { description, projectType } = req.body;
     const result = await generateAI_BOQ(description || '', projectType || 'Architecture');
     res.json(result);
-  } catch (err) {
+  } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
 });
@@ -76,7 +72,7 @@ app.post('/api/architecture/render-prompt', async (req, res) => {
     const { description, style } = req.body;
     const prompt = await generateRenderPrompt(description || '', style || 'photorealistic');
     res.json({ prompt });
-  } catch (err) {
+  } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
 });
@@ -91,17 +87,18 @@ app.post('/api/architecture/analyze-image', async (req, res) => {
       projectContext || ''
     );
     res.json({ analysis, filename });
-  } catch (err) {
+  } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
 });
 
 // Serve dist directory
-app.use(express.static(path.join(__dirname, 'dist')));
+const distPath = path.join(process.cwd(), 'dist');
+app.use(express.static(distPath));
 
 // Client-side routing fallback
 app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'dist', 'index.html'));
+  res.sendFile(path.join(distPath, 'index.html'));
 });
 
 app.listen(PORT, '0.0.0.0', () => {
