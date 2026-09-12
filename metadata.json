@@ -1,0 +1,10 @@
+{
+  "name": "Gouse AI - Architecture Intelligence Workspace",
+  "description": "AI-powered architecture, construction, BOQ estimation, and professional marketplace intelligence workspace",
+  "requestFramePermissions": [
+    "microphone"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
