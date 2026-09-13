@@ -1,4 +1,12 @@
-export type SpecialistType = 'general' | 'design' | 'code' | 'documentation' | 'quantity' | 'sustainability';
+export type SpecialistType =
+  | 'general'
+  | 'design'
+  | 'code'
+  | 'documentation'
+  | 'quantity'
+  | 'sustainability'
+  | 'structural'
+  | 'interior';
 
 export type ProfessionalType = 'architect' | 'builder' | 'material_supplier';
 
@@ -73,6 +81,11 @@ export interface BOQSummary {
   categoryTotals: Record<string, number>;
 }
 
+export interface GroundingSource {
+  title: string;
+  uri: string;
+}
+
 export interface ProfessionalProfile {
   id: string;
   professionalType: ProfessionalType;
@@ -81,12 +94,39 @@ export interface ProfessionalProfile {
   bio: string;
   services: string;
   location: string;
+  address?: string;
+  landmark?: string;
+  googleMapsUrl?: string;
+  mapEmbedUrl?: string;
   verified: boolean;
   rating: number;
   completedProjects: number;
   experienceYears: number;
   email: string;
-  phone?: string;
+  phone: string;
+  whatsapp?: string;
+  website?: string;
+  sourceUrl?: string;
+  sourceTitle?: string;
+  isLiveSearch?: boolean;
+}
+
+export interface LiveMaterialPrice {
+  id: string;
+  name: string;
+  category: string;
+  brands: string[];
+  unit: string;
+  currentPrice: number;
+  minPrice: number;
+  maxPrice: number;
+  changePercent: number;
+  trend: 'up' | 'down' | 'stable';
+  trendReason: string;
+  location: string;
+  updatedAt: string;
+  marketNotes?: string;
+  sources?: GroundingSource[];
 }
 
 export interface MarketplaceEnquiry {
@@ -95,6 +135,7 @@ export interface MarketplaceEnquiry {
   professionalName?: string;
   clientName: string;
   clientEmail: string;
+  clientPhone?: string;
   projectTitle: string;
   message: string;
   budget?: string;
@@ -123,4 +164,6 @@ export interface ChatMessage {
   content: string;
   timestamp: string;
   specialist?: SpecialistType;
+  language?: string;
+  audioBase64?: string;
 }

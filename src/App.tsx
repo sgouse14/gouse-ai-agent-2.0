@@ -40,7 +40,14 @@ export function App() {
   const [projects, setProjects] = useState<Project[]>(() => {
     try {
       const saved = localStorage.getItem('gouse_ai_projects');
-      return saved ? JSON.parse(saved) : INITIAL_PROJECTS;
+      if (saved) {
+        const parsed: Project[] = JSON.parse(saved);
+        if (!parsed.some((p) => p.id === 'proj-alvi-01')) {
+          return [INITIAL_PROJECTS[0], ...parsed];
+        }
+        return parsed;
+      }
+      return INITIAL_PROJECTS;
     } catch {
       return INITIAL_PROJECTS;
     }
@@ -49,7 +56,8 @@ export function App() {
   const [activeProjectId, setActiveProjectId] = useState<string>(() => {
     try {
       const saved = localStorage.getItem('gouse_ai_active_project_id');
-      return saved && projects.some((p) => p.id === saved) ? saved : projects[0]?.id || 'proj-1';
+      if (saved && projects.some((p) => p.id === saved)) return saved;
+      return projects.find((p) => p.id === 'proj-alvi-01')?.id || projects[0]?.id || 'proj-1';
     } catch {
       return projects[0]?.id || 'proj-1';
     }
@@ -85,7 +93,27 @@ export function App() {
   const [professionals, setProfessionals] = useState<ProfessionalProfile[]>(() => {
     try {
       const saved = localStorage.getItem('gouse_ai_professionals');
-      return saved ? JSON.parse(saved) : INITIAL_PROFESSIONALS;
+      if (saved) {
+        const parsed: ProfessionalProfile[] = JSON.parse(saved);
+        if (!parsed.some((p) => p.id === 'prof-alvi-001')) {
+          return [INITIAL_PROFESSIONALS[0], ...parsed];
+        }
+        return parsed.map((p) =>
+          p.id === 'prof-alvi-001'
+            ? {
+                ...p,
+                location: INITIAL_PROFESSIONALS[0].location,
+                address: INITIAL_PROFESSIONALS[0].address,
+                landmark: INITIAL_PROFESSIONALS[0].landmark,
+                googleMapsUrl: INITIAL_PROFESSIONALS[0].googleMapsUrl,
+                mapEmbedUrl: INITIAL_PROFESSIONALS[0].mapEmbedUrl,
+                bio: INITIAL_PROFESSIONALS[0].bio,
+                services: INITIAL_PROFESSIONALS[0].services,
+              }
+            : p
+        );
+      }
+      return INITIAL_PROFESSIONALS;
     } catch {
       return INITIAL_PROFESSIONALS;
     }
@@ -94,7 +122,14 @@ export function App() {
   const [enquiries, setEnquiries] = useState<MarketplaceEnquiry[]>(() => {
     try {
       const saved = localStorage.getItem('gouse_ai_enquiries');
-      return saved ? JSON.parse(saved) : INITIAL_ENQUIRIES;
+      if (saved) {
+        const parsed: MarketplaceEnquiry[] = JSON.parse(saved);
+        if (!parsed.some((e) => e.id === 'enq-alvi-01' || e.professionalId === 'prof-alvi-001')) {
+          return [INITIAL_ENQUIRIES[0], ...parsed];
+        }
+        return parsed;
+      }
+      return INITIAL_ENQUIRIES;
     } catch {
       return INITIAL_ENQUIRIES;
     }
@@ -171,6 +206,15 @@ export function App() {
     });
   };
 
+  const [marketplaceCategory, setMarketplaceCategory] = useState<string | undefined>(undefined);
+  const [marketplaceQuery, setMarketplaceQuery] = useState<string | undefined>(undefined);
+
+  const handleNavigateToMarketplace = (category?: string, query?: string) => {
+    setMarketplaceCategory(category);
+    setMarketplaceQuery(query);
+    setActiveTab('marketplace');
+  };
+
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-amber-500/30 selection:text-amber-200">
       {/* Drafting Grid Canvas Background */}
@@ -215,6 +259,8 @@ export function App() {
             activeProject={activeProject}
             onUpdateItems={setBoqItems}
             onChangeContingency={setContingencyPercent}
+            onUpdateProject={handleUpdateProject}
+            onAddEnquiry={handleAddEnquiry}
           />
         )}
 
@@ -225,6 +271,9 @@ export function App() {
             onAddEnquiry={handleAddEnquiry}
             onUpdateEnquiryStatus={handleUpdateEnquiryStatus}
             onSaveProfile={handleSaveProfile}
+            initialCategory={marketplaceCategory}
+            initialQuery={marketplaceQuery}
+            projectCity={activeProject.location}
           />
         )}
 
@@ -232,6 +281,7 @@ export function App() {
           <MaterialsView
             activeProject={activeProject}
             currency={currency}
+            onNavigateToMarketplace={handleNavigateToMarketplace}
           />
         )}
 

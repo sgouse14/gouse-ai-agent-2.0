@@ -1,6 +1,6 @@
 {
   "name": "Gouse AI - Architecture Intelligence Workspace",
-  "description": "AI-powered architecture, construction, BOQ estimation, and professional marketplace intelligence workspace",
+  "description": "Gouse AI - Architecture & Construction Intelligence Workspace. AI-powered architectural intelligence, interior styling, turnkey construction, and BOQ estimation workspace",
   "requestFramePermissions": [
     "microphone"
   ],

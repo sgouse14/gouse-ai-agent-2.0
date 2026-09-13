@@ -1,6 +1,64 @@
-import { Project, BOQItem, ProfessionalProfile, MarketplaceEnquiry, MaterialComparisonItem } from '../types';
+import { Project, BOQItem, ProfessionalProfile, MarketplaceEnquiry, MaterialComparisonItem, LiveMaterialPrice } from '../types';
 
 export const INITIAL_PROJECTS: Project[] = [
+  {
+    id: 'proj-alvi-01',
+    name: "ALVI's Palm Crest - Luxury Residence & Interiors",
+    projectType: 'Architecture, Interior Design & Construction',
+    location: 'Whitefield / Outer Ring Road, Bangalore',
+    description: "Flagship turnkey project by ALVI's Architecture, Interior Designers & Construction. A 5,800 sq.ft contemporary residence featuring cantilevered concrete canopies, bespoke teakwood & brass interior millwork, smart home automation, open-plan Italian marble living spaces, and an earthquake-resistant RCC frame.",
+    status: 'construction',
+    builtUpAreaSqFt: 5800,
+    files: [
+      {
+        id: 'file-alvi-01',
+        name: 'ALVI_Architectural_Working_Drawings_L1_L2.pdf',
+        size: '6.2 MB',
+        type: 'application/pdf',
+        uploadDate: '2026-03-12',
+        extractedText: "ALVI'S ARCHITECTURE & CONSTRUCTION: Detailed architectural and structural working drawings. G+2 framed RCC structure with M30 grade concrete, Fe550D TMT bars. Column grid: 5.5m x 6.5m. Double height living zone with acoustic wood baffles and sunken court."
+      },
+      {
+        id: 'file-alvi-02',
+        name: 'ALVI_Luxury_Interior_Joinery_Schedule.dwg',
+        size: '4.8 MB',
+        type: 'drawing/dwg',
+        uploadDate: '2026-03-12',
+        extractedText: "ALVI'S INTERIOR DESIGN SPECIFICATIONS: European veneer paneling with concealed shadow gap joints, fluted charcoal wall claddings, Hafele soft-close hardware, quartz countertops, and layered indirect ambient LED cove illumination."
+      },
+      {
+        id: 'file-alvi-03',
+        name: 'ALVI_Turnkey_Construction_BOQ_Summary.xlsx',
+        size: '1.1 MB',
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        uploadDate: '2026-03-12',
+        extractedText: "ALVI'S CONSTRUCTION TAKEOFF: Substructure, RCC superstructure, blockwork, MEP rough-ins, waterproof membrane, imported flooring, and turnkey interior fit-out schedule."
+      }
+    ],
+    analyses: [
+      {
+        id: 'analysis-alvi-01',
+        title: "ALVI's Integrated Design & Construction Audit",
+        timestamp: '2026-03-12T16:00:00Z',
+        focus: 'Turnkey Architectural & Interior Synergy',
+        analysis: `## 1. Executive Brief - ALVI's Palm Crest
+Executed by **ALVI's Architecture, Interior Designers & Construction**, this project represents a unified design-to-build approach where architectural massing directly informs interior lighting and millwork detailing.
+
+## 2. Three Pillars of Execution
+- **Architecture**: Deep recessed window fenestrations with cantilevered sunshades minimize solar heat gain while creating dramatic shadow lines on the exterior facade.
+- **Interior Design**: Seamless spatial flow connecting the double-height grand foyer to the central pool deck, featuring Italian Statuario marble, acoustic wood ceilings, and custom-crafted brass accents.
+- **Construction**: Precision-cast M30 concrete frame with post-cured thermal sealants, 150mm lightweight block masonry, and multi-tier waterproofing with a 10-year turnkey warranty.`
+      }
+    ],
+    members: [
+      { id: 'mem-alvi-1', name: 'Ar. S. Gouse (Principal)', email: 'sgouse14@gmail.com', role: 'owner' },
+      { id: 'mem-alvi-2', name: "ALVI's Construction Team", email: 'sgouse14@gmail.com', role: 'quantity_surveyor' }
+    ],
+    auditLogs: [
+      { id: 'log-alvi-01', projectId: 'proj-alvi-01', actor: 'Ar. S. Gouse', action: 'Project Created', details: "Initialized ALVI's Palm Crest turnkey architectural & interior project", timestamp: '2026-03-12T09:00:00Z' }
+    ],
+    createdAt: '2026-03-12T09:00:00Z'
+  },
   {
     id: 'proj-001',
     name: 'Villa Serenity - Tropical Courtyard Residence',
@@ -224,6 +282,27 @@ export const INITIAL_BOQ_ITEMS: BOQItem[] = [
 
 export const INITIAL_PROFESSIONALS: ProfessionalProfile[] = [
   {
+    id: 'prof-alvi-001',
+    professionalType: 'architect',
+    name: 'Ar. S. Gouse (Principal Architect & Turnkey Director)',
+    company: "ALVI's Architecture, Interior Designers & Construction",
+    bio: "Headquartered in Yeshwanthpur, Bangalore, ALVI's Architecture, Interior Designers & Construction is a premier design-and-build practice. We seamlessly integrate master architectural planning, luxury interior styling, and turnkey civil construction under one accountable contract. With 16+ years of mastery and 140+ delivered projects across Bangalore and South India, our Yeshwanthpur studio provides clients with live material galleries, sample joinery mockups, and end-to-end turnkey execution.",
+    services: '1. Architectural Planning & 3D Elevations, 2. Luxury Residential & Commercial Interior Design, 3. Turnkey Civil Construction & RCC Framing, 4. Bespoke Teakwood Joinery & Modular Kitchens, 5. CSI Detailing, BOQ & Quantity Takeoffs, 6. BBMP / BDA Municipal Plan Sanctions',
+    location: 'Yeshwanthpur, Bangalore, Karnataka',
+    address: "ALVI's Architecture & Interior Experience Center, Near Yeshwanthpur Metro Station & Railway Station, Tumkur Main Road, Yeshwanthpur, Bengaluru, Karnataka 560022",
+    landmark: 'Near Yeshwanthpur Metro Station & Govardhan Theatre, Tumkur Road',
+    googleMapsUrl: 'https://www.google.com/maps/search/?api=1&query=Yeshwanthpur+Metro+Station+Tumkur+Road+Bengaluru+560022',
+    mapEmbedUrl: 'https://maps.google.com/maps?q=Yeshwanthpur%20Metro%20Station%20Tumkur%20Road%20Bengaluru%20Karnataka%20560022&t=&z=15&ie=UTF8&iwloc=&output=embed',
+    verified: true,
+    rating: 5.0,
+    completedProjects: 142,
+    experienceYears: 16,
+    email: 'sgouse14@gmail.com',
+    phone: '+91 98450 78601',
+    whatsapp: '+91 98450 78601',
+    website: 'https://alvis-architecture.com'
+  },
+  {
     id: 'prof-01',
     professionalType: 'architect',
     name: 'Ar. Priya Sundaram',
@@ -231,12 +310,15 @@ export const INITIAL_PROFESSIONALS: ProfessionalProfile[] = [
     bio: 'Award-winning sustainable architect with 14 years specializing in passive solar residences, institutional campuses, and timber-hybrid structures. Registered with Council of Architecture (COA) and LEED AP.',
     services: 'Architectural Design, Master Planning, Sustainable Bioclimatic Modeling, Interior Architecture, Statutory Approvals',
     location: 'Bangalore & Chennai',
+    address: '42, 100ft Road, Indiranagar, Bangalore, Karnataka 560038',
     verified: true,
     rating: 4.9,
     completedProjects: 48,
     experienceYears: 14,
     email: 'priya@studioformvoid.com',
-    phone: '+91 98450 12345'
+    phone: '+91 98450 12345',
+    whatsapp: '+91 98450 12345',
+    website: 'https://studioformvoid.com'
   },
   {
     id: 'prof-02',
@@ -246,12 +328,15 @@ export const INITIAL_PROFESSIONALS: ProfessionalProfile[] = [
     bio: 'Class-A civil engineering & general contracting firm operating across Western India. Specialists in high-precision RCC framed towers, institutional complexes, and zero-defect luxury residential execution.',
     services: 'General Contracting, Turnkey Civil Works, Post-Tensioned Slabs, Structural Fabrication, Quantity Surveying & Scheduling',
     location: 'Mumbai & Pune',
+    address: 'Tower B, 7th Floor, Godrej Coliseum, Sion East, Mumbai, Maharashtra 400022',
     verified: true,
     rating: 4.8,
     completedProjects: 112,
     experienceYears: 22,
     email: 'projects@vikramaditya.co.in',
-    phone: '+91 22 4567 8900'
+    phone: '+91 22 4567 8900',
+    whatsapp: '+91 98201 54321',
+    website: 'https://vikramaditya.co.in'
   },
   {
     id: 'prof-03',
@@ -261,12 +346,15 @@ export const INITIAL_PROFESSIONALS: ProfessionalProfile[] = [
     bio: 'Leading green building material manufacturer. Certified autoclaved aerated concrete (AAC) blocks, compressed earth blocks, breathable lime plasters, and recycled glass terrazzo pavers with full EPD environmental declarations.',
     services: 'AAC Blocks Supply, Lime Plaster Formulation, Compressed Earth Blocks, Terracotta Rainscreen Louvers, Carbon-Negative Mortar',
     location: 'Hyderabad, Bangalore & Coimbatore',
+    address: 'Plot 14-B, IDA Nacharam Industrial Area, Hyderabad, Telangana 500076',
     verified: true,
     rating: 4.9,
     completedProjects: 230,
     experienceYears: 11,
     email: 'sales@terracraftmaterials.com',
-    phone: '+91 40 6789 0123'
+    phone: '+91 40 6789 0123',
+    whatsapp: '+91 99890 12345',
+    website: 'https://terracraftmaterials.com'
   },
   {
     id: 'prof-04',
@@ -276,12 +364,15 @@ export const INITIAL_PROFESSIONALS: ProfessionalProfile[] = [
     bio: 'Specialist in commercial mixed-use, high-density residential developments, and parametric facade design. Expert in high-FSI urban regulations and BIM Level 2 LOD 400 delivery.',
     services: 'High-Rise Architecture, BIM Coordination, Façade Engineering, Urban Planning, Commercial Masterplans',
     location: 'Delhi NCR & Chandigarh',
+    address: 'Sector 44, Golf Course Road, Gurugram, Haryana 122003',
     verified: true,
     rating: 4.7,
     completedProjects: 36,
     experienceYears: 16,
     email: 'kabir@merchanturbanists.in',
-    phone: '+91 11 2345 6789'
+    phone: '+91 11 2345 6789',
+    whatsapp: '+91 98110 98765',
+    website: 'https://merchanturbanists.in'
   },
   {
     id: 'prof-05',
@@ -291,16 +382,230 @@ export const INITIAL_PROFESSIONALS: ProfessionalProfile[] = [
     bio: 'Premium architectural glazing systems manufacturer. Thermally broken German aluminum profiles, structural glazing, acoustic laminated glass, and motorized architectural skylights.',
     services: 'Curtain Walls, Low-E Double Glazed Windows, Frameless Glass Railings, Motorized Pergolas, Acoustic Partitions',
     location: 'Mumbai & Bangalore',
-    verified: false,
+    address: 'Andheri-Kurla Road, Sakinaka, Andheri East, Mumbai 400072',
+    verified: true,
     rating: 4.6,
     completedProjects: 85,
     experienceYears: 9,
     email: 'contact@apexfenestration.com',
-    phone: '+91 98200 45678'
+    phone: '+91 98200 45678',
+    whatsapp: '+91 98200 45678',
+    website: 'https://apexfenestration.com'
+  },
+  {
+    id: 'prof-06',
+    professionalType: 'builder',
+    name: 'Shankar Civil & Infrastructure Infra',
+    company: 'Shankar Builders & Developers',
+    bio: 'Premier residential and commercial turnkey builder in South India. Known for prompt delivery, automated batching plant quality control, and certified green building construction standards.',
+    services: 'Turnkey Villa Construction, Commercial RCC Structures, Soil Excavation & Piling, Factory Sheds, Pre-cast Concrete',
+    location: 'Bangalore & Mysore',
+    address: '88, Outer Ring Road, Bellandur, Bangalore, Karnataka 560103',
+    verified: true,
+    rating: 4.8,
+    completedProjects: 74,
+    experienceYears: 18,
+    email: 'build@shankarinfra.in',
+    phone: '+91 98455 67890',
+    whatsapp: '+91 98455 67890',
+    website: 'https://shankarinfra.in'
+  },
+  {
+    id: 'prof-07',
+    professionalType: 'material_supplier',
+    name: 'South City TMT & Steel Distributors',
+    company: 'South City Steel Trading Corp',
+    bio: 'Authorized master stockist for primary steel mills: Tata Tiscon Fe550D, JSW Neosteel, and SAIL. Direct warehouse logistics with mill test certificates (MTC) and computerized cut-and-bend services.',
+    services: 'TMT Rebar Supply (8mm-32mm), Structural MS Channels & Beams, Binding Wire, Cut & Bend Reinforcement, Delivery to Site',
+    location: 'Bangalore & Chennai',
+    address: 'Steel Market Complex, Kalasipalyam, Bangalore, Karnataka 560002',
+    verified: true,
+    rating: 4.9,
+    completedProjects: 410,
+    experienceYears: 26,
+    email: 'dispatch@southcitysteel.com',
+    phone: '+91 80 2670 4455',
+    whatsapp: '+91 94480 33221',
+    website: 'https://southcitysteel.com'
+  }
+];
+
+export const INITIAL_LIVE_MATERIAL_PRICES: LiveMaterialPrice[] = [
+  {
+    id: 'lmp-01',
+    name: 'OPC 53 Grade Portland Cement',
+    category: 'Cement & Concrete',
+    brands: ['UltraTech Super', 'ACC Concrete Plus', 'Dalmia DSP', 'Birla A1'],
+    unit: '50 kg bag',
+    currentPrice: 385,
+    minPrice: 365,
+    maxPrice: 410,
+    changePercent: 1.8,
+    trend: 'up',
+    trendReason: 'Increased clinker production freight tariffs and seasonal pre-monsoon construction surge',
+    location: 'Bangalore / South Region',
+    updatedAt: new Date().toISOString(),
+    marketNotes: 'Bulk delivered rates (500+ bags) qualify for ₹15-20 per bag volume discount with direct factory unloading.'
+  },
+  {
+    id: 'lmp-02',
+    name: 'Fe550D Primary TMT Steel Rebar',
+    category: 'Steel & Reinforcement',
+    brands: ['Tata Tiscon Fe550D', 'JSW Neosteel', 'Jindal Panther', 'SAIL TMT'],
+    unit: 'MT (Metric Tonne)',
+    currentPrice: 74500,
+    minPrice: 72000,
+    maxPrice: 77000,
+    changePercent: -0.8,
+    trend: 'down',
+    trendReason: 'Global coking coal price correction and steady domestic blast furnace output easing supply constraints',
+    location: 'National Benchmark (ex-mill)',
+    updatedAt: new Date().toISOString(),
+    marketNotes: 'Inclusive of GST @ 18%. Mandatory ISI certification and batch Mill Test Certificate (MTC) provided.'
+  },
+  {
+    id: 'lmp-03',
+    name: 'Manufactured Sand (M-Sand, Zone II)',
+    category: 'Sand & Aggregates',
+    brands: ['RoboSilicon', 'Pozzocrete', 'Quarry Direct VSI Washed'],
+    unit: 'tonne',
+    currentPrice: 1150,
+    minPrice: 950,
+    maxPrice: 1300,
+    changePercent: 0,
+    trend: 'stable',
+    trendReason: 'Consistent stone quarrying crushing operations and local municipal environmental clearances',
+    location: 'Bangalore & Chennai Hubs',
+    updatedAt: new Date().toISOString(),
+    marketNotes: 'VSI-crushed cubic particles with silt content strictly below 3% conforming to IS 383 standards.'
+  },
+  {
+    id: 'lmp-04',
+    name: 'Ready-Mix Concrete (RMC) M25 Grade',
+    category: 'Cement & Concrete',
+    brands: ['Prism RMC', 'RDC Concrete', 'UltraTech RMC', 'Godrej Construction'],
+    unit: 'm3',
+    currentPrice: 4450,
+    minPrice: 4100,
+    maxPrice: 4800,
+    changePercent: 1.2,
+    trend: 'up',
+    trendReason: 'Diesel transit-mixer haulage fuel adjustments and regional aggregate lead-time costs',
+    location: 'Tier-1 Metros (upto 25km lead)',
+    updatedAt: new Date().toISOString(),
+    marketNotes: 'Slump guaranteed at 100-120mm at point of discharge with computerized batching printout.'
+  },
+  {
+    id: 'lmp-05',
+    name: 'Autoclaved Aerated Concrete (AAC) Blocks',
+    category: 'Blocks & Bricks',
+    brands: ['Siporex', 'Magicrete', 'Biltech', 'Renaissance Green'],
+    unit: 'm3',
+    currentPrice: 5400,
+    minPrice: 4900,
+    maxPrice: 5800,
+    changePercent: -1.5,
+    trend: 'down',
+    trendReason: 'New automated manufacturing capacities operational in Andhra Pradesh and Maharashtra',
+    location: 'Regional Distribution',
+    updatedAt: new Date().toISOString(),
+    marketNotes: 'Standard sizes 600x200x150mm & 600x200x200mm. Requires 75% less joint mortar than wire-cut clay bricks.'
+  },
+  {
+    id: 'lmp-06',
+    name: 'Wire-Cut Red Clay Table-Moulded Bricks',
+    category: 'Blocks & Bricks',
+    brands: ['Malabar Clay Works', 'Varshini Bricks', 'Heritage Kiln Direct'],
+    unit: '1,000 nos',
+    currentPrice: 8800,
+    minPrice: 8200,
+    maxPrice: 9600,
+    changePercent: 2.4,
+    trend: 'up',
+    trendReason: 'Strict environmental emission norms on traditional brick kilns restricting topsoil extraction',
+    location: 'Karnataka / Tamil Nadu',
+    updatedAt: new Date().toISOString(),
+    marketNotes: 'Compressive strength > 7.5 N/mm2 with water absorption under 15%.'
+  },
+  {
+    id: 'lmp-07',
+    name: 'Double Glazed Unit (Low-E 6mm + 12A + 6mm)',
+    category: 'Glass & Fenestration',
+    brands: ['Saint-Gobain Planitherm', 'Asahi India (AIS)', 'Guardian Glass SunGuard'],
+    unit: 'sq.m',
+    currentPrice: 5600,
+    minPrice: 5100,
+    maxPrice: 6300,
+    changePercent: 0.5,
+    trend: 'stable',
+    trendReason: 'High demand in green architectural projects counterbalanced by competitive domestic float glass plants',
+    location: 'Pan-India Fabricators',
+    updatedAt: new Date().toISOString(),
+    marketNotes: 'U-Value 1.6 W/m²K, SHGC 0.28, Argon gas filled with warm-edge butyl perimeter spacer.'
+  },
+  {
+    id: 'lmp-08',
+    name: 'CPVC Internal Plumbing Pipes (1" SDR 11)',
+    category: 'Plumbing & MEP',
+    brands: ['Astral Pipes', 'Ashirvad CPVC', 'Supreme LifeGuard', 'Prince FlowGuard'],
+    unit: '3 meter length',
+    currentPrice: 485,
+    minPrice: 450,
+    maxPrice: 530,
+    changePercent: 1.1,
+    trend: 'up',
+    trendReason: 'Raw polymer resin (polyvinyl chloride) import price movement and currency fluctuations',
+    location: 'Authorized Plumbing Distributors',
+    updatedAt: new Date().toISOString(),
+    marketNotes: 'Hot & cold water rated up to 93°C at 100 PSI. Solvent weld jointing.'
+  },
+  {
+    id: 'lmp-09',
+    name: 'FRLS Copper Electric Building Wire (2.5 sq.mm)',
+    category: 'Plumbing & MEP',
+    brands: ['Polycab Green Wire', 'Finolex Flamegard', 'Havells LifeLine', 'KEI'],
+    unit: '90 meter coil',
+    currentPrice: 2850,
+    minPrice: 2650,
+    maxPrice: 3100,
+    changePercent: 3.1,
+    trend: 'up',
+    trendReason: 'LME (London Metal Exchange) international copper spot price rally reaching $9,400/MT',
+    location: 'Electrical Wholesale Markets',
+    updatedAt: new Date().toISOString(),
+    marketNotes: 'Oxygen-free electrolytic grade copper conductor with Flame Retardant Low Smoke (FRLS) insulation.'
+  },
+  {
+    id: 'lmp-10',
+    name: 'Exterior Premium Acrylic Emulsion Paint',
+    category: 'Finishes & Coatings',
+    brands: ['Asian Paints Apex Ultima', 'Berger WeatherCoat Anti-Dust', 'Dulux Weathershield'],
+    unit: '20 Liter drum',
+    currentPrice: 7250,
+    minPrice: 6800,
+    maxPrice: 7900,
+    changePercent: 0,
+    trend: 'stable',
+    trendReason: 'Stable titanium dioxide and crude petrochemical solvent baseline pricing',
+    location: 'Paint Dealerships & Depots',
+    updatedAt: new Date().toISOString(),
+    marketNotes: 'Anti-algal, dirt-pickup resistance with 10-year exterior color retention warranty.'
   }
 ];
 
 export const INITIAL_ENQUIRIES: MarketplaceEnquiry[] = [
+  {
+    id: 'enq-alvi-01',
+    professionalId: 'prof-alvi-001',
+    professionalName: "ALVI's Architecture, Interior Designers & Construction",
+    clientName: 'Dr. Srinivas Murthy',
+    clientEmail: 'srinivas.murthy@healthcorp.in',
+    projectTitle: 'Turnkey Luxury Villa & Bespoke Interiors (Yeshwanthpur / Sadashivanagar)',
+    message: 'Seeking end-to-end architectural planning, municipal BBMP sanctions, luxury Italian marble interiors, and turnkey civil construction for a 6,200 sq.ft residential plot near Yeshwanthpur / Sadashivanagar corridor. Met with team at Yeshwanthpur experience center.',
+    budget: '₹ 2.8 - 3.4 Cr',
+    status: 'in_progress',
+    createdAt: '2026-03-12T14:15:00Z'
+  },
   {
     id: 'enq-01',
     professionalId: 'prof-01',

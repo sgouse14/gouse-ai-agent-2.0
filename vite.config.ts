@@ -6,6 +6,10 @@ import {
   generateProjectIntelligence,
   generateAI_BOQ,
   generateRenderPrompt,
+  searchProfessionalsWithGoogle,
+  fetchLiveMaterialPricesWithGoogle,
+  getDomainFallbackResponse,
+  generateSpeechAudio,
 } from './server/apiService';
 
 function getRequestBody(req: any): Promise<any> {
@@ -45,21 +49,76 @@ function apiMiddlewarePlugin() {
           if (url === '/api/health') {
             return sendJson(res, {
               status: 'ok',
-              agent: 'Gouse AI Architecture Intelligence',
+              agent: "ALVI's Architecture, Interior Designers & Construction - AI Intelligence",
               version: '3.8.0',
               model: 'gemini-3.8-flash',
-              features: ['chat', 'intelligence', 'boq_generator', 'render_prompts', 'marketplace', 'materials']
+              features: [
+                'chat',
+                'multilingual_voice',
+                'tts_gemini',
+                'intelligence',
+                'boq_generator',
+                'render_prompts',
+                'marketplace',
+                'materials',
+              ],
             });
           }
 
           if (url === '/api/chat' && req.method === 'POST') {
             const body = await getRequestBody(req);
-            const response = await generateChatResponse(
-              body.message || '',
-              body.specialist || 'general',
-              body.projectContext || ''
-            );
-            return sendJson(res, { response });
+            try {
+              const response = await generateChatResponse(
+                body.message || '',
+                body.specialist || 'general',
+                body.projectContext || '',
+                body.language || 'en-IN'
+              );
+              return sendJson(res, { response });
+            } catch (_err) {
+              const fallback = getDomainFallbackResponse(
+                body.message || '',
+                body.specialist || 'general',
+                body.projectContext,
+                body.language || 'en-IN'
+              );
+              return sendJson(res, { response: fallback });
+            }
+          }
+
+          if (url === '/api/voice/tts' && req.method === 'POST') {
+            const body = await getRequestBody(req);
+            try {
+              const specialistVoiceMap: Record<string, string> = {
+                general: 'Zephyr',
+                design: 'Puck',
+                code: 'Charon',
+                documentation: 'Fenrir',
+                quantity: 'Kore',
+                sustainability: 'Zephyr',
+                structural: 'Fenrir',
+                interior: 'Kore',
+              };
+              const chosenVoice =
+                body.voiceName || specialistVoiceMap[body.specialist || 'general'] || 'Zephyr';
+              const audioResult = await generateSpeechAudio(
+                body.text || '',
+                chosenVoice,
+                body.language
+              );
+              if (audioResult) {
+                return sendJson(res, audioResult);
+              }
+              return sendJson(res, {
+                audioBase64: null,
+                notice: 'Browser speech synthesis fallback active',
+              });
+            } catch (_err) {
+              return sendJson(res, {
+                audioBase64: null,
+                notice: 'Browser speech synthesis fallback active',
+              });
+            }
           }
 
           if (url === '/api/intelligence' && req.method === 'POST') {
@@ -100,6 +159,38 @@ function apiMiddlewarePlugin() {
               body.projectContext || ''
             );
             return sendJson(res, { analysis: response, filename: body.filename });
+          }
+
+          if (url === '/api/search/professionals') {
+            let params: any = {};
+            if (req.method === 'POST') {
+              params = await getRequestBody(req);
+            } else {
+              const parsedUrl = new URL(req.url, 'http://localhost:3000');
+              params = {
+                query: parsedUrl.searchParams.get('query') || '',
+                professionalType: parsedUrl.searchParams.get('type') || 'all',
+                location: parsedUrl.searchParams.get('location') || 'Bangalore, India',
+              };
+            }
+            const data = await searchProfessionalsWithGoogle(params);
+            return sendJson(res, data);
+          }
+
+          if (url === '/api/materials/live-prices') {
+            let params: any = {};
+            if (req.method === 'POST') {
+              params = await getRequestBody(req);
+            } else {
+              const parsedUrl = new URL(req.url, 'http://localhost:3000');
+              params = {
+                location: parsedUrl.searchParams.get('location') || 'Bangalore / South India',
+                category: parsedUrl.searchParams.get('category') || 'all',
+                customQuery: parsedUrl.searchParams.get('query') || '',
+              };
+            }
+            const data = await fetchLiveMaterialPricesWithGoogle(params);
+            return sendJson(res, data);
           }
 
           // Fallback for unhandled /api/ routes
