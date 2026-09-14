@@ -840,22 +840,6 @@ EXPERIENCE_YEARS: [Years of operational experience]
         }
       });
 
-      // If user searched for ALVI, ensure ALVI's Architecture company is included at the top
-      if (query.toLowerCase().includes('alvi') || query.toLowerCase().includes('gouse') || query.toLowerCase().includes('yeshwanthpur')) {
-        const hasAlvi = profiles.some(
-          (p) => p.company?.toLowerCase().includes('alvi') || p.name?.toLowerCase().includes('alvi')
-        );
-        if (!hasAlvi) {
-          const alviFallback = getVerifiedProfessionalsDirectory('ALVI', 'all', location, searchTime).results[0];
-          if (alviFallback) {
-            profiles.unshift(alviFallback);
-            sources.unshift({
-              title: "ALVI's Architecture, Interior Designers & Construction - Google Search Grounding",
-              uri: 'https://www.google.com/maps/search/?api=1&query=Yeshwanthpur+Metro+Station+Tumkur+Road+Bengaluru+560022',
-            });
-          }
-        }
-      }
 
       if (profiles.length > 0) {
         const payload = {
@@ -1095,30 +1079,6 @@ function getVerifiedProfessionalsDirectory(
   searchTime: string
 ) {
   const allVerified = [
-    {
-      id: 'dir-alvi-01',
-      professionalType: 'architect',
-      name: 'Ar. S. Gouse (Principal Architect & Turnkey Director)',
-      company: "ALVI's Architecture, Interior Designers & Construction",
-      bio: "Headquartered in Yeshwanthpur, Bangalore, ALVI's Architecture, Interior Designers & Construction is a premier design-and-build practice. We seamlessly integrate master architectural planning, luxury interior styling, and turnkey civil construction under one accountable contract with 16+ years experience and 142+ delivered projects across Karnataka.",
-      services: 'Turnkey Architecture, Luxury Interior Fit-outs, Turnkey Civil Construction, M25/M30 RCC Framing, BBMP/BDA Plan Sanctions, Modular Kitchens',
-      location: 'Yeshwanthpur, Bangalore, Karnataka',
-      address: "ALVI's Architecture & Interior Experience Center, Near Yeshwanthpur Metro Station & Railway Station, Tumkur Main Road, Yeshwanthpur, Bengaluru, Karnataka 560022",
-      landmark: 'Near Yeshwanthpur Metro Station & Govardhan Theatre, Tumkur Road Corridor',
-      googleMapsUrl: 'https://www.google.com/maps/search/?api=1&query=Yeshwanthpur+Metro+Station+Tumkur+Road+Bengaluru+560022',
-      mapEmbedUrl: 'https://maps.google.com/maps?q=Yeshwanthpur%20Metro%20Station%20Tumkur%20Road%20Bengaluru%20Karnataka%20560022&t=&z=15&ie=UTF8&iwloc=&output=embed',
-      verified: true,
-      rating: 5.0,
-      completedProjects: 142,
-      experienceYears: 16,
-      email: 'sgouse14@gmail.com',
-      phone: '+91 98450 78601',
-      whatsapp: '+91 98450 78601',
-      website: 'https://alvis-architecture.com',
-      sourceUrl: 'https://www.google.com/maps/search/?api=1&query=Yeshwanthpur+Metro+Station+Tumkur+Road+Bengaluru+560022',
-      sourceTitle: "ALVI's Architecture, Interior Designers & Construction (Google Verified Practice)",
-      isLiveSearch: true,
-    },
     {
       id: 'dir-01',
       professionalType: 'architect',
@@ -1493,5 +1453,117 @@ function getVerifiedRegionalPrices(
     location,
     updatedAt,
     marketSummary: `Current market rates in ${location} reflect steady cement dispatch with slight freight cost pressure, while primary steel (TMT Fe550D) remains in an attractive consolidation band. Electrical copper has seen recent upticks in tandem with global base metal indices.`
+  };
+}
+
+/**
+ * GOUSE AI - Company Intelligence Engine
+ * Generates or researches and onboards architecture, interior design, engineering,
+ * contracting, or building material companies into the practice directory.
+ */
+export async function generateCompanyWithAi(params: {
+  prompt: string;
+  category?: string;
+  location?: string;
+}) {
+  const { prompt, category = 'architect', location = 'Bangalore, India' } = params;
+  const client = getAiClient();
+
+  const systemInstructions = `You are Gouse AI's Architecture & Construction Intelligence Engine.
+Your role is to research or generate an authentic, high-caliber professional company profile for an architectural practice, interior design studio, civil contractor, engineering firm, or material supplier.
+Analyze the user's prompt: "${prompt}", category: "${category}", location: "${location}".
+
+Respond ONLY with valid, raw JSON (no markdown fences, no explanatory text) matching this schema:
+{
+  "name": "Principal Architect / Managing Director Name",
+  "company": "Official Company Name",
+  "professionalType": "architect" | "builder" | "interior_designer" | "contractor" | "structural_engineer" | "mep_engineer" | "cost_consultant" | "landscape_architect" | "material_supplier",
+  "bio": "Comprehensive 2-3 sentence company overview, highlighting design ethos, structural methodology, turnkey capabilities, and track record.",
+  "services": "Comma-separated list of 5-7 core professional services and disciplines",
+  "location": "City, State",
+  "address": "Realistic, detailed physical office/studio street address in the city",
+  "landmark": "Key landmark, metro station, or arterial junction nearby",
+  "rating": 4.8 or 4.9 or 5.0,
+  "completedProjects": realistic integer number between 25 and 180,
+  "experienceYears": realistic integer number between 6 and 28,
+  "email": "contact or info email matching the company domain",
+  "phone": "+91 9XXXXXXXXX or landline phone",
+  "whatsapp": "+91 9XXXXXXXXX",
+  "website": "https://companydomain.com",
+  "specialties": ["Specialty 1", "Specialty 2", "Specialty 3", "Specialty 4"]
+}`;
+
+  if (client && !isQuotaCooldownActive()) {
+    try {
+      const response = await client.models.generateContent({
+        model: 'gemini-3.8-flash',
+        contents: systemInstructions,
+        config: {
+          temperature: 0.3,
+          responseMimeType: 'application/json',
+        },
+      });
+
+      const text = response.text?.trim() || '';
+      const cleanJson = text.replace(/^```json\s*/, '').replace(/\s*```$/, '').trim();
+      const parsed = JSON.parse(cleanJson);
+
+      const addressEncoded = encodeURIComponent(parsed.address || `${parsed.company} ${parsed.location}`);
+      const uniqueId = `comp-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
+
+      return {
+        id: uniqueId,
+        ...parsed,
+        verified: true,
+        isAiGenerated: true,
+        googleMapsUrl: `https://www.google.com/maps/search/?api=1&query=${addressEncoded}`,
+        mapEmbedUrl: `https://maps.google.com/maps?q=${addressEncoded}&t=&z=15&ie=UTF8&iwloc=&output=embed`,
+        createdAt: new Date().toISOString(),
+      };
+    } catch (err: any) {
+      handleGeminiNotice('generate company', err);
+    }
+  }
+
+  // Fallback intelligent company generator based on user prompt
+  const cleanPrompt = prompt.trim();
+  const companyName = cleanPrompt.length > 3 && !cleanPrompt.toLowerCase().startsWith('add') 
+    ? cleanPrompt 
+    : `${cleanPrompt.replace(/^add\s+/i, '').trim() || 'Modern Design'} Studio`;
+
+  const safeType = (
+    category && ['architect', 'builder', 'interior_designer', 'contractor', 'structural_engineer', 'mep_engineer', 'cost_consultant', 'landscape_architect', 'material_supplier'].includes(category)
+      ? category
+      : 'architect'
+  );
+
+  const loc = location || 'Bangalore, Karnataka';
+  const address = `Plot 48, Design District, 100ft Road, ${loc}`;
+  const addressEncoded = encodeURIComponent(`${companyName} ${address}`);
+  const uniqueId = `comp-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
+
+  return {
+    id: uniqueId,
+    name: `Ar. ${companyName.split(' ')[0]} (Principal Lead)`,
+    company: companyName,
+    professionalType: safeType,
+    bio: `${companyName} is an acclaimed practice operating in ${loc}. Delivering integrated master planning, bespoke interior architecture, and precision turnkey construction with a rigorous focus on craftsmanship and environmental sustainability.`,
+    services: 'Architectural Planning, 3D BIM Modeling, Turnkey Construction, Interior Fit-outs, Municipal Sanctions, BOQ Estimation',
+    location: loc,
+    address,
+    landmark: 'Near Metro Station & Ring Road Junction',
+    googleMapsUrl: `https://www.google.com/maps/search/?api=1&query=${addressEncoded}`,
+    mapEmbedUrl: `https://maps.google.com/maps?q=${addressEncoded}&t=&z=15&ie=UTF8&iwloc=&output=embed`,
+    verified: true,
+    rating: 4.9,
+    completedProjects: 45,
+    experienceYears: 12,
+    email: `contact@${companyName.toLowerCase().replace(/[^a-z0-9]/g, '') || 'studio'}.com`,
+    phone: '+91 98450 33421',
+    whatsapp: '+91 98450 33421',
+    website: `https://${companyName.toLowerCase().replace(/[^a-z0-9]/g, '') || 'studio'}.com`,
+    specialties: ['Bespoke Architecture', 'Sustainable Design', 'Turnkey Fit-outs', 'BIM Coordination'],
+    isAiGenerated: true,
+    createdAt: new Date().toISOString(),
   };
 }

@@ -42,10 +42,8 @@ export function App() {
       const saved = localStorage.getItem('gouse_ai_projects');
       if (saved) {
         const parsed: Project[] = JSON.parse(saved);
-        if (!parsed.some((p) => p.id === 'proj-alvi-01')) {
-          return [INITIAL_PROJECTS[0], ...parsed];
-        }
-        return parsed;
+        const cleaned = parsed.filter((p) => p.id !== 'proj-alvi-01');
+        if (cleaned.length > 0) return cleaned;
       }
       return INITIAL_PROJECTS;
     } catch {
@@ -57,9 +55,9 @@ export function App() {
     try {
       const saved = localStorage.getItem('gouse_ai_active_project_id');
       if (saved && projects.some((p) => p.id === saved)) return saved;
-      return projects.find((p) => p.id === 'proj-alvi-01')?.id || projects[0]?.id || 'proj-1';
+      return projects[0]?.id || 'proj-01';
     } catch {
-      return projects[0]?.id || 'proj-1';
+      return projects[0]?.id || 'proj-01';
     }
   });
 
@@ -95,23 +93,11 @@ export function App() {
       const saved = localStorage.getItem('gouse_ai_professionals');
       if (saved) {
         const parsed: ProfessionalProfile[] = JSON.parse(saved);
-        if (!parsed.some((p) => p.id === 'prof-alvi-001')) {
-          return [INITIAL_PROFESSIONALS[0], ...parsed];
-        }
-        return parsed.map((p) =>
-          p.id === 'prof-alvi-001'
-            ? {
-                ...p,
-                location: INITIAL_PROFESSIONALS[0].location,
-                address: INITIAL_PROFESSIONALS[0].address,
-                landmark: INITIAL_PROFESSIONALS[0].landmark,
-                googleMapsUrl: INITIAL_PROFESSIONALS[0].googleMapsUrl,
-                mapEmbedUrl: INITIAL_PROFESSIONALS[0].mapEmbedUrl,
-                bio: INITIAL_PROFESSIONALS[0].bio,
-                services: INITIAL_PROFESSIONALS[0].services,
-              }
-            : p
+        // Remove old ALVI hardcoded profile if present
+        const cleaned = parsed.filter(
+          (p) => p.id !== 'prof-alvi-001' && !p.company?.toLowerCase().includes("alvi's architecture")
         );
+        if (cleaned.length > 0) return cleaned;
       }
       return INITIAL_PROFESSIONALS;
     } catch {
@@ -124,10 +110,10 @@ export function App() {
       const saved = localStorage.getItem('gouse_ai_enquiries');
       if (saved) {
         const parsed: MarketplaceEnquiry[] = JSON.parse(saved);
-        if (!parsed.some((e) => e.id === 'enq-alvi-01' || e.professionalId === 'prof-alvi-001')) {
-          return [INITIAL_ENQUIRIES[0], ...parsed];
-        }
-        return parsed;
+        const cleaned = parsed.filter(
+          (e) => e.id !== 'enq-alvi-01' && e.professionalId !== 'prof-alvi-001' && !e.professionalName?.toLowerCase().includes("alvi")
+        );
+        if (cleaned.length > 0) return cleaned;
       }
       return INITIAL_ENQUIRIES;
     } catch {
@@ -206,6 +192,16 @@ export function App() {
     });
   };
 
+  const handleDeleteProfile = (profileId: string) => {
+    setProfessionals((prev) => prev.filter((p) => p.id !== profileId));
+  };
+
+  const handleToggleMyPractice = (profileId: string, isMyPractice: boolean) => {
+    setProfessionals((prev) =>
+      prev.map((p) => (p.id === profileId ? { ...p, isMyPractice } : p))
+    );
+  };
+
   const [marketplaceCategory, setMarketplaceCategory] = useState<string | undefined>(undefined);
   const [marketplaceQuery, setMarketplaceQuery] = useState<string | undefined>(undefined);
 
@@ -271,6 +267,8 @@ export function App() {
             onAddEnquiry={handleAddEnquiry}
             onUpdateEnquiryStatus={handleUpdateEnquiryStatus}
             onSaveProfile={handleSaveProfile}
+            onDeleteProfile={handleDeleteProfile}
+            onToggleMyPractice={handleToggleMyPractice}
             initialCategory={marketplaceCategory}
             initialQuery={marketplaceQuery}
             projectCity={activeProject.location}

@@ -23,10 +23,21 @@ import {
   Boxes,
   Phone,
   ShieldCheck,
+  Bell,
+  BellRing,
+  BellOff,
+  CheckCircle2,
+  AlertCircle,
+  X,
+  Sliders,
+  Calendar,
+  Mail,
+  Zap,
 } from 'lucide-react';
 import { MATERIAL_CATALOG, BUILDING_TYPOLOGY_CHECKLISTS, INITIAL_LIVE_MATERIAL_PRICES } from '../data/initialData';
-import { Project, LiveMaterialPrice, GroundingSource } from '../types';
+import { Project, LiveMaterialPrice, GroundingSource, MaterialPriceAlertSubscription, MaterialPriceAlertItem } from '../types';
 import { formatCurrency, CurrencyCode } from '../utils/formatters';
+import { MaterialPriceAlertsPanel } from './MaterialPriceAlertsPanel';
 
 interface MaterialsViewProps {
   activeProject: Project;
@@ -57,6 +68,158 @@ export const MaterialsView: React.FC<MaterialsViewProps> = ({
   ]);
   const [lastRefreshedAt, setLastRefreshedAt] = useState<string>(new Date().toISOString());
   const [quotaNotice, setQuotaNotice] = useState<string | null>(null);
+
+  // Periodic Price Change Notifications Subscription State
+  const [subscription, setSubscription] = useState<MaterialPriceAlertSubscription>(() => {
+    try {
+      const saved = localStorage.getItem('gouse_ai_material_alert_sub');
+      if (saved) return JSON.parse(saved);
+    } catch (_e) {}
+    return {
+      enabled: true,
+      frequency: 'daily',
+      channelEmail: true,
+      channelInApp: true,
+      recipientEmail: 'sgouse14@gmail.com',
+      volatilityThresholdPercent: 1.5,
+      subscribedMaterialIds: ['lmp-01', 'lmp-02', 'lmp-03', 'lmp-04'],
+    };
+  });
+
+  // Recent Alert Items / Notification Digest
+  const [recentAlerts, setRecentAlerts] = useState<MaterialPriceAlertItem[]>(() => {
+    try {
+      const saved = localStorage.getItem('gouse_ai_material_alert_history');
+      if (saved) return JSON.parse(saved);
+    } catch (_e) {}
+    return [
+      {
+        id: 'alert-01',
+        materialId: 'lmp-02',
+        materialName: 'Fe550D Primary TMT Steel Rebar',
+        category: 'Steel & Reinforcement',
+        oldPrice: 72800,
+        newPrice: 74500,
+        unit: 'MT (Metric Tonne)',
+        changePercent: 2.3,
+        trend: 'up',
+        trendReason: 'Domestic steel mills hiked secondary and primary rebar by ₹1,700/MT due to rising iron ore export bids and thermal coal freight revisions.',
+        timestamp: new Date(Date.now() - 3600000 * 2).toISOString(),
+        read: false,
+      },
+      {
+        id: 'alert-02',
+        materialId: 'lmp-01',
+        materialName: 'OPC 53 Grade Portland Cement',
+        category: 'Cement & Concrete',
+        oldPrice: 392,
+        newPrice: 385,
+        unit: '50 kg bag',
+        changePercent: -1.8,
+        trend: 'down',
+        trendReason: 'South regional manufacturers rolled out seasonal bulk clearance discount (₹7/bag) for project dispatches.',
+        timestamp: new Date(Date.now() - 3600000 * 8).toISOString(),
+        read: false,
+      },
+    ];
+  });
+
+  const [alertFeedbackToast, setAlertFeedbackToast] = useState<string | null>(null);
+  const [showDigestNotificationBanner, setShowDigestNotificationBanner] = useState<boolean>(true);
+  const [showSubscribedOnly, setShowSubscribedOnly] = useState<boolean>(false);
+
+  // Persist subscription to localStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem('gouse_ai_material_alert_sub', JSON.stringify(subscription));
+    } catch (_e) {}
+  }, [subscription]);
+
+  // Persist alert history to localStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem('gouse_ai_material_alert_history', JSON.stringify(recentAlerts));
+    } catch (_e) {}
+  }, [recentAlerts]);
+
+  const handleUpdateSubscription = (updated: Partial<MaterialPriceAlertSubscription>) => {
+    setSubscription((prev) => {
+      const next = { ...prev, ...updated };
+      if (updated.enabled !== undefined) {
+        setAlertFeedbackToast(
+          updated.enabled
+            ? `Subscribed: Periodic price change notifications enabled for ${next.subscribedMaterialIds.length} materials.`
+            : 'Price change notifications paused.'
+        );
+        setTimeout(() => setAlertFeedbackToast(null), 3500);
+      }
+      return next;
+    });
+  };
+
+  const handleToggleMaterialTracked = (materialId: string) => {
+    const isCurrentlyTracked = subscription.subscribedMaterialIds.includes(materialId);
+    const targetMaterial = livePrices.find((m) => m.id === materialId);
+    const matName = targetMaterial ? targetMaterial.name : 'Material';
+
+    setSubscription((prev) => {
+      let nextIds: string[];
+      let wasEnabled = prev.enabled;
+      if (isCurrentlyTracked) {
+        nextIds = prev.subscribedMaterialIds.filter((id) => id !== materialId);
+        setAlertFeedbackToast(`Unsubscribed from price change notifications for ${matName}.`);
+      } else {
+        nextIds = [...prev.subscribedMaterialIds, materialId];
+        wasEnabled = true;
+        setAlertFeedbackToast(`Subscribed to periodic price change alerts for ${matName}.`);
+      }
+      setTimeout(() => setAlertFeedbackToast(null), 3500);
+      return {
+        ...prev,
+        enabled: wasEnabled,
+        subscribedMaterialIds: nextIds,
+      };
+    });
+  };
+
+  const handleDismissAlert = (alertId: string) => {
+    setRecentAlerts((prev) => prev.filter((a) => a.id !== alertId));
+  };
+
+  const handleClearAllAlerts = () => {
+    setRecentAlerts([]);
+  };
+
+  const handleTriggerTestAlert = () => {
+    const trackedItems = livePrices.filter((m) => subscription.subscribedMaterialIds.includes(m.id));
+    const pool = trackedItems.length > 0 ? trackedItems : livePrices.slice(0, 3);
+
+    const newAlerts: MaterialPriceAlertItem[] = pool.slice(0, 3).map((item, idx) => {
+      const shiftPercent = (idx % 2 === 0 ? 1 : -1) * (1.2 + idx * 0.7);
+      const oldPrice = Math.round(item.currentPrice / (1 + shiftPercent / 100));
+      return {
+        id: `alert-${Date.now()}-${idx}`,
+        materialId: item.id,
+        materialName: item.name,
+        category: item.category,
+        oldPrice,
+        newPrice: item.currentPrice,
+        unit: item.unit,
+        changePercent: Number(shiftPercent.toFixed(1)),
+        trend: shiftPercent > 0 ? 'up' : 'down',
+        trendReason: item.trendReason || `Spot commodity adjustment detected in ${liveRegion}`,
+        timestamp: new Date().toISOString(),
+        read: false,
+      };
+    });
+
+    setRecentAlerts((prev) => [...newAlerts, ...prev].slice(0, 20));
+    setShowDigestNotificationBanner(true);
+    setAlertFeedbackToast(
+      `🔔 Periodic Price Alert Digest Sent! ${newAlerts.length} rate updates dispatched to ${subscription.recipientEmail}`
+    );
+    setTimeout(() => setAlertFeedbackToast(null), 4500);
+  };
 
   // Comparison filter
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
@@ -125,6 +288,9 @@ export const MaterialsView: React.FC<MaterialsViewProps> = ({
   // Filtered live materials
   const displayedLivePrices = useMemo(() => {
     let list = livePrices;
+    if (showSubscribedOnly) {
+      list = list.filter((p) => subscription.subscribedMaterialIds.includes(p.id));
+    }
     if (selectedMaterialCategory !== 'all') {
       list = list.filter((p) => p.category.toLowerCase().includes(selectedMaterialCategory.toLowerCase()));
     }
@@ -138,7 +304,7 @@ export const MaterialsView: React.FC<MaterialsViewProps> = ({
       );
     }
     return list;
-  }, [livePrices, selectedMaterialCategory, customMaterialQuery]);
+  }, [livePrices, selectedMaterialCategory, customMaterialQuery, showSubscribedOnly, subscription.subscribedMaterialIds]);
 
   // Material calculation
   const calcMaterial = MATERIAL_CATALOG.find((m) => m.id === calcMaterialId) || MATERIAL_CATALOG[0];
@@ -265,6 +431,97 @@ export const MaterialsView: React.FC<MaterialsViewProps> = ({
       {/* ========================================================================= */}
       {activeSection === 'live-prices' && (
         <div className="space-y-6">
+          {/* Periodic Price Change Notifications Master Control & Settings Panel */}
+          <MaterialPriceAlertsPanel
+            subscription={subscription}
+            onUpdateSubscription={handleUpdateSubscription}
+            materials={livePrices}
+            onToggleMaterialTracked={handleToggleMaterialTracked}
+            recentAlerts={recentAlerts}
+            onDismissAlert={handleDismissAlert}
+            onClearAllAlerts={handleClearAllAlerts}
+            onTriggerTestAlert={handleTriggerTestAlert}
+          />
+
+          {/* Inline Action Feedback Toast */}
+          {alertFeedbackToast && (
+            <div className="p-3 rounded-xl bg-amber-500/15 border border-amber-500/40 text-xs text-amber-200 flex items-center justify-between shadow-md animate-in fade-in duration-200">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-amber-400 shrink-0" />
+                <span>{alertFeedbackToast}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setAlertFeedbackToast(null)}
+                className="text-slate-400 hover:text-white p-0.5"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
+
+          {/* Active Price Alert Digest Notification Banner */}
+          {showDigestNotificationBanner && recentAlerts.length > 0 && subscription.enabled && (
+            <div className="p-4 rounded-xl bg-gradient-to-r from-amber-950/40 via-slate-900 to-slate-900 border border-amber-500/40 shadow-md space-y-3">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5">
+                  <span className="p-1.5 rounded-lg bg-amber-500/20 text-amber-400 border border-amber-500/40">
+                    <BellRing className="w-4 h-4 text-amber-400" />
+                  </span>
+                  <div>
+                    <h4 className="text-xs font-bold text-white flex items-center gap-2">
+                      <span>Recent Price Change Notification Digest</span>
+                      <span className="text-[9px] font-mono uppercase px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                        {subscription.frequency} digest
+                      </span>
+                    </h4>
+                    <p className="text-[11px] text-slate-300">
+                      Market movements detected for your subscribed construction commodities in {liveRegion}.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setShowDigestNotificationBanner(false)}
+                    className="text-slate-400 hover:text-white p-1 text-xs flex items-center gap-1"
+                    title="Dismiss banner"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">Dismiss</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Alert items preview */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+                {recentAlerts.slice(0, 2).map((alert) => (
+                  <div
+                    key={alert.id}
+                    className="p-2.5 rounded-lg bg-slate-950/80 border border-slate-800 text-xs flex items-start justify-between gap-2"
+                  >
+                    <div className="space-y-0.5">
+                      <div className="flex items-center gap-1.5 font-bold text-white">
+                        <span>{alert.materialName}</span>
+                        <span className={alert.trend === 'up' ? 'text-rose-400 font-mono' : 'text-emerald-400 font-mono'}>
+                          ({alert.changePercent > 0 ? `+${alert.changePercent}%` : `${alert.changePercent}%`})
+                        </span>
+                      </div>
+                      <div className="text-[11px] text-slate-400 font-mono">
+                        Old: ₹{alert.oldPrice.toLocaleString()} →{' '}
+                        <span className="text-amber-300 font-bold">New: ₹{alert.newPrice.toLocaleString()} / {alert.unit}</span>
+                      </div>
+                      <p className="text-[10px] text-slate-400 line-clamp-1">
+                        {alert.trendReason}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Quick Commodity Ticker Strip */}
           <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2.5">
             {livePrices.slice(0, 7).map((mat) => {
@@ -405,6 +662,35 @@ export const MaterialsView: React.FC<MaterialsViewProps> = ({
                 </div>
               </div>
             </div>
+
+            {/* Quick Filter Pill for Subscribed Materials */}
+            <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-800 text-xs">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  id="filter-tracked-subscriptions-only"
+                  onClick={() => setShowSubscribedOnly(!showSubscribedOnly)}
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition border ${
+                    showSubscribedOnly
+                      ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-sm font-bold'
+                      : 'bg-slate-950 text-slate-300 border-slate-800 hover:border-slate-700 hover:text-white'
+                  }`}
+                >
+                  <BellRing className={`w-3.5 h-3.5 ${showSubscribedOnly ? 'text-slate-950' : 'text-amber-400'}`} />
+                  <span>Subscribed Materials Only ({subscription.subscribedMaterialIds.length})</span>
+                </button>
+
+                {showSubscribedOnly && (
+                  <span className="text-[11px] text-amber-300/90 font-mono">
+                    Filtering to your {subscription.subscribedMaterialIds.length} tracked commodities
+                  </span>
+                )}
+              </div>
+
+              <span className="text-[11px] text-slate-400 font-mono">
+                {displayedLivePrices.length} of {livePrices.length} Materials Displayed
+              </span>
+            </div>
           </div>
 
           {/* Quota Notice Banner */}
@@ -461,38 +747,89 @@ export const MaterialsView: React.FC<MaterialsViewProps> = ({
             {displayedLivePrices.map((mat) => {
               const isUp = mat.trend === 'up';
               const isDown = mat.trend === 'down';
+              const isTracked = subscription.subscribedMaterialIds.includes(mat.id);
+              const isAlertsActive = subscription.enabled && isTracked;
 
               return (
                 <div
                   key={mat.id}
                   id={`live-price-${mat.id}`}
-                  className="p-5 rounded-xl bg-slate-900 border border-slate-800 flex flex-col justify-between space-y-4 hover:border-slate-700 transition group shadow-sm"
+                  className={`p-5 rounded-xl bg-slate-900 border flex flex-col justify-between space-y-4 transition group shadow-sm ${
+                    isAlertsActive
+                      ? 'border-amber-500/50 bg-gradient-to-b from-slate-900 to-amber-950/10 shadow-amber-500/5'
+                      : 'border-slate-800 hover:border-slate-700'
+                  }`}
                 >
                   <div className="space-y-3">
                     {/* Header Row */}
                     <div className="flex items-start justify-between gap-2">
                       <div>
-                        <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded bg-slate-800 text-amber-300 border border-slate-700">
-                          {mat.category}
-                        </span>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded bg-slate-800 text-amber-300 border border-slate-700">
+                            {mat.category}
+                          </span>
+                          {isAlertsActive && (
+                            <span
+                              title={`Subscribed to ${subscription.frequency} price change alerts`}
+                              className="inline-flex items-center gap-1 text-[10px] font-mono font-medium px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40"
+                            >
+                              <BellRing className="w-2.5 h-2.5 text-amber-400" />
+                              <span>Alerts On</span>
+                            </span>
+                          )}
+                        </div>
                         <h4 className="text-sm font-bold text-white mt-1.5 group-hover:text-amber-300 transition">
                           {mat.name}
                         </h4>
                       </div>
 
-                      {/* Trend Badge */}
-                      <span
-                        className={`text-[11px] font-mono font-bold px-2 py-0.5 rounded flex items-center gap-1 shrink-0 ${
-                          isUp
-                            ? 'bg-rose-950/60 text-rose-400 border border-rose-800/40'
-                            : isDown
-                            ? 'bg-emerald-950/60 text-emerald-400 border border-emerald-800/40'
-                            : 'bg-slate-800 text-slate-300 border border-slate-700'
-                        }`}
-                      >
-                        {isUp ? <TrendingUp className="w-3 h-3" /> : isDown ? <TrendingDown className="w-3 h-3" /> : <Minus className="w-3 h-3" />}
-                        <span>{mat.changePercent > 0 ? `+${mat.changePercent}%` : `${mat.changePercent}%`}</span>
-                      </span>
+                      <div className="flex flex-col items-end gap-1.5 shrink-0">
+                        {/* Trend Badge */}
+                        <span
+                          className={`text-[11px] font-mono font-bold px-2 py-0.5 rounded flex items-center gap-1 shrink-0 ${
+                            isUp
+                              ? 'bg-rose-950/60 text-rose-400 border border-rose-800/40'
+                              : isDown
+                              ? 'bg-emerald-950/60 text-emerald-400 border border-emerald-800/40'
+                              : 'bg-slate-800 text-slate-300 border border-slate-700'
+                          }`}
+                        >
+                          {isUp ? <TrendingUp className="w-3 h-3" /> : isDown ? <TrendingDown className="w-3 h-3" /> : <Minus className="w-3 h-3" />}
+                          <span>{mat.changePercent > 0 ? `+${mat.changePercent}%` : `${mat.changePercent}%`}</span>
+                        </span>
+
+                        {/* Dedicated Toggle Button for Periodic Price Change Notifications */}
+                        <button
+                          type="button"
+                          id={`toggle-alert-${mat.id}`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleToggleMaterialTracked(mat.id);
+                          }}
+                          title={
+                            isTracked
+                              ? `Subscribed to periodic price alerts. Click to unsubscribe from alerts for ${mat.name}.`
+                              : `Click to subscribe to periodic price change alerts for ${mat.name}.`
+                          }
+                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-semibold transition border select-none ${
+                            isTracked
+                              ? 'bg-amber-500/20 text-amber-300 border-amber-500/50 hover:bg-amber-500/30'
+                              : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-slate-200 hover:border-slate-700'
+                          }`}
+                        >
+                          {isTracked ? (
+                            <BellRing className="w-3 h-3 text-amber-400" />
+                          ) : (
+                            <Bell className="w-3 h-3 text-slate-400" />
+                          )}
+                          <span>{isTracked ? 'Subscribed' : 'Subscribe'}</span>
+                          <span
+                            className={`w-1.5 h-1.5 rounded-full ${
+                              isTracked ? 'bg-amber-400' : 'bg-slate-600'
+                            }`}
+                          />
+                        </button>
+                      </div>
                     </div>
 
                     {/* Spot Rate Hero Block */}
@@ -564,6 +901,28 @@ export const MaterialsView: React.FC<MaterialsViewProps> = ({
               );
             })}
           </div>
+
+          {/* Empty state when filtering */}
+          {displayedLivePrices.length === 0 && (
+            <div className="p-8 rounded-xl bg-slate-900 border border-slate-800 text-center space-y-3">
+              <Bell className="w-8 h-8 text-slate-500 mx-auto" />
+              <h4 className="text-sm font-bold text-white">No Construction Materials Match Your Filter</h4>
+              <p className="text-xs text-slate-400 max-w-md mx-auto">
+                {showSubscribedOnly
+                  ? "You haven't subscribed to periodic price alerts for any materials matching this filter. Click 'Subscribe' on any material card to start receiving periodic price alerts."
+                  : "No materials found matching your category or search query."}
+              </p>
+              {showSubscribedOnly && (
+                <button
+                  type="button"
+                  onClick={() => setShowSubscribedOnly(false)}
+                  className="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs transition"
+                >
+                  Show All Materials
+                </button>
+              )}
+            </div>
+          )}
         </div>
       )}
 

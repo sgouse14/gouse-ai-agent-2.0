@@ -2,47 +2,47 @@ import { Project, BOQItem, ProfessionalProfile, MarketplaceEnquiry, MaterialComp
 
 export const INITIAL_PROJECTS: Project[] = [
   {
-    id: 'proj-alvi-01',
-    name: "ALVI's Palm Crest - Luxury Residence & Interiors",
+    id: 'proj-01',
+    name: 'Palm Crest - Contemporary Residence & Interior Fit-out',
     projectType: 'Architecture, Interior Design & Construction',
     location: 'Whitefield / Outer Ring Road, Bangalore',
-    description: "Flagship turnkey project by ALVI's Architecture, Interior Designers & Construction. A 5,800 sq.ft contemporary residence featuring cantilevered concrete canopies, bespoke teakwood & brass interior millwork, smart home automation, open-plan Italian marble living spaces, and an earthquake-resistant RCC frame.",
+    description: 'A 5,800 sq.ft contemporary residence featuring cantilevered concrete canopies, bespoke teakwood & brass interior millwork, smart home automation, open-plan Italian marble living spaces, and an earthquake-resistant RCC frame.',
     status: 'construction',
     builtUpAreaSqFt: 5800,
     files: [
       {
-        id: 'file-alvi-01',
-        name: 'ALVI_Architectural_Working_Drawings_L1_L2.pdf',
+        id: 'file-01',
+        name: 'Architectural_Working_Drawings_L1_L2.pdf',
         size: '6.2 MB',
         type: 'application/pdf',
         uploadDate: '2026-03-12',
-        extractedText: "ALVI'S ARCHITECTURE & CONSTRUCTION: Detailed architectural and structural working drawings. G+2 framed RCC structure with M30 grade concrete, Fe550D TMT bars. Column grid: 5.5m x 6.5m. Double height living zone with acoustic wood baffles and sunken court."
+        extractedText: 'GOUSE AI ARCHITECTURE: Detailed architectural and structural working drawings. G+2 framed RCC structure with M30 grade concrete, Fe550D TMT bars. Column grid: 5.5m x 6.5m. Double height living zone with acoustic wood baffles and sunken court.'
       },
       {
-        id: 'file-alvi-02',
-        name: 'ALVI_Luxury_Interior_Joinery_Schedule.dwg',
+        id: 'file-02',
+        name: 'Luxury_Interior_Joinery_Schedule.dwg',
         size: '4.8 MB',
         type: 'drawing/dwg',
         uploadDate: '2026-03-12',
-        extractedText: "ALVI'S INTERIOR DESIGN SPECIFICATIONS: European veneer paneling with concealed shadow gap joints, fluted charcoal wall claddings, Hafele soft-close hardware, quartz countertops, and layered indirect ambient LED cove illumination."
+        extractedText: 'INTERIOR DESIGN SPECIFICATIONS: European veneer paneling with concealed shadow gap joints, fluted charcoal wall claddings, Hafele soft-close hardware, quartz countertops, and layered indirect ambient LED cove illumination.'
       },
       {
-        id: 'file-alvi-03',
-        name: 'ALVI_Turnkey_Construction_BOQ_Summary.xlsx',
+        id: 'file-03',
+        name: 'Turnkey_Construction_BOQ_Summary.xlsx',
         size: '1.1 MB',
         type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         uploadDate: '2026-03-12',
-        extractedText: "ALVI'S CONSTRUCTION TAKEOFF: Substructure, RCC superstructure, blockwork, MEP rough-ins, waterproof membrane, imported flooring, and turnkey interior fit-out schedule."
+        extractedText: 'CONSTRUCTION TAKEOFF: Substructure, RCC superstructure, blockwork, MEP rough-ins, waterproof membrane, imported flooring, and turnkey interior fit-out schedule.'
       }
     ],
     analyses: [
       {
-        id: 'analysis-alvi-01',
-        title: "ALVI's Integrated Design & Construction Audit",
+        id: 'analysis-01',
+        title: 'Integrated Architectural & Construction Audit',
         timestamp: '2026-03-12T16:00:00Z',
         focus: 'Turnkey Architectural & Interior Synergy',
-        analysis: `## 1. Executive Brief - ALVI's Palm Crest
-Executed by **ALVI's Architecture, Interior Designers & Construction**, this project represents a unified design-to-build approach where architectural massing directly informs interior lighting and millwork detailing.
+        analysis: `## 1. Executive Brief - Palm Crest
+This project represents a unified design-to-build approach where architectural massing directly informs interior lighting and millwork detailing.
 
 ## 2. Three Pillars of Execution
 - **Architecture**: Deep recessed window fenestrations with cantilevered sunshades minimize solar heat gain while creating dramatic shadow lines on the exterior facade.
@@ -51,11 +51,11 @@ Executed by **ALVI's Architecture, Interior Designers & Construction**, this pro
       }
     ],
     members: [
-      { id: 'mem-alvi-1', name: 'Ar. S. Gouse (Principal)', email: 'sgouse14@gmail.com', role: 'owner' },
-      { id: 'mem-alvi-2', name: "ALVI's Construction Team", email: 'sgouse14@gmail.com', role: 'quantity_surveyor' }
+      { id: 'mem-1', name: 'Ar. S. Gouse (Lead Architect)', email: 'sgouse14@gmail.com', role: 'owner' },
+      { id: 'mem-2', name: 'Project Engineering Team', email: 'sgouse14@gmail.com', role: 'quantity_surveyor' }
     ],
     auditLogs: [
-      { id: 'log-alvi-01', projectId: 'proj-alvi-01', actor: 'Ar. S. Gouse', action: 'Project Created', details: "Initialized ALVI's Palm Crest turnkey architectural & interior project", timestamp: '2026-03-12T09:00:00Z' }
+      { id: 'log-01', projectId: 'proj-01', actor: 'Ar. S. Gouse', action: 'Project Created', details: 'Initialized Palm Crest turnkey architectural & interior project', timestamp: '2026-03-12T09:00:00Z' }
     ],
     createdAt: '2026-03-12T09:00:00Z'
   },
@@ -186,7 +186,12 @@ export const INITIAL_BOQ_ITEMS: BOQItem[] = [
     quantity: 165,
     rate: 320,
     amount: 52800,
-    notes: 'Includes dressing sides, ramming bottoms and lift up to 2.5m'
+    notes: 'Includes dressing sides, ramming bottoms and lift up to 2.5m',
+    stage: 'Substructure',
+    status: 'approved',
+    materialComponent: 0.1,
+    laborComponent: 0.7,
+    equipmentComponent: 0.2,
   },
   {
     id: 'boq-2',
@@ -196,7 +201,12 @@ export const INITIAL_BOQ_ITEMS: BOQItem[] = [
     quantity: 28,
     rate: 4950,
     amount: 138600,
-    notes: 'Well-compacted 100mm layer under all footings and grade beams'
+    notes: 'Well-compacted 100mm layer under all footings and grade beams',
+    stage: 'Substructure',
+    status: 'approved',
+    materialComponent: 0.72,
+    laborComponent: 0.23,
+    equipmentComponent: 0.05,
   },
   {
     id: 'boq-3',
@@ -206,7 +216,12 @@ export const INITIAL_BOQ_ITEMS: BOQItem[] = [
     quantity: 64,
     rate: 8800,
     amount: 563200,
-    notes: 'Excludes steel reinforcement; includes centering, formwork & staging'
+    notes: 'Excludes steel reinforcement; includes centering, formwork & staging',
+    stage: 'Superstructure',
+    status: 'approved',
+    materialComponent: 0.68,
+    laborComponent: 0.26,
+    equipmentComponent: 0.06,
   },
   {
     id: 'boq-4',
@@ -216,7 +231,12 @@ export const INITIAL_BOQ_ITEMS: BOQItem[] = [
     quantity: 5.4,
     rate: 74500,
     amount: 402300,
-    notes: 'Includes cutting, bending, cranked bars, binding wire & spacer blocks'
+    notes: 'Includes cutting, bending, cranked bars, binding wire & spacer blocks',
+    stage: 'Superstructure',
+    status: 'approved',
+    materialComponent: 0.85,
+    laborComponent: 0.15,
+    equipmentComponent: 0.0,
   },
   {
     id: 'boq-5',
@@ -226,7 +246,12 @@ export const INITIAL_BOQ_ITEMS: BOQItem[] = [
     quantity: 82,
     rate: 5400,
     amount: 442800,
-    notes: 'Bonded with high-strength polymer thin-bed adhesive mortar'
+    notes: 'Bonded with high-strength polymer thin-bed adhesive mortar',
+    stage: 'Superstructure',
+    status: 'tendered',
+    materialComponent: 0.7,
+    laborComponent: 0.3,
+    equipmentComponent: 0.0,
   },
   {
     id: 'boq-6',
@@ -236,7 +261,12 @@ export const INITIAL_BOQ_ITEMS: BOQItem[] = [
     quantity: 480,
     rate: 280,
     amount: 134400,
-    notes: 'Cured for 14 days, plumb and true to line'
+    notes: 'Cured for 14 days, plumb and true to line',
+    stage: 'Finishes',
+    status: 'tendered',
+    materialComponent: 0.45,
+    laborComponent: 0.55,
+    equipmentComponent: 0.0,
   },
   {
     id: 'boq-7',
@@ -246,7 +276,12 @@ export const INITIAL_BOQ_ITEMS: BOQItem[] = [
     quantity: 240,
     rate: 1450,
     amount: 348000,
-    notes: 'Anti-slip R10 rating for living, dining, and corridor circulation'
+    notes: 'Anti-slip R10 rating for living, dining, and corridor circulation',
+    stage: 'Finishes',
+    status: 'estimated',
+    materialComponent: 0.75,
+    laborComponent: 0.25,
+    equipmentComponent: 0.0,
   },
   {
     id: 'boq-8',
@@ -256,7 +291,12 @@ export const INITIAL_BOQ_ITEMS: BOQItem[] = [
     quantity: 42,
     rate: 5800,
     amount: 243600,
-    notes: '6mm Low-E + 12mm Argon air cavity + 6mm clear toughened glass'
+    notes: '6mm Low-E + 12mm Argon air cavity + 6mm clear toughened glass',
+    stage: 'Finishes',
+    status: 'tendered',
+    materialComponent: 0.8,
+    laborComponent: 0.2,
+    equipmentComponent: 0.0,
   },
   {
     id: 'boq-9',
@@ -266,7 +306,12 @@ export const INITIAL_BOQ_ITEMS: BOQItem[] = [
     quantity: 110,
     rate: 1100,
     amount: 121000,
-    notes: 'Heavy duty PVC conduits, modular switches, earthing grid'
+    notes: 'Heavy duty PVC conduits, modular switches, earthing grid',
+    stage: 'Services',
+    status: 'estimated',
+    materialComponent: 0.65,
+    laborComponent: 0.35,
+    equipmentComponent: 0.0,
   },
   {
     id: 'boq-10',
@@ -276,32 +321,16 @@ export const INITIAL_BOQ_ITEMS: BOQItem[] = [
     quantity: 160,
     rate: 720,
     amount: 115200,
-    notes: 'Podium and terrace waterproofing with 10-year manufacturer warranty'
+    notes: 'Podium and terrace waterproofing with 10-year manufacturer warranty',
+    stage: 'Finishes',
+    status: 'approved',
+    materialComponent: 0.7,
+    laborComponent: 0.3,
+    equipmentComponent: 0.0,
   }
 ];
 
 export const INITIAL_PROFESSIONALS: ProfessionalProfile[] = [
-  {
-    id: 'prof-alvi-001',
-    professionalType: 'architect',
-    name: 'Ar. S. Gouse (Principal Architect & Turnkey Director)',
-    company: "ALVI's Architecture, Interior Designers & Construction",
-    bio: "Headquartered in Yeshwanthpur, Bangalore, ALVI's Architecture, Interior Designers & Construction is a premier design-and-build practice. We seamlessly integrate master architectural planning, luxury interior styling, and turnkey civil construction under one accountable contract. With 16+ years of mastery and 140+ delivered projects across Bangalore and South India, our Yeshwanthpur studio provides clients with live material galleries, sample joinery mockups, and end-to-end turnkey execution.",
-    services: '1. Architectural Planning & 3D Elevations, 2. Luxury Residential & Commercial Interior Design, 3. Turnkey Civil Construction & RCC Framing, 4. Bespoke Teakwood Joinery & Modular Kitchens, 5. CSI Detailing, BOQ & Quantity Takeoffs, 6. BBMP / BDA Municipal Plan Sanctions',
-    location: 'Yeshwanthpur, Bangalore, Karnataka',
-    address: "ALVI's Architecture & Interior Experience Center, Near Yeshwanthpur Metro Station & Railway Station, Tumkur Main Road, Yeshwanthpur, Bengaluru, Karnataka 560022",
-    landmark: 'Near Yeshwanthpur Metro Station & Govardhan Theatre, Tumkur Road',
-    googleMapsUrl: 'https://www.google.com/maps/search/?api=1&query=Yeshwanthpur+Metro+Station+Tumkur+Road+Bengaluru+560022',
-    mapEmbedUrl: 'https://maps.google.com/maps?q=Yeshwanthpur%20Metro%20Station%20Tumkur%20Road%20Bengaluru%20Karnataka%20560022&t=&z=15&ie=UTF8&iwloc=&output=embed',
-    verified: true,
-    rating: 5.0,
-    completedProjects: 142,
-    experienceYears: 16,
-    email: 'sgouse14@gmail.com',
-    phone: '+91 98450 78601',
-    whatsapp: '+91 98450 78601',
-    website: 'https://alvis-architecture.com'
-  },
   {
     id: 'prof-01',
     professionalType: 'architect',
@@ -318,7 +347,8 @@ export const INITIAL_PROFESSIONALS: ProfessionalProfile[] = [
     email: 'priya@studioformvoid.com',
     phone: '+91 98450 12345',
     whatsapp: '+91 98450 12345',
-    website: 'https://studioformvoid.com'
+    website: 'https://studioformvoid.com',
+    isMyPractice: true
   },
   {
     id: 'prof-02',
@@ -594,18 +624,6 @@ export const INITIAL_LIVE_MATERIAL_PRICES: LiveMaterialPrice[] = [
 ];
 
 export const INITIAL_ENQUIRIES: MarketplaceEnquiry[] = [
-  {
-    id: 'enq-alvi-01',
-    professionalId: 'prof-alvi-001',
-    professionalName: "ALVI's Architecture, Interior Designers & Construction",
-    clientName: 'Dr. Srinivas Murthy',
-    clientEmail: 'srinivas.murthy@healthcorp.in',
-    projectTitle: 'Turnkey Luxury Villa & Bespoke Interiors (Yeshwanthpur / Sadashivanagar)',
-    message: 'Seeking end-to-end architectural planning, municipal BBMP sanctions, luxury Italian marble interiors, and turnkey civil construction for a 6,200 sq.ft residential plot near Yeshwanthpur / Sadashivanagar corridor. Met with team at Yeshwanthpur experience center.',
-    budget: '₹ 2.8 - 3.4 Cr',
-    status: 'in_progress',
-    createdAt: '2026-03-12T14:15:00Z'
-  },
   {
     id: 'enq-01',
     professionalId: 'prof-01',

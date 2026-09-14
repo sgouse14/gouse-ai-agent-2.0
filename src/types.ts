@@ -70,6 +70,11 @@ export interface BOQItem {
   rate: number;
   amount: number;
   notes: string;
+  materialComponent?: number;
+  laborComponent?: number;
+  equipmentComponent?: number;
+  stage?: 'Substructure' | 'Superstructure' | 'Finishes' | 'Services' | 'Handover';
+  status?: 'estimated' | 'tendered' | 'approved' | 'in-progress';
 }
 
 export interface BOQSummary {
@@ -109,6 +114,7 @@ export interface ProfessionalProfile {
   sourceUrl?: string;
   sourceTitle?: string;
   isLiveSearch?: boolean;
+  isMyPractice?: boolean;
 }
 
 export interface LiveMaterialPrice {
@@ -127,6 +133,34 @@ export interface LiveMaterialPrice {
   updatedAt: string;
   marketNotes?: string;
   sources?: GroundingSource[];
+}
+
+export type AlertFrequency = 'daily' | 'weekly' | 'volatility';
+
+export interface MaterialPriceAlertSubscription {
+  enabled: boolean;
+  frequency: AlertFrequency;
+  channelEmail: boolean;
+  channelInApp: boolean;
+  recipientEmail: string;
+  volatilityThresholdPercent: number;
+  subscribedMaterialIds: string[];
+  lastNotificationSentAt?: string;
+}
+
+export interface MaterialPriceAlertItem {
+  id: string;
+  materialId: string;
+  materialName: string;
+  category: string;
+  oldPrice: number;
+  newPrice: number;
+  unit: string;
+  changePercent: number;
+  trend: 'up' | 'down' | 'stable';
+  trendReason: string;
+  timestamp: string;
+  read: boolean;
 }
 
 export interface MarketplaceEnquiry {

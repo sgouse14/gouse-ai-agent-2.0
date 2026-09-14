@@ -6,9 +6,12 @@ import {
   WifiOff,
   FolderKanban,
   Coins,
+  Palette,
 } from 'lucide-react';
 import { Project } from '../types';
 import { CurrencyCode } from '../utils/formatters';
+import { useTheme } from '../context/ThemeContext';
+import { UserSettingsModal } from './UserSettingsModal';
 
 interface HeaderProps {
   projects: Project[];
@@ -27,16 +30,25 @@ export const Header: React.FC<HeaderProps> = ({
   onChangeCurrency,
   isOnline,
 }) => {
+  const { currentTheme, isSettingsOpen, setIsSettingsOpen } = useTheme();
+
   return (
-    <header
-      id="app-header"
-      className="border-b border-slate-800 bg-slate-900/95 backdrop-blur sticky top-0 z-40 px-4 lg:px-8 py-3 transition-colors"
-    >
-      <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+    <>
+      <header
+        id="app-header"
+        className="border-b border-slate-800 bg-slate-900/95 backdrop-blur sticky top-0 z-40 px-4 lg:px-8 py-3 transition-colors"
+      >
+        <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center md:justify-between gap-3">
         {/* Brand identity */}
         <div className="flex items-center gap-3">
           <div
-            className="h-10 w-10 rounded-lg bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 shadow-sm shrink-0"
+            className="h-10 w-10 rounded-lg flex items-center justify-center shadow-sm shrink-0 transition-colors"
+            style={{
+              backgroundColor: `rgba(${currentTheme.rgb}, 0.12)`,
+              borderColor: `rgba(${currentTheme.rgb}, 0.35)`,
+              borderWidth: '1px',
+              color: currentTheme.colors['400'],
+            }}
           >
             <Compass className="w-6 h-6 stroke-[2.2]" />
           </div>
@@ -45,7 +57,14 @@ export const Header: React.FC<HeaderProps> = ({
               <span className="text-lg sm:text-xl font-bold tracking-tight text-white font-serif-classic">
                 GOUSE AI
               </span>
-              <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">
+              <span
+                className="text-[10px] font-mono uppercase px-2 py-0.5 rounded border font-semibold transition-colors"
+                style={{
+                  backgroundColor: `rgba(${currentTheme.rgb}, 0.15)`,
+                  borderColor: `rgba(${currentTheme.rgb}, 0.35)`,
+                  color: currentTheme.colors['300'],
+                }}
+              >
                 v3.8 ArchAgent
               </span>
             </div>
@@ -59,7 +78,10 @@ export const Header: React.FC<HeaderProps> = ({
         <div className="flex flex-wrap items-center gap-2.5 sm:gap-3">
           {/* Active project quick-switch */}
           <div className="flex items-center gap-1.5 bg-slate-950/70 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-slate-300">
-            <FolderKanban className="w-4 h-4 text-amber-400" />
+            <FolderKanban
+              className="w-4 h-4 shrink-0 transition-colors"
+              style={{ color: currentTheme.colors['400'] }}
+            />
             <span className="text-slate-400 hidden sm:inline">Project:</span>
             <select
               id="header-project-selector"
@@ -92,10 +114,29 @@ export const Header: React.FC<HeaderProps> = ({
             </select>
           </div>
 
+          {/* User Settings & Accent Color Menu Button */}
+          <button
+            id="btn-open-user-settings"
+            type="button"
+            onClick={() => setIsSettingsOpen(true)}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-950/70 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 text-xs text-slate-300 hover:text-white transition group"
+            title="Open Workspace Settings & Architectural Accent Theme"
+          >
+            <span
+              className="w-2.5 h-2.5 rounded-full shrink-0 shadow-sm transition-transform group-hover:scale-110"
+              style={{
+                backgroundColor: currentTheme.colors['500'],
+                boxShadow: `0 0 6px rgba(${currentTheme.rgb}, 0.5)`,
+              }}
+            />
+            <Palette className="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-200" />
+            <span className="hidden sm:inline font-medium">{currentTheme.name}</span>
+          </button>
+
           {/* License Status */}
           <div className="hidden lg:flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-emerald-950/40 border border-emerald-700/40 text-emerald-400 text-xs font-mono">
             <ShieldCheck className="w-3.5 h-3.5" />
-            <span>License: Pro (183d)</span>
+            <span>License: Pro</span>
           </div>
 
           {/* Network Status */}
@@ -113,5 +154,11 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
       </div>
     </header>
-  );
+
+    <UserSettingsModal
+      isOpen={isSettingsOpen}
+      onClose={() => setIsSettingsOpen(false)}
+    />
+  </>
+);
 };

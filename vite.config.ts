@@ -10,6 +10,7 @@ import {
   fetchLiveMaterialPricesWithGoogle,
   getDomainFallbackResponse,
   generateSpeechAudio,
+  generateCompanyWithAi,
 } from './server/apiService';
 
 function getRequestBody(req: any): Promise<any> {
@@ -191,6 +192,16 @@ function apiMiddlewarePlugin() {
             }
             const data = await fetchLiveMaterialPricesWithGoogle(params);
             return sendJson(res, data);
+          }
+
+          if (url === '/api/companies/ai-generate' && req.method === 'POST') {
+            const body = await getRequestBody(req);
+            const company = await generateCompanyWithAi({
+              prompt: body.prompt || 'Modern Architecture Studio',
+              category: body.category || 'architect',
+              location: body.location || 'Bangalore, India',
+            });
+            return sendJson(res, company);
           }
 
           // Fallback for unhandled /api/ routes

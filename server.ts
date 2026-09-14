@@ -9,6 +9,7 @@ import {
   fetchLiveMaterialPricesWithGoogle,
   getDomainFallbackResponse,
   generateSpeechAudio,
+  generateCompanyWithAi,
 } from './server/apiService';
 
 const app = express();
@@ -20,7 +21,7 @@ app.use(express.json({ limit: '20mb' }));
 app.get('/api/health', (req, res) => {
   res.json({
     status: 'ok',
-    agent: "ALVI's Architecture, Interior Designers & Construction - AI Intelligence",
+    agent: 'Gouse AI - Architecture & Construction Intelligence',
     version: '3.8.0',
     model: 'gemini-3.8-flash',
     features: [
@@ -237,6 +238,22 @@ app.get('/api/materials/live-prices', async (req, res) => {
       customQuery: '',
     });
     res.json({ ...data, quotaNotice: 'Serving regional benchmark pricing.' });
+  }
+});
+
+// Gouse AI: Add / Generate Company endpoint
+app.post('/api/companies/ai-generate', async (req, res) => {
+  try {
+    const { prompt, category, location } = req.body;
+    const company = await generateCompanyWithAi({
+      prompt: prompt || 'Modern Architecture Studio',
+      category: category || 'architect',
+      location: location || 'Bangalore, India',
+    });
+    res.json(company);
+  } catch (err: any) {
+    console.error('Error generating company with AI:', err);
+    res.status(500).json({ error: err.message || 'Failed to generate company profile' });
   }
 });
 
