@@ -35,22 +35,31 @@ import {
   Zap,
 } from 'lucide-react';
 import { MATERIAL_CATALOG, BUILDING_TYPOLOGY_CHECKLISTS, INITIAL_LIVE_MATERIAL_PRICES } from '../data/initialData';
-import { Project, LiveMaterialPrice, GroundingSource, MaterialPriceAlertSubscription, MaterialPriceAlertItem } from '../types';
+import { Project, LiveMaterialPrice, GroundingSource, MaterialPriceAlertSubscription, MaterialPriceAlertItem, BOQItem } from '../types';
 import { formatCurrency, CurrencyCode } from '../utils/formatters';
 import { MaterialPriceAlertsPanel } from './MaterialPriceAlertsPanel';
+import { MaterialAreaTakeoffView } from './MaterialAreaTakeoffView';
 
 interface MaterialsViewProps {
   activeProject: Project;
   currency: CurrencyCode;
   onNavigateToMarketplace?: (category?: string, query?: string) => void;
+  boqItems?: BOQItem[];
+  onUpdateBOQItems?: (items: BOQItem[]) => void;
+  onUpdateProject?: (project: Project) => void;
+  onNavigateToBOQ?: () => void;
 }
 
 export const MaterialsView: React.FC<MaterialsViewProps> = ({
   activeProject,
   currency,
   onNavigateToMarketplace,
+  boqItems = [],
+  onUpdateBOQItems,
+  onUpdateProject,
+  onNavigateToBOQ,
 }) => {
-  const [activeSection, setActiveSection] = useState<'live-prices' | 'comparison' | 'checklists' | 'render'>('live-prices');
+  const [activeSection, setActiveSection] = useState<'area-takeoff' | 'live-prices' | 'comparison' | 'checklists' | 'render'>('area-takeoff');
 
   // Live Material Pricing State
   const [livePrices, setLivePrices] = useState<LiveMaterialPrice[]>(INITIAL_LIVE_MATERIAL_PRICES);
@@ -376,6 +385,18 @@ export const MaterialsView: React.FC<MaterialsViewProps> = ({
         {/* Section Navigation Tabs */}
         <div className="flex flex-wrap items-center gap-1.5 bg-slate-900/90 p-1.5 rounded-xl border border-slate-800">
           <button
+            id="tab-area-takeoff"
+            onClick={() => setActiveSection('area-takeoff')}
+            className={`px-3.5 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
+              activeSection === 'area-takeoff'
+                ? 'bg-amber-500 text-slate-950 shadow-sm'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <Zap className="w-3.5 h-3.5" />
+            <span>Area Takeoff & Quantities</span>
+          </button>
+          <button
             id="tab-live-prices"
             onClick={() => setActiveSection('live-prices')}
             className={`px-3.5 py-2 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 ${
@@ -425,6 +446,20 @@ export const MaterialsView: React.FC<MaterialsViewProps> = ({
           </button>
         </div>
       </div>
+
+      {/* ========================================================================= */}
+      {/* SECTION 0: AUTOMATED AREA TAKEOFF & MARKET MATERIAL QUANTITIES            */}
+      {/* ========================================================================= */}
+      {activeSection === 'area-takeoff' && (
+        <MaterialAreaTakeoffView
+          activeProject={activeProject}
+          currency={currency}
+          boqItems={boqItems}
+          onUpdateBOQItems={onUpdateBOQItems}
+          onUpdateProject={onUpdateProject}
+          onNavigateToBOQ={onNavigateToBOQ}
+        />
+      )}
 
       {/* ========================================================================= */}
       {/* SECTION 1: LIVE MATERIAL PRICES (MARKET SPOT RATES)                       */}

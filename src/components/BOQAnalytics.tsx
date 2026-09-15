@@ -64,24 +64,28 @@ export const BOQAnalytics: React.FC<BOQAnalyticsProps> = ({
     });
   }, [items, subtotal, areaSqFt]);
 
-  // 2. Material vs. Labor vs. Equipment breakdown estimate
+  // 2. Material vs. Labor vs. Equipment vs. Overheads breakdown
   const costComponents = useMemo(() => {
     let materialTotal = 0;
     let laborTotal = 0;
     let equipTotal = 0;
+    let overheadTotal = 0;
 
     items.forEach((it) => {
       const amt = it.quantity * it.rate;
-      const matFrac = it.materialComponent ?? 0.65;
-      const labFrac = it.laborComponent ?? 0.30;
-      const eqFrac = it.equipmentComponent ?? 0.05;
+      const matFrac = it.materialComponent ?? 0.64;
+      const labFrac = it.laborComponent ?? 0.24;
+      const eqFrac = it.equipmentComponent ?? 0.04;
+      const ovhFrac = it.overheadComponent ?? 0.08;
 
-      materialTotal += amt * matFrac;
-      laborTotal += amt * labFrac;
-      equipTotal += amt * eqFrac;
+      const sum = matFrac + labFrac + eqFrac + ovhFrac || 1;
+      materialTotal += amt * (matFrac / sum);
+      laborTotal += amt * (labFrac / sum);
+      equipTotal += amt * (eqFrac / sum);
+      overheadTotal += amt * (ovhFrac / sum);
     });
 
-    const tot = materialTotal + laborTotal + equipTotal || 1;
+    const tot = materialTotal + laborTotal + equipTotal + overheadTotal || 1;
     return {
       material: Math.round(materialTotal),
       materialPct: Math.round((materialTotal / tot) * 100),
@@ -89,6 +93,8 @@ export const BOQAnalytics: React.FC<BOQAnalyticsProps> = ({
       laborPct: Math.round((laborTotal / tot) * 100),
       equipment: Math.round(equipTotal),
       equipmentPct: Math.round((equipTotal / tot) * 100),
+      overhead: Math.round(overheadTotal),
+      overheadPct: Math.round((overheadTotal / tot) * 100),
     };
   }, [items]);
 
@@ -277,7 +283,7 @@ export const BOQAnalytics: React.FC<BOQAnalyticsProps> = ({
       {/* TAB 2: MATERIAL VS LABOR VS EQUIPMENT */}
       {activeAnalysisTab === 'material-labor' && (
         <div className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             {/* Materials */}
             <div className="p-4 rounded-xl bg-slate-950 border border-sky-500/30 bg-sky-500/5 space-y-2">
               <div className="flex items-center justify-between">
@@ -337,6 +343,26 @@ export const BOQAnalytics: React.FC<BOQAnalyticsProps> = ({
                 ≈ ₹{Math.round(costComponents.equipment / (areaSqFt || 1)).toLocaleString()} / sq.ft
               </div>
             </div>
+
+            {/* Overheads & Margin */}
+            <div className="p-4 rounded-xl bg-slate-950 border border-rose-500/30 bg-rose-500/5 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-rose-400 flex items-center gap-1.5">
+                  <Scale className="w-3.5 h-3.5" />
+                  <span>Overheads & Margin</span>
+                </span>
+                <span className="text-xs font-mono font-bold text-white">{costComponents.overheadPct}%</span>
+              </div>
+              <div className="text-xl font-bold font-mono text-white">
+                {formatCurrency(costComponents.overhead, currency)}
+              </div>
+              <p className="text-[11px] text-slate-300">
+                Site supervision, quality testing, safety, contractor profit and head office administrative expenses.
+              </p>
+              <div className="text-[10px] text-slate-400 font-mono pt-1 border-t border-slate-800">
+                ≈ ₹{Math.round(costComponents.overhead / (areaSqFt || 1)).toLocaleString()} / sq.ft
+              </div>
+            </div>
           </div>
 
           {/* Visual Distribution Bar */}
@@ -345,7 +371,7 @@ export const BOQAnalytics: React.FC<BOQAnalyticsProps> = ({
               <span>Cost Component Allocation</span>
               <span>Total: {formatCurrency(subtotal, currency)}</span>
             </div>
-            <div className="w-full h-3 rounded-full overflow-hidden flex bg-slate-900">
+            <div className="w-full h-3.5 rounded-full overflow-hidden flex bg-slate-900">
               <div
                 style={{ width: `${costComponents.materialPct}%` }}
                 className="bg-sky-500 h-full transition-all duration-300"
@@ -361,8 +387,13 @@ export const BOQAnalytics: React.FC<BOQAnalyticsProps> = ({
                 className="bg-purple-500 h-full transition-all duration-300"
                 title={`Equipment: ${costComponents.equipmentPct}%`}
               />
+              <div
+                style={{ width: `${costComponents.overheadPct}%` }}
+                className="bg-rose-500 h-full transition-all duration-300"
+                title={`Overheads: ${costComponents.overheadPct}%`}
+              />
             </div>
-            <div className="flex items-center justify-between text-[11px] text-slate-400 pt-1">
+            <div className="flex flex-wrap items-center justify-between text-[11px] text-slate-400 pt-1 gap-2">
               <span className="flex items-center gap-1.5">
                 <span className="w-2 h-2 rounded-full bg-sky-500" />
                 <span>Materials ({costComponents.materialPct}%)</span>
@@ -374,6 +405,10 @@ export const BOQAnalytics: React.FC<BOQAnalyticsProps> = ({
               <span className="flex items-center gap-1.5">
                 <span className="w-2 h-2 rounded-full bg-purple-500" />
                 <span>Machinery ({costComponents.equipmentPct}%)</span>
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-rose-500" />
+                <span>Overheads ({costComponents.overheadPct}%)</span>
               </span>
             </div>
           </div>

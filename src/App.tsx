@@ -280,6 +280,10 @@ export function App() {
             activeProject={activeProject}
             currency={currency}
             onNavigateToMarketplace={handleNavigateToMarketplace}
+            boqItems={boqItems}
+            onUpdateBOQItems={setBoqItems}
+            onUpdateProject={handleUpdateProject}
+            onNavigateToBOQ={() => setActiveTab('boq')}
           />
         )}
 

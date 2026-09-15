@@ -73,6 +73,7 @@ export interface BOQItem {
   materialComponent?: number;
   laborComponent?: number;
   equipmentComponent?: number;
+  overheadComponent?: number;
   stage?: 'Substructure' | 'Superstructure' | 'Finishes' | 'Services' | 'Handover';
   status?: 'estimated' | 'tendered' | 'approved' | 'in-progress';
 }
