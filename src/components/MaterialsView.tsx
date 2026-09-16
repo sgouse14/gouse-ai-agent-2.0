@@ -232,6 +232,7 @@ export const MaterialsView: React.FC<MaterialsViewProps> = ({
 
   // Comparison filter
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [matrixSearchQuery, setMatrixSearchQuery] = useState<string>('');
 
   // Interactive Material Calculator
   const [calcMaterialId, setCalcMaterialId] = useState<string>(MATERIAL_CATALOG[0].id);
@@ -358,10 +359,24 @@ export const MaterialsView: React.FC<MaterialsViewProps> = ({
     setTimeout(() => setCopiedPrompt(false), 2000);
   };
 
-  const filteredMaterials =
-    selectedCategory === 'all'
-      ? MATERIAL_CATALOG
-      : MATERIAL_CATALOG.filter((m) => m.category === selectedCategory);
+  const matrixCategories = useMemo(() => {
+    const cats = Array.from(new Set(MATERIAL_CATALOG.map((m) => m.category)));
+    return ['all', ...cats];
+  }, []);
+
+  const filteredMaterials = useMemo(() => {
+    return MATERIAL_CATALOG.filter((m) => {
+      const matchesCat = selectedCategory === 'all' || m.category === selectedCategory;
+      const q = matrixSearchQuery.trim().toLowerCase();
+      const matchesSearch =
+        !q ||
+        m.name.toLowerCase().includes(q) ||
+        m.category.toLowerCase().includes(q) ||
+        m.bestUse.toLowerCase().includes(q) ||
+        m.pros.some((p) => p.toLowerCase().includes(q));
+      return matchesCat && matchesSearch;
+    });
+  }, [selectedCategory, matrixSearchQuery]);
 
   return (
     <div id="materials-standards-view" className="max-w-7xl mx-auto px-4 lg:px-8 py-6 space-y-6">
@@ -1009,6 +1024,57 @@ export const MaterialsView: React.FC<MaterialsViewProps> = ({
               <p className="text-lg font-bold font-mono text-emerald-400">
                 {totalCarbon.toLocaleString()} kg CO₂e
               </p>
+            </div>
+          </div>
+
+          {/* Category Filter Chips & Real-Time Search Bar */}
+          <div className="space-y-3">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+              <div className="relative flex-1 max-w-md">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  placeholder="Search specifications (e.g. Paint, Putty, Enamel, Primer, Rebar)..."
+                  value={matrixSearchQuery}
+                  onChange={(e) => setMatrixSearchQuery(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-700 rounded-lg pl-9 pr-8 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500 font-mono"
+                />
+                {matrixSearchQuery && (
+                  <button
+                    onClick={() => setMatrixSearchQuery('')}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white text-xs px-1"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+              <div className="text-xs font-mono text-slate-400 flex items-center gap-2">
+                <span>Showing <strong className="text-amber-400">{filteredMaterials.length}</strong> of {MATERIAL_CATALOG.length} standards</span>
+                {matrixSearchQuery && (
+                  <button
+                    onClick={() => setMatrixSearchQuery('')}
+                    className="text-[11px] text-amber-400 underline hover:text-amber-300"
+                  >
+                    Clear search
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
+              {matrixCategories.map((cat) => (
+                <button
+                  key={cat}
+                  onClick={() => setSelectedCategory(cat)}
+                  className={`px-3 py-1 rounded-lg text-xs font-mono whitespace-nowrap transition border ${
+                    selectedCategory === cat
+                      ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 font-bold'
+                      : 'bg-slate-900 text-slate-400 border-slate-800 hover:border-slate-700 hover:text-white'
+                  }`}
+                >
+                  {cat === 'all' ? `All Standards (${MATERIAL_CATALOG.length})` : cat}
+                </button>
+              ))}
             </div>
           </div>
 

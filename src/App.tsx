@@ -14,6 +14,7 @@ import {
 } from './data/initialData';
 import { Project, BOQItem, ProfessionalProfile, MarketplaceEnquiry, EnquiryStatus } from './types';
 import { CurrencyCode } from './utils/formatters';
+import { ensureItemFloorBreakdown, DEFAULT_BUILDING_FLOORS } from './utils/floorTakeoffEngine';
 
 export function App() {
   // Navigation
@@ -75,9 +76,14 @@ export function App() {
   const [boqItems, setBoqItems] = useState<BOQItem[]>(() => {
     try {
       const saved = localStorage.getItem('gouse_ai_boq_items');
-      return saved ? JSON.parse(saved) : INITIAL_BOQ_ITEMS;
+      const baseItems: BOQItem[] = saved ? JSON.parse(saved) : INITIAL_BOQ_ITEMS;
+      // Ensure any newly added initial items (e.g. Paint & Jindal Panther) exist
+      const existingIds = new Set(baseItems.map((i) => i.id));
+      const missingInitial = INITIAL_BOQ_ITEMS.filter((i) => !existingIds.has(i.id));
+      const combined = [...baseItems, ...missingInitial];
+      return combined.map((item) => ensureItemFloorBreakdown(item, DEFAULT_BUILDING_FLOORS));
     } catch {
-      return INITIAL_BOQ_ITEMS;
+      return INITIAL_BOQ_ITEMS.map((item) => ensureItemFloorBreakdown(item, DEFAULT_BUILDING_FLOORS));
     }
   });
 
@@ -97,7 +103,10 @@ export function App() {
         const cleaned = parsed.filter(
           (p) => p.id !== 'prof-alvi-001' && !p.company?.toLowerCase().includes("alvi's architecture")
         );
-        if (cleaned.length > 0) return cleaned;
+        // Ensure new initial material suppliers (e.g. Paint depot & Jindal Panther steel stockist) are included
+        const existingIds = new Set(cleaned.map((p) => p.id));
+        const missing = INITIAL_PROFESSIONALS.filter((p) => !existingIds.has(p.id));
+        if (cleaned.length > 0) return [...cleaned, ...missing];
       }
       return INITIAL_PROFESSIONALS;
     } catch {
@@ -113,7 +122,9 @@ export function App() {
         const cleaned = parsed.filter(
           (e) => e.id !== 'enq-alvi-01' && e.professionalId !== 'prof-alvi-001' && !e.professionalName?.toLowerCase().includes("alvi")
         );
-        if (cleaned.length > 0) return cleaned;
+        const existingIds = new Set(cleaned.map((e) => e.id));
+        const missing = INITIAL_ENQUIRIES.filter((e) => !existingIds.has(e.id));
+        if (cleaned.length > 0) return [...cleaned, ...missing];
       }
       return INITIAL_ENQUIRIES;
     } catch {

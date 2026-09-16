@@ -797,6 +797,61 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
                 </button>
               </div>
             </form>
+
+            {/* Quick Search Shortcut Tags */}
+            <div className="flex items-center gap-1.5 flex-wrap pt-1 border-t border-slate-800/80">
+              <span className="text-[10px] uppercase font-mono text-slate-500 mr-1">Quick Search:</span>
+              <button
+                type="button"
+                onClick={() => {
+                  setGoogleQuery('Paint and architectural coating distributors');
+                  setGoogleType('material_supplier');
+                }}
+                className="px-2 py-0.5 rounded-full bg-slate-800 hover:bg-amber-500/20 text-slate-300 hover:text-amber-300 border border-slate-700/60 text-[11px] transition"
+              >
+                🎨 Paint &amp; Coatings
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setGoogleQuery('Jindal Panther Fe550D TMT steel rebar stockists');
+                  setGoogleType('material_supplier');
+                }}
+                className="px-2 py-0.5 rounded-full bg-slate-800 hover:bg-amber-500/20 text-slate-300 hover:text-amber-300 border border-slate-700/60 text-[11px] transition"
+              >
+                🏗️ Jindal Panther / Steel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setGoogleQuery('OPC 53 Cement bulk suppliers');
+                  setGoogleType('material_supplier');
+                }}
+                className="px-2 py-0.5 rounded-full bg-slate-800 hover:bg-amber-500/20 text-slate-300 hover:text-amber-300 border border-slate-700/60 text-[11px] transition"
+              >
+                🧱 Cement &amp; Concrete
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setGoogleQuery('Sustainable residential architects');
+                  setGoogleType('architect');
+                }}
+                className="px-2 py-0.5 rounded-full bg-slate-800 hover:bg-amber-500/20 text-slate-300 hover:text-amber-300 border border-slate-700/60 text-[11px] transition"
+              >
+                📐 Sustainable Architects
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setGoogleQuery('Turnkey RCC building contractors');
+                  setGoogleType('builder');
+                }}
+                className="px-2 py-0.5 rounded-full bg-slate-800 hover:bg-amber-500/20 text-slate-300 hover:text-amber-300 border border-slate-700/60 text-[11px] transition"
+              >
+                👷 Turnkey Contractors
+              </button>
+            </div>
           </div>
 
           {/* Quota warning / Info banner */}
@@ -849,29 +904,134 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
       {/* ========================================================================= */}
       {activeTab === 'browse' && (
         <div className="space-y-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-xl bg-slate-900 border border-slate-800">
-            <div className="flex items-center gap-2 flex-1 max-w-md">
-              <Search className="w-4 h-4 text-slate-400" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Filter saved directory by company, services, or location..."
-                className="w-full bg-transparent text-xs text-white placeholder-slate-500 focus:outline-none"
-              />
+          <div className="space-y-3 p-4 rounded-xl bg-slate-900 border border-slate-800">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-2 flex-1 max-w-md">
+                <Search className="w-4 h-4 text-slate-400" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Filter saved directory by company, services, or location..."
+                  className="w-full bg-transparent text-xs text-white placeholder-slate-500 focus:outline-none"
+                />
+              </div>
+
+              <div className="flex items-center gap-2">
+                <select
+                  value={selectedType}
+                  onChange={(e) => setSelectedType(e.target.value)}
+                  className="px-3 py-1.5 rounded-lg bg-slate-950 border border-slate-800 text-xs text-white focus:outline-none focus:border-amber-500"
+                >
+                  <option value="all">All Disciplines</option>
+                  <option value="architect">Architects</option>
+                  <option value="builder">Builders</option>
+                  <option value="material_supplier">Material Suppliers</option>
+                </select>
+              </div>
             </div>
 
-            <div className="flex items-center gap-2">
-              <select
-                value={selectedType}
-                onChange={(e) => setSelectedType(e.target.value)}
-                className="px-3 py-1.5 rounded-lg bg-slate-950 border border-slate-800 text-xs text-white focus:outline-none focus:border-amber-500"
+            {/* Quick Filter Tags */}
+            <div className="flex items-center gap-1.5 flex-wrap pt-2 border-t border-slate-800/80">
+              <span className="text-[10px] uppercase font-mono text-slate-500 mr-1">Filter By:</span>
+              <button
+                type="button"
+                onClick={() => {
+                  setSearchQuery('');
+                  setSelectedType('all');
+                }}
+                className={`px-2.5 py-1 rounded-lg text-xs font-medium transition ${
+                  !searchQuery && selectedType === 'all'
+                    ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                    : 'bg-slate-950 text-slate-400 hover:text-white border border-slate-800'
+                }`}
               >
-                <option value="all">All Disciplines</option>
-                <option value="architect">Architects</option>
-                <option value="builder">Builders</option>
-                <option value="material_supplier">Material Suppliers</option>
-              </select>
+                All ({professionals.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setSearchQuery('paint');
+                  setSelectedType('material_supplier');
+                }}
+                className={`px-2.5 py-1 rounded-lg text-xs font-medium transition flex items-center gap-1.5 ${
+                  searchQuery.toLowerCase() === 'paint'
+                    ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                    : 'bg-slate-950 text-slate-400 hover:text-white border border-slate-800'
+                }`}
+              >
+                <span>🎨 Paint &amp; Coatings</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setSearchQuery('panther');
+                  setSelectedType('material_supplier');
+                }}
+                className={`px-2.5 py-1 rounded-lg text-xs font-medium transition flex items-center gap-1.5 ${
+                  searchQuery.toLowerCase() === 'panther'
+                    ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                    : 'bg-slate-950 text-slate-400 hover:text-white border border-slate-800'
+                }`}
+              >
+                <span>🏗️ Jindal Panther Rebar</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setSearchQuery('steel');
+                  setSelectedType('material_supplier');
+                }}
+                className={`px-2.5 py-1 rounded-lg text-xs font-medium transition flex items-center gap-1.5 ${
+                  searchQuery.toLowerCase() === 'steel'
+                    ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                    : 'bg-slate-950 text-slate-400 hover:text-white border border-slate-800'
+                }`}
+              >
+                <span>⚡ All Steel Suppliers</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setSearchQuery('cement');
+                  setSelectedType('material_supplier');
+                }}
+                className={`px-2.5 py-1 rounded-lg text-xs font-medium transition flex items-center gap-1.5 ${
+                  searchQuery.toLowerCase() === 'cement'
+                    ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                    : 'bg-slate-950 text-slate-400 hover:text-white border border-slate-800'
+                }`}
+              >
+                <span>🧱 Cement &amp; Concrete</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setSearchQuery('');
+                  setSelectedType('architect');
+                }}
+                className={`px-2.5 py-1 rounded-lg text-xs font-medium transition flex items-center gap-1.5 ${
+                  selectedType === 'architect' && !searchQuery
+                    ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                    : 'bg-slate-950 text-slate-400 hover:text-white border border-slate-800'
+                }`}
+              >
+                <span>📐 Architects</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setSearchQuery('');
+                  setSelectedType('builder');
+                }}
+                className={`px-2.5 py-1 rounded-lg text-xs font-medium transition flex items-center gap-1.5 ${
+                  selectedType === 'builder' && !searchQuery
+                    ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                    : 'bg-slate-950 text-slate-400 hover:text-white border border-slate-800'
+                }`}
+              >
+                <span>👷 Builders &amp; Contractors</span>
+              </button>
             </div>
           </div>
 

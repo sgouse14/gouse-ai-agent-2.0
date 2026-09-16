@@ -1,5 +1,6 @@
 import express from 'express';
 import path from 'path';
+import fs from 'fs';
 import {
   generateChatResponse,
   generateProjectIntelligence,
@@ -13,9 +14,16 @@ import {
 } from './server/apiService';
 
 const app = express();
-const PORT = 3000;
-
 app.use(express.json({ limit: '20mb' }));
+
+// Health endpoints for Cloud Run container probes and load balancers
+app.get('/healthz', (_req, res) => {
+  res.status(200).send('OK');
+});
+
+app.get('/ping', (_req, res) => {
+  res.status(200).send('pong');
+});
 
 // Health endpoint
 app.get('/api/health', (req, res) => {
@@ -257,15 +265,61 @@ app.post('/api/companies/ai-generate', async (req, res) => {
   }
 });
 
-// Serve dist directory
-const distPath = path.join(process.cwd(), 'dist');
-app.use(express.static(distPath));
+// Determine production static assets path
+const distPath = fs.existsSync(path.join(process.cwd(), 'dist', 'index.html'))
+  ? path.join(process.cwd(), 'dist')
+  : fs.existsSync(path.join(__dirname, 'index.html'))
+    ? __dirname
+    : path.join(__dirname, '..', 'dist');
+
+const resolvedDist = fs.existsSync(distPath) ? distPath : process.cwd();
+app.use(express.static(resolvedDist));
 
 // Client-side routing fallback
-app.get('*', (req, res) => {
-  res.sendFile(path.join(distPath, 'index.html'));
+app.get('*', (_req, res) => {
+  const indexPath = path.join(resolvedDist, 'index.html');
+  if (fs.existsSync(indexPath)) {
+    res.sendFile(indexPath);
+  } else {
+    res.status(200).send('<!doctype html><html><head><title>Gouse AI</title></head><body>Gouse AI Workspace is preparing...</body></html>');
+  }
 });
 
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Gouse AI Server running on http://0.0.0.0:${PORT}`);
+// Configure ports: bind to port 3000 (standard container proxy port) AND Cloud Run's PORT if specified
+const primaryPort = 3000;
+const envPort = process.env.PORT ? parseInt(process.env.PORT, 10) : null;
+
+const portsToListen = new Set<number>();
+portsToListen.add(primaryPort);
+if (envPort && !isNaN(envPort) && envPort > 0) {
+  portsToListen.add(envPort);
+}
+
+const activeServers: any[] = [];
+
+for (const port of portsToListen) {
+  try {
+    const s = app.listen(port, '0.0.0.0', () => {
+      console.log(`Gouse AI Server running on http://0.0.0.0:${port}`);
+    });
+    s.on('error', (err: any) => {
+      console.warn(`[Server] Non-fatal listener notice on port ${port}: ${err.message}`);
+    });
+    activeServers.push(s);
+  } catch (err: any) {
+    console.warn(`[Server] Failed to initialize listener on port ${port}:`, err);
+  }
+}
+
+// Graceful container shutdown on Cloud Run revision rotation
+process.on('SIGTERM', () => {
+  console.log('[Server] SIGTERM received, closing active connections.');
+  activeServers.forEach((s) => s.close?.());
+  process.exit(0);
+});
+
+process.on('SIGINT', () => {
+  console.log('[Server] SIGINT received, terminating gracefully.');
+  activeServers.forEach((s) => s.close?.());
+  process.exit(0);
 });

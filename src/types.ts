@@ -61,6 +61,30 @@ export interface Project {
   updatedAt?: string;
 }
 
+export interface BuildingFloor {
+  id: string;
+  name: string;
+  shortCode: string;
+  levelIndex: number;
+  elevation: string;
+  areaSqFt: number;
+  heightMeters?: number;
+  description?: string;
+}
+
+export interface FloorWiseTotal {
+  floorId: string;
+  floorName: string;
+  shortCode: string;
+  levelIndex: number;
+  elevation: string;
+  areaSqFt: number;
+  itemCount: number;
+  subtotal: number;
+  ratePerSqFt: number;
+  percentageOfBuilding: number;
+}
+
 export interface BOQItem {
   id: string;
   name: string;
@@ -76,6 +100,7 @@ export interface BOQItem {
   overheadComponent?: number;
   stage?: 'Substructure' | 'Superstructure' | 'Finishes' | 'Services' | 'Handover';
   status?: 'estimated' | 'tendered' | 'approved' | 'in-progress';
+  floorBreakdown?: Record<string, number>;
 }
 
 export interface BOQSummary {

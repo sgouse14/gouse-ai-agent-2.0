@@ -187,21 +187,22 @@ export const MaterialAreaTakeoffView: React.FC<MaterialAreaTakeoffViewProps> = (
       : takeoffReport.items.filter((i) => i.norm.category === filterCategory);
 
   const quickAreaPresets = useMemo(() => {
-    const basePresets = [
-      { id: 'duplex', label: '1,200 sq.ft', value: 1200, tag: 'Duplex' },
-      { id: 'villa', label: '2,400 sq.ft', value: 2400, tag: 'Villa' },
-      { id: 'bungalow', label: '5,000 sq.ft', value: 5000, tag: 'Bungalow' },
-      { id: 'commercial', label: '10,000 sq.ft', value: 10000, tag: 'Commercial' },
+    const standard = [
+      { id: 'preset-1200', label: '1,200 sq.ft', value: 1200, tag: 'Duplex' },
+      { id: 'preset-2400', label: '2,400 sq.ft', value: 2400, tag: 'Villa' },
+      { id: 'preset-3600', label: '3,600 sq.ft', value: 3600, tag: 'Triplex' },
+      { id: 'preset-5000', label: '5,000 sq.ft', value: 5000, tag: 'Bungalow' },
+      { id: 'preset-10000', label: '10,000 sq.ft', value: 10000, tag: 'Commercial' },
     ];
-    if (areaSqFt && areaSqFt > 0 && !basePresets.some((p) => p.value === areaSqFt)) {
+
+    const exists = standard.some((p) => p.value === areaSqFt);
+    if (!exists && areaSqFt > 0) {
       return [
-        basePresets[0],
-        basePresets[1],
-        { id: 'active-area', label: `${areaSqFt.toLocaleString()} sq.ft`, value: areaSqFt, tag: 'Active' },
-        ...basePresets.slice(2),
+        { id: `preset-active-${areaSqFt}`, label: `${areaSqFt.toLocaleString()} sq.ft`, value: areaSqFt, tag: 'Active' },
+        ...standard,
       ];
     }
-    return basePresets;
+    return standard;
   }, [areaSqFt]);
 
   return (
@@ -393,7 +394,7 @@ export const MaterialAreaTakeoffView: React.FC<MaterialAreaTakeoffViewProps> = (
       </div>
 
       {/* High-Level Material Volume Highlights */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3 font-mono">
+      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3 font-mono">
         <div className="bg-slate-900 border border-amber-500/40 rounded-xl p-3.5 bg-gradient-to-b from-amber-500/10 to-transparent">
           <span className="block text-[11px] text-amber-300 uppercase tracking-wider font-bold">
             Total Material Cost
@@ -456,13 +457,25 @@ export const MaterialAreaTakeoffView: React.FC<MaterialAreaTakeoffViewProps> = (
 
         <div className="bg-slate-900 border border-slate-800 rounded-xl p-3.5">
           <span className="block text-[11px] text-slate-400 uppercase tracking-wider">
-            Total Coatings
+            Wall Care Putty
           </span>
           <span className="text-lg font-bold text-amber-300">
-            {takeoffReport.keyMaterialVolumes.paintLiters} L
+            {(takeoffReport.keyMaterialVolumes.puttyBags || Math.round(takeoffReport.areaSqFt * 0.003 * 1.05)).toLocaleString()} bags
           </span>
           <span className="block text-[10px] text-slate-500 mt-0.5">
-            Interior + Exterior
+            40kg / 2 coats
+          </span>
+        </div>
+
+        <div className="bg-slate-900 border border-slate-800 rounded-xl p-3.5">
+          <span className="block text-[11px] text-slate-400 uppercase tracking-wider">
+            Coatings & Paints
+          </span>
+          <span className="text-lg font-bold text-amber-300">
+            {takeoffReport.keyMaterialVolumes.paintLiters.toLocaleString()} L
+          </span>
+          <span className="block text-[10px] text-slate-500 mt-0.5">
+            Emulsion + Primer + Enamel
           </span>
         </div>
       </div>
@@ -483,7 +496,7 @@ export const MaterialAreaTakeoffView: React.FC<MaterialAreaTakeoffViewProps> = (
                 : 'bg-slate-900 text-slate-400 border-slate-800 hover:border-slate-700 hover:text-white'
             }`}
           >
-            {cat === 'all' ? 'All Materials (16)' : cat}
+            {cat === 'all' ? `All Materials (${takeoffReport.items.length})` : cat}
           </button>
         ))}
       </div>

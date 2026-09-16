@@ -133,26 +133,22 @@ export const AreaTakeoffAutoUpdateModal: React.FC<AreaTakeoffAutoUpdateModalProp
   };
 
   const quickAreaPresets = useMemo(() => {
-    const basePresets = [
-      { id: 'duplex', label: '1,200 sq.ft', value: 1200, tag: 'Duplex' },
-      { id: 'villa', label: '2,400 sq.ft', value: 2400, tag: 'Villa' },
-      { id: 'bungalow', label: '5,000 sq.ft', value: 5000, tag: 'Bungalow' },
-      { id: 'commercial', label: '10,000 sq.ft', value: 10000, tag: 'Commercial' },
+    const standard = [
+      { id: 'preset-1200', label: '1,200 sq.ft', value: 1200, tag: 'Duplex' },
+      { id: 'preset-2400', label: '2,400 sq.ft', value: 2400, tag: 'Villa' },
+      { id: 'preset-3600', label: '3,600 sq.ft', value: 3600, tag: 'Triplex' },
+      { id: 'preset-5000', label: '5,000 sq.ft', value: 5000, tag: 'Bungalow' },
+      { id: 'preset-10000', label: '10,000 sq.ft', value: 10000, tag: 'Commercial' },
     ];
-    if (currentAreaSqFt && currentAreaSqFt > 0 && !basePresets.some((p) => p.value === currentAreaSqFt)) {
+
+    const exists = standard.some((p) => p.value === currentAreaSqFt);
+    if (!exists && currentAreaSqFt > 0) {
       return [
-        basePresets[0],
-        basePresets[1],
-        {
-          id: 'current-active',
-          label: `${currentAreaSqFt.toLocaleString()} sq.ft`,
-          value: currentAreaSqFt,
-          tag: 'Current',
-        },
-        ...basePresets.slice(2),
+        { id: `preset-current-${currentAreaSqFt}`, label: `${currentAreaSqFt.toLocaleString()} sq.ft`, value: currentAreaSqFt, tag: 'Current' },
+        ...standard,
       ];
     }
-    return basePresets;
+    return standard;
   }, [currentAreaSqFt]);
 
   const filteredItemDetails = report.itemDetails.filter((d) =>

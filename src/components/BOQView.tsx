@@ -30,9 +30,11 @@ import {
   LineChart as LineChartIcon,
   PieChart as PieChartIcon,
   Zap,
-  MapPin
+  MapPin,
+  Building2,
+  TableProperties
 } from 'lucide-react';
-import { BOQItem, Project, MarketplaceEnquiry } from '../types';
+import { BOQItem, Project, MarketplaceEnquiry, BuildingFloor, FloorWiseTotal } from '../types';
 import { formatCurrency, CurrencyCode } from '../utils/formatters';
 import { FutureCostSimulator } from './FutureCostSimulator';
 import { BOQDistributionAnalytics } from './BOQDistributionAnalytics';
@@ -48,6 +50,22 @@ import {
   autoUpdateBOQItemsWithMarketRates,
   MarketUpdateReport
 } from '../utils/marketPriceEngine';
+import { FloorWiseSummaryCards } from './FloorWiseSummaryCards';
+import { FloorWiseBOQMatrix } from './FloorWiseBOQMatrix';
+import { LevelDetailedBOQTable } from './LevelDetailedBOQTable';
+import { BuildingFloorManagerModal } from './BuildingFloorManagerModal';
+import { FloorDistributionModal } from './FloorDistributionModal';
+import { FloorWisePrintReportModal } from './FloorWisePrintReportModal';
+import {
+  DEFAULT_BUILDING_FLOORS,
+  calculateFloorWiseTotals,
+  updateItemFloorQuantity,
+  copyFloorQuantitiesAcrossItems,
+  generateFloorWiseCSV,
+  ensureItemFloorBreakdown,
+  distributeItemQuantityByFloorArea
+} from '../utils/floorTakeoffEngine';
+import { exportBOQToExcel, exportBOQToExcelCSV } from '../utils/excelExport';
 
 export interface ItemAuditIssue {
   type: 'rate' | 'unit' | 'quantity';
@@ -437,6 +455,101 @@ export const BOQView: React.FC<BOQViewProps> = ({
   const [activeMarketBasis, setActiveMarketBasis] = useState<MarketPricingBasis>('spot_market');
   const [marketUpdateBanner, setMarketUpdateBanner] = useState<{ message: string; submessage?: string } | null>(null);
 
+  // Building Floors & Level Breakdown States
+  const [floors, setFloors] = useState<BuildingFloor[]>(() => {
+    try {
+      const saved = localStorage.getItem('gouse_ai_building_floors');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+    return DEFAULT_BUILDING_FLOORS;
+  });
+
+  useEffect(() => {
+    localStorage.setItem('gouse_ai_building_floors', JSON.stringify(floors));
+  }, [floors]);
+
+  // Floor View Mode: 'matrix' (Detailed Floor-Wise Matrix) vs 'level_focus' (single level focus) vs 'standard'
+  const [floorViewMode, setFloorViewMode] = useState<'matrix' | 'level_focus' | 'standard'>('matrix');
+  const [selectedFloorId, setSelectedFloorId] = useState<string | 'all'>('all');
+
+  // Modals for Floor-Wise capabilities
+  const [isFloorManagerOpen, setIsFloorManagerOpen] = useState(false);
+  const [isDistributionModalOpen, setIsDistributionModalOpen] = useState(false);
+  const [activeDistributionItem, setActiveDistributionItem] = useState<BOQItem | null>(null);
+  const [isFloorPrintModalOpen, setIsFloorPrintModalOpen] = useState(false);
+
+  // Floor-Wise Schedule Calculations (Subtotals, rates/sqft, % distribution)
+  const {
+    floorTotals,
+    buildingSubtotal: floorBuildingSubtotal,
+    contingencyAmount: floorContingencyAmount,
+    grandTotal: floorGrandTotal,
+    totalAreaSqFt: floorTotalAreaSqFt,
+    overallRatePerSqFt: floorOverallRatePerSqFt,
+  } = useMemo(() => {
+    return calculateFloorWiseTotals(items, floors, contingencyPercent);
+  }, [items, floors, contingencyPercent]);
+
+  // Handler: Update an individual item's quantity on a specific floor
+  const handleUpdateItemFloorQty = (itemId: string, floorId: string, newQty: number) => {
+    const updated = items.map((it) => {
+      if (it.id === itemId) {
+        return updateItemFloorQuantity(it, floorId, newQty, floors);
+      }
+      return it;
+    });
+    onUpdateItems(updated);
+  };
+
+  // Handler: Update rate for an item in the matrix
+  const handleUpdateItemRateInMatrix = (itemId: string, newRate: number) => {
+    const updated = items.map((it) => {
+      if (it.id === itemId) {
+        const r = Math.max(0, newRate);
+        return {
+          ...it,
+          rate: r,
+          amount: Math.round(it.quantity * r * 100) / 100,
+        };
+      }
+      return it;
+    });
+    onUpdateItems(updated);
+  };
+
+  // Handler: Copy takeoff quantities from one floor into another
+  const handleCopyFromFloor = (sourceFloorId: string, targetFloorId: string) => {
+    const updated = copyFloorQuantitiesAcrossItems(items, sourceFloorId, targetFloorId, floors);
+    onUpdateItems(updated);
+  };
+
+  // Handler: Export directly to Microsoft Excel (.xlsx format with multiple sheets)
+  const handleExportExcel = () => {
+    exportBOQToExcel({
+      items,
+      floors,
+      projectName: activeProject.name,
+      currency,
+      contingencyPercent,
+      builtUpAreaSqFt: areaSqFt,
+    });
+  };
+
+  // Handler: Export Floor-Wise Schedule of Rates and Quantities in Excel-Ready CSV (with UTF-8 BOM)
+  const handleExportFloorWiseCSV = () => {
+    exportBOQToExcelCSV({
+      items,
+      floors,
+      projectName: activeProject.name,
+      currency,
+      contingencyPercent,
+      builtUpAreaSqFt: areaSqFt,
+    });
+  };
+
   // Handle applied area & market price auto-update
   const handleApplyAreaAndMarketUpdate = (
     updatedItems: BOQItem[],
@@ -694,7 +807,8 @@ export const BOQView: React.FC<BOQViewProps> = ({
       notes: newItemNotes.trim(),
     };
 
-    onUpdateItems([...items, newItem]);
+    const ensuredNewItem = ensureItemFloorBreakdown(newItem, floors);
+    onUpdateItems([...items, ensuredNewItem]);
     setNewItemName('');
     setNewItemNotes('');
     setIsAddingItem(false);
@@ -1094,24 +1208,47 @@ Contact: ${enquiryClientPhone}`,
             </button>
           )}
 
-          {/* Export CSV */}
+          {/* Export to Microsoft Excel (.xlsx) */}
+          <button
+            id="btn-export-excel-top"
+            onClick={handleExportExcel}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs transition shadow-sm"
+            title="Download complete Schedule of Rates & Quantities in Microsoft Excel (.xlsx) format with multi-sheet workbook (Floor-Wise Breakdown, Level Summary, Master BOQ)"
+          >
+            <FileSpreadsheet className="w-4 h-4 text-emerald-100" />
+            <span>Export Excel (.xlsx)</span>
+          </button>
+
+          {/* Export CSV (Excel Compatible with UTF-8 BOM) */}
+          <button
+            id="btn-export-floor-wise-csv-top"
+            onClick={handleExportFloorWiseCSV}
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-emerald-400 border border-emerald-500/30 text-xs font-medium transition"
+            title="Download Schedule of Rates & Quantities broken down by floor level in Excel-compatible CSV format"
+          >
+            <Download className="w-3.5 h-3.5 text-emerald-400" />
+            <span>Floor-Wise CSV (Excel)</span>
+          </button>
+
           <button
             id="btn-export-csv"
             onClick={handleExportCSV}
             className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs transition"
+            title="Export standard BOQ summary"
           >
             <Download className="w-3.5 h-3.5" />
-            <span>Export CSV</span>
+            <span>Master CSV</span>
           </button>
 
-          {/* Print */}
+          {/* Print Floor-Wise Report */}
           <button
-            id="btn-print-boq"
-            onClick={() => window.print()}
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs transition"
+            id="btn-print-floor-report-top"
+            onClick={() => setIsFloorPrintModalOpen(true)}
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30 text-xs font-semibold transition"
+            title="View printable / PDF official Floor-Wise Schedule of Rates and Quantities report"
           >
-            <Printer className="w-3.5 h-3.5" />
-            <span>Print</span>
+            <Printer className="w-3.5 h-3.5 text-amber-400" />
+            <span>Floor Report</span>
           </button>
         </div>
       </div>
@@ -2136,7 +2273,175 @@ Contact: ${enquiryClientPhone}`,
         </div>
       )}
 
-      {/* MAIN BOQ ITEM SCHEDULE TABLE */}
+      {/* SECTION: FLOOR-WISE BREAKDOWN & LEVEL NAVIGATION */}
+      <div id="section-floor-wise-schedule" className="space-y-4">
+        <FloorWiseSummaryCards
+          floors={floors}
+          floorTotals={floorTotals}
+          selectedFloorId={selectedFloorId}
+          onSelectFloor={(floorId) => {
+            setSelectedFloorId(floorId);
+            if (floorId === 'all') {
+              setFloorViewMode('matrix');
+            } else {
+              setFloorViewMode('level_focus');
+            }
+          }}
+          currency={currency}
+          onOpenFloorManager={() => setIsFloorManagerOpen(true)}
+          onOpenDistributionModal={() => {
+            setActiveDistributionItem(null);
+            setIsDistributionModalOpen(true);
+          }}
+        />
+
+        {/* View Mode Switcher & Floor Export Actions Bar */}
+        <div className="flex flex-wrap items-center justify-between gap-3 p-3 bg-slate-900 border border-slate-800 rounded-xl">
+          <div className="flex items-center gap-1.5 bg-slate-950 p-1 rounded-lg border border-slate-800">
+            <button
+              type="button"
+              id="tab-mode-floor-matrix"
+              onClick={() => setFloorViewMode('matrix')}
+              className={`px-3 py-1.5 rounded-md text-xs font-semibold transition flex items-center gap-1.5 ${
+                floorViewMode === 'matrix'
+                  ? 'bg-amber-500 text-slate-950 shadow-sm'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <TableProperties className="w-3.5 h-3.5" />
+              <span>Floor-Wise Matrix</span>
+              <span className={`px-1.5 py-0.2 rounded text-[10px] font-mono ${
+                floorViewMode === 'matrix' ? 'bg-slate-950 text-amber-400' : 'bg-slate-800 text-slate-400'
+              }`}>
+                All Levels
+              </span>
+            </button>
+
+            <button
+              type="button"
+              id="tab-mode-single-level"
+              onClick={() => {
+                setFloorViewMode('level_focus');
+                if (selectedFloorId === 'all') {
+                  setSelectedFloorId(floors[1]?.id || floors[0]?.id || 'ground_floor');
+                }
+              }}
+              className={`px-3 py-1.5 rounded-md text-xs font-semibold transition flex items-center gap-1.5 ${
+                floorViewMode === 'level_focus'
+                  ? 'bg-amber-500 text-slate-950 shadow-sm'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <Layers className="w-3.5 h-3.5" />
+              <span>Single Level Focus</span>
+              {selectedFloorId !== 'all' && (
+                <span className={`px-1.5 py-0.2 rounded text-[10px] font-mono font-bold ${
+                  floorViewMode === 'level_focus' ? 'bg-slate-950 text-amber-400' : 'bg-slate-800 text-slate-400'
+                }`}>
+                  {floors.find((f) => f.id === selectedFloorId)?.shortCode || 'Level'}
+                </span>
+              )}
+            </button>
+
+            <button
+              type="button"
+              id="tab-mode-master-consolidated"
+              onClick={() => setFloorViewMode('standard')}
+              className={`px-3 py-1.5 rounded-md text-xs font-semibold transition flex items-center gap-1.5 ${
+                floorViewMode === 'standard'
+                  ? 'bg-amber-500 text-slate-950 shadow-sm'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <span>Master Schedule</span>
+            </button>
+          </div>
+
+          <div className="flex items-center gap-2 flex-wrap">
+            <button
+              type="button"
+              id="btn-export-floor-wise-excel"
+              onClick={handleExportExcel}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold shadow-sm transition"
+              title="Download Schedule of Rates and Quantities broken down by floor level in Microsoft Excel (.xlsx) workbook"
+            >
+              <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-100" />
+              <span>Export Excel (.xlsx)</span>
+            </button>
+
+            <button
+              type="button"
+              id="btn-export-floor-wise-csv"
+              onClick={handleExportFloorWiseCSV}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-emerald-400 border border-emerald-500/30 text-xs font-medium transition"
+              title="Download Schedule of Rates and Quantities with individual columns for each floor level in Excel-ready CSV format"
+            >
+              <Download className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Export CSV (Excel)</span>
+            </button>
+
+            <button
+              type="button"
+              id="btn-print-floor-report"
+              onClick={() => setIsFloorPrintModalOpen(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/30 text-xs font-medium transition"
+              title="Generate printable / PDF document with complete floor-wise Schedule of Rates & Quantities"
+            >
+              <Printer className="w-3.5 h-3.5 text-amber-400" />
+              <span>Floor Report & Tender Print</span>
+            </button>
+          </div>
+        </div>
+
+        {/* View Mode 1: Detailed Floor-Wise Matrix Table */}
+        {floorViewMode === 'matrix' && (
+          <FloorWiseBOQMatrix
+            items={items}
+            floors={floors}
+            floorTotals={floorTotals}
+            currency={currency}
+            contingencyPercent={contingencyPercent}
+            auditResults={auditResults}
+            isAuditActive={isAuditActive}
+            onUpdateFloorQty={handleUpdateItemFloorQty}
+            onUpdateRate={handleUpdateItemRateInMatrix}
+            onDeleteItem={handleDeleteItem}
+            onOpenItemDistribution={(item) => {
+              setActiveDistributionItem(item);
+              setIsDistributionModalOpen(true);
+            }}
+          />
+        )}
+
+        {/* View Mode 2: Level-Specific Focus View */}
+        {floorViewMode === 'level_focus' && (
+          <LevelDetailedBOQTable
+            floor={
+              floors.find((f) => f.id === selectedFloorId) ||
+              floors.find((f) => f.id === 'ground_floor') ||
+              floors[0]
+            }
+            floorTotal={
+              floorTotals.find((t) => t.floorId === selectedFloorId) ||
+              floorTotals[0]
+            }
+            items={items}
+            allFloors={floors}
+            currency={currency}
+            contingencyPercent={contingencyPercent}
+            onUpdateFloorQty={handleUpdateItemFloorQty}
+            onUpdateRate={handleUpdateItemRateInMatrix}
+            onCopyFromFloor={handleCopyFromFloor}
+            onOpenItemDistribution={(item) => {
+              setActiveDistributionItem(item);
+              setIsDistributionModalOpen(true);
+            }}
+          />
+        )}
+      </div>
+
+      {/* MAIN BOQ ITEM SCHEDULE TABLE (Master Consolidated View) */}
+      {floorViewMode === 'standard' && (
       <div className="rounded-xl bg-slate-900 border border-slate-800 overflow-hidden shadow-sm">
         {/* Banner notification when market prices are updated */}
         {marketUpdateBanner && (
@@ -2592,6 +2897,8 @@ Contact: ${enquiryClientPhone}`,
           </table>
         </div>
       </div>
+      )}
+
       {/* MODAL 6: AUTOMATIC MARKET PRICE UPDATE & COMPARISON */}
       <MarketPriceAutoUpdateModal
         items={items}
@@ -2620,6 +2927,40 @@ Contact: ${enquiryClientPhone}`,
         initialTier={activeMarketTier}
         initialPricingBasis={activeMarketBasis}
         onApplyUpdate={handleApplyAreaAndMarketUpdate}
+      />
+
+      {/* MODAL 8: CONFIGURE BUILDING LEVELS & FLOOR AREAS */}
+      <BuildingFloorManagerModal
+        isOpen={isFloorManagerOpen}
+        onClose={() => setIsFloorManagerOpen(false)}
+        floors={floors}
+        onSaveFloors={setFloors}
+      />
+
+      {/* MODAL 9: FLOOR-WISE QUANTITY DISTRIBUTION TOOLS */}
+      <FloorDistributionModal
+        isOpen={isDistributionModalOpen}
+        onClose={() => {
+          setIsDistributionModalOpen(false);
+          setActiveDistributionItem(null);
+        }}
+        floors={floors}
+        activeItem={activeDistributionItem}
+        allItems={items}
+        onUpdateItem={(upd) => onUpdateItems(items.map((i) => (i.id === upd.id ? upd : i)))}
+        onUpdateAllItems={onUpdateItems}
+      />
+
+      {/* MODAL 10: PRINT & EXPORT FLOOR-WISE REPORT */}
+      <FloorWisePrintReportModal
+        isOpen={isFloorPrintModalOpen}
+        onClose={() => setIsFloorPrintModalOpen(false)}
+        project={activeProject}
+        items={items}
+        floors={floors}
+        floorTotals={floorTotals}
+        currency={currency}
+        contingencyPercent={contingencyPercent}
       />
     </div>
   );

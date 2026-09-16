@@ -364,6 +364,146 @@ export const MATERIAL_TAKEOFF_NORMS: MaterialTakeoffNorm[] = [
     boqCategoryMatch: 'Substructure',
     boqItemKeywords: ['earthwork', 'excavation', 'foundation trench', 'soil'],
   },
+  {
+    id: 'norm-wall-putty',
+    name: 'White Cement-Based Polymer Wall Care Putty (Double Coat Skim)',
+    trade: 'Architectural Finishes',
+    category: 'Finishes & Surfaces',
+    unit: '40kg bags',
+    normPerSqFt: 0.003, // 3 bags (120kg) per 1,000 sq.ft built-up area (~0.12 kg/sq.ft)
+    normDescription: '0.003 bags (40kg) per sq.ft (~0.12 kg/sq.ft) for two uniform leveling skim coats on interior & exterior plastered surfaces',
+    standardWastagePercent: 5.0,
+    baseRate: 920,
+    economyMultiplier: 0.88,
+    standardMultiplier: 1.0,
+    premiumMultiplier: 1.15,
+    luxuryMultiplier: 1.30,
+    brands: ['Birla White Wall Care', 'JK WallMaxx', 'Asian Paints TruCare', 'UltraTech Seal & Dry'],
+    isCodeRef: 'IS 15489 / CPWD DSR 13.80',
+    stage: 'Finishes',
+    boqCategoryMatch: 'Finishes',
+    boqItemKeywords: ['putty', 'wall putty', 'skim coat', 'white cement putty', 'birla white', 'wall care'],
+  },
+  {
+    id: 'norm-wall-primer',
+    name: 'Deep-Penetrating Water-Thinnable Acrylic Wall Primer',
+    trade: 'Architectural Finishes',
+    category: 'Finishes & Surfaces',
+    unit: 'liters',
+    normPerSqFt: 0.032,
+    normDescription: '0.032 liters / sq.ft (1 coat alkali-resistant base primer over cured plaster & sanded putty)',
+    standardWastagePercent: 5.0,
+    baseRate: 165,
+    economyMultiplier: 0.85,
+    standardMultiplier: 1.0,
+    premiumMultiplier: 1.25,
+    luxuryMultiplier: 1.50,
+    brands: ['Asian Paints Decoprime', 'Berger BP White Primer', 'Dulux Aqua Primer', 'Nerolac Primer'],
+    isCodeRef: 'IS 109 / CPWD DSR 13.79',
+    stage: 'Finishes',
+    boqCategoryMatch: 'Finishes',
+    boqItemKeywords: ['primer', 'wall primer', 'acrylic primer', 'decoprime', 'base coat'],
+  },
+  {
+    id: 'norm-enamel-paint',
+    name: 'Synthetic High-Gloss Enamel Paint (MS Grills, Railings & Wood Joinery)',
+    trade: 'Architectural Finishes',
+    category: 'Finishes & Surfaces',
+    unit: 'liters',
+    normPerSqFt: 0.0085,
+    normDescription: '0.0085 liters / sq.ft for MS safety window grills, balcony balustrades, staircase railings & door frames (2 coats over zinc-chromate red oxide primer)',
+    standardWastagePercent: 6.0,
+    baseRate: 340,
+    economyMultiplier: 0.85,
+    standardMultiplier: 1.0,
+    premiumMultiplier: 1.28,
+    luxuryMultiplier: 1.65,
+    brands: ['Asian Paints Apcolite Premium Gloss', 'Berger Luxol High Gloss', 'Nerolac Synthetic Enamel'],
+    isCodeRef: 'IS 2932 / CPWD DSR 13.61',
+    stage: 'Finishes',
+    boqCategoryMatch: 'Finishes',
+    boqItemKeywords: ['enamel', 'synthetic enamel', 'grill paint', 'metal paint', 'wood paint', 'gloss enamel', 'apcolite'],
+  },
+  {
+    id: 'norm-dampproof-coating',
+    name: 'Elastomeric Liquid Waterproofing & Anti-Damp Membrane Coating',
+    trade: 'Waterproofing & Protection',
+    category: 'Waterproofing',
+    unit: 'liters',
+    normPerSqFt: 0.016,
+    normDescription: '0.016 liters / sq.ft for parapet copings, exterior chajjas, terrace floor-wall coves & toilet sunken vertical dado coats',
+    standardWastagePercent: 4.0,
+    baseRate: 430,
+    economyMultiplier: 0.85,
+    standardMultiplier: 1.0,
+    premiumMultiplier: 1.25,
+    luxuryMultiplier: 1.55,
+    brands: ['Asian Paints SmartCare Damp Proof', 'Dr. Fixit Newcoat ERS', 'Fosroc Brushbond', 'SikaTop Seal'],
+    isCodeRef: 'ASTM C836 / IS 15801',
+    stage: 'Finishes',
+    boqCategoryMatch: 'Waterproofing',
+    boqItemKeywords: ['damp proof', 'dampproof', 'waterproof paint', 'liquid membrane', 'smartcare', 'dr fixit', 'newcoat'],
+  },
+  {
+    id: 'norm-granite-counter',
+    name: 'Pre-Polished Jet Black Granite Slabs (18-20mm Kitchen Counter & Window Sills)',
+    trade: 'Stone & Masonry Finishes',
+    category: 'Finishes & Surfaces',
+    unit: 'sq.ft',
+    normPerSqFt: 0.085,
+    normDescription: '0.085 sq.ft per sq.ft built-up area for kitchen counters, utility platforms, bathroom vanity counters & full-window perimeter sill splayed bands',
+    standardWastagePercent: 7.0,
+    baseRate: 185,
+    economyMultiplier: 0.82,
+    standardMultiplier: 1.0,
+    premiumMultiplier: 1.45,
+    luxuryMultiplier: 2.25,
+    brands: ['South Indian Gangsaw Jet Black', 'Chamrajnagar Black', 'Telephone Black'],
+    isCodeRef: 'IS 3316 / IS 1130',
+    stage: 'Finishes',
+    boqCategoryMatch: 'Finishes',
+    boqItemKeywords: ['granite', 'black granite', 'kitchen counter', 'window sill', 'granite slab'],
+  },
+  {
+    id: 'norm-false-ceiling',
+    name: 'Gypsum Board Suspended False Ceiling System (12.5mm + GI Framework)',
+    trade: 'Interior Architectural Finishes',
+    category: 'Finishes & Surfaces',
+    unit: 'sq.ft',
+    normPerSqFt: 0.65,
+    normDescription: '0.65 sq.ft false ceiling per sq.ft built-up area (covers living, dining, master suites and recessed cove lighting troughs)',
+    standardWastagePercent: 6.0,
+    baseRate: 115,
+    economyMultiplier: 0.82,
+    standardMultiplier: 1.0,
+    premiumMultiplier: 1.40,
+    luxuryMultiplier: 2.10,
+    brands: ['Saint-Gobain Gyproc', 'USG Boral Sheetrock', 'Armstrong World Industries'],
+    isCodeRef: 'IS 2095 / CPWD DSR 12.45',
+    stage: 'Finishes',
+    boqCategoryMatch: 'Finishes',
+    boqItemKeywords: ['false ceiling', 'gypsum', 'gyproc', 'ceiling', 'pop ceiling'],
+  },
+  {
+    id: 'norm-tile-grout-adhesive',
+    name: 'Polymer-Modified Tile Adhesive & Epoxy Waterproof Grout',
+    trade: 'Architectural Finishes',
+    category: 'Finishes & Surfaces',
+    unit: 'kg',
+    normPerSqFt: 0.28,
+    normDescription: '0.28 kg per sq.ft built-up area (covers high-strength bed polymer adhesive & 3mm stain-resistant epoxy tile joint filling)',
+    standardWastagePercent: 5.0,
+    baseRate: 45,
+    economyMultiplier: 0.85,
+    standardMultiplier: 1.0,
+    premiumMultiplier: 1.30,
+    luxuryMultiplier: 1.70,
+    brands: ['Roff New Construction Tile Adhesive', 'Laticrete 252/SpectraLOCK', 'MYK Laticrete', 'Fosroc Nitotile'],
+    isCodeRef: 'IS 15477:2019 Type 2',
+    stage: 'Finishes',
+    boqCategoryMatch: 'Finishes',
+    boqItemKeywords: ['tile adhesive', 'tile grout', 'epoxy grout', 'roff', 'laticrete'],
+  },
 ];
 
 /**
@@ -406,6 +546,7 @@ export interface MaterialTakeoffReport {
     blocksM3: number;
     tilesSqFt: number;
     paintLiters: number;
+    puttyBags?: number;
   };
 }
 
@@ -514,6 +655,9 @@ export function calculateMaterialTakeoffFromArea(
   const tilesItem = items.find((i) => i.norm.id === 'norm-vitrified-tiles');
   const intPaintItem = items.find((i) => i.norm.id === 'norm-interior-paint');
   const extPaintItem = items.find((i) => i.norm.id === 'norm-exterior-paint');
+  const puttyItem = items.find((i) => i.norm.id === 'norm-wall-putty');
+  const primerItem = items.find((i) => i.norm.id === 'norm-wall-primer');
+  const enamelItem = items.find((i) => i.norm.id === 'norm-enamel-paint');
 
   const keyMaterialVolumes = {
     cementBags: cementItem ? cementItem.roundedQuantity : Math.round(validArea * 0.42),
@@ -523,8 +667,12 @@ export function calculateMaterialTakeoffFromArea(
     blocksM3: blocksItem ? blocksItem.roundedQuantity : Math.round(validArea * 0.028 * 10) / 10,
     tilesSqFt: tilesItem ? tilesItem.roundedQuantity : Math.round(validArea * 1.22),
     paintLiters: Math.round(
-      (intPaintItem?.roundedQuantity || validArea * 0.045) + (extPaintItem?.roundedQuantity || validArea * 0.022)
+      (intPaintItem?.roundedQuantity || validArea * 0.045) +
+      (extPaintItem?.roundedQuantity || validArea * 0.022) +
+      (primerItem?.roundedQuantity || 0) +
+      (enamelItem?.roundedQuantity || 0)
     ),
+    puttyBags: puttyItem ? puttyItem.roundedQuantity : Math.round(validArea * 0.003 * 1.05),
   };
 
   return {
