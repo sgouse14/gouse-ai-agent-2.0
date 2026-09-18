@@ -1097,7 +1097,9 @@ export const MATERIAL_CATALOG: MaterialComparisonItem[] = [
     fireRating: '4 Hours (Class A1)',
     pros: ['Superior thermal insulation', '1/3 weight of red clay bricks', 'Faster masonry installation', 'Non-combustible'],
     cons: ['Requires skilled thin-bed mortar', 'Susceptible to brittle chipping during transport'],
-    bestUse: 'External perimeter and internal partition walls in multi-story residential & commercial buildings'
+    bestUse: 'External perimeter and internal partition walls in multi-story residential & commercial buildings',
+    applicableFloors: ['Ground Floor', 'First Floor', 'Second Floor'],
+    floorNotes: 'Standard external perimeter & room partition masonry across all superstructure living levels',
   },
   {
     id: 'mat-02',
@@ -1111,7 +1113,9 @@ export const MATERIAL_CATALOG: MaterialComparisonItem[] = [
     fireRating: '4 Hours (Class A1)',
     pros: ['High compressive strength', 'Excellent acoustic mass', 'Timeless exposed brick aesthetics', 'High moisture buffer capacity'],
     cons: ['Heavy dead load on foundation', 'High carbon footprint from coal kiln firing', 'Inconsistent dimensional tolerances'],
-    bestUse: 'Exposed brickwork facades, heritage restorations, boundary walls, and loadbearing masonry'
+    bestUse: 'Exposed brickwork facades, heritage restorations, boundary walls, and loadbearing masonry',
+    applicableFloors: ['Ground Floor', 'First Floor', 'Second Floor'],
+    floorNotes: 'Feature exposed brickwork walls, compound boundary & balcony planter boxes',
   },
   {
     id: 'mat-03',
@@ -1125,7 +1129,9 @@ export const MATERIAL_CATALOG: MaterialComparisonItem[] = [
     fireRating: '3 Hours',
     pros: ['Extremely low carbon footprint', 'Produced from on-site excavated soil', 'Excellent thermal comfort in dry/tropical climates'],
     cons: ['Requires protection from prolonged driving rain', 'Higher wall thickness needed'],
-    bestUse: 'Eco-resorts, passive solar residential architecture, and rural institutional projects'
+    bestUse: 'Eco-resorts, passive solar residential architecture, and rural institutional projects',
+    applicableFloors: ['Ground Floor', 'First Floor'],
+    floorNotes: 'Ground & first floor perimeter walls with deep roof overhang protection',
   },
   {
     id: 'mat-04',
@@ -1139,7 +1145,9 @@ export const MATERIAL_CATALOG: MaterialComparisonItem[] = [
     fireRating: '30 Minutes',
     pros: ['Cuts AC cooling load by up to 28%', 'Blocks 85% of UV radiation', 'Substantial acoustic reduction (-36 dB)'],
     cons: ['Higher upfront procurement cost', 'Heavy pane weight requires structural aluminum sections'],
-    bestUse: 'West and South facing architectural fenestrations, curtain wall facades, and luxury residences'
+    bestUse: 'West and South facing architectural fenestrations, curtain wall facades, and luxury residences',
+    applicableFloors: ['Ground Floor', 'First Floor', 'Second Floor'],
+    floorNotes: 'Living room, master bedroom & office glazing on upper sun-exposed elevations',
   },
   {
     id: 'mat-05',
@@ -1153,7 +1161,9 @@ export const MATERIAL_CATALOG: MaterialComparisonItem[] = [
     fireRating: 'Non-rated',
     pros: ['Low initial cost', 'Maximum visible light transmission (VLT ~88%)', 'Lightweight framing required'],
     cons: ['Severe greenhouse solar heat gain', 'Poor thermal resistance causes interior overheating', 'Condensation prone'],
-    bestUse: 'Internal glazed office partitions and sheltered North-facing clerestories'
+    bestUse: 'Internal glazed office partitions and sheltered North-facing clerestories',
+    applicableFloors: ['Ground Floor', 'First Floor', 'Second Floor'],
+    floorNotes: 'Internal room dividers and shaded clerestory transoms across living floors',
   },
   {
     id: 'mat-06',
@@ -1167,7 +1177,9 @@ export const MATERIAL_CATALOG: MaterialComparisonItem[] = [
     fireRating: 'Class A2',
     pros: ['Completely seamless minimalist look', 'Applied directly over existing substrates', '100% waterproof when sealed', 'Custom earthy pigmentation'],
     cons: ['Demands immaculate substrate prep', 'Can develop hairline movement cracks if structure shifts'],
-    bestUse: 'Modern minimalist villas, contemporary art galleries, commercial showrooms, and wet bathrooms'
+    bestUse: 'Modern minimalist villas, contemporary art galleries, commercial showrooms, and wet bathrooms',
+    applicableFloors: ['Ground Floor', 'First Floor', 'Second Floor', 'Terrace & Roof'],
+    floorNotes: 'Living areas, washrooms and covered terrace lounge flooring',
   },
   {
     id: 'mat-07',
@@ -1181,7 +1193,9 @@ export const MATERIAL_CATALOG: MaterialComparisonItem[] = [
     fireRating: 'Class 1 (Surface Spread)',
     pros: ['Washable Teflon surface resistance', 'Smooth silk/matt architectural sheen', 'Zero lead and ultra-low VOC', 'Conceals hairline plaster irregularities'],
     cons: ['Requires thorough surface putty priming', 'Cannot withstand negative water seepage from plumbing leaks'],
-    bestUse: 'Interior living rooms, master bedrooms, executive cabins, and fine architectural interiors'
+    bestUse: 'Interior living rooms, master bedrooms, executive cabins, and fine architectural interiors',
+    applicableFloors: ['Ground Floor', 'First Floor', 'Second Floor'],
+    floorNotes: 'Interior bedrooms, living rooms, and corridors on all residential levels',
   },
   {
     id: 'mat-08',
@@ -1195,7 +1209,9 @@ export const MATERIAL_CATALOG: MaterialComparisonItem[] = [
     fireRating: 'Class A',
     pros: ['High elongation bridges hairline thermal facade cracks up to 2mm', 'Anti-algal and dirt-pickup resistance', 'Withstands extreme monsoonal rain and UV weathering'],
     cons: ['Higher initial material cost', 'Substrate must be completely dry (<10% moisture) before application'],
-    bestUse: 'Exterior architectural facades, parapet walls, boundary enclosures, and exposed concrete facades'
+    bestUse: 'Exterior architectural facades, parapet walls, boundary enclosures, and exposed concrete facades',
+    applicableFloors: ['Ground Floor', 'First Floor', 'Second Floor', 'Terrace & Roof'],
+    floorNotes: 'Exterior facade envelope from ground to terrace parapet wall',
   },
   {
     id: 'mat-09',
@@ -1209,7 +1225,9 @@ export const MATERIAL_CATALOG: MaterialComparisonItem[] = [
     fireRating: '4 Hours (Encased in concrete)',
     pros: ['Superior elongation (>14.5%) ensures high seismic energy dissipation', 'Low carbon equivalent allows easy on-site butt-welding without preheating', 'Uniform concentric rib pattern offers 30% higher concrete bond strength', 'Zero surface defects with secondary refining'],
     cons: ['Must be protected from saline standing water during monsoon site storage to prevent surface flash rusting'],
-    bestUse: 'Earthquake-resistant RCC columns, shear walls, foundation rafts, and heavy civil engineering frameworks'
+    bestUse: 'Earthquake-resistant RCC columns, shear walls, foundation rafts, and heavy civil engineering frameworks',
+    applicableFloors: ['Substructure', 'Ground Floor', 'First Floor', 'Second Floor', 'Terrace & Roof'],
+    floorNotes: 'Foundation footings (30%), columns & slabs across all levels (GF 26%, FF 22%, SF 17%, Terrace 5%)',
   },
   {
     id: 'mat-10',
@@ -1223,7 +1241,9 @@ export const MATERIAL_CATALOG: MaterialComparisonItem[] = [
     fireRating: 'Class A1 Non-combustible',
     pros: ['Polymer fortified formulation prevents paint peeling and flaking', 'Binds intimately with cement plaster substrate', 'Forms an impervious water-resistant sub-base', 'Permits smooth 320-grit orbital sanding for glass-like flat finishes'],
     cons: ['Requires proper curing of underlying plaster (min 28 days)', 'Cannot bridge active structural movement expansion joints'],
-    bestUse: 'Mandatory substrate preparation over internal and external cement plaster prior to primer and emulsion painting'
+    bestUse: 'Mandatory substrate preparation over internal and external cement plaster prior to primer and emulsion painting',
+    applicableFloors: ['Ground Floor', 'First Floor', 'Second Floor', 'Terrace & Roof'],
+    floorNotes: 'Interior and exterior skim plaster coat on all finished wall surfaces',
   },
   {
     id: 'mat-11',
@@ -1237,7 +1257,9 @@ export const MATERIAL_CATALOG: MaterialComparisonItem[] = [
     fireRating: 'Class 2 Surface Spread',
     pros: ['Tough mirror-gloss protective enamel film resists heavy abrasion', 'Anti-corrosive barrier prevents rust on mild steel architectural fabrications', 'High weather resistance against driving rain and intense ultraviolet sunlight', 'Washable with mild detergent solutions'],
     cons: ['Higher VOC solvent content than water-thinnable emulsions', 'Requires zinc-chromate red oxide anti-rust primer on ferrous metals'],
-    bestUse: 'Architectural window safety grills, balcony balustrades, staircase railings, external gates, and timber joinery'
+    bestUse: 'Architectural window safety grills, balcony balustrades, staircase railings, external gates, and timber joinery',
+    applicableFloors: ['Ground Floor', 'First Floor', 'Second Floor', 'Terrace & Roof'],
+    floorNotes: 'Window grills, balcony balustrades, staircase handrails, and terrace service access doors',
   },
   {
     id: 'mat-12',
@@ -1251,7 +1273,9 @@ export const MATERIAL_CATALOG: MaterialComparisonItem[] = [
     fireRating: 'Class B Flame Retardant',
     pros: ['High elongation (>300%) bridges structural hairline cracks up to 2.2mm', 'Single-pack ready to use brushable/roller liquid elastomeric membrane', 'Forms monolithic seamless jointless elastomeric sheath', 'Resists hydrostatic water head pressure on exposed parapets and chajjas'],
     cons: ['Requires thorough pressure washing and surface degreasing before application', 'Must not be left exposed to sharp mechanical punctures'],
-    bestUse: 'Building parapets, exterior window sill bands, sunken toilet dado prior to tiling, and terrace cove details'
+    bestUse: 'Building parapets, exterior window sill bands, sunken toilet dado prior to tiling, and terrace cove details',
+    applicableFloors: ['Substructure', 'Ground Floor', 'First Floor', 'Second Floor', 'Terrace & Roof'],
+    floorNotes: 'Plinth dpc, sunken toilet dados, balcony sills, and terrace parapet junction coves',
   },
   {
     id: 'mat-13',
@@ -1265,7 +1289,9 @@ export const MATERIAL_CATALOG: MaterialComparisonItem[] = [
     fireRating: 'Class 1',
     pros: ['High compressive and flexural strength withstands heavy forklift and vehicular traffic', 'Impervious to motor oils, hydraulic fluids, battery acids, and hydraulic salts', 'Seamless dust-free mirror or anti-skid orange-peel texture', 'Jointless hygienic finish ideal for sterile zones'],
     cons: ['Requires shot-blasting or mechanical diamond grinding of base concrete', 'Sensitive to high ground moisture vapor transmission (requires sub-slab DPM)'],
-    bestUse: 'Basement car parks, utility machine rooms, electrical substations, commercial kitchens, and cleanrooms'
+    bestUse: 'Basement car parks, utility machine rooms, electrical substations, commercial kitchens, and cleanrooms',
+    applicableFloors: ['Substructure', 'Ground Floor'],
+    floorNotes: 'Basement car parking, utility rooms, and ground floor machine rooms',
   },
   {
     id: 'mat-14',
@@ -1279,7 +1305,9 @@ export const MATERIAL_CATALOG: MaterialComparisonItem[] = [
     fireRating: '4 Hours (Non-combustible)',
     pros: ['Rapid early strength gain enables faster formwork stripping (7 days vs 14 days)', 'Consistent compressive strength exceeding 53 MPa at 28 days', 'Micro-fine fly-ash blended PPC variant reduces heat of hydration and micro-cracking in mass pours', 'High sulfate and chloride ion penetration resistance'],
     cons: ['OPC generates higher heat of hydration requiring meticulous 14-day wet water ponding curing'],
-    bestUse: 'High-strength RCC columns, post-tensioned slabs, structural shear walls, and infrastructure foundations'
+    bestUse: 'High-strength RCC columns, post-tensioned slabs, structural shear walls, and infrastructure foundations',
+    applicableFloors: ['Substructure', 'Ground Floor', 'First Floor', 'Second Floor', 'Terrace & Roof'],
+    floorNotes: 'Foundation raft & footings (25%), columns & slabs on GF (25%), FF (22%), SF (20%), Terrace (8%)',
   },
   {
     id: 'mat-15',
@@ -1293,7 +1321,9 @@ export const MATERIAL_CATALOG: MaterialComparisonItem[] = [
     fireRating: 'Class A1 Non-combustible',
     pros: ['Ultra-low water absorption (<0.05%) prevents efflorescence and moisture stains', 'High MOHS scratch hardness (7+) withstands intense foot traffic without losing gloss', 'Precision rectified laser-cut edges allow razor-thin 2mm epoxy grout lines', 'Digitally printed Italian marble and granite veining realism'],
     cons: ['Must be bedded on polymer-modified tile adhesive (IS 15477 Type 2) rather than standard sand-cement mortar'],
-    bestUse: 'Living and dining halls, commercial corridors, luxury master suites, and lift lobby wall cladding'
+    bestUse: 'Living and dining halls, commercial corridors, luxury master suites, and lift lobby wall cladding',
+    applicableFloors: ['Ground Floor', 'First Floor', 'Second Floor'],
+    floorNotes: 'Living, dining, bedrooms, and upper lobby floor finishes',
   },
   {
     id: 'mat-16',
@@ -1307,7 +1337,9 @@ export const MATERIAL_CATALOG: MaterialComparisonItem[] = [
     fireRating: 'Class A1',
     pros: ['Natural volcanic plutonic stone with extreme compressive strength and density', '100% heat and hot utensil contact resistance (zero scorch marks)', 'Deep mirror gloss that never fades or stains from lemon juice or culinary oils', 'Half-bullnose and chamfered edge profiling flexibility'],
     cons: ['Heavy dead load requires sturdy counter substructure (brick piers or steel frames)', 'Higher initial material and cutting/polishing labor rate'],
-    bestUse: 'Kitchen cooking counters, bathroom washbasin vanities, window perimeter sill bands, and staircase treads'
+    bestUse: 'Kitchen cooking counters, bathroom washbasin vanities, window perimeter sill bands, and staircase treads',
+    applicableFloors: ['Ground Floor', 'First Floor', 'Second Floor'],
+    floorNotes: 'Kitchen counter on GF, bathroom sills, and staircase step treads',
   },
   {
     id: 'mat-17',
@@ -1321,7 +1353,9 @@ export const MATERIAL_CATALOG: MaterialComparisonItem[] = [
     fireRating: 'Class B2',
     pros: ['Polyester mat reinforcement ensures exceptional tensile strength and puncture resistance', 'Atactic Polypropylene (APP) polymer modification maintains flexibility up to 130°C', 'Torch-welded lap joints form a continuous 100% watertight homogenous envelope', 'Guaranteed resistance against standing monsoonal rainwater ponds'],
     cons: ['Demands certified professional torching operators with LP gas flame torches', 'Must be covered with geotextile separation layer and screed protection against UV'],
-    bestUse: 'Flat terrace roofs, podium landscaped gardens, basement retaining wall tanking, and swimming pools'
+    bestUse: 'Flat terrace roofs, podium landscaped gardens, basement retaining wall tanking, and swimming pools',
+    applicableFloors: ['Substructure', 'Terrace & Roof'],
+    floorNotes: 'Basement retaining wall external tanking and exposed top terrace roof waterproofing',
   },
   {
     id: 'mat-18',
@@ -1335,7 +1369,9 @@ export const MATERIAL_CATALOG: MaterialComparisonItem[] = [
     fireRating: 'Oxygen Index > 29% / 2-Hour Circuit Integrity',
     pros: ['99.97% pure electrolytic grade copper ensures minimal I²R voltage drop and heat losses', 'Flame Retardant Low Smoke (FRLS) insulation prevents toxic halogen acid gas emission in fire events', 'Heavy-duty Virgin PVC conduits prevent pest biting and puncture damage during brick chiseling', 'Supports continuous heavy inductive loads (inverter ACs, geysers, EV chargers)'],
     cons: ['Copper prices fluctuate directly with international London Metal Exchange (LME) spot indices'],
-    bestUse: 'Concealed electrical distribution conduits, main distribution boards, high-load appliance power circuits'
+    bestUse: 'Concealed electrical distribution conduits, main distribution boards, high-load appliance power circuits',
+    applicableFloors: ['Substructure', 'Ground Floor', 'First Floor', 'Second Floor', 'Terrace & Roof'],
+    floorNotes: 'Mains intake at Substructure/GF, branch power circuits across all living levels & terrace solar',
   },
   {
     id: 'mat-19',
@@ -1349,7 +1385,9 @@ export const MATERIAL_CATALOG: MaterialComparisonItem[] = [
     fireRating: 'Self-extinguishing (UL 94 V-0)',
     pros: ['Certified for continuous hot water delivery up to 93°C at 100 PSI working pressure', 'Completely immune to internal calcification scaling, pitting, and electrolytic corrosion', 'Smooth internal bore minimizes friction head loss for high pressure booster pump systems', 'Solvent cement chemical cold welding provides leak-proof permanent joints'],
     cons: ['Must be protected from continuous direct outdoor UV sunlight via thermal pipe lagging or chase concealment'],
-    bestUse: 'Pressurized domestic water supply, solar water heater loop lines, bathroom concealed plumbing rough-ins'
+    bestUse: 'Pressurized domestic water supply, solar water heater loop lines, bathroom concealed plumbing rough-ins',
+    applicableFloors: ['Substructure', 'Ground Floor', 'First Floor', 'Second Floor', 'Terrace & Roof'],
+    floorNotes: 'Sump pump rising mains from Substructure to Terrace overhead tank, with gravity distribution branches',
   }
 ];
 

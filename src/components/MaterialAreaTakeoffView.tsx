@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   Zap,
   Sliders,
@@ -11,7 +11,6 @@ import {
   Info,
   Scale,
   Sparkles,
-  Download,
   ArrowRight,
   RefreshCw,
   Boxes,
@@ -19,10 +18,28 @@ import {
   Filter,
   Layers,
   ChevronRight,
-  ExternalLink
+  ChevronDown,
+  ChevronUp,
+  ExternalLink,
+  Table,
+  LayoutGrid,
+  CheckCircle2,
+  Calendar,
+  Compass,
+  Edit3,
+  SlidersHorizontal,
+  RotateCcw,
+  Settings,
+  Plus,
+  Minus,
+  BookOpen,
+  Coins,
+  FileSpreadsheet,
+  FileDown,
 } from 'lucide-react';
-import { Project, BOQItem } from '../types';
+import { Project, BOQItem, BuildingFloor, FloorWiseTotal } from '../types';
 import { formatCurrency, CurrencyCode } from '../utils/formatters';
+import { exportMaterialTakeoffToExcel } from '../utils/excelExport';
 import {
   MARKET_REGIONS,
   MarketRegion,
@@ -33,7 +50,21 @@ import {
   calculateMaterialTakeoffFromArea,
   autoUpdateBOQItemsWithAreaAndMarketPrice,
   CalculatedMaterialTakeoffItem,
+  DEFAULT_BUILDING_FLOORS,
+  MaterialTakeoffFloorTotal,
+  MaterialNormOverride,
+  updateFloorArea,
+  applyFloorAreaDistributionPreset,
 } from '../utils/materialTakeoffEngine';
+import { BuildingFloorManagerModal } from './BuildingFloorManagerModal';
+import { ConstructionMaterialsMasterGuideModal } from './ConstructionMaterialsMasterGuideModal';
+import { FloorWisePrintReportModal } from './FloorWisePrintReportModal';
+import { calculateFloorWiseTotals } from '../utils/floorTakeoffEngine';
+import {
+  MaterialGuideBrand,
+  MaterialGuideSection,
+  getBrandSpotRate,
+} from '../data/constructionMaterialsGuide';
 
 interface MaterialAreaTakeoffViewProps {
   activeProject: Project;
@@ -65,24 +96,73 @@ export const MaterialAreaTakeoffView: React.FC<MaterialAreaTakeoffViewProps> = (
   const [filterCategory, setFilterCategory] = useState<string>('all');
   const [syncFeedback, setSyncFeedback] = useState<string | null>(null);
 
+  // Floor-Wise Material Standards Navigation & Views
+  const [selectedFloorId, setSelectedFloorId] = useState<string>('all');
+  const [viewMode, setViewMode] = useState<'table' | 'matrix' | 'cards'>('table');
+  const [expandedItemId, setExpandedItemId] = useState<string | null>(null);
+  const [isFloorModalOpen, setIsFloorModalOpen] = useState<boolean>(false);
+  const [isFloorReportModalOpen, setIsFloorReportModalOpen] = useState<boolean>(false);
+
+  // Floor Area Calibration & Standards Editing State
+  const [showFloorAreaEditor, setShowFloorAreaEditor] = useState<boolean>(true);
+  const [isEditingStandards, setIsEditingStandards] = useState<boolean>(false);
+
+  // Custom material standard overrides (normPerSqFt, standardWastagePercent, baseRate)
+  const [normOverrides, setNormOverrides] = useState<Record<string, MaterialNormOverride>>(() => {
+    try {
+      const saved = localStorage.getItem(`material_norms_${activeProject.id}`);
+      if (saved) return JSON.parse(saved);
+    } catch (_e) {}
+    return {};
+  });
+
+  // Construction Materials Master Guide modal state
+  const [isGuideModalOpen, setIsGuideModalOpen] = useState<boolean>(false);
+  const [guideTargetNormId, setGuideTargetNormId] = useState<string | undefined>(undefined);
+  const [guideTargetMaterialName, setGuideTargetMaterialName] = useState<string | undefined>(undefined);
+  const [guideSelectedBrandName, setGuideSelectedBrandName] = useState<string | undefined>(undefined);
+
+  // Persist custom standards
+  useEffect(() => {
+    try {
+      localStorage.setItem(`material_norms_${activeProject.id}`, JSON.stringify(normOverrides));
+    } catch (_e) {}
+  }, [normOverrides, activeProject.id]);
+
   // Keep local area in sync if project changes
-  React.useEffect(() => {
+  useEffect(() => {
     if (activeProject.builtUpAreaSqFt && activeProject.builtUpAreaSqFt > 0) {
       setAreaSqFt(activeProject.builtUpAreaSqFt);
     }
   }, [activeProject.id, activeProject.builtUpAreaSqFt]);
 
-  // Compute live material takeoff report
+  // Compute live material takeoff report with floor-wise distribution & custom standards
   const takeoffReport = useMemo(() => {
     return calculateMaterialTakeoffFromArea(
       areaSqFt,
       selectedRegion,
       selectedTier,
-      selectedBasis
+      selectedBasis,
+      activeProject.floors,
+      normOverrides
     );
-  }, [areaSqFt, selectedRegion, selectedTier, selectedBasis]);
+  }, [areaSqFt, selectedRegion, selectedTier, selectedBasis, activeProject.floors, normOverrides]);
 
-  // Handle area change from slider or input
+  // Available floors from report
+  const buildingFloors = takeoffReport.floors;
+
+  // Compute floor-wise totals for official schedule of rates report
+  const floorTotals: FloorWiseTotal[] = useMemo(() => {
+    return calculateFloorWiseTotals(boqItems, buildingFloors).floorTotals;
+  }, [boqItems, buildingFloors]);
+
+  // Selected floor total if filtered to a specific floor
+  const activeFloorTotal: MaterialTakeoffFloorTotal | undefined = useMemo(() => {
+    if (selectedFloorId === 'all') return undefined;
+    return takeoffReport.floorTotals.find((ft) => ft.floorId === selectedFloorId);
+  }, [takeoffReport.floorTotals, selectedFloorId]);
+
+  // Handle area change from main slider or input
   const handleAreaChange = (newArea: number) => {
     const valid = Math.max(100, Math.round(newArea));
     setAreaSqFt(valid);
@@ -94,7 +174,133 @@ export const MaterialAreaTakeoffView: React.FC<MaterialAreaTakeoffViewProps> = (
     }
   };
 
-  // 1-Click Sync all area quantities & market rates to BOQ Schedule
+  // Handle single floor area modification directly (floor-wise area editing)
+  const handleUpdateFloorArea = (floorId: string, newAreaSqFt: number) => {
+    const currentFloors =
+      activeProject.floors && activeProject.floors.length > 0
+        ? activeProject.floors
+        : buildingFloors;
+
+    const updated = updateFloorArea(currentFloors, floorId, newAreaSqFt);
+    const newTotalArea = updated.reduce((sum, f) => sum + (Number(f.areaSqFt) || 0), 0);
+    setAreaSqFt(newTotalArea);
+
+    if (onUpdateProject) {
+      onUpdateProject({
+        ...activeProject,
+        floors: updated,
+        builtUpAreaSqFt: newTotalArea,
+      });
+    }
+  };
+
+  // Quick architectural distribution preset for floor areas
+  const handleApplyFloorPreset = (
+    preset: 'equal' | 'g_plus_1' | 'g_plus_2' | 'stilt_plus_floors'
+  ) => {
+    const currentFloors =
+      activeProject.floors && activeProject.floors.length > 0
+        ? activeProject.floors
+        : buildingFloors;
+
+    const updated = applyFloorAreaDistributionPreset(currentFloors, areaSqFt, preset);
+    const newTotalArea = updated.reduce((sum, f) => sum + (Number(f.areaSqFt) || 0), 0);
+    setAreaSqFt(newTotalArea);
+
+    if (onUpdateProject) {
+      onUpdateProject({
+        ...activeProject,
+        floors: updated,
+        builtUpAreaSqFt: newTotalArea,
+      });
+    }
+  };
+
+  // Handle updating a material standard norm override
+  const handleUpdateNormOverride = (normId: string, override: Partial<MaterialNormOverride>) => {
+    setNormOverrides((prev) => ({
+      ...prev,
+      [normId]: {
+        ...(prev[normId] || {}),
+        ...override,
+      },
+    }));
+  };
+
+  // Reset a specific material standard to IS code baseline
+  const handleResetNorm = (normId: string) => {
+    setNormOverrides((prev) => {
+      const next = { ...prev };
+      delete next[normId];
+      return next;
+    });
+  };
+
+  // Reset all customized standards to baseline
+  const handleResetAllNorms = () => {
+    setNormOverrides({});
+  };
+
+  // Handle selecting a brand from Construction Materials Master Guide
+  const handleSelectBrandFromGuide = (brand: MaterialGuideBrand, section: MaterialGuideSection) => {
+    const targetNormId = guideTargetNormId || section.applicableNormIds[0];
+    if (targetNormId) {
+      handleUpdateNormOverride(targetNormId, {
+        selectedBrand: brand.brandName,
+        selectedBrandCategory: brand.category,
+        spotPrice: brand.spotPrice,
+        baseRate: brand.spotPrice,
+      });
+      setSyncFeedback(
+        `✓ Assigned ${brand.brandName} [${brand.category}] with Live Spot Price ₹${brand.spotPrice.toLocaleString()} / ${brand.unit} to ${guideTargetMaterialName || 'material standards'}!`
+      );
+      setTimeout(() => setSyncFeedback(null), 4500);
+    }
+    setIsGuideModalOpen(false);
+  };
+
+  // 1-Click Sync all assigned brands' live spot prices to material standards
+  const handleSyncAllBrandSpotPrices = () => {
+    let syncedCount = 0;
+    const nextOverrides = { ...normOverrides };
+
+    takeoffReport.items.forEach((item) => {
+      const brand = item.selectedBrand || item.norm.brands?.[0];
+      const spot = getBrandSpotRate(brand);
+      if (spot) {
+        nextOverrides[item.norm.id] = {
+          ...(nextOverrides[item.norm.id] || {}),
+          selectedBrand: brand,
+          selectedBrandCategory: spot.category,
+          spotPrice: spot.spotPrice,
+          baseRate: spot.spotPrice,
+        };
+        syncedCount++;
+      }
+    });
+
+    setNormOverrides(nextOverrides);
+    setSyncFeedback(
+      `✓ Successfully updated ${syncedCount} material standards with live spot prices for all assigned brands!`
+    );
+    setTimeout(() => setSyncFeedback(null), 5000);
+  };
+
+  // Handle saving floors from modal
+  const handleSaveFloors = (newFloors: BuildingFloor[]) => {
+    const totalArea = newFloors.reduce((sum, f) => sum + (Number(f.areaSqFt) || 0), 0);
+    setAreaSqFt(totalArea);
+    if (onUpdateProject) {
+      onUpdateProject({
+        ...activeProject,
+        floors: newFloors,
+        builtUpAreaSqFt: totalArea,
+      });
+    }
+    setIsFloorModalOpen(false);
+  };
+
+  // 1-Click Sync all area quantities & market rates to BOQ Schedule with floor breakdowns
   const handleSyncAllToBOQ = () => {
     if (!onUpdateBOQItems) return;
 
@@ -108,6 +314,7 @@ export const MaterialAreaTakeoffView: React.FC<MaterialAreaTakeoffViewProps> = (
         pricingBasis: selectedBasis,
         updateQuantitiesWithArea: true,
         updateRatesWithMarketPrice: true,
+        floors: buildingFloors,
       }
     );
 
@@ -115,57 +322,25 @@ export const MaterialAreaTakeoffView: React.FC<MaterialAreaTakeoffViewProps> = (
     if (onUpdateProject) {
       onUpdateProject({
         ...activeProject,
+        floors: buildingFloors,
         builtUpAreaSqFt: areaSqFt,
       });
     }
 
     setSyncFeedback(
-      `✓ Successfully updated ${report.quantitiesUpdatedCount} BOQ quantities for ${areaSqFt.toLocaleString()} sq.ft and calibrated ${report.ratesUpdatedCount} items to ${report.region.shortName} live market rates!`
+      `✓ Successfully updated ${report.quantitiesUpdatedCount} BOQ quantities for ${areaSqFt.toLocaleString()} sq.ft across ${takeoffReport.floors.length} floor levels, calibrated ${report.ratesUpdatedCount} items to ${report.region.shortName} live market rates!`
     );
     setTimeout(() => setSyncFeedback(null), 5000);
   };
 
-  // Export takeoff report to CSV
-  const handleExportCSV = () => {
-    const headers = [
-      'Material Name',
-      'Category',
-      'IS Code / Standard',
-      'Engineering Norm per sq.ft',
-      'Built-up Area (sq.ft)',
-      'Calculated Quantity',
-      'Unit',
-      'Live Market Rate (INR)',
-      'Total Material Cost (INR)',
-      'Cost per sq.ft (INR)',
-      'Budget Share (%)',
-      'Recommended Brands',
-    ];
-
-    const rows = takeoffReport.items.map((item) => [
-      `"${item.norm.name}"`,
-      `"${item.norm.category}"`,
-      `"${item.norm.isCodeRef}"`,
-      `"${item.norm.normDescription}"`,
-      areaSqFt,
-      item.roundedQuantity,
-      `"${item.unit}"`,
-      item.marketRate,
-      item.totalCost,
-      item.costPerSqFt,
-      `${item.percentOfTotalMaterialBudget}%`,
-      `"${item.norm.brands.join(', ')}"`,
-    ]);
-
-    const csvContent = [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.setAttribute('download', `Material_Takeoff_${areaSqFt}sqft_${takeoffReport.region.id}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  // Export takeoff report to Microsoft Excel (.xlsx) workbook with multi-sheet structure
+  const handleExportExcel = () => {
+    exportMaterialTakeoffToExcel({
+      report: takeoffReport,
+      floors: buildingFloors,
+      projectName: activeProject.name,
+      currency,
+    });
   };
 
   const categories = [
@@ -181,10 +356,24 @@ export const MaterialAreaTakeoffView: React.FC<MaterialAreaTakeoffViewProps> = (
     'Doors & Carpentry',
   ];
 
-  const filteredItems =
-    filterCategory === 'all'
-      ? takeoffReport.items
-      : takeoffReport.items.filter((i) => i.norm.category === filterCategory);
+  const filteredItems = useMemo(() => {
+    let list = takeoffReport.items;
+
+    // Filter by Category
+    if (filterCategory !== 'all') {
+      list = list.filter((i) => i.norm.category === filterCategory);
+    }
+
+    // Filter by Floor if specific floor selected
+    if (selectedFloorId !== 'all') {
+      list = list.filter((i) => {
+        const bd = i.floorBreakdown[selectedFloorId];
+        return bd && bd.roundedQuantity > 0;
+      });
+    }
+
+    return list;
+  }, [takeoffReport.items, filterCategory, selectedFloorId]);
 
   const quickAreaPresets = useMemo(() => {
     const standard = [
@@ -230,44 +419,85 @@ export const MaterialAreaTakeoffView: React.FC<MaterialAreaTakeoffViewProps> = (
       <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-6 shadow-sm space-y-4">
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 border-b border-slate-800 pb-4">
           <div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <span className="px-2.5 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 uppercase tracking-wider">
-                Automated Area Takeoff Engine
+                Floor-Wise Material Standards Engine
               </span>
               <span className="text-xs font-mono text-slate-400">
                 IS 456 / CPWD Norms Grounded
               </span>
+              <span className="text-xs font-mono text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
+                {buildingFloors.length} Building Levels Configured
+              </span>
             </div>
             <h3 className="text-xl font-bold text-white mt-1 flex items-center gap-2">
-              <span>Automatic Material Quantities & Market Cost</span>
+              <span>Floor-Wise Material Standards & Takeoff</span>
               <span className="text-xs font-mono text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded">
-                Live Sync
+                Live Calibration
               </span>
             </h3>
             <p className="text-xs text-slate-400 mt-0.5">
-              Specify your project built-up area to automatically calculate all raw material quantities, procurement volumes, and prevailing market prices.
+              Material norms are distributed floor-wise based on architectural purpose: Foundation/Substructure, Ground Floor, Upper Levels, and Terrace & Roof.
             </p>
           </div>
 
           {/* Quick Actions */}
           <div className="flex items-center gap-2 flex-wrap">
             <button
+              id="btn-materials-master-guide"
+              type="button"
+              onClick={() => {
+                setGuideTargetNormId(undefined);
+                setGuideTargetMaterialName(undefined);
+                setGuideSelectedBrandName(undefined);
+                setIsGuideModalOpen(true);
+              }}
+              className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/30 text-xs font-bold transition shadow-sm"
+              title="Open the full Construction Materials Master Guide with National & Regional Brand specifications and IS code references"
+            >
+              <BookOpen className="w-4 h-4 text-amber-400" />
+              <span>Master Materials Guide</span>
+            </button>
+
+            <button
+              id="btn-manage-building-floors"
+              onClick={() => setIsFloorModalOpen(true)}
+              className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/30 text-xs font-bold transition shadow-sm"
+              title="Configure project floor levels, heights, and square footage"
+            >
+              <Layers className="w-4 h-4 text-amber-400" />
+              <span>Manage Floors ({buildingFloors.length})</span>
+            </button>
+
+            <button
               id="btn-sync-takeoff-to-boq"
               onClick={handleSyncAllToBOQ}
               className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold transition shadow-sm"
-              title="Automatically update all line items in the project's BOQ Schedule with these area quantities and market prices"
+              title="Automatically update all line items in the project's BOQ Schedule with floor-wise quantities and market prices"
             >
               <Zap className="w-4 h-4" />
               <span>Sync Takeoff to Project BOQ</span>
             </button>
 
             <button
-              onClick={handleExportCSV}
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-mono border border-slate-700 transition"
-              title="Export complete material schedule to CSV"
+              id="btn-export-takeoff-excel"
+              onClick={handleExportExcel}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 text-xs font-mono border border-emerald-500/40 transition shadow-sm font-semibold"
+              title="Export complete floor-wise material takeoff & quantities to Microsoft Excel (.xlsx)"
             >
-              <Download className="w-3.5 h-3.5" />
-              <span>Export CSV</span>
+              <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Export Excel (.xlsx)</span>
+            </button>
+
+            <button
+              id="btn-takeoff-floor-report"
+              type="button"
+              onClick={() => setIsFloorReportModalOpen(true)}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 text-xs border border-rose-500/40 transition shadow-sm font-semibold"
+              title="Open, print, or convert the Floor-Wise Schedule of Rates to PDF"
+            >
+              <FileDown className="w-3.5 h-3.5 text-rose-400" />
+              <span>Floor Report & PDF</span>
             </button>
           </div>
         </div>
@@ -279,7 +509,7 @@ export const MaterialAreaTakeoffView: React.FC<MaterialAreaTakeoffViewProps> = (
             <div className="flex items-center justify-between">
               <label className="text-xs font-mono font-bold text-amber-300 uppercase tracking-wider flex items-center gap-1.5">
                 <Maximize2 className="w-3.5 h-3.5" />
-                <span>Project Built-up Area</span>
+                <span>Total Built-up Area</span>
               </label>
               <div className="flex items-center gap-2 text-xs font-mono text-slate-400">
                 <span>Metric Equivalent:</span>
@@ -393,17 +623,379 @@ export const MaterialAreaTakeoffView: React.FC<MaterialAreaTakeoffViewProps> = (
         </div>
       </div>
 
+      {/* ========================================================================= */}
+      {/* FLOOR NAVIGATION BAR (FLOOR SELECTOR TABS & AREA CALIBRATION)             */}
+      {/* ========================================================================= */}
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-sm space-y-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800 pb-3">
+          <div className="flex items-center gap-2 flex-wrap">
+            <Layers className="w-4 h-4 text-amber-400" />
+            <span className="text-xs font-mono font-bold text-white uppercase tracking-wider">
+              Floor-Wise Standards & Area Allocation
+            </span>
+            <span className="text-[10px] font-mono text-slate-400 bg-slate-800 px-2 py-0.5 rounded">
+              {buildingFloors.length} levels • {areaSqFt.toLocaleString()} sq.ft
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* Toggle Floor Area Calibration Ribbon */}
+            <button
+              onClick={() => setShowFloorAreaEditor(!showFloorAreaEditor)}
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-mono transition flex items-center gap-1.5 border ${
+                showFloorAreaEditor
+                  ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 font-bold'
+                  : 'bg-slate-800 text-slate-300 border-slate-700 hover:text-white'
+              }`}
+              title="Toggle interactive floor slab area calibration controls"
+            >
+              <SlidersHorizontal className="w-3.5 h-3.5 text-amber-400" />
+              <span>Edit Floor Areas</span>
+            </button>
+
+            {/* Toggle Material Standards / Norms Editor */}
+            <button
+              onClick={() => setIsEditingStandards(!isEditingStandards)}
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-mono transition flex items-center gap-1.5 border ${
+                isEditingStandards
+                  ? 'bg-amber-500 text-slate-950 border-amber-400 font-bold shadow-sm'
+                  : 'bg-slate-800 text-slate-300 border-slate-700 hover:text-white'
+              }`}
+              title="Edit standard material norms per sq.ft and wastage percentages"
+            >
+              <Edit3 className="w-3.5 h-3.5" />
+              <span>
+                Edit Standards
+                {Object.keys(normOverrides).length > 0 && (
+                  <span className="ml-1 px-1.5 py-0.2 rounded-full bg-slate-950 text-amber-300 text-[10px]">
+                    {Object.keys(normOverrides).length}
+                  </span>
+                )}
+              </span>
+            </button>
+
+            {/* View Mode Toggle: Table | Matrix | Floor Cards */}
+            <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800">
+              <button
+                onClick={() => setViewMode('table')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-mono transition flex items-center gap-1.5 ${
+                  viewMode === 'table'
+                    ? 'bg-amber-500 text-slate-950 font-bold shadow-sm'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <Table className="w-3.5 h-3.5" />
+                <span>Table</span>
+              </button>
+              <button
+                onClick={() => setViewMode('matrix')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-mono transition flex items-center gap-1.5 ${
+                  viewMode === 'matrix'
+                    ? 'bg-amber-500 text-slate-950 font-bold shadow-sm'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <LayoutGrid className="w-3.5 h-3.5" />
+                <span>Floor Matrix</span>
+              </button>
+              <button
+                onClick={() => setViewMode('cards')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-mono transition flex items-center gap-1.5 ${
+                  viewMode === 'cards'
+                    ? 'bg-amber-500 text-slate-950 font-bold shadow-sm'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <Building className="w-3.5 h-3.5" />
+                <span>Floor Cards</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* ========================================================================= */}
+        {/* INTERACTIVE FLOOR AREA CALIBRATION RIBBON                                */}
+        {/* ========================================================================= */}
+        {showFloorAreaEditor && (
+          <div className="bg-slate-950/80 border border-amber-500/20 rounded-xl p-3.5 space-y-3 font-mono">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800/80 pb-2.5">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-amber-300 flex items-center gap-1.5">
+                  <SlidersHorizontal className="w-3.5 h-3.5" />
+                  <span>Floor Slab Area Calibration</span>
+                </span>
+                <span className="text-[11px] text-slate-400">
+                  Total Built-up Area: <strong className="text-white">{areaSqFt.toLocaleString()} sq.ft</strong>
+                </span>
+              </div>
+
+              {/* Quick Architectural Area Distribution Presets */}
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className="text-[10px] text-slate-500 mr-1">Architectural Presets:</span>
+                <button
+                  type="button"
+                  onClick={() => handleApplyFloorPreset('equal')}
+                  className="px-2 py-1 rounded bg-slate-900 hover:bg-slate-800 text-[11px] text-slate-300 hover:text-amber-300 border border-slate-700 transition"
+                  title="Distribute total square footage equally across all levels"
+                >
+                  Split Evenly
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleApplyFloorPreset('g_plus_1')}
+                  className="px-2 py-1 rounded bg-slate-900 hover:bg-slate-800 text-[11px] text-slate-300 hover:text-amber-300 border border-slate-700 transition"
+                  title="G+1 Residence: Substructure 20%, Ground 45%, First 30%, Terrace 5%"
+                >
+                  G+1 Residence
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleApplyFloorPreset('g_plus_2')}
+                  className="px-2 py-1 rounded bg-slate-900 hover:bg-slate-800 text-[11px] text-slate-300 hover:text-amber-300 border border-slate-700 transition"
+                  title="G+2 Residence: Substructure 18%, Ground 34%, First 26%, Second 18%, Terrace 4%"
+                >
+                  G+2 Residence
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleApplyFloorPreset('stilt_plus_floors')}
+                  className="px-2 py-1 rounded bg-slate-900 hover:bg-slate-800 text-[11px] text-slate-300 hover:text-amber-300 border border-slate-700 transition"
+                  title="Stilt Parking & Upper Floors"
+                >
+                  Stilt + Floors
+                </button>
+              </div>
+            </div>
+
+            {/* Individual Floor Area Input Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2.5">
+              {buildingFloors.map((floor) => {
+                const floorStat = takeoffReport.floorTotals.find((ft) => ft.floorId === floor.id);
+                const percentShare = areaSqFt > 0 ? Math.round(((floor.areaSqFt || 0) / areaSqFt) * 100) : 0;
+                const isSelected = selectedFloorId === floor.id;
+
+                return (
+                  <div
+                    key={floor.id}
+                    className={`p-3 rounded-xl border transition space-y-2 ${
+                      isSelected
+                        ? 'bg-slate-900 border-amber-400/80 shadow-sm'
+                        : 'bg-slate-900/70 border-slate-800 hover:border-slate-700'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5">
+                        <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                          {floor.shortCode}
+                        </span>
+                        <span className="text-xs font-bold text-white truncate max-w-[100px]" title={floor.name}>
+                          {floor.name}
+                        </span>
+                      </div>
+                      <span className="text-[10px] text-slate-400">
+                        {floor.elevation}
+                      </span>
+                    </div>
+
+                    {/* Area Adjuster with Stepper Buttons */}
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => handleUpdateFloorArea(floor.id, Math.max(50, (floor.areaSqFt || 0) - 100))}
+                          className="p-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition"
+                          title="Decrease 100 sq.ft"
+                        >
+                          <Minus className="w-3 h-3" />
+                        </button>
+                        <div className="relative flex-1">
+                          <input
+                            type="number"
+                            min={50}
+                            step={50}
+                            value={floor.areaSqFt}
+                            onChange={(e) => {
+                              const val = Math.max(50, Number(e.target.value) || 0);
+                              handleUpdateFloorArea(floor.id, val);
+                            }}
+                            className="w-full bg-slate-950 border border-slate-700 focus:border-amber-400 rounded py-1 px-1.5 text-xs text-center font-bold text-white focus:outline-none"
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleUpdateFloorArea(floor.id, (floor.areaSqFt || 0) + 100)}
+                          className="p-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition"
+                          title="Increase 100 sq.ft"
+                        >
+                          <Plus className="w-3 h-3" />
+                        </button>
+                      </div>
+                      <div className="flex items-center justify-between text-[10px] text-slate-400 px-0.5">
+                        <span>{percentShare}% footprint</span>
+                        {floorStat && (
+                          <span className="text-amber-400 font-bold">
+                            {formatCurrency(floorStat.subtotal, currency)}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Quick Focus Button */}
+                    <button
+                      type="button"
+                      onClick={() => setSelectedFloorId(isSelected ? 'all' : floor.id)}
+                      className={`w-full py-1 text-[10px] rounded transition font-mono ${
+                        isSelected
+                          ? 'bg-amber-500 text-slate-950 font-bold'
+                          : 'bg-slate-800/80 hover:bg-slate-800 text-slate-300 hover:text-white'
+                      }`}
+                    >
+                      {isSelected ? '✓ Selected Level' : 'Focus Level'}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Floor selector tabs */}
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
+          <button
+            onClick={() => setSelectedFloorId('all')}
+            className={`px-4 py-2 rounded-xl text-xs font-mono whitespace-nowrap transition border flex items-center gap-2 ${
+              selectedFloorId === 'all'
+                ? 'bg-amber-500 text-slate-950 border-amber-400 font-bold shadow-sm'
+                : 'bg-slate-950 text-slate-300 border-slate-800 hover:border-slate-700 hover:text-white'
+            }`}
+          >
+            <Building className="w-3.5 h-3.5" />
+            <span>All Floors (Consolidated)</span>
+            <span className="text-[10px] px-1.5 py-0.2 rounded bg-black/20 font-bold">
+              {areaSqFt.toLocaleString()} sq.ft
+            </span>
+          </button>
+
+          {buildingFloors.map((floor) => {
+            const floorStat = takeoffReport.floorTotals.find((ft) => ft.floorId === floor.id);
+            const isSelected = selectedFloorId === floor.id;
+
+            return (
+              <button
+                key={floor.id}
+                onClick={() => setSelectedFloorId(floor.id)}
+                className={`px-3.5 py-2 rounded-xl text-xs font-mono whitespace-nowrap transition border flex items-center gap-2 ${
+                  isSelected
+                    ? 'bg-amber-500 text-slate-950 border-amber-400 font-bold shadow-sm'
+                    : 'bg-slate-950 text-slate-300 border-slate-800 hover:border-slate-700 hover:text-white'
+                }`}
+              >
+                <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                  isSelected ? 'bg-black/25 text-slate-950' : 'bg-slate-800 text-amber-300'
+                }`}>
+                  {floor.shortCode}
+                </span>
+                <span>{floor.name}</span>
+                <span className={`text-[10px] ${isSelected ? 'text-slate-900 font-bold' : 'text-slate-400'}`}>
+                  {floor.areaSqFt.toLocaleString()} sq.ft
+                </span>
+                {floorStat && (
+                  <span className={`text-[10px] font-bold ${isSelected ? 'text-slate-950' : 'text-amber-400'}`}>
+                    ({floorStat.percentOfTotal}%)
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Selected Floor Highlight Banner (if single floor active) */}
+      {activeFloorTotal && (
+        <div className="bg-slate-900 border border-amber-500/40 rounded-2xl p-4 bg-gradient-to-r from-amber-500/10 via-slate-900 to-transparent flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                {activeFloorTotal.shortCode} • Level {activeFloorTotal.levelIndex}
+              </span>
+              <span className="text-xs font-mono text-slate-300">
+                Elevation: {activeFloorTotal.elevation}
+              </span>
+              <span className="text-xs font-mono text-amber-400 font-bold">
+                {activeFloorTotal.percentOfTotal}% of Total Material Budget
+              </span>
+            </div>
+            <h4 className="text-lg font-bold text-white">
+              {activeFloorTotal.floorName} Standards & Material Allocation
+            </h4>
+            <p className="text-xs text-slate-400">
+              Allocated Floor Area: <strong className="text-white">{activeFloorTotal.areaSqFt.toLocaleString()} sq.ft</strong> ({Math.round((activeFloorTotal.areaSqFt / areaSqFt) * 100)}% of building footprint). All material standards scale automatically to this slab area.
+            </p>
+
+            {/* Quick Floor Area Live Slider & Stepper */}
+            <div className="flex items-center gap-3 pt-1 font-mono text-xs max-w-lg">
+              <span className="text-slate-400 text-[11px] whitespace-nowrap">Edit Floor Area:</span>
+              <button
+                type="button"
+                onClick={() => handleUpdateFloorArea(activeFloorTotal.floorId, Math.max(50, activeFloorTotal.areaSqFt - 100))}
+                className="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px]"
+              >
+                -100
+              </button>
+              <input
+                type="range"
+                min={100}
+                max={5000}
+                step={50}
+                value={activeFloorTotal.areaSqFt}
+                onChange={(e) => handleUpdateFloorArea(activeFloorTotal.floorId, Number(e.target.value))}
+                className="w-36 accent-amber-500 cursor-pointer"
+              />
+              <button
+                type="button"
+                onClick={() => handleUpdateFloorArea(activeFloorTotal.floorId, activeFloorTotal.areaSqFt + 100)}
+                className="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px]"
+              >
+                +100
+              </button>
+              <span className="font-bold text-amber-300 bg-slate-950 px-2 py-0.5 rounded border border-slate-800">
+                {activeFloorTotal.areaSqFt.toLocaleString()} sq.ft
+              </span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-4 shrink-0 font-mono">
+            <div className="p-2.5 rounded-xl bg-slate-950 border border-slate-800 text-right">
+              <span className="text-[10px] text-slate-400 uppercase tracking-wider block">Floor Material Cost</span>
+              <span className="text-lg font-bold text-amber-300">
+                {formatCurrency(activeFloorTotal.subtotal, currency)}
+              </span>
+              <span className="text-[10px] text-slate-400 block mt-0.5">
+                ₹{activeFloorTotal.costPerSqFt}/sq.ft
+              </span>
+            </div>
+
+            <button
+              onClick={() => setSelectedFloorId('all')}
+              className="px-3 py-1.5 rounded-lg text-xs font-mono text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 transition"
+            >
+              Reset to All Floors
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* High-Level Material Volume Highlights */}
       <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3 font-mono">
         <div className="bg-slate-900 border border-amber-500/40 rounded-xl p-3.5 bg-gradient-to-b from-amber-500/10 to-transparent">
           <span className="block text-[11px] text-amber-300 uppercase tracking-wider font-bold">
-            Total Material Cost
+            {activeFloorTotal ? `${activeFloorTotal.shortCode} Cost` : 'Total Material Cost'}
           </span>
           <span className="text-lg font-bold text-white">
-            {formatCurrency(takeoffReport.totalMaterialCost, currency)}
+            {formatCurrency(activeFloorTotal ? activeFloorTotal.subtotal : takeoffReport.totalMaterialCost, currency)}
           </span>
           <span className="block text-[10px] text-slate-400 mt-0.5">
-            ₹{takeoffReport.materialCostPerSqFt} / sq.ft
+            ₹{activeFloorTotal ? activeFloorTotal.costPerSqFt : takeoffReport.materialCostPerSqFt} / sq.ft
           </span>
         </div>
 
@@ -412,10 +1004,13 @@ export const MaterialAreaTakeoffView: React.FC<MaterialAreaTakeoffViewProps> = (
             OPC Cement
           </span>
           <span className="text-lg font-bold text-amber-300">
-            {takeoffReport.keyMaterialVolumes.cementBags.toLocaleString()} bags
+            {activeFloorTotal
+              ? activeFloorTotal.keyVolumes.cementBags.toLocaleString()
+              : takeoffReport.keyMaterialVolumes.cementBags.toLocaleString()}{' '}
+            bags
           </span>
           <span className="block text-[10px] text-slate-500 mt-0.5">
-            0.42 bags / sq.ft
+            {activeFloorTotal ? `${activeFloorTotal.shortCode} allocation` : '0.42 bags / sq.ft'}
           </span>
         </div>
 
@@ -424,10 +1019,13 @@ export const MaterialAreaTakeoffView: React.FC<MaterialAreaTakeoffViewProps> = (
             TMT Steel Rebar
           </span>
           <span className="text-lg font-bold text-amber-300">
-            {takeoffReport.keyMaterialVolumes.steelMetricTonnes} MT
+            {activeFloorTotal
+              ? activeFloorTotal.keyVolumes.steelMetricTonnes
+              : takeoffReport.keyMaterialVolumes.steelMetricTonnes}{' '}
+            MT
           </span>
           <span className="block text-[10px] text-slate-500 mt-0.5">
-            3.80 kg / sq.ft
+            {activeFloorTotal ? `${activeFloorTotal.shortCode} reinforcement` : '3.80 kg / sq.ft'}
           </span>
         </div>
 
@@ -436,10 +1034,13 @@ export const MaterialAreaTakeoffView: React.FC<MaterialAreaTakeoffViewProps> = (
             Concrete Volume
           </span>
           <span className="text-lg font-bold text-amber-300">
-            {takeoffReport.keyMaterialVolumes.concreteM3} m³
+            {activeFloorTotal
+              ? activeFloorTotal.keyVolumes.concreteM3
+              : takeoffReport.keyMaterialVolumes.concreteM3}{' '}
+            m³
           </span>
           <span className="block text-[10px] text-slate-500 mt-0.5">
-            0.035 m³ / sq.ft
+            {activeFloorTotal ? `${activeFloorTotal.shortCode} pour volume` : '0.035 m³ / sq.ft'}
           </span>
         </div>
 
@@ -448,10 +1049,13 @@ export const MaterialAreaTakeoffView: React.FC<MaterialAreaTakeoffViewProps> = (
             Vitrified Tiles
           </span>
           <span className="text-lg font-bold text-amber-300">
-            {takeoffReport.keyMaterialVolumes.tilesSqFt.toLocaleString()} sq.ft
+            {activeFloorTotal
+              ? activeFloorTotal.keyVolumes.tilesSqFt.toLocaleString()
+              : takeoffReport.keyMaterialVolumes.tilesSqFt.toLocaleString()}{' '}
+            sq.ft
           </span>
           <span className="block text-[10px] text-slate-500 mt-0.5">
-            1.22 sq.ft / sq.ft
+            {activeFloorTotal ? `${activeFloorTotal.shortCode} floor finishes` : '1.22 sq.ft / sq.ft'}
           </span>
         </div>
 
@@ -460,10 +1064,13 @@ export const MaterialAreaTakeoffView: React.FC<MaterialAreaTakeoffViewProps> = (
             Wall Care Putty
           </span>
           <span className="text-lg font-bold text-amber-300">
-            {(takeoffReport.keyMaterialVolumes.puttyBags || Math.round(takeoffReport.areaSqFt * 0.003 * 1.05)).toLocaleString()} bags
+            {activeFloorTotal
+              ? activeFloorTotal.keyVolumes.puttyBags.toLocaleString()
+              : (takeoffReport.keyMaterialVolumes.puttyBags || Math.round(takeoffReport.areaSqFt * 0.003 * 1.05)).toLocaleString()}{' '}
+            bags
           </span>
           <span className="block text-[10px] text-slate-500 mt-0.5">
-            40kg / 2 coats
+            {activeFloorTotal ? `${activeFloorTotal.shortCode} wall prep` : '40kg / 2 coats'}
           </span>
         </div>
 
@@ -472,134 +1079,810 @@ export const MaterialAreaTakeoffView: React.FC<MaterialAreaTakeoffViewProps> = (
             Coatings & Paints
           </span>
           <span className="text-lg font-bold text-amber-300">
-            {takeoffReport.keyMaterialVolumes.paintLiters.toLocaleString()} L
+            {activeFloorTotal
+              ? activeFloorTotal.keyVolumes.paintLiters.toLocaleString()
+              : takeoffReport.keyMaterialVolumes.paintLiters.toLocaleString()}{' '}
+            L
           </span>
           <span className="block text-[10px] text-slate-500 mt-0.5">
-            Emulsion + Primer + Enamel
+            {activeFloorTotal ? `${activeFloorTotal.shortCode} wall & ceiling` : 'Emulsion + Primer + Enamel'}
           </span>
         </div>
       </div>
 
-      {/* Category Filter Chips */}
-      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
-        <span className="text-xs text-slate-400 font-mono mr-1 flex items-center gap-1">
-          <Filter className="w-3 h-3 text-amber-400" />
-          <span>Category:</span>
-        </span>
-        {categories.map((cat) => (
-          <button
-            key={cat}
-            onClick={() => setFilterCategory(cat)}
-            className={`px-3 py-1 rounded-lg text-xs font-mono whitespace-nowrap transition border ${
-              filterCategory === cat
-                ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 font-bold'
-                : 'bg-slate-900 text-slate-400 border-slate-800 hover:border-slate-700 hover:text-white'
-            }`}
-          >
-            {cat === 'all' ? `All Materials (${takeoffReport.items.length})` : cat}
-          </button>
-        ))}
-      </div>
-
-      {/* Main Material Takeoff Table */}
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-sm">
-        <div className="p-3.5 bg-slate-950/80 border-b border-slate-800 flex items-center justify-between flex-wrap gap-2 text-xs font-mono">
-          <div className="flex items-center gap-2">
-            <span className="font-bold text-white">
-              Schedule of Material Quantities & Market Prices ({filteredItems.length} items)
-            </span>
-            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-800 text-slate-300">
-              {takeoffReport.region.shortName} • {selectedTier}
+      {/* ========================================================================= */}
+      {/* VIEW MODE 1: FLOOR CARDS (ARCHITECTURAL LEVEL COMPARISON)                */}
+      {/* ========================================================================= */}
+      {viewMode === 'cards' && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h4 className="text-sm font-bold font-mono text-white flex items-center gap-2">
+              <Building className="w-4 h-4 text-amber-400" />
+              <span>Building Floor Levels & Material Allocations ({buildingFloors.length} Levels)</span>
+            </h4>
+            <span className="text-xs font-mono text-slate-400">
+              Click any level to view its itemized takeoff
             </span>
           </div>
 
-          <span className="text-[11px] text-slate-400">
-            All quantities are automatically scaled with built-up area ({areaSqFt.toLocaleString()} sq.ft)
-          </span>
-        </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {takeoffReport.floorTotals.map((ft) => {
+              const isSelected = selectedFloorId === ft.floorId;
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs font-mono">
-            <thead className="bg-slate-950 text-slate-400 border-b border-slate-800 text-[11px]">
-              <tr>
-                <th className="p-3">Material & Specification</th>
-                <th className="p-3">Category / IS Code</th>
-                <th className="p-3">Engineering Norm</th>
-                <th className="p-3 text-right">Calculated Quantity</th>
-                <th className="p-3 text-right">Live Market Rate</th>
-                <th className="p-3 text-right">Total Material Cost</th>
-                <th className="p-3 text-right">Share</th>
-                <th className="p-3">Leading Brands</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-800/60">
-              {filteredItems.map((item) => (
-                <tr key={item.norm.id} className="hover:bg-slate-800/40 transition">
-                  <td className="p-3">
-                    <div className="font-bold text-white">{item.norm.name}</div>
-                    <div className="text-[10px] text-slate-400 mt-0.5">
-                      Stage: <span className="text-amber-400">{item.norm.stage}</span>
+              return (
+                <div
+                  key={ft.floorId}
+                  onClick={() => {
+                    setSelectedFloorId(isSelected ? 'all' : ft.floorId);
+                    setViewMode('table');
+                  }}
+                  className={`p-5 rounded-2xl border transition cursor-pointer flex flex-col justify-between space-y-4 ${
+                    isSelected
+                      ? 'bg-slate-900 border-amber-400 shadow-md ring-1 ring-amber-400'
+                      : 'bg-slate-900/90 border-slate-800 hover:border-slate-700 hover:bg-slate-900'
+                  }`}
+                >
+                  <div className="space-y-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                            {ft.shortCode}
+                          </span>
+                          <span className="text-xs font-mono text-slate-400">
+                            Elevation: {ft.elevation}
+                          </span>
+                        </div>
+                        <h4 className="text-base font-bold text-white mt-1">{ft.floorName}</h4>
+                      </div>
+
+                      <div className="text-right font-mono">
+                        <span className="text-xs font-bold text-amber-400 block">{ft.percentOfTotal}%</span>
+                        <span className="text-[10px] text-slate-500">of budget</span>
+                      </div>
                     </div>
-                  </td>
-                  <td className="p-3">
-                    <span className="px-2 py-0.5 rounded text-[10px] bg-slate-800 text-slate-300 border border-slate-700/50">
-                      {item.norm.category}
+
+                    <div className="grid grid-cols-2 gap-2 pt-1 font-mono text-xs">
+                      <div
+                        className="p-2.5 rounded-xl bg-slate-950 border border-slate-800 space-y-1"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] text-slate-400 block">Floor Slab Area</span>
+                          <span className="text-[10px] text-amber-400 font-bold">
+                            {areaSqFt > 0 ? Math.round((ft.areaSqFt / areaSqFt) * 100) : 0}%
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleUpdateFloorArea(ft.floorId, Math.max(50, ft.areaSqFt - 100));
+                            }}
+                            className="p-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white"
+                            title="Decrease 100 sq.ft"
+                          >
+                            <Minus className="w-3 h-3" />
+                          </button>
+                          <input
+                            type="number"
+                            min={50}
+                            step={50}
+                            value={ft.areaSqFt}
+                            onChange={(e) => {
+                              const val = Math.max(50, Number(e.target.value) || 0);
+                              handleUpdateFloorArea(ft.floorId, val);
+                            }}
+                            className="w-full bg-slate-900 border border-slate-700 rounded px-1.5 py-0.5 text-xs text-center font-bold text-white focus:outline-none focus:border-amber-400"
+                          />
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleUpdateFloorArea(ft.floorId, ft.areaSqFt + 100);
+                            }}
+                            className="p-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white"
+                            title="Increase 100 sq.ft"
+                          >
+                            <Plus className="w-3 h-3" />
+                          </button>
+                        </div>
+                        <span className="text-[9px] text-slate-500 block text-center">
+                          sq.ft slab area
+                        </span>
+                      </div>
+
+                      <div className="p-2.5 rounded-xl bg-slate-950 border border-slate-800 flex flex-col justify-between">
+                        <div>
+                          <span className="text-[10px] text-slate-400 block">Material Cost</span>
+                          <span className="text-sm font-bold text-amber-300">
+                            {formatCurrency(ft.subtotal, currency)}
+                          </span>
+                        </div>
+                        <span className="text-[10px] text-slate-500 block mt-0.5">
+                          ₹{ft.costPerSqFt}/sq.ft
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Key consumption metrics */}
+                    <div className="p-3 rounded-xl bg-slate-950/70 border border-slate-800 text-xs font-mono space-y-1.5">
+                      <div className="text-[11px] font-bold text-slate-300 flex items-center justify-between">
+                        <span>Allocated Major Materials</span>
+                        <span className="text-amber-400">{ft.itemCount} items</span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-[11px] text-slate-400">
+                        <div>Cement: <strong className="text-slate-200">{ft.keyVolumes.cementBags} bags</strong></div>
+                        <div>Steel: <strong className="text-slate-200">{ft.keyVolumes.steelMetricTonnes} MT</strong></div>
+                        <div>Concrete: <strong className="text-slate-200">{ft.keyVolumes.concreteM3} m³</strong></div>
+                        <div>Masonry: <strong className="text-slate-200">{ft.keyVolumes.blocksM3} m³</strong></div>
+                        <div>Tiles: <strong className="text-slate-200">{ft.keyVolumes.tilesSqFt} sq.ft</strong></div>
+                        <div>Paint: <strong className="text-slate-200">{ft.keyVolumes.paintLiters} L</strong></div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="pt-2 border-t border-slate-800 flex items-center justify-between text-xs font-mono">
+                    <span className="text-amber-400 text-[11px] flex items-center gap-1">
+                      <span>View floor schedule</span>
+                      <ArrowRight className="w-3 h-3" />
                     </span>
-                    <div className="text-[10px] text-slate-500 mt-1">
-                      {item.norm.isCodeRef}
-                    </div>
-                  </td>
-                  <td className="p-3 max-w-xs">
-                    <span className="text-slate-300 text-[11px]">
-                      {item.norm.normDescription}
-                    </span>
-                    {item.norm.standardWastagePercent > 0 && (
-                      <span className="block text-[10px] text-amber-400/80">
-                        +{item.norm.standardWastagePercent}% cut/handling allowance
-                      </span>
-                    )}
-                  </td>
-                  <td className="p-3 text-right">
-                    <div className="text-sm font-bold text-amber-300">
-                      {item.roundedQuantity.toLocaleString()}
-                    </div>
-                    <div className="text-[10px] text-slate-400">
-                      {item.unit}
-                    </div>
-                  </td>
-                  <td className="p-3 text-right">
-                    <div className="font-bold text-white">
-                      {formatCurrency(item.marketRate, currency)}
-                    </div>
-                    <div className="text-[10px] text-slate-500">
-                      per {item.unit}
-                    </div>
-                  </td>
-                  <td className="p-3 text-right">
-                    <div className="text-sm font-bold text-white">
-                      {formatCurrency(item.totalCost, currency)}
-                    </div>
-                    <div className="text-[10px] text-slate-400">
-                      ₹{item.costPerSqFt}/sq.ft
-                    </div>
-                  </td>
-                  <td className="p-3 text-right font-bold text-amber-400">
-                    {item.percentOfTotalMaterialBudget}%
-                  </td>
-                  <td className="p-3">
-                    <div className="text-[11px] text-slate-300">
-                      {item.norm.brands.slice(0, 2).join(', ')}
-                    </div>
-                    <div className="text-[10px] text-slate-500">
-                      {item.norm.brands.slice(2).join(', ')}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                    <span className="text-slate-500 text-[10px]">Click to inspect</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
-      </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* VIEW MODE 2: FLOOR CROSS-MATRIX (SPREADSHEET MULTI-LEVEL COMPARISON)      */}
+      {/* ========================================================================= */}
+      {viewMode === 'matrix' && (
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-sm space-y-0">
+          <div className="p-4 bg-slate-950 border-b border-slate-800 flex items-center justify-between flex-wrap gap-2 text-xs font-mono">
+            <div>
+              <span className="font-bold text-white block">
+                Floor-Wise Material Standards Cross-Matrix
+              </span>
+              <span className="text-[11px] text-slate-400">
+                Comparing engineering quantities and costs across all {buildingFloors.length} building levels
+              </span>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <span className="text-slate-400">Total Built-up:</span>
+              <span className="font-bold text-amber-300">{areaSqFt.toLocaleString()} sq.ft</span>
+            </div>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs font-mono">
+              <thead className="bg-slate-950 text-slate-400 border-b border-slate-800 text-[11px]">
+                <tr>
+                  <th className="p-3 sticky left-0 bg-slate-950 z-10 min-w-[220px]">
+                    Material & Standard Norm
+                  </th>
+                  <th className="p-3 text-center min-w-[80px]">Unit</th>
+                  <th className="p-3 text-right min-w-[100px] bg-slate-900/50">
+                    Consolidated Total
+                  </th>
+                  {buildingFloors.map((floor) => (
+                    <th key={floor.id} className="p-3 text-right min-w-[155px]">
+                      <div className="font-bold text-slate-200">{floor.shortCode} • {floor.name}</div>
+                      <div className="mt-1 flex items-center justify-end gap-1">
+                        <button
+                          type="button"
+                          onClick={() => handleUpdateFloorArea(floor.id, Math.max(50, (floor.areaSqFt || 0) - 100))}
+                          className="p-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white"
+                          title="Decrease 100 sq.ft"
+                        >
+                          <Minus className="w-2.5 h-2.5" />
+                        </button>
+                        <input
+                          type="number"
+                          min={50}
+                          step={50}
+                          value={floor.areaSqFt}
+                          onChange={(e) => {
+                            const val = Math.max(50, Number(e.target.value) || 0);
+                            handleUpdateFloorArea(floor.id, val);
+                          }}
+                          className="w-14 bg-slate-900 border border-slate-700 rounded px-1 py-0.5 text-[10px] text-right font-bold text-white focus:outline-none focus:border-amber-400"
+                        />
+                        <span className="text-[10px] text-slate-400">sq.ft</span>
+                        <button
+                          type="button"
+                          onClick={() => handleUpdateFloorArea(floor.id, (floor.areaSqFt || 0) + 100)}
+                          className="p-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white"
+                          title="Increase 100 sq.ft"
+                        >
+                          <Plus className="w-2.5 h-2.5" />
+                        </button>
+                      </div>
+                      <div className="text-[10px] text-slate-500 font-normal mt-0.5">
+                        {floor.elevation} • {areaSqFt > 0 ? Math.round(((floor.areaSqFt || 0) / areaSqFt) * 100) : 0}%
+                      </div>
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-800/60">
+                {takeoffReport.items.map((item) => (
+                  <tr key={item.norm.id} className="hover:bg-slate-800/40 transition">
+                    <td className="p-3 sticky left-0 bg-slate-900 z-10">
+                      <div className="font-bold text-white">{item.norm.name}</div>
+                      <div className="text-[10px] text-slate-400 flex items-center gap-1.5 mt-0.5">
+                        <span className="px-1.5 py-0.2 rounded bg-slate-800 text-slate-300">
+                          {item.norm.category}
+                        </span>
+                        <span>{item.norm.isCodeRef}</span>
+                      </div>
+                    </td>
+                    <td className="p-3 text-center text-slate-400">
+                      {item.unit}
+                    </td>
+                    <td className="p-3 text-right bg-slate-900/50">
+                      <div className="font-bold text-amber-300">
+                        {item.roundedQuantity.toLocaleString()}
+                      </div>
+                      <div className="text-[10px] text-slate-400">
+                        {formatCurrency(item.totalCost, currency)}
+                      </div>
+                    </td>
+                    {buildingFloors.map((floor) => {
+                      const breakdown = item.floorBreakdown[floor.id];
+                      const qty = breakdown ? breakdown.roundedQuantity : 0;
+                      const cost = breakdown ? breakdown.cost : 0;
+                      const fractionPct = breakdown ? Math.round(breakdown.fraction * 100) : 0;
+
+                      return (
+                        <td key={floor.id} className="p-3 text-right">
+                          {qty > 0 ? (
+                            <div>
+                              <div className="font-bold text-white">
+                                {qty.toLocaleString()} <span className="text-[10px] text-slate-400">{item.unit}</span>
+                              </div>
+                              <div className="text-[10px] text-slate-400">
+                                {formatCurrency(cost, currency)}
+                                <span className="text-amber-400 ml-1">({fractionPct}%)</span>
+                              </div>
+                            </div>
+                          ) : (
+                            <span className="text-slate-600 text-[11px]">—</span>
+                          )}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot className="bg-slate-950 font-bold border-t-2 border-slate-800 text-xs">
+                <tr>
+                  <td className="p-3 sticky left-0 bg-slate-950 z-10 text-amber-300">
+                    Floor Subtotal Cost
+                  </td>
+                  <td className="p-3 text-center text-slate-500">—</td>
+                  <td className="p-3 text-right text-amber-300 bg-slate-900/50">
+                    {formatCurrency(takeoffReport.totalMaterialCost, currency)}
+                    <div className="text-[10px] text-slate-400 font-normal">
+                      ₹{takeoffReport.materialCostPerSqFt}/sq.ft
+                    </div>
+                  </td>
+                  {takeoffReport.floorTotals.map((ft) => (
+                    <td key={ft.floorId} className="p-3 text-right text-white">
+                      <div className="text-amber-300">{formatCurrency(ft.subtotal, currency)}</div>
+                      <div className="text-[10px] text-slate-400 font-normal">
+                        ₹{ft.costPerSqFt}/sq.ft ({ft.percentOfTotal}%)
+                      </div>
+                    </td>
+                  ))}
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* VIEW MODE 3: DETAILED TABLE (ITEMIZED SCHEDULE)                           */}
+      {/* ========================================================================= */}
+      {viewMode === 'table' && (
+        <div className="space-y-4">
+          {/* Category Filter Chips */}
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
+            <span className="text-xs text-slate-400 font-mono mr-1 flex items-center gap-1">
+              <Filter className="w-3 h-3 text-amber-400" />
+              <span>Category:</span>
+            </span>
+            {categories.map((cat) => (
+              <button
+                key={cat}
+                onClick={() => setFilterCategory(cat)}
+                className={`px-3 py-1 rounded-lg text-xs font-mono whitespace-nowrap transition border ${
+                  filterCategory === cat
+                    ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 font-bold'
+                    : 'bg-slate-900 text-slate-400 border-slate-800 hover:border-slate-700 hover:text-white'
+                }`}
+              >
+                {cat === 'all' ? `All Materials (${filteredItems.length})` : cat}
+              </button>
+            ))}
+          </div>
+
+          {/* Main Material Takeoff Table */}
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-sm">
+            <div className="p-3.5 bg-slate-950/80 border-b border-slate-800 flex items-center justify-between flex-wrap gap-2 text-xs font-mono">
+              <div className="flex items-center gap-2">
+                <span className="font-bold text-white">
+                  Schedule of Material Quantities & Market Prices ({filteredItems.length} items)
+                </span>
+                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-800 text-slate-300">
+                  {takeoffReport.region.shortName} • {selectedTier}
+                </span>
+                {selectedFloorId !== 'all' && (
+                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                    Filtered to {activeFloorTotal?.floorName}
+                  </span>
+                )}
+                {Object.keys(normOverrides).length > 0 && (
+                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                    {Object.keys(normOverrides).length} Custom Norms
+                  </span>
+                )}
+              </div>
+
+              <span className="text-[11px] text-slate-400">
+                {selectedFloorId === 'all'
+                  ? `Scaled for full building (${areaSqFt.toLocaleString()} sq.ft)`
+                  : `Scaled for ${activeFloorTotal?.floorName} (${activeFloorTotal?.areaSqFt.toLocaleString()} sq.ft)`}
+              </span>
+            </div>
+
+            {/* Custom Standards Notification & Reset Banner */}
+            {isEditingStandards && (
+              <div className="p-3 bg-amber-500/10 border-b border-amber-500/30 flex items-center justify-between flex-wrap gap-2 text-xs font-mono">
+                <div className="flex items-center gap-2">
+                  <Edit3 className="w-4 h-4 text-amber-400" />
+                  <span className="text-amber-300 font-bold">
+                    Edit Standards Active:
+                  </span>
+                  <span className="text-slate-300 text-[11px]">
+                    Modify norm / sq.ft, wastage %, or unit market rates. Floor-wise material volumes update dynamically based on each floor's slab area.
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleSyncAllBrandSpotPrices}
+                    className="px-2.5 py-1 rounded bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 text-[11px] flex items-center gap-1.5 border border-amber-500/40 transition font-bold"
+                    title="Update all material standards with current market spot prices for all assigned brands"
+                  >
+                    <Coins className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Sync Spot Prices to All Brands</span>
+                  </button>
+                  {Object.keys(normOverrides).length > 0 && (
+                    <button
+                      type="button"
+                      onClick={handleResetAllNorms}
+                      className="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-amber-300 hover:text-white text-[11px] flex items-center gap-1 border border-slate-700 transition"
+                    >
+                      <RotateCcw className="w-3 h-3 text-amber-400" />
+                      <span>Reset All Standards ({Object.keys(normOverrides).length})</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs font-mono">
+                <thead className="bg-slate-950 text-slate-400 border-b border-slate-800 text-[11px]">
+                  <tr>
+                    <th className="p-3">Material & Standard</th>
+                    <th className="p-3">Category / IS Code</th>
+                    <th className="p-3">Engineering Norm & Applicable Floors</th>
+                    <th className="p-3 text-right">
+                      {selectedFloorId === 'all' ? 'Consolidated Quantity' : `${activeFloorTotal?.shortCode} Quantity`}
+                    </th>
+                    <th className="p-3 text-right">Market Rate</th>
+                    <th className="p-3 text-right">
+                      {selectedFloorId === 'all' ? 'Total Cost' : `${activeFloorTotal?.shortCode} Cost`}
+                    </th>
+                    <th className="p-3 text-right">Budget Share</th>
+                    <th className="p-3">Floor Distribution Breakdown</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800/60">
+                  {filteredItems.map((item) => {
+                    const isExpanded = expandedItemId === item.norm.id;
+                    const floorData = selectedFloorId !== 'all' ? item.floorBreakdown[selectedFloorId] : null;
+                    const displayQty = floorData ? floorData.roundedQuantity : item.roundedQuantity;
+                    const displayCost = floorData ? floorData.cost : item.totalCost;
+                    const displayCostPerSqFt = floorData ? floorData.costPerSqFt : item.costPerSqFt;
+                    const displayShare =
+                      selectedFloorId !== 'all' && activeFloorTotal && activeFloorTotal.subtotal > 0
+                        ? Math.round(((displayCost / activeFloorTotal.subtotal) * 100) * 10) / 10
+                        : item.percentOfTotalMaterialBudget;
+
+                    return (
+                      <React.Fragment key={item.norm.id}>
+                        <tr className="hover:bg-slate-800/40 transition">
+                          <td className="p-3">
+                            <div className="font-bold text-white flex items-center gap-1.5 flex-wrap">
+                              <span>{item.norm.name}</span>
+                              {item.isCustomized && (
+                                <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                                  Custom
+                                </span>
+                              )}
+                            </div>
+
+                            {/* Active Brand Badge & Master Guide Modal Trigger */}
+                            <div className="mt-1.5 flex items-center gap-1.5 flex-wrap">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setGuideTargetNormId(item.norm.id);
+                                  setGuideTargetMaterialName(item.norm.name);
+                                  setGuideSelectedBrandName(item.selectedBrand || item.norm.brands?.[0]);
+                                  setIsGuideModalOpen(true);
+                                }}
+                                className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-mono bg-slate-800 hover:bg-slate-700 text-amber-300 border border-slate-700 hover:border-amber-500/40 transition group"
+                                title="Click to view full IS standards & pick brand from Master Guide"
+                              >
+                                <BookOpen className="w-3 h-3 text-amber-400 group-hover:scale-110 transition shrink-0" />
+                                <span className="truncate max-w-[170px]">
+                                  {item.selectedBrand || item.norm.brands?.[0] || 'Select Brand'}
+                                </span>
+                                <span
+                                  className={`px-1 py-0.2 rounded text-[8px] font-bold shrink-0 ${
+                                    item.selectedBrandCategory === 'Regional'
+                                      ? 'bg-emerald-500/20 text-emerald-300'
+                                      : 'bg-blue-500/20 text-blue-300'
+                                  }`}
+                                >
+                                  {item.selectedBrandCategory || 'National'}
+                                </span>
+                              </button>
+                            </div>
+
+                            {/* Live Spot Price Badge for Active Brand */}
+                            {item.selectedBrandSpotPrice ? (
+                              <div className="flex items-center gap-1.5 mt-1 text-[10px] font-mono">
+                                <span className="text-amber-300 font-bold">
+                                  Spot: ₹{item.selectedBrandSpotPrice.toLocaleString()}
+                                </span>
+                                <span className="text-slate-400">/{item.selectedBrandSpotUnit || item.unit}</span>
+                                {item.selectedBrandSpotTrend && (
+                                  <span
+                                    className={`px-1 py-0.2 rounded text-[9px] font-bold flex items-center gap-0.5 ${
+                                      item.selectedBrandSpotTrend === 'up'
+                                        ? 'text-rose-400 bg-rose-500/10'
+                                        : item.selectedBrandSpotTrend === 'down'
+                                        ? 'text-emerald-400 bg-emerald-500/10'
+                                        : 'text-slate-400 bg-slate-800'
+                                    }`}
+                                  >
+                                    {item.selectedBrandSpotTrend === 'up' ? '▲' : item.selectedBrandSpotTrend === 'down' ? '▼' : '●'}
+                                    {item.selectedBrandSpotChangePercent !== undefined
+                                      ? ` ${item.selectedBrandSpotChangePercent > 0 ? '+' : ''}${item.selectedBrandSpotChangePercent}%`
+                                      : ''}
+                                  </span>
+                                )}
+                              </div>
+                            ) : null}
+
+                            {/* Quick Inline Brand Selector when editing standards */}
+                            {isEditingStandards && item.norm.brands && item.norm.brands.length > 1 && (
+                              <div className="mt-1 flex items-center gap-1">
+                                <select
+                                  value={item.selectedBrand || item.norm.brands[0]}
+                                  onChange={(e) => {
+                                    const val = e.target.value;
+                                    const spot = getBrandSpotRate(val);
+                                    const cat = spot?.category || (val.toLowerCase().includes('regional') || val.includes('Bharathi') || val.includes('Ramco') || val.includes('Sunvik') || val.includes('Kamdhenu') || val.includes('Goldmedal') || val.includes('Plaza') || val.includes('Sudhakar') || val.includes('Ajay') || val.includes('Naveen') || val.includes('Aparna') || val.includes('Sejal') || val.includes('FUSO') || val.includes('Indigo') || val.includes('Birla Opus') || val.includes('Shalimar') ? 'Regional' : 'National');
+                                    handleUpdateNormOverride(item.norm.id, {
+                                      selectedBrand: val,
+                                      selectedBrandCategory: cat,
+                                      spotPrice: spot?.spotPrice,
+                                      baseRate: spot?.spotPrice,
+                                    });
+                                  }}
+                                  className="bg-slate-950 border border-slate-700 rounded px-1.5 py-0.5 text-[9px] text-amber-300 focus:outline-none focus:border-amber-400 max-w-[220px]"
+                                >
+                                  {item.norm.brands.map((b) => {
+                                    const spot = getBrandSpotRate(b);
+                                    return (
+                                      <option key={b} value={b}>
+                                        {b} {spot ? `(₹${spot.spotPrice.toLocaleString()})` : ''}
+                                      </option>
+                                    );
+                                  })}
+                                </select>
+                              </div>
+                            )}
+
+                            <div className="text-[10px] text-slate-400 mt-1">
+                              Stage: <span className="text-amber-400">{item.norm.stage}</span>
+                            </div>
+                          </td>
+                          <td className="p-3">
+                            <span className="px-2 py-0.5 rounded text-[10px] bg-slate-800 text-slate-300 border border-slate-700/50">
+                              {item.norm.category}
+                            </span>
+                            <div className="text-[10px] text-slate-500 mt-1">
+                              {item.norm.isCodeRef}
+                            </div>
+                          </td>
+                          <td className="p-3 max-w-xs">
+                            <span className="text-slate-300 text-[11px] block">
+                              {item.norm.normDescription}
+                            </span>
+
+                            {/* Standard Norm Editor when in editing mode */}
+                            {isEditingStandards ? (
+                              <div className="mt-1.5 p-2 rounded-lg bg-slate-950 border border-amber-500/30 space-y-1.5">
+                                <div className="flex items-center justify-between text-[10px] text-slate-300">
+                                  <span>Norm Rate ({item.unit}/sq.ft):</span>
+                                  <input
+                                    type="number"
+                                    step="any"
+                                    min="0"
+                                    value={item.effectiveNormPerSqFt}
+                                    onChange={(e) => {
+                                      const val = parseFloat(e.target.value);
+                                      if (!isNaN(val) && val >= 0) {
+                                        handleUpdateNormOverride(item.norm.id, { normPerSqFt: val });
+                                      }
+                                    }}
+                                    className="w-20 bg-slate-900 border border-slate-700 rounded px-1.5 py-0.5 text-xs text-right font-bold text-amber-300 focus:outline-none focus:border-amber-400"
+                                  />
+                                </div>
+                                <div className="flex items-center justify-between text-[10px] text-slate-300">
+                                  <span>Wastage Margin (%):</span>
+                                  <input
+                                    type="number"
+                                    step="0.5"
+                                    min="0"
+                                    value={item.effectiveWastagePercent}
+                                    onChange={(e) => {
+                                      const val = parseFloat(e.target.value);
+                                      if (!isNaN(val) && val >= 0) {
+                                        handleUpdateNormOverride(item.norm.id, { standardWastagePercent: val });
+                                      }
+                                    }}
+                                    className="w-16 bg-slate-900 border border-slate-700 rounded px-1.5 py-0.5 text-xs text-right font-bold text-amber-300 focus:outline-none focus:border-amber-400"
+                                  />
+                                </div>
+                                {item.isCustomized && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleResetNorm(item.norm.id)}
+                                    className="w-full text-[9px] py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-amber-400 flex items-center justify-center gap-1 transition"
+                                  >
+                                    <RotateCcw className="w-2.5 h-2.5" />
+                                    <span>Reset to Default Norm</span>
+                                  </button>
+                                )}
+                              </div>
+                            ) : (
+                              item.isCustomized && (
+                                <div className="mt-1 flex items-center gap-1.5">
+                                  <span className="text-[10px] text-amber-300 font-mono">
+                                    Override: {item.effectiveNormPerSqFt} {item.unit}/sq.ft (+{item.effectiveWastagePercent}% wast.)
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleResetNorm(item.norm.id)}
+                                    className="text-slate-400 hover:text-white"
+                                    title="Reset standard"
+                                  >
+                                    <RotateCcw className="w-2.5 h-2.5" />
+                                  </button>
+                                </div>
+                              )
+                            )}
+
+                            {/* Applicable Floors Badges */}
+                            <div className="flex flex-wrap gap-1 mt-1">
+                              {(item.norm.applicableFloors || ['Substructure', 'GF', 'FF', 'SF', 'Terrace']).map((fl, idx) => (
+                                <span
+                                  key={idx}
+                                  className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-amber-500/10 text-amber-300 border border-amber-500/20"
+                                >
+                                  {fl}
+                                </span>
+                              ))}
+                            </div>
+                            {item.norm.floorNotes && (
+                              <span className="text-[10px] text-slate-400 block mt-1 italic">
+                                {item.norm.floorNotes}
+                              </span>
+                            )}
+                          </td>
+                          <td className="p-3 text-right">
+                            <div className="text-sm font-bold text-amber-300">
+                              {displayQty.toLocaleString()}
+                            </div>
+                            <div className="text-[10px] text-slate-400">
+                              {item.unit}
+                            </div>
+                          </td>
+                          <td className="p-3 text-right">
+                            {isEditingStandards ? (
+                              <div className="space-y-1">
+                                <div className="flex items-center justify-end gap-1">
+                                  <span className="text-slate-400 text-[10px]">₹</span>
+                                  <input
+                                    type="number"
+                                    step="any"
+                                    min="0"
+                                    value={item.marketRate}
+                                    onChange={(e) => {
+                                      const val = parseFloat(e.target.value);
+                                      if (!isNaN(val) && val >= 0) {
+                                        handleUpdateNormOverride(item.norm.id, { baseRate: val });
+                                      }
+                                    }}
+                                    className="w-20 bg-slate-950 border border-slate-700 rounded px-1.5 py-0.5 text-xs text-right font-bold text-white focus:outline-none focus:border-amber-400"
+                                  />
+                                </div>
+                                <div className="text-[10px] text-slate-500">
+                                  per {item.unit}
+                                </div>
+                              </div>
+                            ) : (
+                              <div>
+                                <div className="font-bold text-white">
+                                  {formatCurrency(item.marketRate, currency)}
+                                </div>
+                                <div className="text-[10px] text-slate-500">
+                                  per {item.unit}
+                                </div>
+                              </div>
+                            )}
+                          </td>
+                          <td className="p-3 text-right">
+                            <div className="text-sm font-bold text-white">
+                              {formatCurrency(displayCost, currency)}
+                            </div>
+                            <div className="text-[10px] text-slate-400">
+                              ₹{displayCostPerSqFt}/sq.ft
+                            </div>
+                          </td>
+                          <td className="p-3 text-right font-bold text-amber-400">
+                            {displayShare}%
+                          </td>
+                          <td className="p-3">
+                            <button
+                              onClick={() => setExpandedItemId(isExpanded ? null : item.norm.id)}
+                              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-mono bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition"
+                            >
+                              <span>Floors Breakdown</span>
+                              {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                            </button>
+                          </td>
+                        </tr>
+
+                        {/* Expanded Floor Breakdown Drawer */}
+                        {isExpanded && (
+                          <tr className="bg-slate-950/80 border-y border-amber-500/30">
+                            <td colSpan={8} className="p-4">
+                              <div className="space-y-3">
+                                <div className="flex items-center justify-between flex-wrap gap-2">
+                                  <span className="text-xs font-bold text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
+                                    <Layers className="w-3.5 h-3.5" />
+                                    <span>Floor-Wise Distribution: {item.norm.name}</span>
+                                  </span>
+                                  <span className="text-[11px] text-slate-400 font-mono">
+                                    Total Consolidated: {item.roundedQuantity.toLocaleString()} {item.unit} • {formatCurrency(item.totalCost, currency)}
+                                  </span>
+                                </div>
+
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2.5">
+                                  {buildingFloors.map((fl) => {
+                                    const bd = item.floorBreakdown[fl.id];
+                                    const bdQty = bd ? bd.roundedQuantity : 0;
+                                    const bdCost = bd ? bd.cost : 0;
+                                    const fractionPct = bd ? Math.round(bd.fraction * 100) : 0;
+
+                                    return (
+                                      <div
+                                        key={fl.id}
+                                        className={`p-3 rounded-xl border text-xs font-mono space-y-1.5 ${
+                                          bdQty > 0
+                                            ? 'bg-slate-900 border-slate-700'
+                                            : 'bg-slate-950 border-slate-900 opacity-50'
+                                        }`}
+                                      >
+                                        <div className="flex items-center justify-between">
+                                          <span className="font-bold text-amber-300">{fl.shortCode}</span>
+                                          <span className="text-[10px] text-slate-400">{fractionPct}% share</span>
+                                        </div>
+                                        <div className="text-slate-300 font-semibold truncate">{fl.name}</div>
+                                        <div className="text-sm font-bold text-white pt-0.5">
+                                          {bdQty.toLocaleString()} {item.unit}
+                                        </div>
+                                        <div className="text-[11px] text-amber-400 font-semibold">
+                                          {formatCurrency(bdCost, currency)}
+                                        </div>
+                                        <div className="text-[10px] text-slate-500">
+                                          ₹{bd?.costPerSqFt ?? 0}/sq.ft
+                                        </div>
+
+                                        {/* Floor Slab Area Live Calibration inside breakdown */}
+                                        <div className="pt-1.5 border-t border-slate-800 flex items-center justify-between gap-1 text-[10px]">
+                                          <span className="text-slate-400">Area:</span>
+                                          <div className="flex items-center gap-1">
+                                            <button
+                                              type="button"
+                                              onClick={() => handleUpdateFloorArea(fl.id, Math.max(50, fl.areaSqFt - 100))}
+                                              className="p-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white"
+                                              title="Decrease 100 sq.ft"
+                                            >
+                                              <Minus className="w-2.5 h-2.5" />
+                                            </button>
+                                            <span className="font-bold text-white">{fl.areaSqFt} sq.ft</span>
+                                            <button
+                                              type="button"
+                                              onClick={() => handleUpdateFloorArea(fl.id, fl.areaSqFt + 100)}
+                                              className="p-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white"
+                                              title="Increase 100 sq.ft"
+                                            >
+                                              <Plus className="w-2.5 h-2.5" />
+                                            </button>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Building Floor Manager Modal */}
+      <BuildingFloorManagerModal
+        isOpen={isFloorModalOpen}
+        onClose={() => setIsFloorModalOpen(false)}
+        floors={activeProject.floors && activeProject.floors.length > 0 ? activeProject.floors : buildingFloors}
+        onSaveFloors={handleSaveFloors}
+      />
+
+      {/* Construction Materials Master Guide Modal */}
+      <ConstructionMaterialsMasterGuideModal
+        isOpen={isGuideModalOpen}
+        onClose={() => setIsGuideModalOpen(false)}
+        targetNormId={guideTargetNormId}
+        targetMaterialName={guideTargetMaterialName}
+        selectedBrandName={guideSelectedBrandName}
+        onSelectBrand={handleSelectBrandFromGuide}
+      />
+
+      {/* Floor-Wise Schedule of Rates Print & PDF Report Modal */}
+      <FloorWisePrintReportModal
+        isOpen={isFloorReportModalOpen}
+        onClose={() => setIsFloorReportModalOpen(false)}
+        project={activeProject}
+        items={boqItems}
+        floors={buildingFloors}
+        floorTotals={floorTotals}
+        currency={currency}
+        contingencyPercent={5}
+      />
     </div>
   );
 };

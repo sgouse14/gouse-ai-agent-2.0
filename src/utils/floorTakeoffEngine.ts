@@ -251,6 +251,9 @@ export function ensureItemFloorBreakdown(
 ): BOQItem {
   const currentBreakdown = item.floorBreakdown || {};
   const hasExistingEntries = Object.keys(currentBreakdown).length > 0;
+  const isIntegerUnit = ['nos', 'set', 'sets', 'lot', 'each', 'point', 'pts'].includes(
+    (item.unit || '').toLowerCase().trim()
+  );
 
   if (hasExistingEntries) {
     const normalized: Record<string, number> = {};
@@ -260,6 +263,73 @@ export function ensureItemFloorBreakdown(
 
     // Sum up floor quantities
     const totalQty = Object.values(normalized).reduce((acc, q) => acc + q, 0);
+
+    // If item.quantity was explicitly updated (e.g. from area scaling, takeoff auto-update, or manual edit)
+    // and differs from previous floor breakdown sum:
+    if (item.quantity > 0 && Math.abs(item.quantity - totalQty) > 0.001) {
+      if (totalQty > 0) {
+        // Proportionally scale each existing floor allocation to match the new item.quantity
+        const scale = item.quantity / totalQty;
+        let sumDistributed = 0;
+        floors.forEach((f) => {
+          const raw = (normalized[f.id] || 0) * scale;
+          const val = isIntegerUnit
+            ? Math.round(raw)
+            : Math.round(raw * 10) / 10;
+          normalized[f.id] = val;
+          sumDistributed += val;
+        });
+
+        // Rounding adjustment onto highest allocation floor
+        const targetTotal = isIntegerUnit ? Math.round(item.quantity) : Math.round(item.quantity * 10) / 10;
+        const diff = targetTotal - sumDistributed;
+        if (Math.abs(diff) > 0.001) {
+          let bestFloorId = floors[0]?.id || 'ground_floor';
+          let maxVal = -1;
+          floors.forEach((f) => {
+            if ((normalized[f.id] || 0) > maxVal) {
+              maxVal = normalized[f.id] || 0;
+              bestFloorId = f.id;
+            }
+          });
+          normalized[bestFloorId] = Math.max(
+            0,
+            Math.round(((normalized[bestFloorId] || 0) + diff) * 10) / 10
+          );
+        }
+      } else {
+        // totalQty was 0: generate standard floor distribution
+        const fractions = getStandardFloorDistribution(item, floors);
+        let sumDist = 0;
+        floors.forEach((f) => {
+          const frac = fractions[f.id] || 0;
+          const val = isIntegerUnit
+            ? Math.round(item.quantity * frac)
+            : Math.round(item.quantity * frac * 10) / 10;
+          normalized[f.id] = val;
+          sumDist += val;
+        });
+        const targetTotal = isIntegerUnit ? Math.round(item.quantity) : Math.round(item.quantity * 10) / 10;
+        const diff = targetTotal - sumDist;
+        if (Math.abs(diff) > 0.001) {
+          const bestFloorId = floors[0]?.id || 'ground_floor';
+          normalized[bestFloorId] = Math.max(
+            0,
+            Math.round(((normalized[bestFloorId] || 0) + diff) * 10) / 10
+          );
+        }
+      }
+
+      const finalQty = Object.values(normalized).reduce((acc, q) => acc + q, 0);
+      const finalAmount = Math.round(finalQty * item.rate * 100) / 100;
+
+      return {
+        ...item,
+        quantity: finalQty,
+        amount: finalAmount,
+        floorBreakdown: normalized,
+      };
+    }
 
     // If totalQty matches item.quantity or item.quantity was 0, use totalQty
     const finalQty = totalQty > 0 ? totalQty : item.quantity;
@@ -276,7 +346,6 @@ export function ensureItemFloorBreakdown(
   // Generate initial floor breakdown
   const fractions = getStandardFloorDistribution(item, floors);
   const normalized: Record<string, number> = {};
-  const isIntegerUnit = ['nos', 'set', 'sets', 'lot', 'each'].includes((item.unit || '').toLowerCase().trim());
 
   let distributedSum = 0;
   floors.forEach((f, idx) => {
@@ -594,3 +663,26 @@ export function generateFloorWiseCSV(
   // Prefix UTF-8 BOM (\uFEFF) and use CRLF so Microsoft Excel opens cleanly
   return '\uFEFF' + rows.join('\r\n');
 }
+
+/**
+ * Proportionally rescales the areaSqFt of building floors so that their sum matches the new total built-up area.
+ */
+export function scaleFloorAreasToTotal(
+  floors: BuildingFloor[],
+  newTotalArea: number
+): BuildingFloor[] {
+  const currentTotal = floors.reduce((sum, f) => sum + (f.areaSqFt || 0), 0);
+  if (currentTotal <= 0 || newTotalArea <= 0) return floors;
+  const ratio = newTotalArea / currentTotal;
+  let runningSum = 0;
+  return floors.map((f, idx) => {
+    if (idx === floors.length - 1) {
+      const remaining = Math.max(10, Math.round(newTotalArea - runningSum));
+      return { ...f, areaSqFt: remaining };
+    }
+    const scaled = Math.max(10, Math.round((f.areaSqFt || 0) * ratio));
+    runningSum += scaled;
+    return { ...f, areaSqFt: scaled };
+  });
+}
+

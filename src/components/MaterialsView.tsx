@@ -33,12 +33,15 @@ import {
   Calendar,
   Mail,
   Zap,
+  BookOpen,
 } from 'lucide-react';
 import { MATERIAL_CATALOG, BUILDING_TYPOLOGY_CHECKLISTS, INITIAL_LIVE_MATERIAL_PRICES } from '../data/initialData';
 import { Project, LiveMaterialPrice, GroundingSource, MaterialPriceAlertSubscription, MaterialPriceAlertItem, BOQItem } from '../types';
 import { formatCurrency, CurrencyCode } from '../utils/formatters';
 import { MaterialPriceAlertsPanel } from './MaterialPriceAlertsPanel';
 import { MaterialAreaTakeoffView } from './MaterialAreaTakeoffView';
+import { ConstructionMaterialsMasterGuideModal } from './ConstructionMaterialsMasterGuideModal';
+import { getMasterGuideLivePrices } from '../data/constructionMaterialsGuide';
 
 interface MaterialsViewProps {
   activeProject: Project;
@@ -60,9 +63,12 @@ export const MaterialsView: React.FC<MaterialsViewProps> = ({
   onNavigateToBOQ,
 }) => {
   const [activeSection, setActiveSection] = useState<'area-takeoff' | 'live-prices' | 'comparison' | 'checklists' | 'render'>('area-takeoff');
+  const [isGuideOpen, setIsGuideOpen] = useState(false);
 
-  // Live Material Pricing State
-  const [livePrices, setLivePrices] = useState<LiveMaterialPrice[]>(INITIAL_LIVE_MATERIAL_PRICES);
+  // Live Material Pricing State - Preloaded with 22 brand spot rates from Construction Materials Master Guide
+  const [livePrices, setLivePrices] = useState<LiveMaterialPrice[]>(() => {
+    return [...getMasterGuideLivePrices(), ...INITIAL_LIVE_MATERIAL_PRICES];
+  });
   const [liveRegion, setLiveRegion] = useState<string>('Bangalore / South India');
   const [selectedMaterialCategory, setSelectedMaterialCategory] = useState<string>('all');
   const [customMaterialQuery, setCustomMaterialQuery] = useState<string>('');
@@ -232,6 +238,7 @@ export const MaterialsView: React.FC<MaterialsViewProps> = ({
 
   // Comparison filter
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [selectedFloorFilter, setSelectedFloorFilter] = useState<string>('all');
   const [matrixSearchQuery, setMatrixSearchQuery] = useState<string>('');
 
   // Interactive Material Calculator
@@ -274,7 +281,10 @@ export const MaterialsView: React.FC<MaterialsViewProps> = ({
 
       const data = await res.json();
       if (data.prices && data.prices.length > 0) {
-        setLivePrices(data.prices);
+        const guidePrices = getMasterGuideLivePrices();
+        const incomingIds = new Set(data.prices.map((p: any) => p.id));
+        const filteredGuide = guidePrices.filter((g) => !incomingIds.has(g.id));
+        setLivePrices([...filteredGuide, ...data.prices]);
       }
       if (data.marketSummary) {
         setMarketSummary(data.marketSummary);
@@ -289,7 +299,7 @@ export const MaterialsView: React.FC<MaterialsViewProps> = ({
       }
       setLastRefreshedAt(new Date().toISOString());
     } catch {
-      setQuotaNotice('Serving verified regional market price benchmarks.');
+      setQuotaNotice('Serving verified Master Guide brand spot rates & regional market price benchmarks.');
     } finally {
       setIsLoadingLivePrices(false);
     }
@@ -367,16 +377,21 @@ export const MaterialsView: React.FC<MaterialsViewProps> = ({
   const filteredMaterials = useMemo(() => {
     return MATERIAL_CATALOG.filter((m) => {
       const matchesCat = selectedCategory === 'all' || m.category === selectedCategory;
+      const matchesFloor =
+        selectedFloorFilter === 'all' ||
+        (m.applicableFloors && m.applicableFloors.includes(selectedFloorFilter));
       const q = matrixSearchQuery.trim().toLowerCase();
       const matchesSearch =
         !q ||
         m.name.toLowerCase().includes(q) ||
         m.category.toLowerCase().includes(q) ||
         m.bestUse.toLowerCase().includes(q) ||
+        (m.floorNotes && m.floorNotes.toLowerCase().includes(q)) ||
+        (m.applicableFloors && m.applicableFloors.some((f) => f.toLowerCase().includes(q))) ||
         m.pros.some((p) => p.toLowerCase().includes(q));
-      return matchesCat && matchesSearch;
+      return matchesCat && matchesFloor && matchesSearch;
     });
-  }, [selectedCategory, matrixSearchQuery]);
+  }, [selectedCategory, selectedFloorFilter, matrixSearchQuery]);
 
   return (
     <div id="materials-standards-view" className="max-w-7xl mx-auto px-4 lg:px-8 py-6 space-y-6">
@@ -458,6 +473,16 @@ export const MaterialsView: React.FC<MaterialsViewProps> = ({
           >
             <Camera className="w-3.5 h-3.5" />
             <span>3D Render Studio</span>
+          </button>
+
+          <button
+            id="btn-open-master-materials-guide"
+            onClick={() => setIsGuideOpen(true)}
+            className="px-3 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/30 shadow-sm"
+            title="Explore Construction Materials Master Guide (IS Standards & National/Regional Brands)"
+          >
+            <BookOpen className="w-3.5 h-3.5 text-amber-400" />
+            <span>Master Materials Guide</span>
           </button>
         </div>
       </div>
@@ -818,6 +843,11 @@ export const MaterialsView: React.FC<MaterialsViewProps> = ({
                           <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded bg-slate-800 text-amber-300 border border-slate-700">
                             {mat.category}
                           </span>
+                          {(mat as any).isMasterGuideBrand && (
+                            <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-blue-500/15 text-blue-300 border border-blue-500/30">
+                              Master Guide • {(mat as any).brandCategory}
+                            </span>
+                          )}
                           {isAlertsActive && (
                             <span
                               title={`Subscribed to ${subscription.frequency} price change alerts`}
@@ -1072,7 +1102,28 @@ export const MaterialsView: React.FC<MaterialsViewProps> = ({
                       : 'bg-slate-900 text-slate-400 border-slate-800 hover:border-slate-700 hover:text-white'
                   }`}
                 >
-                  {cat === 'all' ? `All Standards (${MATERIAL_CATALOG.length})` : cat}
+                  {cat === 'all' ? `All Categories (${MATERIAL_CATALOG.length})` : cat}
+                </button>
+              ))}
+            </div>
+
+            {/* Floor Level Filter Chips */}
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar pt-1">
+              <span className="text-[11px] text-slate-400 font-mono flex items-center gap-1 mr-1">
+                <Layers className="w-3.5 h-3.5 text-amber-400" />
+                <span>Floor Level:</span>
+              </span>
+              {['all', 'Substructure', 'Ground Floor', 'First Floor', 'Second Floor', 'Terrace & Roof'].map((fl) => (
+                <button
+                  key={fl}
+                  onClick={() => setSelectedFloorFilter(fl)}
+                  className={`px-3 py-1 rounded-lg text-xs font-mono whitespace-nowrap transition border ${
+                    selectedFloorFilter === fl
+                      ? 'bg-amber-500 text-slate-950 border-amber-400 font-bold shadow-sm'
+                      : 'bg-slate-900 text-slate-400 border-slate-800 hover:border-slate-700 hover:text-white'
+                  }`}
+                >
+                  {fl === 'all' ? 'All Floor Levels' : fl}
                 </button>
               ))}
             </div>
@@ -1130,6 +1181,31 @@ export const MaterialsView: React.FC<MaterialsViewProps> = ({
                     <span className="text-[11px] font-semibold text-slate-400">Optimal Architectural Use:</span>
                     <p className="text-xs text-slate-300 italic">{mat.bestUse}</p>
                   </div>
+
+                  {/* Floor-wise Application Badges */}
+                  {mat.applicableFloors && mat.applicableFloors.length > 0 && (
+                    <div className="space-y-1.5 pt-2 border-t border-slate-800/80 font-mono">
+                      <div className="flex items-center gap-1 text-[10px] text-amber-400 font-bold uppercase tracking-wider">
+                        <Layers className="w-3 h-3" />
+                        <span>Applicable Floor Levels</span>
+                      </div>
+                      <div className="flex flex-wrap gap-1">
+                        {mat.applicableFloors.map((fl, idx) => (
+                          <span
+                            key={idx}
+                            className="px-2 py-0.5 rounded text-[10px] bg-amber-500/10 text-amber-300 border border-amber-500/20 font-mono"
+                          >
+                            {fl}
+                          </span>
+                        ))}
+                      </div>
+                      {mat.floorNotes && (
+                        <p className="text-[11px] text-slate-400 italic mt-0.5">
+                          {mat.floorNotes}
+                        </p>
+                      )}
+                    </div>
+                  )}
 
                   <div className="space-y-1">
                     <span className="text-[11px] font-semibold text-emerald-400">Key Advantages:</span>
@@ -1292,6 +1368,12 @@ export const MaterialsView: React.FC<MaterialsViewProps> = ({
           </div>
         </div>
       )}
+
+      {/* Construction Materials Master Guide Modal */}
+      <ConstructionMaterialsMasterGuideModal
+        isOpen={isGuideOpen}
+        onClose={() => setIsGuideOpen(false)}
+      />
     </div>
   );
 };

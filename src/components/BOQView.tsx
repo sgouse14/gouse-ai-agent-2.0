@@ -32,7 +32,8 @@ import {
   Zap,
   MapPin,
   Building2,
-  TableProperties
+  TableProperties,
+  FileDown
 } from 'lucide-react';
 import { BOQItem, Project, MarketplaceEnquiry, BuildingFloor, FloorWiseTotal } from '../types';
 import { formatCurrency, CurrencyCode } from '../utils/formatters';
@@ -63,8 +64,10 @@ import {
   copyFloorQuantitiesAcrossItems,
   generateFloorWiseCSV,
   ensureItemFloorBreakdown,
-  distributeItemQuantityByFloorArea
+  distributeItemQuantityByFloorArea,
+  scaleFloorAreasToTotal
 } from '../utils/floorTakeoffEngine';
+import { autoUpdateBOQItemsWithAreaAndMarketPrice } from '../utils/materialTakeoffEngine';
 import { exportBOQToExcel, exportBOQToExcelCSV } from '../utils/excelExport';
 
 export interface ItemAuditIssue {
@@ -457,6 +460,9 @@ export const BOQView: React.FC<BOQViewProps> = ({
 
   // Building Floors & Level Breakdown States
   const [floors, setFloors] = useState<BuildingFloor[]>(() => {
+    if (activeProject.floors && activeProject.floors.length > 0) {
+      return activeProject.floors;
+    }
     try {
       const saved = localStorage.getItem('gouse_ai_building_floors');
       if (saved) {
@@ -467,9 +473,33 @@ export const BOQView: React.FC<BOQViewProps> = ({
     return DEFAULT_BUILDING_FLOORS;
   });
 
+  // Sync floors if activeProject changes or has configured floors
+  useEffect(() => {
+    if (activeProject.floors && activeProject.floors.length > 0) {
+      setFloors(activeProject.floors);
+    }
+  }, [activeProject.id, activeProject.floors]);
+
   useEffect(() => {
     localStorage.setItem('gouse_ai_building_floors', JSON.stringify(floors));
   }, [floors]);
+
+  // Handle saving configured building floors and synchronizing with project
+  const handleSaveFloors = (newFloors: BuildingFloor[]) => {
+    setFloors(newFloors);
+    const totalArea = newFloors.reduce((sum, f) => sum + (Number(f.areaSqFt) || 0), 0);
+    if (totalArea > 0) {
+      setAreaSqFt(totalArea);
+    }
+    if (onUpdateProject) {
+      onUpdateProject({
+        ...activeProject,
+        floors: newFloors,
+        builtUpAreaSqFt: totalArea > 0 ? totalArea : activeProject.builtUpAreaSqFt,
+      });
+    }
+    setIsFloorManagerOpen(false);
+  };
 
   // Floor View Mode: 'matrix' (Detailed Floor-Wise Matrix) vs 'level_focus' (single level focus) vs 'standard'
   const [floorViewMode, setFloorViewMode] = useState<'matrix' | 'level_focus' | 'standard'>('matrix');
@@ -557,15 +587,18 @@ export const BOQView: React.FC<BOQViewProps> = ({
     reportSummary: string
   ) => {
     onUpdateItems(updatedItems);
+    const scaledFloors = scaleFloorAreasToTotal(floors, newAreaSqFt);
+    setFloors(scaledFloors);
     if (onUpdateProject) {
       onUpdateProject({
         ...activeProject,
+        floors: scaledFloors,
         builtUpAreaSqFt: newAreaSqFt,
       });
     }
     setAreaSqFt(newAreaSqFt);
     setMarketUpdateBanner({
-      message: `Applied Automatic Area & Market Update for ${newAreaSqFt.toLocaleString()} sq.ft!`,
+      message: `✓ Applied Automatic Area & Market Update for ${newAreaSqFt.toLocaleString()} sq.ft!`,
       submessage: reportSummary,
     });
   };
@@ -702,22 +735,31 @@ export const BOQView: React.FC<BOQViewProps> = ({
   }, [items, filterCategory, isAuditActive, auditFilterOnlyIssues, auditResults]);
 
   // Handle Square Footage Update
-  const handleApplyAreaChange = (newSqFt: number, shouldScale: boolean) => {
+  const handleApplyAreaChange = (newSqFt: number, shouldScale: boolean = true) => {
     const validSqFt = Math.max(100, Math.round(newSqFt));
     const previousSqFt = areaSqFt > 0 ? areaSqFt : 3000;
 
     if (shouldScale && previousSqFt > 0 && validSqFt !== previousSqFt) {
-      const scaleFactor = validSqFt / previousSqFt;
-      const scaledItems = items.map((item) => {
-        // Scale civil/structural/finish quantities proportionally
-        const scaledQty = Math.round(item.quantity * scaleFactor * 10) / 10;
-        return {
-          ...item,
-          quantity: scaledQty,
-          amount: Math.round(scaledQty * item.rate),
-        };
+      const { updatedItems, report } = autoUpdateBOQItemsWithAreaAndMarketPrice(
+        items,
+        validSqFt,
+        previousSqFt,
+        {
+          regionId: activeMarketRegion,
+          tier: activeMarketTier,
+          pricingBasis: activeMarketBasis,
+          updateQuantitiesWithArea: true,
+          updateRatesWithMarketPrice: false,
+          floors: floors,
+        }
+      );
+      onUpdateItems(updatedItems);
+      const scaledFloors = scaleFloorAreasToTotal(floors, validSqFt);
+      setFloors(scaledFloors);
+      setMarketUpdateBanner({
+        message: `✓ Auto-updated ${report.quantitiesUpdatedCount} BOQ quantities for ${validSqFt.toLocaleString()} sq.ft!`,
+        submessage: `Previous Subtotal: ${formatCurrency(report.previousSubtotal, currency)} → Scaled Subtotal: ${formatCurrency(report.updatedSubtotal, currency)} (${formatCurrency(Math.round(report.updatedSubtotal / validSqFt), currency)}/sq.ft). All floor level allocations rescaled.`,
       });
-      onUpdateItems(scaledItems);
     }
 
     setAreaSqFt(validSqFt);
@@ -726,6 +768,9 @@ export const BOQView: React.FC<BOQViewProps> = ({
     if (onUpdateProject) {
       onUpdateProject({
         ...activeProject,
+        ...(shouldScale && previousSqFt > 0 && validSqFt !== previousSqFt
+          ? { floors: scaleFloorAreasToTotal(floors, validSqFt) }
+          : {}),
         builtUpAreaSqFt: validSqFt,
       });
     }
@@ -1240,18 +1285,41 @@ Contact: ${enquiryClientPhone}`,
             <span>Master CSV</span>
           </button>
 
-          {/* Print Floor-Wise Report */}
+          {/* Print & PDF Floor-Wise Report */}
           <button
             id="btn-print-floor-report-top"
             onClick={() => setIsFloorPrintModalOpen(true)}
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30 text-xs font-semibold transition"
-            title="View printable / PDF official Floor-Wise Schedule of Rates and Quantities report"
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border border-rose-500/30 text-xs font-semibold transition"
+            title="Convert to PDF, export or print official Floor-Wise Schedule of Rates and Quantities report"
           >
-            <Printer className="w-3.5 h-3.5 text-amber-400" />
-            <span>Floor Report</span>
+            <FileDown className="w-3.5 h-3.5 text-rose-400" />
+            <span>Floor Report (PDF & Print)</span>
           </button>
         </div>
       </div>
+
+      {/* Banner notification when area takeoff or market prices are auto-updated */}
+      {marketUpdateBanner && (
+        <div className="p-3.5 rounded-xl bg-gradient-to-r from-amber-500/20 via-amber-500/10 to-slate-900 border border-amber-500/40 flex items-center justify-between gap-3 text-xs shadow-md">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-amber-500/20 border border-amber-500/40 flex items-center justify-center shrink-0">
+              <Zap className="w-4 h-4 text-amber-400 animate-pulse" />
+            </div>
+            <div>
+              <span className="font-bold text-amber-300 font-mono text-sm">{marketUpdateBanner.message}</span>
+              {marketUpdateBanner.submessage && (
+                <p className="text-xs text-slate-300 mt-0.5 font-mono">{marketUpdateBanner.submessage}</p>
+              )}
+            </div>
+          </div>
+          <button
+            onClick={() => setMarketUpdateBanner(null)}
+            className="text-slate-400 hover:text-white px-2.5 py-1 rounded bg-slate-800/80 hover:bg-slate-700 text-xs font-mono transition shrink-0"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
 
       {/* SQUARE FOOTAGE CONTROLLER BAR (User can set square feet directly) */}
       <div className="p-4 rounded-xl bg-gradient-to-r from-slate-900 via-slate-900 to-slate-950 border border-slate-800 shadow-sm flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -1285,7 +1353,7 @@ Contact: ${enquiryClientPhone}`,
           {SQFT_PRESETS.map((p) => (
             <button
               key={p.value}
-              onClick={() => handleApplyAreaChange(p.value, false)}
+              onClick={() => handleApplyAreaChange(p.value, true)}
               className={`px-2.5 py-1 text-xs rounded-lg font-mono transition border ${
                 areaSqFt === p.value
                   ? 'bg-amber-500/20 border-amber-500 text-amber-300 font-semibold'
@@ -2384,11 +2452,11 @@ Contact: ${enquiryClientPhone}`,
               type="button"
               id="btn-print-floor-report"
               onClick={() => setIsFloorPrintModalOpen(true)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/30 text-xs font-medium transition"
-              title="Generate printable / PDF document with complete floor-wise Schedule of Rates & Quantities"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-rose-950/40 hover:bg-rose-900/50 text-rose-300 border border-rose-500/30 text-xs font-medium transition"
+              title="Convert to PDF & print official Floor-Wise Schedule of Rates and Quantities report"
             >
-              <Printer className="w-3.5 h-3.5 text-amber-400" />
-              <span>Floor Report & Tender Print</span>
+              <FileDown className="w-3.5 h-3.5 text-rose-400" />
+              <span>Floor Report (PDF)</span>
             </button>
           </div>
         </div>
@@ -2926,6 +2994,7 @@ Contact: ${enquiryClientPhone}`,
         initialRegion={activeMarketRegion}
         initialTier={activeMarketTier}
         initialPricingBasis={activeMarketBasis}
+        floors={floors}
         onApplyUpdate={handleApplyAreaAndMarketUpdate}
       />
 
@@ -2934,7 +3003,7 @@ Contact: ${enquiryClientPhone}`,
         isOpen={isFloorManagerOpen}
         onClose={() => setIsFloorManagerOpen(false)}
         floors={floors}
-        onSaveFloors={setFloors}
+        onSaveFloors={handleSaveFloors}
       />
 
       {/* MODAL 9: FLOOR-WISE QUANTITY DISTRIBUTION TOOLS */}

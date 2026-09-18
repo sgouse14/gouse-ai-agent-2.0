@@ -1,6 +1,7 @@
 import * as XLSX from 'xlsx';
 import { BOQItem, BuildingFloor, FloorWiseTotal } from '../types';
 import { calculateFloorWiseTotals, ensureItemFloorBreakdown, DEFAULT_BUILDING_FLOORS } from './floorTakeoffEngine';
+import { MaterialTakeoffReport } from './materialTakeoffEngine';
 
 export interface ExcelExportOptions {
   items: BOQItem[];
@@ -15,7 +16,8 @@ export interface ExcelExportOptions {
  * Downloads a binary ArrayBuffer as a file in the browser
  */
 function downloadBlob(data: Uint8Array, fileName: string, mimeType: string) {
-  const blob = new Blob([data.buffer as ArrayBuffer], { type: mimeType });
+  const buffer = data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength) as ArrayBuffer;
+  const blob = new Blob([buffer], { type: mimeType });
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
@@ -453,4 +455,409 @@ export function exportBOQToExcelCSV({
   link.click();
   document.body.removeChild(link);
   URL.revokeObjectURL(url);
+}
+
+export interface MaterialTakeoffExcelExportOptions {
+  report: MaterialTakeoffReport;
+  floors?: BuildingFloor[];
+  projectName?: string;
+  currency?: string;
+}
+
+/**
+ * Exports a multi-sheet Microsoft Excel (.xlsx) workbook for Material Area Takeoff & Quantities:
+ * Sheet 1: Material Quantities Takeoff Schedule (Itemized with Floor-Wise breakdown, Brands, IS codes & Spot Prices)
+ * Sheet 2: Floor-Wise Allocation Summary (Area, Cost, Rate/sq.ft and major structural consumption per level)
+ * Sheet 3: Category & Structural Volumes Breakdown (Category totals and high-level key volume aggregates)
+ */
+export function exportMaterialTakeoffToExcel({
+  report,
+  floors = report.floors,
+  projectName = 'Building_Project',
+  currency = 'INR',
+}: MaterialTakeoffExcelExportOptions): void {
+  const cleanProjectName = (projectName || 'Building_Project').trim().replace(/[/\\?%*:|"<>]/g, '_');
+  const sanitizedFileName = `${cleanProjectName}_Material_Takeoff_${report.areaSqFt}sqft_${report.region.id}.xlsx`;
+
+  // Create new Excel workbook
+  const wb = XLSX.utils.book_new();
+
+  // ==========================================
+  // SHEET 1: MATERIAL TAKEOFF SCHEDULE
+  // ==========================================
+  const scheduleData: (string | number)[][] = [];
+
+  // Title Block
+  scheduleData.push(['MATERIAL AREA TAKEOFF & QUANTITIES SCHEDULE (FLOOR-WISE SPECIFICATIONS)']);
+  scheduleData.push([
+    'Project:',
+    projectName,
+    '',
+    'Date:',
+    new Date().toLocaleDateString(),
+    'Built-Up Area:',
+    `${report.areaSqFt.toLocaleString()} sq.ft (${Math.round(report.areaSqFt * 0.092903).toLocaleString()} m²)`,
+  ]);
+  scheduleData.push([
+    'Pricing Region:',
+    report.region.name,
+    '',
+    'Specification Tier:',
+    report.tier,
+    'Procurement Basis:',
+    report.pricingBasis,
+  ]);
+  scheduleData.push([
+    'Total Material Cost:',
+    report.totalMaterialCost,
+    'Cost per sq.ft:',
+    `${currency} ${report.materialCostPerSqFt}/sq.ft`,
+    'Floors Configured:',
+    floors.length,
+  ]);
+  scheduleData.push([]); // blank separator
+
+  // Table Headers
+  const headerRow: (string | number)[] = [
+    'Item #',
+    'Material Name',
+    'Category',
+    'IS Code / Standard',
+    'Engineering Norm',
+    'Wastage %',
+    'Assigned Brand / Make',
+    'Brand Tier',
+    `Rate (${currency})`,
+    'Total Quantity',
+    'Unit',
+    `Total Material Cost (${currency})`,
+    `Cost / sq.ft (${currency})`,
+    '% of Budget',
+  ];
+
+  floors.forEach((f) => {
+    headerRow.push(`${f.shortCode} Qty (${f.name})`);
+    headerRow.push(`${f.shortCode} Cost (${currency})`);
+  });
+
+  headerRow.push('Distribution Rule');
+  headerRow.push('Applicable Floors');
+  headerRow.push('Engineering Floor Notes');
+
+  scheduleData.push(headerRow);
+
+  // Line Items
+  report.items.forEach((item, idx) => {
+    const brandName = item.selectedBrand || (item.norm.brands && item.norm.brands[0]) || 'Standard';
+    const brandCategory = item.selectedBrandCategory || 'National';
+
+    const row: (string | number)[] = [
+      idx + 1,
+      item.norm.name,
+      item.norm.category,
+      item.norm.isCodeRef || 'IS Standard',
+      item.norm.normDescription,
+      item.effectiveWastagePercent,
+      brandName,
+      brandCategory,
+      item.marketRate,
+      item.roundedQuantity,
+      item.unit,
+      item.totalCost,
+      item.costPerSqFt,
+      `${item.percentOfTotalMaterialBudget}%`,
+    ];
+
+    floors.forEach((f) => {
+      const bd = item.floorBreakdown[f.id];
+      row.push(bd?.roundedQuantity ?? 0);
+      row.push(bd?.cost ?? 0);
+    });
+
+    row.push(item.norm.floorDistributionType || 'proportional_area');
+    row.push((item.norm.applicableFloors || []).join(', '));
+    row.push(item.norm.floorNotes || '');
+
+    scheduleData.push(row);
+  });
+
+  // Empty separator
+  scheduleData.push([]);
+
+  // Subtotal row
+  const subtotalRow: (string | number)[] = [
+    '',
+    'TOTAL MATERIAL COST',
+    '',
+    '',
+    '',
+    '',
+    '',
+    '',
+    '',
+    '',
+    '',
+    report.totalMaterialCost,
+    report.materialCostPerSqFt,
+    '100.0%',
+  ];
+
+  floors.forEach((f) => {
+    const ft = report.floorTotals.find((t) => t.floorId === f.id);
+    subtotalRow.push('-');
+    subtotalRow.push(ft?.subtotal || 0);
+  });
+
+  subtotalRow.push('');
+  subtotalRow.push('');
+  subtotalRow.push('Floor-Wise Direct Material Cost Total');
+  scheduleData.push(subtotalRow);
+
+  const wsSchedule = XLSX.utils.aoa_to_sheet(scheduleData);
+
+  // Column Widths for Sheet 1
+  const colWidths: { wch: number }[] = [
+    { wch: 8 },  // Item #
+    { wch: 32 }, // Material Name
+    { wch: 22 }, // Category
+    { wch: 18 }, // IS Code
+    { wch: 28 }, // Norm
+    { wch: 12 }, // Wastage %
+    { wch: 24 }, // Brand
+    { wch: 14 }, // Brand Tier
+    { wch: 14 }, // Rate
+    { wch: 14 }, // Total Qty
+    { wch: 10 }, // Unit
+    { wch: 18 }, // Total Cost
+    { wch: 14 }, // Cost/sqft
+    { wch: 12 }, // % of Budget
+  ];
+
+  floors.forEach(() => {
+    colWidths.push({ wch: 16 }); // Floor Qty
+    colWidths.push({ wch: 18 }); // Floor Cost
+  });
+
+  colWidths.push({ wch: 22 }); // Distribution Rule
+  colWidths.push({ wch: 26 }); // Applicable Floors
+  colWidths.push({ wch: 34 }); // Notes
+
+  wsSchedule['!cols'] = colWidths;
+  XLSX.utils.book_append_sheet(wb, wsSchedule, 'Material Schedule');
+
+  // ==========================================
+  // SHEET 2: FLOOR-WISE ALLOCATION SUMMARY
+  // ==========================================
+  const summaryData: (string | number)[][] = [];
+
+  summaryData.push(['BUILDING FLOOR-WISE MATERIAL ALLOCATION & COST SUMMARY']);
+  summaryData.push([
+    'Project:',
+    projectName,
+    '',
+    'Total Built-Up Area:',
+    `${report.areaSqFt.toLocaleString()} sq.ft`,
+    'Material Budget:',
+    report.totalMaterialCost,
+  ]);
+  summaryData.push([]); // blank separator
+
+  const summaryHeaders: (string | number)[] = [
+    'Level / Floor',
+    'Code',
+    'Elevation',
+    'Slab Area (sq.ft)',
+    'Area Share (%)',
+    `Material Subtotal (${currency})`,
+    `Cost / sq.ft (${currency})`,
+    'Budget Share (%)',
+    'Allocated Items',
+    'Cement (Bags)',
+    'Steel (MT)',
+    'Concrete (m³)',
+    'Masonry (m³)',
+    'Tiles (sq.ft)',
+    'Paint (Liters)',
+  ];
+  summaryData.push(summaryHeaders);
+
+  report.floorTotals.forEach((ft) => {
+    const areaPct = report.areaSqFt > 0 ? `${Math.round((ft.areaSqFt / report.areaSqFt) * 100)}%` : '0%';
+    summaryData.push([
+      ft.floorName,
+      ft.shortCode,
+      ft.elevation,
+      ft.areaSqFt,
+      areaPct,
+      ft.subtotal,
+      ft.costPerSqFt,
+      `${ft.percentOfTotal}%`,
+      ft.itemCount,
+      ft.keyVolumes.cementBags,
+      ft.keyVolumes.steelMetricTonnes,
+      ft.keyVolumes.concreteM3,
+      ft.keyVolumes.blocksM3,
+      ft.keyVolumes.tilesSqFt,
+      ft.keyVolumes.paintLiters,
+    ]);
+  });
+
+  // Building Totals row
+  summaryData.push([]);
+  summaryData.push([
+    'BUILDING GRAND TOTAL',
+    'ALL',
+    '-',
+    report.areaSqFt,
+    '100.0%',
+    report.totalMaterialCost,
+    report.materialCostPerSqFt,
+    '100.0%',
+    report.items.length,
+    report.keyMaterialVolumes.cementBags,
+    report.keyMaterialVolumes.steelMetricTonnes,
+    report.keyMaterialVolumes.concreteM3,
+    report.keyMaterialVolumes.blocksM3,
+    report.keyMaterialVolumes.tilesSqFt,
+    report.keyMaterialVolumes.paintLiters,
+  ]);
+
+  const wsSummary = XLSX.utils.aoa_to_sheet(summaryData);
+  wsSummary['!cols'] = [
+    { wch: 22 }, // Level
+    { wch: 10 }, // Code
+    { wch: 16 }, // Elevation
+    { wch: 18 }, // Slab Area
+    { wch: 14 }, // Area Share
+    { wch: 22 }, // Subtotal
+    { wch: 16 }, // Cost/sqft
+    { wch: 14 }, // Budget Share
+    { wch: 14 }, // Items
+    { wch: 14 }, // Cement
+    { wch: 14 }, // Steel
+    { wch: 14 }, // Concrete
+    { wch: 14 }, // Masonry
+    { wch: 14 }, // Tiles
+    { wch: 14 }, // Paint
+  ];
+  XLSX.utils.book_append_sheet(wb, wsSummary, 'Floor Summary');
+
+  // ==========================================
+  // SHEET 3: CATEGORY & VOLUME AGGREGATES
+  // ==========================================
+  const categoryData: (string | number)[][] = [];
+
+  categoryData.push(['MATERIAL CATEGORY BREAKDOWN & STRUCTURAL VOLUMES']);
+  categoryData.push([
+    'Pricing Region:',
+    report.region.name,
+    'Specification Quality:',
+    report.tier,
+    'Procurement Basis:',
+    report.pricingBasis,
+  ]);
+  categoryData.push([]); // blank
+
+  categoryData.push(['CATEGORY BREAKDOWN']);
+  categoryData.push([
+    'Material Category',
+    'Item Count',
+    `Total Cost (${currency})`,
+    `Cost / sq.ft (${currency})`,
+    'Budget Share (%)',
+  ]);
+
+  Object.entries(report.categoryBreakdown).forEach(([cat, val]) => {
+    const costPerSqFt = Math.round((val.cost / (report.areaSqFt || 1)) * 100) / 100;
+    categoryData.push([
+      cat,
+      val.itemsCount,
+      val.cost,
+      costPerSqFt,
+      `${val.percent}%`,
+    ]);
+  });
+
+  categoryData.push([
+    'Total Direct Materials',
+    report.items.length,
+    report.totalMaterialCost,
+    report.materialCostPerSqFt,
+    '100.0%',
+  ]);
+
+  categoryData.push([]); // blank
+  categoryData.push(['HIGH-LEVEL STRUCTURAL VOLUME BENCHMARKS']);
+  categoryData.push([
+    'Material Component',
+    'Estimated Total Volume',
+    'Unit of Measurement',
+    'Standard Rule-of-Thumb Benchmark',
+  ]);
+
+  categoryData.push([
+    'OPC / PPC Cement',
+    report.keyMaterialVolumes.cementBags,
+    'Bags (50 kg)',
+    '~0.40 - 0.45 bags per sq.ft built-up area',
+  ]);
+  categoryData.push([
+    'Fe550D TMT Reinforcement Steel',
+    report.keyMaterialVolumes.steelMetricTonnes,
+    'Metric Tonnes (MT)',
+    '~3.5 - 4.2 kg per sq.ft built-up area',
+  ]);
+  categoryData.push([
+    'River / Manufactured Sand (M-Sand)',
+    report.keyMaterialVolumes.sandTonnes,
+    'Tonnes',
+    '~1.8 - 2.1 tonnes per 100 sq.ft built-up area',
+  ]);
+  categoryData.push([
+    'Structural Concrete (M20 / M25)',
+    report.keyMaterialVolumes.concreteM3,
+    'Cubic Meters (m³)',
+    '~0.033 - 0.038 m³ per sq.ft built-up area',
+  ]);
+  categoryData.push([
+    'Masonry (Concrete Blocks / AAC)',
+    report.keyMaterialVolumes.blocksM3,
+    'Cubic Meters (m³)',
+    '~0.045 - 0.052 m³ per sq.ft built-up area',
+  ]);
+  categoryData.push([
+    'Flooring & Wall Vitrified Tiles',
+    report.keyMaterialVolumes.tilesSqFt,
+    'Square Feet (sq.ft)',
+    '~1.15 - 1.25x carpet area coverage',
+  ]);
+  categoryData.push([
+    'Paints (Primer + Acrylic Emulsion)',
+    report.keyMaterialVolumes.paintLiters,
+    'Liters',
+    '~0.18 - 0.22 L per sq.ft wall & ceiling surface',
+  ]);
+
+  const wsCategory = XLSX.utils.aoa_to_sheet(categoryData);
+  wsCategory['!cols'] = [
+    { wch: 32 }, // Component
+    { wch: 22 }, // Volume / Count
+    { wch: 22 }, // Unit / Cost
+    { wch: 42 }, // Benchmark / Share
+    { wch: 18 },
+  ];
+  XLSX.utils.book_append_sheet(wb, wsCategory, 'Categories & Volumes');
+
+  // Write workbook to binary buffer
+  const excelBuffer = XLSX.write(wb, {
+    bookType: 'xlsx',
+    type: 'array',
+  });
+
+  // Trigger download
+  downloadBlob(
+    new Uint8Array(excelBuffer),
+    sanitizedFileName,
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+  );
 }

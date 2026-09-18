@@ -53,6 +53,7 @@ export interface Project {
   description: string;
   status: 'planning' | 'design_development' | 'documentation' | 'tender' | 'construction' | 'completed';
   builtUpAreaSqFt?: number;
+  floors?: BuildingFloor[];
   files: ProjectFile[];
   analyses: AnalysisReport[];
   members: TeamMember[];
@@ -216,6 +217,8 @@ export interface MaterialComparisonItem {
   pros: string[];
   cons: string[];
   bestUse: string;
+  applicableFloors?: string[];
+  floorNotes?: string;
 }
 
 export interface ChatMessage {

@@ -16,7 +16,7 @@ import {
   Sparkles,
   Maximize2
 } from 'lucide-react';
-import { BOQItem, Project } from '../types';
+import { BOQItem, Project, BuildingFloor } from '../types';
 import { formatCurrency, CurrencyCode } from '../utils/formatters';
 import {
   MARKET_REGIONS,
@@ -39,6 +39,7 @@ interface AreaTakeoffAutoUpdateModalProps {
   initialRegion?: MarketRegion;
   initialTier?: MarketQualityTier;
   initialPricingBasis?: MarketPricingBasis;
+  floors?: BuildingFloor[];
 }
 
 export const AreaTakeoffAutoUpdateModal: React.FC<AreaTakeoffAutoUpdateModalProps> = ({
@@ -51,6 +52,7 @@ export const AreaTakeoffAutoUpdateModal: React.FC<AreaTakeoffAutoUpdateModalProp
   initialRegion = 'bangalore',
   initialTier = 'Standard',
   initialPricingBasis = 'spot_market',
+  floors,
 }) => {
   const [targetAreaSqFt, setTargetAreaSqFt] = useState<number>(() =>
     currentAreaSqFt && currentAreaSqFt > 0 ? currentAreaSqFt : 3000
@@ -63,13 +65,16 @@ export const AreaTakeoffAutoUpdateModal: React.FC<AreaTakeoffAutoUpdateModalProp
   const [selectedItemIds, setSelectedItemIds] = useState<string[]>(() => items.map((i) => i.id));
   const [searchTerm, setSearchTerm] = useState<string>('');
 
-  // Keep targetArea in sync if currentArea changes when modal opens
+  // Only initialize targetArea when modal opens (transitioning from false to true)
+  // to avoid wiping user-entered values on background re-renders
+  const prevIsOpenRef = React.useRef(false);
   React.useEffect(() => {
-    if (isOpen && currentAreaSqFt > 0) {
-      setTargetAreaSqFt(currentAreaSqFt);
+    if (isOpen && !prevIsOpenRef.current) {
+      setTargetAreaSqFt(currentAreaSqFt > 0 ? currentAreaSqFt : 3000);
       setSelectedItemIds(items.map((i) => i.id));
     }
-  }, [isOpen, currentAreaSqFt, items]);
+    prevIsOpenRef.current = isOpen;
+  }, [isOpen, currentAreaSqFt]);
 
   // Compute preview of the area & market price update
   const previewResult = useMemo(() => {
@@ -84,6 +89,7 @@ export const AreaTakeoffAutoUpdateModal: React.FC<AreaTakeoffAutoUpdateModalProp
         updateQuantitiesWithArea: updateQuantities,
         updateRatesWithMarketPrice: updateRates,
         selectedItemIds,
+        floors,
       }
     );
   }, [
@@ -96,6 +102,7 @@ export const AreaTakeoffAutoUpdateModal: React.FC<AreaTakeoffAutoUpdateModalProp
     updateQuantities,
     updateRates,
     selectedItemIds,
+    floors,
   ]);
 
   // Compute key raw material takeoff metrics for this area
@@ -107,6 +114,25 @@ export const AreaTakeoffAutoUpdateModal: React.FC<AreaTakeoffAutoUpdateModalProp
       selectedBasis
     );
   }, [targetAreaSqFt, selectedRegion, selectedTier, selectedBasis]);
+
+  const quickAreaPresets = useMemo(() => {
+    const standard = [
+      { id: 'preset-1200', label: '1,200 sq.ft', value: 1200, tag: 'Duplex' },
+      { id: 'preset-2400', label: '2,400 sq.ft', value: 2400, tag: 'Villa' },
+      { id: 'preset-3600', label: '3,600 sq.ft', value: 3600, tag: 'Triplex' },
+      { id: 'preset-5000', label: '5,000 sq.ft', value: 5000, tag: 'Bungalow' },
+      { id: 'preset-10000', label: '10,000 sq.ft', value: 10000, tag: 'Commercial' },
+    ];
+
+    const exists = standard.some((p) => p.value === currentAreaSqFt);
+    if (!exists && currentAreaSqFt > 0) {
+      return [
+        { id: `preset-current-${currentAreaSqFt}`, label: `${currentAreaSqFt.toLocaleString()} sq.ft`, value: currentAreaSqFt, tag: 'Current' },
+        ...standard,
+      ];
+    }
+    return standard;
+  }, [currentAreaSqFt]);
 
   if (!isOpen) return null;
 
@@ -131,25 +157,6 @@ export const AreaTakeoffAutoUpdateModal: React.FC<AreaTakeoffAutoUpdateModalProp
     onApplyUpdate(previewResult.updatedItems, targetAreaSqFt, summary);
     onClose();
   };
-
-  const quickAreaPresets = useMemo(() => {
-    const standard = [
-      { id: 'preset-1200', label: '1,200 sq.ft', value: 1200, tag: 'Duplex' },
-      { id: 'preset-2400', label: '2,400 sq.ft', value: 2400, tag: 'Villa' },
-      { id: 'preset-3600', label: '3,600 sq.ft', value: 3600, tag: 'Triplex' },
-      { id: 'preset-5000', label: '5,000 sq.ft', value: 5000, tag: 'Bungalow' },
-      { id: 'preset-10000', label: '10,000 sq.ft', value: 10000, tag: 'Commercial' },
-    ];
-
-    const exists = standard.some((p) => p.value === currentAreaSqFt);
-    if (!exists && currentAreaSqFt > 0) {
-      return [
-        { id: `preset-current-${currentAreaSqFt}`, label: `${currentAreaSqFt.toLocaleString()} sq.ft`, value: currentAreaSqFt, tag: 'Current' },
-        ...standard,
-      ];
-    }
-    return standard;
-  }, [currentAreaSqFt]);
 
   const filteredItemDetails = report.itemDetails.filter((d) =>
     d.name.toLowerCase().includes(searchTerm.toLowerCase())
