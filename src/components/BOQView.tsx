@@ -33,7 +33,8 @@ import {
   MapPin,
   Building2,
   TableProperties,
-  FileDown
+  FileDown,
+  HardHat
 } from 'lucide-react';
 import { BOQItem, Project, MarketplaceEnquiry, BuildingFloor, FloorWiseTotal } from '../types';
 import { formatCurrency, CurrencyCode } from '../utils/formatters';
@@ -42,6 +43,7 @@ import { BOQDistributionAnalytics } from './BOQDistributionAnalytics';
 import { getItemComponentFractions } from '../utils/boqDistribution';
 import { MarketPriceAutoUpdateModal } from './MarketPriceAutoUpdateModal';
 import { AreaTakeoffAutoUpdateModal } from './AreaTakeoffAutoUpdateModal';
+import { LabourCostBreakdownModal } from './LabourCostBreakdownModal';
 import {
   MARKET_REGIONS,
   MarketRegion,
@@ -69,6 +71,10 @@ import {
 } from '../utils/floorTakeoffEngine';
 import { autoUpdateBOQItemsWithAreaAndMarketPrice } from '../utils/materialTakeoffEngine';
 import { exportBOQToExcel, exportBOQToExcelCSV } from '../utils/excelExport';
+import {
+  SNK_BUILDING_FLOORS,
+  getSNKStandardBOQItems,
+} from '../data/snkQuotationFormat';
 
 export interface ItemAuditIssue {
   type: 'rate' | 'unit' | 'quantity';
@@ -453,6 +459,7 @@ export const BOQView: React.FC<BOQViewProps> = ({
   // Market Price Auto-Update state
   const [isMarketModalOpen, setIsMarketModalOpen] = useState(false);
   const [isAreaMarketModalOpen, setIsAreaMarketModalOpen] = useState(false);
+  const [isLabourBreakdownModalOpen, setIsLabourBreakdownModalOpen] = useState(false);
   const [activeMarketRegion, setActiveMarketRegion] = useState<MarketRegion>('bangalore');
   const [activeMarketTier, setActiveMarketTier] = useState<MarketQualityTier>('Standard');
   const [activeMarketBasis, setActiveMarketBasis] = useState<MarketPricingBasis>('spot_market');
@@ -554,6 +561,26 @@ export const BOQView: React.FC<BOQViewProps> = ({
   const handleCopyFromFloor = (sourceFloorId: string, targetFloorId: string) => {
     const updated = copyFloorQuantitiesAcrossItems(items, sourceFloorId, targetFloorId, floors);
     onUpdateItems(updated);
+  };
+
+  // Handler: 1-Click Format according to SNK Associates Turnkey Residential Quotation
+  const handleApplySNKFormat = () => {
+    const snkItems = getSNKStandardBOQItems();
+    const snkFloors = SNK_BUILDING_FLOORS;
+    setFloors(snkFloors);
+    setAreaSqFt(3599);
+    onUpdateItems(snkItems);
+    if (onUpdateProject) {
+      onUpdateProject({
+        ...activeProject,
+        floors: snkFloors,
+        builtUpAreaSqFt: 3599,
+      });
+    }
+    setMarketUpdateBanner({
+      message: 'Applied SNK Turnkey Residential Standard (3,599 sq.ft @ ₹2,100/sq.ft)!',
+      submessage: 'Building Levels (GF 1,200 Sft, FF 1,200 Sft, SF 1,199 Sft), Material Prices (Steel ₹60/kg, Cement ₹385, CCB ₹38, Granite ₹100), and Level Quantities loaded.',
+    });
   };
 
   // Handler: Export directly to Microsoft Excel (.xlsx format with multiple sheets)
@@ -1214,6 +1241,20 @@ Contact: ${enquiryClientPhone}`,
             <span>Market Rates Sync</span>
             <span className="px-1.5 py-0.5 rounded-full font-mono text-[10px] font-bold bg-amber-500/30 text-amber-200">
               Auto
+            </span>
+          </button>
+
+          {/* Detailed Labour Cost Breakdown Button */}
+          <button
+            id="btn-toolbar-labour-cost-breakdown"
+            onClick={() => setIsLabourBreakdownModalOpen(true)}
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-gradient-to-r from-amber-500/25 via-amber-500/15 to-amber-500/25 text-amber-300 border border-amber-500/50 hover:bg-amber-500/35 text-xs font-bold transition shadow-sm"
+            title="Detailed Labour Cost Breakdown per 1,000 sq.ft civil schedule with 1-click BOQ rate calibration"
+          >
+            <HardHat className="w-3.5 h-3.5 text-amber-400" />
+            <span>Labour Schedule Rates</span>
+            <span className="px-1.5 py-0.5 rounded-full font-mono text-[10px] font-extrabold bg-amber-500 text-slate-950">
+              Per 1000 Sq.Ft
             </span>
           </button>
 
@@ -2428,6 +2469,17 @@ Contact: ${enquiryClientPhone}`,
           <div className="flex items-center gap-2 flex-wrap">
             <button
               type="button"
+              id="btn-format-snk-turnkey"
+              onClick={handleApplySNKFormat}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold shadow-sm transition"
+              title="Apply SNK Turnkey 3,599 sq.ft Format (Material Prices, Area Concept & Level Schedule)"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-slate-950" />
+              <span>SNK Format (3,599 Sft)</span>
+            </button>
+
+            <button
+              type="button"
               id="btn-export-floor-wise-excel"
               onClick={handleExportExcel}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold shadow-sm transition"
@@ -2478,6 +2530,7 @@ Contact: ${enquiryClientPhone}`,
               setActiveDistributionItem(item);
               setIsDistributionModalOpen(true);
             }}
+            onApplySNKFormat={handleApplySNKFormat}
           />
         )}
 
@@ -3030,6 +3083,22 @@ Contact: ${enquiryClientPhone}`,
         floorTotals={floorTotals}
         currency={currency}
         contingencyPercent={contingencyPercent}
+      />
+
+      {/* MODAL 11: DETAILED LABOUR COST BREAKDOWN & RATE CALIBRATION */}
+      <LabourCostBreakdownModal
+        items={items}
+        currency={currency}
+        areaSqFt={areaSqFt}
+        isOpen={isLabourBreakdownModalOpen}
+        onClose={() => setIsLabourBreakdownModalOpen(false)}
+        onApplyRates={(updatedItems) => {
+          onUpdateItems(updatedItems);
+          setMarketUpdateBanner({
+            message: `Successfully calibrated ${updatedItems.length} BOQ items with civil engineering labour schedule rates!`,
+            submessage: `All rates, labor percentage splits, and amounts have been calibrated to current construction labor benchmarks.`,
+          });
+        }}
       />
     </div>
   );

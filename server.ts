@@ -9,6 +9,7 @@ import {
   searchProfessionalsWithGoogle,
   fetchLiveMaterialPricesWithGoogle,
   getDomainFallbackResponse,
+  getDomainFallbackAgentResponse,
   generateSpeechAudio,
   generateCompanyWithAi,
 } from './server/apiService';
@@ -48,22 +49,30 @@ app.get('/api/health', (req, res) => {
 // Chat endpoint with multi-lingual specialist support
 app.post('/api/chat', async (req, res) => {
   try {
-    const { message, specialist, projectContext, language } = req.body;
-    const response = await generateChatResponse(
+    const { message, specialist, projectContext, language, boqContext, projectData } = req.body;
+    const result = await generateChatResponse(
       message || '',
       specialist || 'general',
       projectContext || '',
-      language || 'en-IN'
+      language || 'en-IN',
+      boqContext,
+      projectData
     );
-    res.json({ response });
+    if (typeof result === 'object' && result !== null) {
+      res.json(result);
+    } else {
+      res.json({ response: result });
+    }
   } catch (_err) {
-    const fallback = getDomainFallbackResponse(
+    const fallback = getDomainFallbackAgentResponse(
       req.body.message || '',
       req.body.specialist || 'general',
       req.body.projectContext,
-      req.body.language || 'en-IN'
+      req.body.language || 'en-IN',
+      req.body.boqContext,
+      req.body.projectData
     );
-    res.json({ response: fallback });
+    res.json(fallback);
   }
 });
 

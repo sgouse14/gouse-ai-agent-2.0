@@ -16,7 +16,7 @@ import {
   Trash2,
   AlertCircle
 } from 'lucide-react';
-import { Project, ProjectFile, AnalysisReport, TeamMember } from '../types';
+import { Project, ProjectFile, AnalysisReport, TeamMember, AuditEvent } from '../types';
 import { formatDate } from '../utils/formatters';
 
 interface ProjectsViewProps {
@@ -57,6 +57,13 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
   const [newMemberName, setNewMemberName] = useState('');
   const [newMemberEmail, setNewMemberEmail] = useState('');
   const [newMemberRole, setNewMemberRole] = useState<TeamMember['role']>('architect');
+
+  // Audit log state
+  const [isAddingAuditLog, setIsAddingAuditLog] = useState(false);
+  const [newAuditAction, setNewAuditAction] = useState('');
+  const [newAuditActor, setNewAuditActor] = useState('Ar. Gouse');
+  const [newAuditDetails, setNewAuditDetails] = useState('');
+  const [confirmClearAudit, setConfirmClearAudit] = useState(false);
 
   // Copy notification
   const [copiedReportId, setCopiedReportId] = useState<string | null>(null);
@@ -198,7 +205,7 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
           projectId: activeProject.id,
           actor: 'Ar. Gouse',
           action: 'Team Member Added',
-          details: `Added ${newMember.name} as ${newMember.role}`,
+          details: `Added ${newMember.name} as ${newMember.role.replace('_', ' ')}`,
           timestamp: new Date().toISOString(),
         },
         ...activeProject.auditLogs,
@@ -209,6 +216,69 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
     setNewMemberName('');
     setNewMemberEmail('');
     setIsAddingMember(false);
+  };
+
+  const handleRemoveTeamMember = (memberId: string, memberName: string, memberRole: string) => {
+    const updatedProject: Project = {
+      ...activeProject,
+      members: activeProject.members.filter((m) => m.id !== memberId),
+      auditLogs: [
+        {
+          id: `log-${Date.now()}`,
+          projectId: activeProject.id,
+          actor: 'Ar. Gouse',
+          action: 'Team Member Removed',
+          details: `Removed ${memberName} (${memberRole.replace('_', ' ')}) from project team`,
+          timestamp: new Date().toISOString(),
+        },
+        ...activeProject.auditLogs,
+      ],
+    };
+
+    onUpdateProject(updatedProject);
+  };
+
+  const handleAddAuditLog = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newAuditAction.trim() || !newAuditDetails.trim()) return;
+
+    const newLog: AuditEvent = {
+      id: `log-${Date.now()}`,
+      projectId: activeProject.id,
+      actor: newAuditActor.trim() || 'Ar. Gouse',
+      action: newAuditAction.trim(),
+      details: newAuditDetails.trim(),
+      timestamp: new Date().toISOString(),
+    };
+
+    const updatedProject: Project = {
+      ...activeProject,
+      auditLogs: [newLog, ...activeProject.auditLogs],
+    };
+
+    onUpdateProject(updatedProject);
+    setNewAuditAction('');
+    setNewAuditDetails('');
+    setIsAddingAuditLog(false);
+  };
+
+  const handleRemoveAuditLog = (logId: string) => {
+    const updatedProject: Project = {
+      ...activeProject,
+      auditLogs: activeProject.auditLogs.filter((log) => log.id !== logId),
+    };
+
+    onUpdateProject(updatedProject);
+  };
+
+  const handleClearAllAuditLogs = () => {
+    const updatedProject: Project = {
+      ...activeProject,
+      auditLogs: [],
+    };
+
+    onUpdateProject(updatedProject);
+    setConfirmClearAudit(false);
   };
 
   const handleCopyReport = (report: AnalysisReport) => {
@@ -660,7 +730,7 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
       {/* Tab 3: Team Members & Audit Trail */}
       {activeTab === 'team' && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Team Members List */}
+          {/* Team Members Column */}
           <div className="lg:col-span-1 space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-semibold text-white flex items-center gap-1.5">
@@ -668,106 +738,337 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
                 Team Members ({activeProject.members.length})
               </h3>
               <button
+                id="btn-toggle-add-member"
+                type="button"
                 onClick={() => setIsAddingMember(!isAddingMember)}
-                className="inline-flex items-center gap-1 text-xs text-amber-400 hover:text-amber-300"
+                className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 transition font-medium"
               >
                 <Plus className="w-3.5 h-3.5" />
-                <span>Add Member</span>
+                <span>{isAddingMember ? 'Cancel' : 'Add Member'}</span>
               </button>
             </div>
 
+            {/* Add Team Member Inline Form */}
             {isAddingMember && (
-              <form onSubmit={handleAddTeamMember} className="p-3 rounded-lg bg-slate-900 border border-amber-500/30 space-y-2">
-                <input
-                  type="text"
-                  required
-                  placeholder="Full name"
-                  value={newMemberName}
-                  onChange={(e) => setNewMemberName(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-white focus:outline-none"
-                />
-                <input
-                  type="email"
-                  required
-                  placeholder="Email address"
-                  value={newMemberEmail}
-                  onChange={(e) => setNewMemberEmail(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-white focus:outline-none"
-                />
-                <select
-                  value={newMemberRole}
-                  onChange={(e) => setNewMemberRole(e.target.value as TeamMember['role'])}
-                  className="w-full bg-slate-950 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-white focus:outline-none"
-                >
-                  <option value="architect">Architect</option>
-                  <option value="structural_engineer">Structural Engineer</option>
-                  <option value="mep_engineer">MEP Engineer</option>
-                  <option value="quantity_surveyor">Quantity Surveyor</option>
-                  <option value="client">Client</option>
-                </select>
-                <div className="flex justify-end gap-1.5">
+              <form
+                id="form-add-team-member"
+                onSubmit={handleAddTeamMember}
+                className="p-3.5 rounded-xl bg-slate-900 border border-amber-500/30 space-y-2.5 shadow-lg"
+              >
+                <div className="text-xs font-semibold text-amber-400 flex items-center gap-1">
+                  <Plus className="w-3 h-3" />
+                  Add New Team Member
+                </div>
+                <div>
+                  <label className="block text-[10px] text-slate-400 uppercase font-mono mb-1">Full Name</label>
+                  <input
+                    id="input-new-member-name"
+                    type="text"
+                    required
+                    placeholder="e.g. Ar. Tariq Mansoor"
+                    value={newMemberName}
+                    onChange={(e) => setNewMemberName(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-400"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] text-slate-400 uppercase font-mono mb-1">Email Address</label>
+                  <input
+                    id="input-new-member-email"
+                    type="email"
+                    required
+                    placeholder="e.g. tariq@apexstudio.com"
+                    value={newMemberEmail}
+                    onChange={(e) => setNewMemberEmail(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-400"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] text-slate-400 uppercase font-mono mb-1">Role / Discipline</label>
+                  <select
+                    id="select-new-member-role"
+                    value={newMemberRole}
+                    onChange={(e) => setNewMemberRole(e.target.value as TeamMember['role'])}
+                    className="w-full bg-slate-950 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-amber-400 font-mono"
+                  >
+                    <option value="architect">Architect</option>
+                    <option value="structural_engineer">Structural Engineer</option>
+                    <option value="mep_engineer">MEP Engineer</option>
+                    <option value="quantity_surveyor">Quantity Surveyor</option>
+                    <option value="client">Client</option>
+                    <option value="owner">Project Owner</option>
+                  </select>
+                </div>
+                <div className="flex justify-end gap-2 pt-1 border-t border-slate-800">
                   <button
                     type="button"
                     onClick={() => setIsAddingMember(false)}
-                    className="px-2 py-1 text-xs text-slate-400"
+                    className="px-2.5 py-1 text-xs text-slate-400 hover:text-white"
                   >
                     Cancel
                   </button>
                   <button
+                    id="btn-save-new-member"
                     type="submit"
-                    className="px-2.5 py-1 rounded bg-amber-500 text-slate-950 font-semibold text-xs"
+                    className="px-3 py-1 rounded bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold text-xs transition"
                   >
-                    Save
+                    Save Member
                   </button>
                 </div>
               </form>
             )}
 
-            <div className="space-y-2">
-              {activeProject.members.map((member) => (
-                <div
-                  key={member.id}
-                  className="p-3 rounded-lg bg-slate-900 border border-slate-800 flex items-center justify-between"
+            {/* Team Members List */}
+            {activeProject.members.length === 0 ? (
+              <div className="text-center py-8 px-4 rounded-xl border border-dashed border-slate-800 bg-slate-900/30">
+                <Users className="w-7 h-7 text-slate-600 mx-auto mb-2" />
+                <p className="text-xs text-slate-400 mb-2">No team members added yet.</p>
+                <button
+                  type="button"
+                  onClick={() => setIsAddingMember(true)}
+                  className="text-xs text-amber-400 hover:text-amber-300 underline font-medium"
                 >
-                  <div>
-                    <h5 className="text-xs font-semibold text-white">{member.name}</h5>
-                    <p className="text-[11px] text-slate-400 font-mono">{member.email}</p>
+                  + Add First Member
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {activeProject.members.map((member) => (
+                  <div
+                    key={member.id}
+                    id={`team-member-${member.id}`}
+                    className="p-3 rounded-lg bg-slate-900 border border-slate-800 flex items-center justify-between group hover:border-slate-700 transition"
+                  >
+                    <div className="min-w-0 pr-2">
+                      <h5 className="text-xs font-semibold text-white truncate">{member.name}</h5>
+                      <p className="text-[11px] text-slate-400 font-mono truncate">{member.email}</p>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded bg-slate-800 text-amber-300 border border-slate-700">
+                        {member.role.replace('_', ' ')}
+                      </span>
+                      <button
+                        id={`btn-remove-member-${member.id}`}
+                        type="button"
+                        onClick={() => handleRemoveTeamMember(member.id, member.name, member.role)}
+                        className="p-1 rounded text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition"
+                        title={`Remove ${member.name} from project team`}
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   </div>
-                  <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded bg-slate-800 text-amber-300 border border-slate-700">
-                    {member.role.replace('_', ' ')}
-                  </span>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
 
-          {/* Activity Audit Trail */}
+          {/* Activity Audit Trail Column */}
           <div className="lg:col-span-2 space-y-4">
-            <h3 className="text-sm font-semibold text-white flex items-center gap-1.5">
-              <History className="w-4 h-4 text-amber-400" />
-              Activity Audit Trail
-            </h3>
-
-            <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-3">
-              {activeProject.auditLogs.map((log, idx) => (
-                <div
-                  key={log.id}
-                  className="flex items-start gap-3 pb-3 border-b border-slate-800/80 last:border-0 last:pb-0"
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h3 className="text-sm font-semibold text-white flex items-center gap-1.5">
+                <History className="w-4 h-4 text-amber-400" />
+                Activity Audit Trail ({activeProject.auditLogs.length})
+              </h3>
+              <div className="flex items-center gap-2">
+                <button
+                  id="btn-toggle-add-audit"
+                  type="button"
+                  onClick={() => setIsAddingAuditLog(!isAddingAuditLog)}
+                  className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 transition font-medium"
                 >
-                  <div className="w-2 h-2 rounded-full bg-amber-400 mt-1.5 shrink-0" />
-                  <div className="flex-1">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-xs font-semibold text-white">{log.action}</span>
-                      <span className="text-[10px] text-slate-400 font-mono">
-                        {new Date(log.timestamp).toLocaleString()}
-                      </span>
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>{isAddingAuditLog ? 'Cancel' : 'Record Audit Event'}</span>
+                </button>
+
+                {activeProject.auditLogs.length > 0 && (
+                  confirmClearAudit ? (
+                    <div className="inline-flex items-center gap-1.5 bg-rose-950/60 border border-rose-800/80 rounded px-2 py-0.5">
+                      <span className="text-[11px] text-rose-300">Clear all?</span>
+                      <button
+                        id="btn-confirm-clear-audit"
+                        type="button"
+                        onClick={handleClearAllAuditLogs}
+                        className="text-[11px] px-1.5 py-0.5 rounded bg-rose-600 hover:bg-rose-500 text-white font-medium transition"
+                      >
+                        Yes
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setConfirmClearAudit(false)}
+                        className="text-[11px] px-1.5 py-0.5 text-slate-400 hover:text-white"
+                      >
+                        No
+                      </button>
                     </div>
-                    <p className="text-xs text-slate-300 mt-0.5">{log.details}</p>
-                    <p className="text-[11px] text-slate-500 font-mono mt-0.5">By: {log.actor}</p>
+                  ) : (
+                    <button
+                      id="btn-clear-audit-logs"
+                      type="button"
+                      onClick={() => setConfirmClearAudit(true)}
+                      className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 transition"
+                      title="Clear all audit logs"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>Clear All</span>
+                    </button>
+                  )
+                )}
+              </div>
+            </div>
+
+            {/* Add Audit Log Inline Form */}
+            {isAddingAuditLog && (
+              <form
+                id="form-add-audit-log"
+                onSubmit={handleAddAuditLog}
+                className="p-4 rounded-xl bg-slate-900 border border-amber-500/30 space-y-3 shadow-lg"
+              >
+                <div className="text-xs font-semibold text-amber-400 flex items-center gap-1">
+                  <Plus className="w-3 h-3" />
+                  Record Manual Audit Log / Site Milestone
+                </div>
+
+                {/* Quick Action Suggestion Chips */}
+                <div className="space-y-1">
+                  <span className="text-[10px] text-slate-400 uppercase font-mono">Quick Presets:</span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {[
+                      'Site Inspection Completed',
+                      'Client Milestone Approval',
+                      'Structural Revision Issued',
+                      'MEP Clash Resolution',
+                      'Compliance Verification',
+                      'Variation Order Signed',
+                    ].map((preset) => (
+                      <button
+                        key={preset}
+                        type="button"
+                        onClick={() => setNewAuditAction(preset)}
+                        className={`text-[11px] px-2 py-0.5 rounded border transition ${
+                          newAuditAction === preset
+                            ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                            : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-slate-200'
+                        }`}
+                      >
+                        {preset}
+                      </button>
+                    ))}
                   </div>
                 </div>
-              ))}
-            </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[10px] text-slate-400 uppercase font-mono mb-1">
+                      Event Action / Title
+                    </label>
+                    <input
+                      id="input-audit-action"
+                      type="text"
+                      required
+                      placeholder="e.g. Foundation Pour Inspection"
+                      value={newAuditAction}
+                      onChange={(e) => setNewAuditAction(e.target.value)}
+                      className="w-full bg-slate-950 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-400"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] text-slate-400 uppercase font-mono mb-1">
+                      Actor / Responsible Professional
+                    </label>
+                    <input
+                      id="input-audit-actor"
+                      type="text"
+                      required
+                      placeholder="e.g. Ar. Gouse"
+                      value={newAuditActor}
+                      onChange={(e) => setNewAuditActor(e.target.value)}
+                      className="w-full bg-slate-950 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-400"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[10px] text-slate-400 uppercase font-mono mb-1">
+                    Details / Observations / Reference Notes
+                  </label>
+                  <textarea
+                    id="textarea-audit-details"
+                    required
+                    rows={2}
+                    placeholder="Enter inspection results, sign-off notes, drawing revision numbers, or meeting minutes..."
+                    value={newAuditDetails}
+                    onChange={(e) => setNewAuditDetails(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-400 resize-none"
+                  />
+                </div>
+
+                <div className="flex justify-end gap-2 pt-2 border-t border-slate-800">
+                  <button
+                    type="button"
+                    onClick={() => setIsAddingAuditLog(false)}
+                    className="px-3 py-1 text-xs text-slate-400 hover:text-white"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    id="btn-save-audit-log"
+                    type="submit"
+                    className="px-3 py-1 rounded bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold text-xs transition"
+                  >
+                    Record Event
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {/* Audit Logs List */}
+            {activeProject.auditLogs.length === 0 ? (
+              <div className="text-center py-10 px-4 rounded-xl border border-dashed border-slate-800 bg-slate-900/30">
+                <History className="w-8 h-8 text-slate-600 mx-auto mb-2" />
+                <p className="text-xs text-slate-400 mb-2">No audit events recorded for this project yet.</p>
+                <button
+                  type="button"
+                  onClick={() => setIsAddingAuditLog(true)}
+                  className="text-xs text-amber-400 hover:text-amber-300 underline font-medium"
+                >
+                  + Record First Audit Event
+                </button>
+              </div>
+            ) : (
+              <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-3">
+                {activeProject.auditLogs.map((log) => (
+                  <div
+                    key={log.id}
+                    id={`audit-log-${log.id}`}
+                    className="flex items-start gap-3 pb-3 border-b border-slate-800/80 last:border-0 last:pb-0 group"
+                  >
+                    <div className="w-2 h-2 rounded-full bg-amber-400 mt-1.5 shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-xs font-semibold text-white truncate">{log.action}</span>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className="text-[10px] text-slate-400 font-mono">
+                            {new Date(log.timestamp).toLocaleString()}
+                          </span>
+                          <button
+                            id={`btn-remove-audit-${log.id}`}
+                            type="button"
+                            onClick={() => handleRemoveAuditLog(log.id)}
+                            className="text-slate-600 hover:text-rose-400 opacity-80 group-hover:opacity-100 transition p-0.5"
+                            title="Remove audit log entry"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        </div>
+                      </div>
+                      <p className="text-xs text-slate-300 mt-0.5 leading-relaxed">{log.details}</p>
+                      <p className="text-[11px] text-slate-500 font-mono mt-0.5">By: {log.actor}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}

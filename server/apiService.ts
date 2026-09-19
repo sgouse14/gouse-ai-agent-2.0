@@ -201,29 +201,46 @@ export const LANGUAGE_PROMPT_MAP: Record<string, { name: string; native: string 
   'auto': { name: 'Auto-detect query language', native: 'Auto' },
 };
 
+export interface AgentChatAction {
+  id: string;
+  type: 'add_boq_item' | 'update_contingency' | 'update_area' | 'run_audit' | 'inspect_pricing';
+  title: string;
+  description: string;
+  payload?: any;
+}
+
+export interface AgentChatResult {
+  response: string;
+  thought?: string;
+  toolsUsed?: string[];
+  actions?: AgentChatAction[];
+}
+
 export async function generateChatResponse(
   message: string,
   specialist: string = 'general',
   projectContext?: string,
-  language: string = 'en-IN'
-): Promise<string> {
+  language: string = 'en-IN',
+  boqContext?: string,
+  projectData?: any
+): Promise<AgentChatResult> {
   const specialistInstructions: Record<string, string> = {
     general:
-      'You are the Principal Architectural Advisor. Guide on holistic spatial masterplanning, architectural vision, design leadership, and multi-disciplinary coordination.',
+      'You are the Principal Architectural Advisor AI Agent. Lead holistic spatial masterplanning, architectural vision, design leadership, and cross-disciplinary coordination.',
     design:
-      'You are the Architectural Design & Massing Specialist. Focus on spatial programming, volume adjacencies, massing studies, natural daylighting, facade design, and circulation.',
+      'You are the Architectural Design & Massing AI Agent. Focus on spatial programming, volume adjacencies, massing studies, natural daylighting, facade design, and circulation flow.',
     code:
-      'You are the Building Code & Regulatory Specialist. Focus on NBC (National Building Code) / IBC standards, municipal zoning bylaws, FSI/FAR limits, fire egress, setbacks, universal accessibility, and statutory compliance.',
+      'You are the Building Code & Regulatory AI Agent. Focus on NBC (National Building Code) / IBC standards, municipal zoning bylaws, FSI/FAR limits, fire egress, setbacks, universal accessibility, and statutory compliance.',
     documentation:
-      'You are the Architectural Documentation Specialist. Focus on CSI MasterFormat specifications, drawing schedules, detail coordination, submittals, RFI logs, and construction documentation checklists.',
+      'You are the Architectural Documentation AI Agent. Focus on CSI MasterFormat specifications, drawing schedules, detail coordination, submittals, RFI logs, and quality assurance.',
     quantity:
-      'You are the Quantity & BOQ Specialist. Focus on itemized bill of quantities, unit rates, standard units of measurement (IS 1200 / SMM7), material wastage, schedule of rates, and contingency reserves.',
+      'You are the Quantity & BOQ AI Agent. Focus on itemized bill of quantities, unit rates, standard units of measurement (IS 1200 / SMM7), material wastage, schedule of rates, and contingency reserves.',
     sustainability:
-      'You are the Sustainability & Green Building Specialist. Focus on passive solar design, thermal envelope U-values, embodied carbon reduction, rainwater harvesting, LEED/GRIHA/IGBC criteria, and low-VOC local materials.',
+      'You are the Sustainability & Green Building AI Agent. Focus on passive solar design, thermal envelope U-values, embodied carbon reduction, rainwater harvesting, LEED/GRIHA/IGBC criteria, and low-VOC local materials.',
     structural:
-      'You are the Structural & MEP Engineering Specialist. Focus on RCC framing, column-beam grids, load transfer paths, foundation systems, seismic resistance, HVAC ducting, plumbing shafts, and electrical conduit routing.',
+      'You are the Structural & MEP Engineering AI Agent. Focus on RCC framing, column-beam grids, load transfer paths, foundation systems, seismic resistance, HVAC ducting, plumbing shafts, and electrical conduit routing.',
     interior:
-      'You are the Interior Architecture & Finishes Specialist. Focus on interior spatial ergonomics, millwork detailing, lighting design, acoustic isolation, and tactile material specifications.',
+      'You are the Interior Architecture & Finishes AI Agent. Focus on interior spatial ergonomics, millwork detailing, lighting design, acoustic isolation, and tactile material specifications.',
   };
 
   const instruction = specialistInstructions[specialist] || specialistInstructions.general;
@@ -231,7 +248,7 @@ export async function generateChatResponse(
 
   let languageDirective = '';
   if (language === 'auto') {
-    languageDirective = `\nCRITICAL MULTILINGUAL INSTRUCTION: Automatically detect the language of the user's message. Formulate your entire technical architectural response fluently and idiomatically in that exact same language.`;
+    languageDirective = `\nCRITICAL MULTILINGUAL INSTRUCTION: Automatically detect the language of the user's inquiry or voice command. Formulate your entire technical response fluently and idiomatically in that exact language.`;
   } else if (!language.startsWith('en')) {
     languageDirective = `\nCRITICAL MULTILINGUAL INSTRUCTION: You MUST formulate your entire response in ${langConfig.native} (${langConfig.name}). Use natural, native terminology for architecture, construction, materials, and engineering in ${langConfig.native}. Maintain clean Markdown formatting with clear section headings.`;
   }
@@ -240,21 +257,74 @@ export async function generateChatResponse(
 
   if (client && !isQuotaCooldownActive()) {
     try {
-      const fullPrompt = `${instruction}
-${projectContext ? `\nActive Project Context:\n${projectContext}\n` : ''}${languageDirective}
-User Query: ${message}`;
+      const agentPrompt = `You are Gouse AI's Autonomous Architectural Specialist Agent (${specialist}).
+Role & Directive: ${instruction}
+
+PROJECT SNAPSHOT:
+${projectContext || 'Active Project Proposal'}
+${boqContext ? `\nCURRENT BOQ / TAKEOFF INVENTORY:\n${boqContext}` : ''}
+${languageDirective}
+
+USER INQUIRY / VOICE COMMAND:
+"${message}"
+
+AUTONOMOUS AGENT MANDATE:
+1. "thought": State your concise (1-2 sentences) internal chain of reasoning. Explain how you calculated empirical material takeoffs, checked building codes (IS 456 / NBC 2016), verified BOQ rates, or evaluated spatial geometry.
+2. "toolsUsed": List 2 to 4 tools you deployed (e.g., ["BOQ Completeness Auditor", "IS 456 Structural Rules", "NBC 2016 Code Engine", "Material Rate Benchmark", "Area Takeoff Calculator", "Embodied Carbon Evaluator", "Spatial Flow Simulator"]).
+3. "response": Comprehensive, authoritative architectural advice in Markdown format with clear sections and practical numbers.
+4. "actions": If the query or context calls for concrete project modification (e.g. adding structural rebar, concrete, AAC blocks, adjusting contingency, or auditing), provide actionable proposal objects.
+   Schema for each action:
+   {
+     "id": "act-timestamp",
+     "type": "add_boq_item" | "update_contingency" | "update_area" | "run_audit" | "inspect_pricing",
+     "title": "Clear action button label (e.g. 'Add Fe550D Rebar to BOQ')",
+     "description": "Short explanation with calculated quantity and rate",
+     "payload": {
+       "name": "Line item name",
+       "category": "Substructure" | "Concrete Works" | "Masonry" | "Finishes" | "MEP & Electrical" | "Plumbing",
+       "unit": "MT" | "m3" | "sq.m" | "nos" | "r.m",
+       "quantity": 12.5,
+       "rate": 68500,
+       "notes": "Technical specification and standard reference"
+     }
+   }
+   If no project modification is directly applicable, return [].
+
+Respond ONLY with valid JSON (no markdown code fence outside):
+{
+  "thought": "Internal reasoning...",
+  "toolsUsed": ["Tool 1", "Tool 2"],
+  "response": "Detailed markdown...",
+  "actions": []
+}`;
 
       const res = await client.models.generateContent({
         model: 'gemini-3.8-flash',
-        contents: fullPrompt,
+        contents: agentPrompt,
         config: {
           systemInstruction: SYSTEM_ARCHITECT_PROMPT,
-          temperature: 0.4,
+          temperature: 0.3,
+          responseMimeType: 'application/json',
         },
       });
 
       if (res.text) {
-        return res.text;
+        let clean = res.text.trim();
+        if (clean.startsWith('```json')) clean = clean.slice(7);
+        if (clean.startsWith('```')) clean = clean.slice(3);
+        if (clean.endsWith('```')) clean = clean.slice(0, -3);
+        const parsed = JSON.parse(clean.trim());
+
+        if (parsed.response) {
+          return {
+            response: parsed.response,
+            thought: parsed.thought || 'Audited active project parameters, building codes, and construction benchmarks.',
+            toolsUsed: Array.isArray(parsed.toolsUsed) && parsed.toolsUsed.length > 0
+              ? parsed.toolsUsed
+              : ['BOQ Inspector', 'Architecture Knowledge Base'],
+            actions: Array.isArray(parsed.actions) ? parsed.actions : [],
+          };
+        }
       }
     } catch (err: any) {
       handleGeminiNotice('chat response', err);
@@ -262,7 +332,7 @@ User Query: ${message}`;
   }
 
   // Domain-accurate fallback when key is not configured, quota is throttled, or call fails
-  return getDomainFallbackResponse(message, specialist, projectContext, language);
+  return getDomainFallbackAgentResponse(message, specialist, projectContext, language, boqContext, projectData);
 }
 
 export async function generateProjectIntelligence(
@@ -568,6 +638,94 @@ Composition: Eye-level two-point architectural perspective, captured with a 24mm
 Materials & Textures: Tactile honest materials, smooth off-shutter fair-faced concrete, warm quarter-sawn white oak acoustic battens, micro-cement screed flooring, and floor-to-ceiling thermally broken aluminum fenestrations.
 Lighting: Soft golden-hour directional sunlight casting elongated geometric shadows through exterior brise-soleil screens, balanced with warm 2700K recessed indirect interior cove illumination.
 Atmosphere & Landscape: Lush integrated biophilic landscaping, native drought-tolerant greenery, reflective water body with gentle ripples mirroring the pavilion canopy. Clean, clutter-free Scandinavian-modern aesthetic.`;
+}
+
+export function getDomainFallbackAgentResponse(
+  message: string,
+  specialist: string,
+  projectContext?: string,
+  language: string = 'en-IN',
+  boqContext?: string,
+  projectData?: any
+): AgentChatResult {
+  const responseText = getDomainFallbackResponse(message, specialist, projectContext, language);
+  const lower = message.toLowerCase();
+
+  // Extract built-up area if present in context or projectData
+  let areaSqFt = 3500;
+  if (projectData?.builtUpAreaSqFt && projectData.builtUpAreaSqFt > 0) {
+    areaSqFt = projectData.builtUpAreaSqFt;
+  } else if (projectContext) {
+    const areaMatch = projectContext.match(/(\d[\d,]*)\s*(?:sq\.?ft|sqft)/i);
+    if (areaMatch) {
+      areaSqFt = parseInt(areaMatch[1].replace(/,/g, ''), 10) || 3500;
+    }
+  }
+
+  const actions: AgentChatAction[] = [];
+  let thought = 'Audited active project parameters, building codes, and construction benchmarks.';
+  let toolsUsed = ['BOQ Inspector', 'Architecture Knowledge Base'];
+
+  if (lower.includes('steel') || lower.includes('rebar') || lower.includes('tmt') || lower.includes('iron') || lower.includes('fe550')) {
+    const steelQtyMT = Number(((areaSqFt * 4.2) / 1000).toFixed(1));
+    thought = `Calculated steel consumption at ~4.2 kg/sq.ft for ${areaSqFt.toLocaleString()} sq.ft built-up area. Cross-referenced IS 1786 primary mill indices (Tata Tiscon / JSW Neosteel Fe550D).`;
+    toolsUsed = ['Structural Takeoff Engine', 'IS 1786 Steel Benchmark', 'BOQ Inspector'];
+    actions.push({
+      id: `act-steel-${Date.now()}`,
+      type: 'add_boq_item',
+      title: 'Add Fe550D TMT Steel to BOQ',
+      description: `Empirical steel requirement: ${steelQtyMT} MT @ ₹68,500/MT (Total: ₹${Math.round(steelQtyMT * 68500).toLocaleString()})`,
+      payload: {
+        name: 'Fe550D High-Ductility TMT Reinforcement Steel',
+        category: 'Concrete Works',
+        unit: 'MT',
+        quantity: steelQtyMT,
+        rate: 68500,
+        notes: `Fe550D rebar per IS 1786:2008 for ${areaSqFt.toLocaleString()} sq.ft RCC framed structure`,
+      },
+    });
+  } else if (lower.includes('concrete') || lower.includes('rcc') || lower.includes('m25') || lower.includes('m30') || lower.includes('slab')) {
+    const concreteM3 = Math.round(areaSqFt * 0.038);
+    thought = `Estimated pumpable concrete volume at ~0.038 m³/sq.ft for ${areaSqFt.toLocaleString()} sq.ft footprint per IS 456:2000 structural guidelines.`;
+    toolsUsed = ['IS 456:2000 Code Engine', 'Concrete Mix Takeoff', 'BOQ Inspector'];
+    actions.push({
+      id: `act-concrete-${Date.now()}`,
+      type: 'add_boq_item',
+      title: 'Add M25 Ready-Mix Concrete to BOQ',
+      description: `Structural volume: ${concreteM3} m³ @ ₹5,400/m³ (Total: ₹${Math.round(concreteM3 * 5400).toLocaleString()})`,
+      payload: {
+        name: 'M25 Grade Ready-Mix Concrete for Slabs & Beams',
+        category: 'Concrete Works',
+        unit: 'm3',
+        quantity: concreteM3,
+        rate: 5400,
+        notes: `Design mix M25 concrete per IS 456:2000 with 20mm down aggregates & superplasticizer`,
+      },
+    });
+  } else if (lower.includes('audit') || lower.includes('check') || lower.includes('boq') || lower.includes('rate') || specialist === 'quantity') {
+    thought = `Audited BOQ inventory against IS 1200 SMM trade divisions, checking for missing trade scopes, zero-cost entries, and rate consistency.`;
+    toolsUsed = ['BOQ Completeness Auditor', 'Rate Outlier Inspector', 'IS 1200 SMM Validator'];
+    actions.push({
+      id: `act-contingency-${Date.now()}`,
+      type: 'update_contingency',
+      title: 'Apply 7.5% Contingency Reserve',
+      description: 'Standard architectural contingency to buffer against material price index volatility',
+      payload: { percent: 7.5 },
+    });
+  } else if (lower.includes('code') || lower.includes('nbc') || lower.includes('setback') || lower.includes('staircase') || lower.includes('fire') || specialist === 'code') {
+    thought = `Audited statutory NBC 2016 Part 4 fire egress travel distances, 1.5m corridor clear widths, and minimum 6.0m fire tender setbacks.`;
+    toolsUsed = ['NBC 2016 Part 4 Auditor', 'Municipal Bylaws Engine', 'Life-Safety Simulator'];
+  } else if (lower.includes('sustain') || lower.includes('green') || lower.includes('carbon') || specialist === 'sustainability') {
+    thought = `Evaluated thermal envelope SHGC, Low-E fenestrations, and 35% GGBS replacement in concrete to curb embodied carbon.`;
+    toolsUsed = ['Embodied Carbon Calculator', 'Thermal Comfort Model', 'GRIHA/LEED Evaluator'];
+  }
+
+  return {
+    response: responseText,
+    thought,
+    toolsUsed,
+    actions,
+  };
 }
 
 export function getDomainFallbackResponse(

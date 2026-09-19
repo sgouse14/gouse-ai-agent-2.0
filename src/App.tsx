@@ -77,11 +77,30 @@ export function App() {
     try {
       const saved = localStorage.getItem('gouse_ai_boq_items');
       const baseItems: BOQItem[] = saved ? JSON.parse(saved) : INITIAL_BOQ_ITEMS;
-      // Ensure any newly added initial items (e.g. Paint & Jindal Panther) exist
+      // Ensure any newly added initial items (e.g. Paint, Jindal Panther, Grills, Plumbing, Site Engineer) exist
       const existingIds = new Set(baseItems.map((i) => i.id));
       const missingInitial = INITIAL_BOQ_ITEMS.filter((i) => !existingIds.has(i.id));
       const combined = [...baseItems, ...missingInitial];
-      return combined.map((item) => ensureItemFloorBreakdown(item, DEFAULT_BUILDING_FLOORS));
+      const initialMap = new Map(INITIAL_BOQ_ITEMS.map((i) => [i.id, i]));
+
+      const sanitized = combined.map((item) => {
+        // If an item has missing or zero rate, update it with verified rate from INITIAL_BOQ_ITEMS
+        if ((!item.rate || item.rate <= 0) && initialMap.has(item.id)) {
+          const fresh = initialMap.get(item.id)!;
+          return {
+            ...item,
+            rate: fresh.rate,
+            amount: Math.round(item.quantity * fresh.rate),
+            notes: fresh.notes,
+            laborComponent: fresh.laborComponent,
+            materialComponent: fresh.materialComponent,
+            unit: fresh.unit || item.unit,
+          };
+        }
+        return item;
+      });
+
+      return sanitized.map((item) => ensureItemFloorBreakdown(item, DEFAULT_BUILDING_FLOORS));
     } catch {
       return INITIAL_BOQ_ITEMS.map((item) => ensureItemFloorBreakdown(item, DEFAULT_BUILDING_FLOORS));
     }
@@ -301,6 +320,11 @@ export function App() {
         {activeTab === 'specialist' && (
           <SpecialistChatView
             activeProject={activeProject}
+            boqItems={boqItems}
+            currency={currency}
+            onUpdateBOQItems={setBoqItems}
+            onUpdateProject={handleUpdateProject}
+            onNavigateToBOQ={() => setActiveTab('boq')}
           />
         )}
       </main>

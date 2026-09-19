@@ -53,6 +53,7 @@ export interface Project {
   description: string;
   status: 'planning' | 'design_development' | 'documentation' | 'tender' | 'construction' | 'completed';
   builtUpAreaSqFt?: number;
+  contingencyPercent?: number;
   floors?: BuildingFloor[];
   files: ProjectFile[];
   analyses: AnalysisReport[];
@@ -221,6 +222,15 @@ export interface MaterialComparisonItem {
   floorNotes?: string;
 }
 
+export interface AgentAction {
+  id: string;
+  type: 'add_boq_item' | 'update_contingency' | 'update_area' | 'run_audit' | 'inspect_pricing';
+  title: string;
+  description: string;
+  payload?: any;
+  executed?: boolean;
+}
+
 export interface ChatMessage {
   id: string;
   role: 'user' | 'assistant';
@@ -229,4 +239,8 @@ export interface ChatMessage {
   specialist?: SpecialistType;
   language?: string;
   audioBase64?: string;
+  agentThought?: string;
+  agentToolsUsed?: string[];
+  agentActions?: AgentAction[];
 }
+

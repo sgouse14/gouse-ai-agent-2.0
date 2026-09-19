@@ -65,6 +65,36 @@ import {
   MaterialGuideSection,
   getBrandSpotRate,
 } from '../data/constructionMaterialsGuide';
+import { CivilWisdomFormulaMatrix } from './CivilWisdomFormulaMatrix';
+import { getCivilWisdomMaterialOverrides } from '../data/civilWisdomFormulas';
+
+// Quick formula rule of thumb badges matching Civil Wisdom standard
+const getCivilWisdomFormulaBadge = (normId: string): string | null => {
+  switch (normId) {
+    case 'norm-cement':
+      return 'Area × 0.4 Bags';
+    case 'norm-steel':
+      return 'Area × 4 KG (0.004 MT)';
+    case 'norm-clay-bricks':
+      return 'Area × 8 Bricks';
+    case 'norm-sand':
+      return 'Area × 1.8 CFT (0.09 MT)';
+    case 'norm-aggregates':
+      return 'Area × 1.5 CFT (0.075 MT)';
+    case 'norm-rmc':
+      return 'Bags ÷ 8 (m³)';
+    case 'norm-interior-paint':
+      return 'Wall Area ÷ 140 L';
+    case 'norm-vitrified-tiles':
+      return 'Area ÷ Tile Area (+10%)';
+    case 'norm-plumbing-pipes':
+      return 'Area × Plumbing Rate';
+    case 'norm-electrical-conduits':
+      return 'Area × Electrical Rate';
+    default:
+      return null;
+  }
+};
 
 interface MaterialAreaTakeoffViewProps {
   activeProject: Project;
@@ -98,7 +128,7 @@ export const MaterialAreaTakeoffView: React.FC<MaterialAreaTakeoffViewProps> = (
 
   // Floor-Wise Material Standards Navigation & Views
   const [selectedFloorId, setSelectedFloorId] = useState<string>('all');
-  const [viewMode, setViewMode] = useState<'table' | 'matrix' | 'cards'>('table');
+  const [viewMode, setViewMode] = useState<'table' | 'matrix' | 'cards' | 'cw-formulas'>('table');
   const [expandedItemId, setExpandedItemId] = useState<string | null>(null);
   const [isFloorModalOpen, setIsFloorModalOpen] = useState<boolean>(false);
   const [isFloorReportModalOpen, setIsFloorReportModalOpen] = useState<boolean>(false);
@@ -115,6 +145,20 @@ export const MaterialAreaTakeoffView: React.FC<MaterialAreaTakeoffViewProps> = (
     } catch (_e) {}
     return {};
   });
+
+  // Apply Civil Wisdom empirical formulas (0.4 bags cement, 4kg steel, 8 bricks, 1.8 CFT sand, 1.5 CFT aggregate)
+  const handleApplyCivilWisdomNorms = () => {
+    const cwOverrides = getCivilWisdomMaterialOverrides();
+    setNormOverrides((prev) => {
+      const next = { ...prev, ...cwOverrides };
+      try {
+        localStorage.setItem(`material_norms_${activeProject.id}`, JSON.stringify(next));
+      } catch (_e) {}
+      return next;
+    });
+    setSyncFeedback('Civil Wisdom Quick Formulas applied to all material standards!');
+    setTimeout(() => setSyncFeedback(null), 4000);
+  };
 
   // Construction Materials Master Guide modal state
   const [isGuideModalOpen, setIsGuideModalOpen] = useState<boolean>(false);
@@ -708,6 +752,19 @@ export const MaterialAreaTakeoffView: React.FC<MaterialAreaTakeoffViewProps> = (
               >
                 <Building className="w-3.5 h-3.5" />
                 <span>Floor Cards</span>
+              </button>
+              <button
+                id="btn-cw-quick-formula-tab"
+                onClick={() => setViewMode('cw-formulas')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-mono transition flex items-center gap-1.5 ${
+                  viewMode === 'cw-formulas'
+                    ? 'bg-amber-500 text-slate-950 font-bold shadow-sm'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+                title="View Civil Wisdom Construction Quick Estimation Formulas Matrix"
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>Quick Formulas</span>
               </button>
             </div>
           </div>
@@ -1453,7 +1510,16 @@ export const MaterialAreaTakeoffView: React.FC<MaterialAreaTakeoffViewProps> = (
                     Modify norm / sq.ft, wastage %, or unit market rates. Floor-wise material volumes update dynamically based on each floor's slab area.
                   </span>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <button
+                    type="button"
+                    onClick={handleApplyCivilWisdomNorms}
+                    className="px-2.5 py-1 rounded bg-amber-500 hover:bg-amber-400 text-slate-950 text-[11px] flex items-center gap-1.5 transition font-bold shadow-sm"
+                    title="Apply Civil Wisdom fast estimation formulas: Area × 0.4 Bags Cement, 4kg Steel, 8 Bricks, 1.8 CFT Sand, 1.5 CFT Aggregates, Bags ÷ 8 Concrete"
+                  >
+                    <Sparkles className="w-3.5 h-3.5 text-slate-950" />
+                    <span>Apply Civil Wisdom Formulas</span>
+                  </button>
                   <button
                     type="button"
                     onClick={handleSyncAllBrandSpotPrices}
@@ -1621,6 +1687,12 @@ export const MaterialAreaTakeoffView: React.FC<MaterialAreaTakeoffViewProps> = (
                             <span className="text-slate-300 text-[11px] block">
                               {item.norm.normDescription}
                             </span>
+                            {getCivilWisdomFormulaBadge(item.norm.id) && (
+                              <div className="mt-1 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] bg-amber-500/10 text-amber-300 border border-amber-500/30">
+                                <span className="text-amber-400 font-bold">➔</span>
+                                <span>{getCivilWisdomFormulaBadge(item.norm.id)}</span>
+                              </div>
+                            )}
 
                             {/* Standard Norm Editor when in editing mode */}
                             {isEditingStandards ? (
@@ -1854,7 +1926,44 @@ export const MaterialAreaTakeoffView: React.FC<MaterialAreaTakeoffViewProps> = (
         </div>
       )}
 
-      {/* Building Floor Manager Modal */}
+      {/* ========================================================================= */}
+      {/* VIEW MODE 4: CIVIL WISDOM QUICK ESTIMATION FORMULAS MATRIX                */}
+      {/* ========================================================================= */}
+      {viewMode === 'cw-formulas' && (
+        <div className="space-y-4">
+          <CivilWisdomFormulaMatrix
+            initialAreaSqFt={areaSqFt}
+            currency={currency}
+            project={activeProject}
+            buildingFloors={buildingFloors}
+            boqItems={boqItems}
+            onUpdateBOQItems={onUpdateBOQItems}
+            onUpdateProject={onUpdateProject}
+            onApplyToTakeoff={(overrides, newAreaSqFt) => {
+              setNormOverrides((prev) => {
+                const next = { ...prev, ...overrides };
+                try {
+                  localStorage.setItem(`material_norms_${activeProject.id}`, JSON.stringify(next));
+                } catch (_e) {}
+                return next;
+              });
+              if (newAreaSqFt && newAreaSqFt !== areaSqFt) {
+                setAreaSqFt(newAreaSqFt);
+                if (onUpdateProject) {
+                  onUpdateProject({
+                    ...activeProject,
+                    builtUpAreaSqFt: newAreaSqFt,
+                  });
+                }
+              }
+              setSyncFeedback('Civil Wisdom Quick Formulas applied to material standards & floor takeoff!');
+              setTimeout(() => setSyncFeedback(null), 4000);
+            }}
+            onNavigateToBOQ={onNavigateToBOQ}
+            onNavigateToAreaTakeoff={() => setViewMode('table')}
+          />
+        </div>
+      )}
       <BuildingFloorManagerModal
         isOpen={isFloorModalOpen}
         onClose={() => setIsFloorModalOpen(false)}

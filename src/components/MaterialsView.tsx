@@ -42,6 +42,8 @@ import { MaterialPriceAlertsPanel } from './MaterialPriceAlertsPanel';
 import { MaterialAreaTakeoffView } from './MaterialAreaTakeoffView';
 import { ConstructionMaterialsMasterGuideModal } from './ConstructionMaterialsMasterGuideModal';
 import { getMasterGuideLivePrices } from '../data/constructionMaterialsGuide';
+import { CivilWisdomFormulaMatrix } from './CivilWisdomFormulaMatrix';
+import { getCivilWisdomMaterialOverrides } from '../data/civilWisdomFormulas';
 
 interface MaterialsViewProps {
   activeProject: Project;
@@ -63,7 +65,27 @@ export const MaterialsView: React.FC<MaterialsViewProps> = ({
   onNavigateToBOQ,
 }) => {
   const [activeSection, setActiveSection] = useState<'area-takeoff' | 'live-prices' | 'comparison' | 'checklists' | 'render'>('area-takeoff');
+  const [matrixSubView, setMatrixSubView] = useState<'quick-formulas' | 'specifications'>('quick-formulas');
   const [isGuideOpen, setIsGuideOpen] = useState(false);
+
+  const handleApplyCivilWisdomToTakeoff = (
+    overrides: Record<string, { normPerSqFt: number; standardWastagePercent?: number }>,
+    areaSqFt: number
+  ) => {
+    try {
+      const existing = localStorage.getItem(`material_norms_${activeProject.id}`);
+      const parsed = existing ? JSON.parse(existing) : {};
+      const updated = { ...parsed, ...overrides };
+      localStorage.setItem(`material_norms_${activeProject.id}`, JSON.stringify(updated));
+    } catch (_e) {}
+
+    if (onUpdateProject && areaSqFt !== activeProject.builtUpAreaSqFt) {
+      onUpdateProject({
+        ...activeProject,
+        builtUpAreaSqFt: areaSqFt,
+      });
+    }
+  };
 
   // Live Material Pricing State - Preloaded with 22 brand spot rates from Construction Materials Master Guide
   const [livePrices, setLivePrices] = useState<LiveMaterialPrice[]>(() => {
@@ -443,12 +465,12 @@ export const MaterialsView: React.FC<MaterialsViewProps> = ({
             onClick={() => setActiveSection('comparison')}
             className={`px-3 py-2 rounded-lg text-xs font-medium transition flex items-center gap-1.5 ${
               activeSection === 'comparison'
-                ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                ? 'bg-amber-500 text-slate-950 font-bold shadow-sm'
                 : 'text-slate-400 hover:text-white'
             }`}
           >
             <Layers className="w-3.5 h-3.5" />
-            <span>Material Matrix</span>
+            <span>Standard Material Matrix</span>
           </button>
           <button
             id="tab-checklists"
@@ -1007,11 +1029,98 @@ export const MaterialsView: React.FC<MaterialsViewProps> = ({
       )}
 
       {/* ========================================================================= */}
-      {/* SECTION 2: MATERIAL COMPARISON MATRIX & CARBON CALCULATOR                */}
+      {/* SECTION 2: STANDARD MATERIAL MATRIX & QUICK ESTIMATION FORMULAS           */}
       {/* ========================================================================= */}
       {activeSection === 'comparison' && (
         <div className="space-y-6">
-          {/* Quick interactive estimator widget */}
+          {/* Sub-header navigation between Civil Wisdom Quick Formulas and Specifications */}
+          <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                <Layers className="w-5 h-5 text-amber-400" />
+              </div>
+              <div>
+                <h3 className="text-sm sm:text-base font-bold text-white flex items-center gap-2 font-mono">
+                  <span>Standard Material Matrix & Quick Formulas</span>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                    Civil Wisdom
+                  </span>
+                </h3>
+                <p className="text-xs text-slate-400">
+                  Empirical architectural estimation standards (Cement, Steel, Bricks, Aggregates) and catalog specifications.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-1.5 bg-slate-950 p-1 rounded-xl border border-slate-800 font-mono text-xs shrink-0">
+              <button
+                type="button"
+                id="btn-subtab-quick-formulas"
+                onClick={() => setMatrixSubView('quick-formulas')}
+                className={`px-3 py-1.5 rounded-lg transition flex items-center gap-1.5 ${
+                  matrixSubView === 'quick-formulas'
+                    ? 'bg-amber-500 text-slate-950 font-bold shadow-sm'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>Quick Formulas Matrix</span>
+              </button>
+              <button
+                type="button"
+                id="btn-subtab-specifications"
+                onClick={() => setMatrixSubView('specifications')}
+                className={`px-3 py-1.5 rounded-lg transition flex items-center gap-1.5 ${
+                  matrixSubView === 'specifications'
+                    ? 'bg-amber-500 text-slate-950 font-bold shadow-sm'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <Layers className="w-3.5 h-3.5" />
+                <span>Specifications & Carbon</span>
+              </button>
+            </div>
+          </div>
+
+          {/* SUB-VIEW 1: CIVIL WISDOM QUICK ESTIMATION FORMULAS MATRIX */}
+          {matrixSubView === 'quick-formulas' && (
+            <div className="space-y-4">
+              <CivilWisdomFormulaMatrix
+                initialAreaSqFt={activeProject.builtUpAreaSqFt || 3599}
+                currency={currency}
+                project={activeProject}
+                boqItems={boqItems}
+                onUpdateBOQItems={onUpdateBOQItems}
+                onUpdateProject={onUpdateProject}
+                onApplyToTakeoff={handleApplyCivilWisdomToTakeoff}
+                onNavigateToBOQ={onNavigateToBOQ}
+                onNavigateToAreaTakeoff={() => setActiveSection('area-takeoff')}
+              />
+
+              {/* Seamless floor takeoff prompt banner */}
+              <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs font-mono">
+                <div className="flex items-center gap-2.5">
+                  <Building className="w-4 h-4 text-amber-400 shrink-0" />
+                  <span className="text-slate-300">
+                    Need breakdown by <strong className="text-white">Individual Building Floor Levels</strong> (Substructure, Ground, First, Second, Terrace)?
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setActiveSection('area-takeoff')}
+                  className="px-3.5 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold flex items-center gap-1.5 transition shrink-0 shadow-sm"
+                >
+                  <span>Open Floor Area Takeoff</span>
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* SUB-VIEW 2: SPECIFICATIONS & EMBODIED CARBON MATRIX */}
+          {matrixSubView === 'specifications' && (
+            <div className="space-y-6">
+              {/* Quick interactive estimator widget */}
           <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 grid grid-cols-1 md:grid-cols-4 gap-4 items-center">
             <div>
               <span className="text-xs text-slate-400 font-mono">Select Material:</span>
@@ -1225,6 +1334,8 @@ export const MaterialsView: React.FC<MaterialsViewProps> = ({
           </div>
         </div>
       )}
+    </div>
+  )}
 
       {/* ========================================================================= */}
       {/* SECTION 3: BUILDING TYPOLOGY CHECKLISTS                                  */}
