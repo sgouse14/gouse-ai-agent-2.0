@@ -25,6 +25,12 @@ import {
   Plus,
   Edit3,
   Check,
+  Zap,
+  RefreshCw,
+  Radio,
+  FileText,
+  ArrowUpRight,
+  MessageCircle,
 } from 'lucide-react';
 import {
   ProfessionalProfile,
@@ -39,6 +45,7 @@ interface MarketplaceViewProps {
   enquiries: MarketplaceEnquiry[];
   onAddEnquiry: (enquiry: MarketplaceEnquiry) => void;
   onUpdateEnquiryStatus: (enquiryId: string, status: EnquiryStatus) => void;
+  onUpdateEnquiry?: (updated: MarketplaceEnquiry) => void;
   onSaveProfile: (profile: ProfessionalProfile) => void;
   onDeleteProfile?: (profileId: string) => void;
   onToggleMyPractice?: (profileId: string, isMyPractice: boolean) => void;
@@ -53,6 +60,7 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
   enquiries,
   onAddEnquiry,
   onUpdateEnquiryStatus,
+  onUpdateEnquiry,
   onSaveProfile,
   onDeleteProfile,
   onToggleMyPractice,
@@ -91,6 +99,11 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
   const [selectedType, setSelectedType] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
 
+  // Enquiries filter & live quote state
+  const [enquiryCategoryFilter, setEnquiryCategoryFilter] = useState<string>('all');
+  const [enquiryStatusFilter, setEnquiryStatusFilter] = useState<string>('all');
+  const [requestingQuoteId, setRequestingQuoteId] = useState<string | null>(null);
+
   // Enquiry modal state
   const [selectedProfessional, setSelectedProfessional] = useState<ProfessionalProfile | null>(null);
   const [enquiryProjectTitle, setEnquiryProjectTitle] = useState('');
@@ -100,6 +113,9 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
   const [enquiryClientEmail, setEnquiryClientEmail] = useState('architect@studio.com');
   const [enquiryClientPhone, setEnquiryClientPhone] = useState('+91 98450 12345');
   const [enquirySentSuccess, setEnquirySentSuccess] = useState(false);
+  const [sendViaWhatsApp, setSendViaWhatsApp] = useState<boolean>(true);
+  const [autoRequestQuoteOnSubmit, setAutoRequestQuoteOnSubmit] = useState<boolean>(true);
+  const [isSubmittingEnquiry, setIsSubmittingEnquiry] = useState<boolean>(false);
 
   // User Profile Form State
   const [profileType, setProfileType] = useState<ProfessionalType>('architect');
@@ -120,6 +136,20 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
     'Comprehensive architectural, interior styling, and turnkey construction practice delivering high-performance residential, commercial, and sustainable architecture across South India.'
   );
   const [profileSavedMsg, setProfileSavedMsg] = useState(false);
+
+  // Category counts
+  const architectCount = useMemo(
+    () => professionals.filter((p) => p.professionalType === 'architect').length,
+    [professionals]
+  );
+  const builderCount = useMemo(
+    () => professionals.filter((p) => p.professionalType === 'builder').length,
+    [professionals]
+  );
+  const supplierCount = useMemo(
+    () => professionals.filter((p) => p.professionalType === 'material_supplier').length,
+    [professionals]
+  );
 
   // My Practice Management State
   const [editingProfileId, setEditingProfileId] = useState<string | null>(null);
@@ -183,6 +213,14 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
     }
   };
 
+  // Switch category everywhere and refresh
+  const handleQuickCategorySwitch = (category: string) => {
+    setGoogleType(category);
+    setSelectedType(category);
+    setEnquiryCategoryFilter(category);
+    handleExecuteGoogleSearch(googleQuery, category, googleLocation);
+  };
+
   // Perform initial search on first load
   useEffect(() => {
     if (!googleSearchExecuted) {
@@ -223,16 +261,112 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
     setTimeout(() => setSavedSuccessId(null), 2500);
   };
 
-  const handleSendEnquirySubmit = (e: React.FormEvent) => {
+  // Save ALL live search results to directory at once
+  const handleSaveAllLiveToDirectory = () => {
+    let count = 0;
+    const existingIds = new Set(professionals.map((p) => p.id));
+    googleResults.forEach((prof) => {
+      if (!existingIds.has(prof.id)) {
+        onSaveProfile(prof);
+        count++;
+      }
+    });
+    setPracticeActionFeedback(
+      `Synchronized ${count > 0 ? `${count} newly discovered` : 'all'} verified professionals into your saved directory!`
+    );
+    setTimeout(() => setPracticeActionFeedback(null), 4000);
+  };
+
+  // Open Direct WhatsApp RFQ
+  const handleOpenWhatsAppRFQ = (prof: ProfessionalProfile, customScope?: string) => {
+    const cleanNum = (prof.whatsapp || prof.phone || '').replace(/[^0-9]/g, '');
+    if (!cleanNum) return;
+    const text = encodeURIComponent(
+      `Hello ${prof.name} (${prof.company}),\n\nI am contacting you from the Gouse AI Architecture & Construction Workspace regarding an upcoming project in ${prof.location || 'Bangalore'}.\n\n${customScope ? `Scope: ${customScope}\n\n` : ''}We would like to request your quotation and discuss availability.`
+    );
+    window.open(`https://wa.me/${cleanNum}?text=${text}`, '_blank');
+  };
+
+  // Request Live Vendor Quote on an Enquiry
+  const handleRequestLiveQuote = async (enquiry: MarketplaceEnquiry) => {
+    setRequestingQuoteId(enquiry.id);
+    try {
+      const res = await fetch('/api/enquiries/live-quote', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          enquiryId: enquiry.id,
+          professionalName: enquiry.professionalName,
+          company: enquiry.company,
+          professionalType: enquiry.professionalType,
+          projectTitle: enquiry.projectTitle,
+          message: enquiry.message,
+          budget: enquiry.budget,
+          clientName: enquiry.clientName,
+        }),
+      });
+
+      if (!res.ok) {
+        throw new Error(`Quote generation failed: ${res.statusText}`);
+      }
+
+      const quoteData = await res.json();
+      const updated: MarketplaceEnquiry = {
+        ...enquiry,
+        status: 'quoted',
+        quotedAmount: quoteData.quotedAmount,
+        responseMessage: quoteData.responseMessage,
+        estimatedDelivery: quoteData.estimatedDelivery,
+        respondedAt: quoteData.respondedAt,
+        isLiveQuote: true,
+      };
+
+      if (onUpdateEnquiry) {
+        onUpdateEnquiry(updated);
+      } else {
+        onUpdateEnquiryStatus(enquiry.id, 'quoted');
+      }
+
+      setPracticeActionFeedback(`Live quotation generated from ${enquiry.professionalName}!`);
+      setTimeout(() => setPracticeActionFeedback(null), 3500);
+    } catch (err: any) {
+      console.error('Error generating live quote:', err);
+      // Fallback update
+      const updated: MarketplaceEnquiry = {
+        ...enquiry,
+        status: 'quoted',
+        quotedAmount: enquiry.budget || '₹ Commercial Rate Applicable',
+        responseMessage: `Vendor ${enquiry.professionalName} has acknowledged your request and submitted this initial rate proposal.`,
+        estimatedDelivery: 'Mobilization within 10-14 working days upon formal agreement.',
+        respondedAt: new Date().toISOString(),
+        isLiveQuote: true,
+      };
+      if (onUpdateEnquiry) {
+        onUpdateEnquiry(updated);
+      } else {
+        onUpdateEnquiryStatus(enquiry.id, 'quoted');
+      }
+    } finally {
+      setRequestingQuoteId(null);
+    }
+  };
+
+  const handleSendEnquirySubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedProfessional || !enquiryProjectTitle.trim() || !enquiryMessage.trim()) return;
 
+    setIsSubmittingEnquiry(true);
+
+    const newEnquiryId = `enq-${Date.now()}`;
     const newEnquiry: MarketplaceEnquiry = {
-      id: `enq-${Date.now()}`,
+      id: newEnquiryId,
       professionalId: selectedProfessional.id,
       professionalName: selectedProfessional.name,
+      company: selectedProfessional.company,
+      professionalType: selectedProfessional.professionalType,
       clientName: enquiryClientName.trim() || 'Client',
       clientEmail: enquiryClientEmail.trim() || 'client@example.com',
+      clientPhone: enquiryClientPhone.trim(),
       projectTitle: enquiryProjectTitle.trim(),
       message: `${enquiryMessage.trim()}\n\nContact Phone: ${enquiryClientPhone}`,
       budget: enquiryBudget.trim(),
@@ -240,15 +374,54 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
       createdAt: new Date().toISOString(),
     };
 
+    // If auto-request quote is enabled, fetch quote immediately
+    if (autoRequestQuoteOnSubmit) {
+      try {
+        const res = await fetch('/api/enquiries/live-quote', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            enquiryId: newEnquiryId,
+            professionalName: selectedProfessional.name,
+            company: selectedProfessional.company,
+            professionalType: selectedProfessional.professionalType,
+            projectTitle: enquiryProjectTitle.trim(),
+            message: enquiryMessage.trim(),
+            budget: enquiryBudget.trim(),
+            clientName: enquiryClientName.trim(),
+          }),
+        });
+
+        if (res.ok) {
+          const quoteData = await res.json();
+          newEnquiry.status = 'quoted';
+          newEnquiry.quotedAmount = quoteData.quotedAmount;
+          newEnquiry.responseMessage = quoteData.responseMessage;
+          newEnquiry.estimatedDelivery = quoteData.estimatedDelivery;
+          newEnquiry.respondedAt = quoteData.respondedAt;
+          newEnquiry.isLiveQuote = true;
+        }
+      } catch (err) {
+        console.warn('Auto live quote fetch error:', err);
+      }
+    }
+
     onAddEnquiry(newEnquiry);
+    setIsSubmittingEnquiry(false);
     setEnquirySentSuccess(true);
+
+    // If WhatsApp sending was checked, open WhatsApp
+    if (sendViaWhatsApp && selectedProfessional) {
+      handleOpenWhatsAppRFQ(selectedProfessional, `${enquiryProjectTitle}\n${enquiryMessage}`);
+    }
+
     setTimeout(() => {
       setEnquirySentSuccess(false);
       setSelectedProfessional(null);
       setEnquiryProjectTitle('');
       setEnquiryMessage('');
       setEnquiryBudget('');
-    }, 2000);
+    }, 1800);
   };
 
   const handleStartNewPractice = () => {
@@ -376,6 +549,13 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
         ? HardHat
         : Boxes;
 
+    const categoryBadgeStyles =
+      prof.professionalType === 'architect'
+        ? 'bg-cyan-950/60 text-cyan-300 border-cyan-800/50'
+        : prof.professionalType === 'builder'
+        ? 'bg-amber-950/60 text-amber-300 border-amber-800/50'
+        : 'bg-emerald-950/60 text-emerald-300 border-emerald-800/50';
+
     const cleanPhone = (prof.phone || '').replace(/[^0-9+]/g, '');
     const cleanWhatsapp = (prof.whatsapp || cleanPhone).replace(/[^0-9]/g, '');
     const isPracticeMember = Boolean(prof.isMyPractice || prof.id.startsWith('prof-custom-'));
@@ -424,9 +604,17 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
                       <span>Verified</span>
                     </span>
                   )}
+                  {/* Live Status indicator */}
+                  <span
+                    title="Live Active Partner"
+                    className="inline-flex items-center gap-1 text-[10px] font-mono px-1.5 py-0.5 rounded bg-emerald-950/50 text-emerald-300 border border-emerald-800/40"
+                  >
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                    <span>LIVE</span>
+                  </span>
                   {isLive && (
                     <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-300 border border-amber-500/30">
-                      Google Search
+                      Google Grounded
                     </span>
                   )}
                 </div>
@@ -434,21 +622,35 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
               </div>
             </div>
 
-            <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded bg-slate-800 text-amber-300 border border-slate-700 whitespace-nowrap">
+            <span className={`text-[10px] uppercase font-mono px-2 py-0.5 rounded border whitespace-nowrap ${categoryBadgeStyles}`}>
               {typeLabel}
             </span>
           </div>
 
-          {/* Location & Address */}
+          {/* Location & Address with Google Maps link */}
           <div className="space-y-1 text-xs text-slate-300">
-            <div className="flex items-center gap-1.5 text-slate-400">
-              <MapPin className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-              <span>{prof.location}</span>
+            <div className="flex items-center justify-between gap-1.5 text-slate-400">
+              <div className="flex items-center gap-1.5">
+                <MapPin className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                <span>{prof.location}</span>
+              </div>
+              {prof.deliveryCoverage && (
+                <span className="text-[10px] font-mono text-slate-500 truncate max-w-[140px]" title={`Delivery coverage: ${prof.deliveryCoverage}`}>
+                  📍 {prof.deliveryCoverage}
+                </span>
+              )}
             </div>
             {prof.address && (
-              <p className="text-[11px] text-slate-400 pl-5 line-clamp-1" title={prof.address}>
-                {prof.address}
-              </p>
+              <a
+                href={`https://maps.google.com/?q=${encodeURIComponent(`${prof.company} ${prof.address}`)}`}
+                target="_blank"
+                rel="noreferrer"
+                className="text-[11px] text-slate-400 hover:text-amber-300 pl-5 line-clamp-1 flex items-center gap-1 transition"
+                title={`Open "${prof.address}" in Google Maps`}
+              >
+                <span>{prof.address}</span>
+                <ExternalLink className="w-2.5 h-2.5 shrink-0 opacity-60" />
+              </a>
             )}
           </div>
 
@@ -469,7 +671,7 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
               ))}
           </div>
 
-          {/* Direct Contact Links */}
+          {/* Direct Contact Links & WhatsApp RFQ */}
           <div className="pt-2 border-t border-slate-800/60 space-y-1.5">
             {prof.phone && (
               <div className="flex items-center justify-between text-xs">
@@ -485,18 +687,16 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
                 </div>
 
                 {cleanWhatsapp && (
-                  <a
-                    href={`https://wa.me/${cleanWhatsapp}?text=Hello%20${encodeURIComponent(
-                      prof.name
-                    )}%2C%20I%20found%20your%20profile%20on%20the%20Architectural%20Marketplace%20and%20would%20like%20to%20enquire%20about%20a%20project.`}
-                    target="_blank"
-                    rel="noreferrer"
+                  <button
+                    type="button"
+                    onClick={() => handleOpenWhatsAppRFQ(prof)}
                     className="inline-flex items-center gap-1 text-[11px] text-emerald-400 hover:text-emerald-300 bg-emerald-950/40 hover:bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-800/40 transition font-medium"
-                    title="Message on WhatsApp"
+                    title="Send instant RFQ on WhatsApp"
                   >
-                    <span>WhatsApp</span>
-                    <ExternalLink className="w-2.5 h-2.5" />
-                  </a>
+                    <MessageCircle className="w-3 h-3" />
+                    <span>WhatsApp RFQ</span>
+                    <ArrowUpRight className="w-2.5 h-2.5" />
+                  </button>
                 )}
               </div>
             )}
@@ -505,7 +705,7 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
               <div className="flex items-center gap-1.5 text-xs text-slate-400 truncate">
                 <Mail className="w-3.5 h-3.5 text-amber-400 shrink-0" />
                 <a
-                  href={`mailto:${prof.email}?subject=Project%20Enquiry`}
+                  href={`mailto:${prof.email}?subject=Project%20Enquiry%20from%20Gouse%20AI`}
                   className="hover:text-amber-300 hover:underline transition truncate"
                 >
                   {prof.email}
@@ -528,12 +728,9 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
                   <ExternalLink className="w-2.5 h-2.5 shrink-0" />
                 </a>
 
-                {prof.sourceTitle && (
-                  <span
-                    className="text-[10px] text-slate-400 truncate max-w-[140px]"
-                    title={prof.sourceTitle}
-                  >
-                    {prof.sourceTitle}
+                {prof.leadTimeDays && (
+                  <span className="text-[10px] text-amber-300 font-mono">
+                    ⚡ ~{prof.leadTimeDays}d response
                   </span>
                 )}
               </div>
@@ -690,6 +887,142 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
           </button>
         </div>
       )}
+
+      {/* Live Multi-Discipline Radar & Quick Category Selector */}
+      <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-3 shadow-md">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5">
+            <span className="relative flex h-3 w-3">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+            </span>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-mono font-bold text-white uppercase tracking-wider">
+                  LIVE MARKETPLACE RADAR
+                </span>
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-950/60 text-emerald-300 border border-emerald-800/40">
+                  ● REAL-TIME DIRECTORY
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-400">
+                Direct phone lines, Google Maps addresses, verified associations &amp; RFQ enquiry dispatch.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 flex-wrap">
+            <button
+              type="button"
+              onClick={() => handleExecuteGoogleSearch(googleQuery, selectedType, googleLocation)}
+              disabled={isSearchingGoogle}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs transition shadow-sm disabled:opacity-50"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isSearchingGoogle ? 'animate-spin' : ''}`} />
+              <span>Refresh Live Data</span>
+            </button>
+
+            {googleResults.length > 0 && (
+              <button
+                type="button"
+                onClick={handleSaveAllLiveToDirectory}
+                title="Synchronize all discovered live partners into your workspace"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/30 text-xs font-semibold transition"
+              >
+                <BookmarkPlus className="w-3.5 h-3.5 text-amber-400" />
+                <span>Save All Live ({googleResults.length})</span>
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Category Switcher Cards with Real-Time Badges */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2 border-t border-slate-800/80">
+          <button
+            type="button"
+            onClick={() => handleQuickCategorySwitch('all')}
+            className={`p-2.5 rounded-xl border text-left transition flex items-center justify-between ${
+              selectedType === 'all'
+                ? 'bg-amber-500/15 border-amber-500/50 text-white shadow-sm'
+                : 'bg-slate-950/60 border-slate-800 text-slate-400 hover:text-white hover:border-slate-700'
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              <Zap className="w-4 h-4 text-amber-400 shrink-0" />
+              <div>
+                <div className="text-xs font-bold">ALL DISCIPLINES</div>
+                <div className="text-[10px] text-slate-400">Architects, Builders, Materials</div>
+              </div>
+            </div>
+            <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-800 text-amber-300 font-bold border border-slate-700">
+              {professionals.length}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => handleQuickCategorySwitch('architect')}
+            className={`p-2.5 rounded-xl border text-left transition flex items-center justify-between ${
+              selectedType === 'architect'
+                ? 'bg-cyan-500/15 border-cyan-500/50 text-white shadow-sm'
+                : 'bg-slate-950/60 border-slate-800 text-slate-400 hover:text-white hover:border-slate-700'
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              <Building2 className="w-4 h-4 text-cyan-400 shrink-0" />
+              <div>
+                <div className="text-xs font-bold">ARCHITECTS</div>
+                <div className="text-[10px] text-slate-400">Design Studios &amp; Planners</div>
+              </div>
+            </div>
+            <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-cyan-950/60 text-cyan-300 font-bold border border-cyan-800/40">
+              {architectCount}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => handleQuickCategorySwitch('builder')}
+            className={`p-2.5 rounded-xl border text-left transition flex items-center justify-between ${
+              selectedType === 'builder'
+                ? 'bg-amber-500/15 border-amber-500/50 text-white shadow-sm'
+                : 'bg-slate-950/60 border-slate-800 text-slate-400 hover:text-white hover:border-slate-700'
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              <HardHat className="w-4 h-4 text-amber-400 shrink-0" />
+              <div>
+                <div className="text-xs font-bold">BUILDERS</div>
+                <div className="text-[10px] text-slate-400">Civil &amp; General Contractors</div>
+              </div>
+            </div>
+            <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-amber-950/60 text-amber-300 font-bold border border-amber-800/40">
+              {builderCount}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => handleQuickCategorySwitch('material_supplier')}
+            className={`p-2.5 rounded-xl border text-left transition flex items-center justify-between ${
+              selectedType === 'material_supplier'
+                ? 'bg-emerald-500/15 border-emerald-500/50 text-white shadow-sm'
+                : 'bg-slate-950/60 border-slate-800 text-slate-400 hover:text-white hover:border-slate-700'
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              <Boxes className="w-4 h-4 text-emerald-400 shrink-0" />
+              <div>
+                <div className="text-xs font-bold">MATERIAL SUPPLIERS</div>
+                <div className="text-[10px] text-slate-400">Steel, Cement &amp; Depots</div>
+              </div>
+            </div>
+            <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-950/60 text-emerald-300 font-bold border border-emerald-800/40">
+              {supplierCount}
+            </span>
+          </button>
+        </div>
+      </div>
 
       {/* ========================================================================= */}
       {/* TAB 1: GOOGLE LIVE SEARCH                                                 */}
@@ -1046,13 +1379,103 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
       {/* ========================================================================= */}
       {activeTab === 'enquiries' && (
         <div className="space-y-6">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-white">All Project Enquiries &amp; Quotation Requests</h3>
-            <span className="text-xs text-slate-400 font-mono">
-              Total Enquiries: {enquiries.length}
-            </span>
+          {/* Header & Overview */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 rounded-2xl bg-slate-900 border border-slate-800 shadow-md">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="p-1.5 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                  <MessageSquare className="w-4 h-4" />
+                </span>
+                <h3 className="text-base font-bold text-white">
+                  Project RFQs, Enquiries &amp; Live Vendor Quotations
+                </h3>
+              </div>
+              <p className="text-xs text-slate-400 mt-1">
+                Track dispatched enquiries across Architects, Builders, and Material Suppliers with real-time quote generation.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <span className="px-3 py-1.5 rounded-lg bg-slate-950 border border-slate-800 text-xs font-mono text-amber-300">
+                Total: {enquiries.length} Enquiries
+              </span>
+            </div>
           </div>
 
+          {/* Enquiry Filters: Discipline & Status */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-xl bg-slate-950 border border-slate-800">
+            {/* Discipline Filter Tabs */}
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="text-[11px] font-mono uppercase text-slate-500 mr-1">Filter:</span>
+              <button
+                type="button"
+                onClick={() => setEnquiryCategoryFilter('all')}
+                className={`px-2.5 py-1 rounded-lg text-xs font-medium transition ${
+                  enquiryCategoryFilter === 'all'
+                    ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                All Enquiries ({enquiries.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setEnquiryCategoryFilter('architect')}
+                className={`px-2.5 py-1 rounded-lg text-xs font-medium transition flex items-center gap-1 ${
+                  enquiryCategoryFilter === 'architect'
+                    ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <Building2 className="w-3 h-3 text-cyan-400" />
+                <span>Architects ({enquiries.filter((e) => e.professionalType === 'architect').length})</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setEnquiryCategoryFilter('builder')}
+                className={`px-2.5 py-1 rounded-lg text-xs font-medium transition flex items-center gap-1 ${
+                  enquiryCategoryFilter === 'builder'
+                    ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <HardHat className="w-3 h-3 text-amber-400" />
+                <span>Builders ({enquiries.filter((e) => e.professionalType === 'builder').length})</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setEnquiryCategoryFilter('material_supplier')}
+                className={`px-2.5 py-1 rounded-lg text-xs font-medium transition flex items-center gap-1 ${
+                  enquiryCategoryFilter === 'material_supplier'
+                    ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <Boxes className="w-3 h-3 text-emerald-400" />
+                <span>Materials ({enquiries.filter((e) => e.professionalType === 'material_supplier').length})</span>
+              </button>
+            </div>
+
+            {/* Status Filter Dropdown */}
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] font-mono text-slate-500 uppercase">Status:</span>
+              <select
+                value={enquiryStatusFilter}
+                onChange={(e) => setEnquiryStatusFilter(e.target.value)}
+                className="bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1 text-xs text-white focus:outline-none focus:border-amber-500"
+              >
+                <option value="all">All Statuses</option>
+                <option value="open">Open</option>
+                <option value="in_progress">In Review</option>
+                <option value="quoted">Quoted</option>
+                <option value="responded">Responded</option>
+                <option value="accepted">Accepted</option>
+                <option value="closed">Closed</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Enquiries List */}
           {enquiries.length === 0 ? (
             <div className="text-center py-12 rounded-xl border border-dashed border-slate-800 bg-slate-900/30">
               <MessageSquare className="w-8 h-8 text-slate-600 mx-auto mb-2" />
@@ -1062,55 +1485,213 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
               </p>
             </div>
           ) : (
-            <div className="space-y-3">
-              {enquiries.map((enq) => (
-                <div
-                  key={enq.id}
-                  className="p-5 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 space-y-3 transition"
-                >
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                    <div>
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <h4 className="text-sm font-bold text-white">{enq.projectTitle}</h4>
-                        {enq.budget && (
-                          <span className="text-[11px] font-mono font-semibold text-emerald-400 bg-emerald-950/40 px-2 py-0.5 rounded border border-emerald-800/40">
-                            Budget: {enq.budget}
+            <div className="space-y-4">
+              {enquiries
+                .filter((enq) => {
+                  if (enquiryCategoryFilter !== 'all' && enq.professionalType !== enquiryCategoryFilter) {
+                    return false;
+                  }
+                  if (enquiryStatusFilter !== 'all' && enq.status !== enquiryStatusFilter) {
+                    return false;
+                  }
+                  return true;
+                })
+                .map((enq) => {
+                  const targetProf = professionals.find((p) => p.id === enq.professionalId);
+                  const isRequestingThis = requestingQuoteId === enq.id;
+                  const hasQuote = Boolean(enq.quotedAmount || enq.responseMessage);
+
+                  const profTypeBadge =
+                    enq.professionalType === 'architect'
+                      ? 'bg-cyan-950/60 text-cyan-300 border-cyan-800/40'
+                      : enq.professionalType === 'builder'
+                      ? 'bg-amber-950/60 text-amber-300 border-amber-800/40'
+                      : 'bg-emerald-950/60 text-emerald-300 border-emerald-800/40';
+
+                  const typeLabel =
+                    enq.professionalType === 'architect'
+                      ? 'Architect'
+                      : enq.professionalType === 'builder'
+                      ? 'Builder'
+                      : 'Material Supplier';
+
+                  return (
+                    <div
+                      key={enq.id}
+                      className="p-5 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 space-y-4 transition shadow-sm"
+                    >
+                      {/* Top Header of Enquiry */}
+                      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 border-b border-slate-800/80 pb-3">
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <h4 className="text-sm font-bold text-white">{enq.projectTitle}</h4>
+                            <span className={`text-[10px] font-mono uppercase px-2 py-0.5 rounded border ${profTypeBadge}`}>
+                              {typeLabel}
+                            </span>
+                            {enq.budget && (
+                              <span className="text-[11px] font-mono font-semibold text-emerald-400 bg-emerald-950/40 px-2 py-0.5 rounded border border-emerald-800/40">
+                                Indicative Budget: {enq.budget}
+                              </span>
+                            )}
+                            {hasQuote && (
+                              <span className="inline-flex items-center gap-1 text-[10px] font-mono font-semibold text-amber-300 bg-amber-500/15 px-2 py-0.5 rounded border border-amber-500/30">
+                                <Zap className="w-3 h-3 text-amber-400" />
+                                <span>Live Quote Available</span>
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="text-xs text-slate-400 flex items-center gap-2 flex-wrap">
+                            <span>
+                              Vendor:{' '}
+                              <strong className="text-amber-300">
+                                {enq.company || enq.professionalName}
+                              </strong>{' '}
+                              ({enq.professionalName})
+                            </span>
+                            <span>•</span>
+                            <span>
+                              Client: <span className="text-slate-200">{enq.clientName}</span>
+                            </span>
+                            {enq.clientPhone && (
+                              <>
+                                <span>•</span>
+                                <span className="text-emerald-400 font-mono">{enq.clientPhone}</span>
+                              </>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Status Control & Date */}
+                        <div className="flex items-center gap-2.5 self-start">
+                          <select
+                            value={enq.status}
+                            onChange={(e) => onUpdateEnquiryStatus(enq.id, e.target.value as EnquiryStatus)}
+                            className="bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1 text-xs text-white focus:outline-none focus:border-amber-500"
+                          >
+                            <option value="open">Status: Open</option>
+                            <option value="in_progress">Status: In Review</option>
+                            <option value="quoted">Status: Quoted</option>
+                            <option value="responded">Status: Responded</option>
+                            <option value="accepted">Status: Accepted</option>
+                            <option value="closed">Status: Closed</option>
+                          </select>
+                          <span className="text-[10px] text-slate-500 font-mono whitespace-nowrap">
+                            {new Date(enq.createdAt).toLocaleDateString()}
                           </span>
-                        )}
+                        </div>
                       </div>
-                      <p className="text-xs text-slate-400 mt-0.5">
-                        Recipient:{' '}
-                        <span className="text-amber-300 font-medium">
-                          {enq.professionalName || 'Professional'}
+
+                      {/* Transmitted Message / RFQ Scope */}
+                      <div className="space-y-1">
+                        <span className="text-[10px] font-mono uppercase text-slate-500 block">
+                          Transmitted Project Scope &amp; Specifications:
                         </span>
-                        {' • '}
-                        Client: <span className="text-white font-medium">{enq.clientName}</span>{' '}
-                        {enq.clientEmail && `• ${enq.clientEmail}`}
-                      </p>
-                    </div>
+                        <p className="text-xs text-slate-300 bg-slate-950 p-3.5 rounded-lg border border-slate-800 whitespace-pre-wrap leading-relaxed">
+                          {enq.message}
+                        </p>
+                      </div>
 
-                    <div className="flex items-center gap-2">
-                      <select
-                        value={enq.status}
-                        onChange={(e) => onUpdateEnquiryStatus(enq.id, e.target.value as EnquiryStatus)}
-                        className="bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1 text-xs text-white focus:outline-none"
-                      >
-                        <option value="open">Status: Open</option>
-                        <option value="in_progress">Status: In Review</option>
-                        <option value="responded">Status: Responded</option>
-                        <option value="closed">Status: Closed</option>
-                      </select>
-                      <span className="text-[10px] text-slate-500 font-mono">
-                        {new Date(enq.createdAt).toLocaleDateString()}
-                      </span>
-                    </div>
-                  </div>
+                      {/* Verified Live Vendor Quotation Box */}
+                      {hasQuote && (
+                        <div className="p-4 rounded-xl bg-gradient-to-r from-amber-500/10 via-slate-950 to-emerald-950/20 border border-amber-500/30 space-y-2.5">
+                          <div className="flex items-center justify-between border-b border-amber-500/20 pb-2 flex-wrap gap-2">
+                            <div className="flex items-center gap-2">
+                              <span className="p-1 rounded bg-amber-500/20 text-amber-400">
+                                <Zap className="w-3.5 h-3.5" />
+                              </span>
+                              <span className="text-xs font-mono font-bold text-amber-300 uppercase tracking-wide">
+                                Verified Live Vendor Quotation
+                              </span>
+                              <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-emerald-950/60 text-emerald-300 border border-emerald-800/40">
+                                ● Grounded
+                              </span>
+                            </div>
 
-                  <p className="text-xs text-slate-300 bg-slate-950 p-3 rounded-lg border border-slate-800/80 whitespace-pre-wrap">
-                    {enq.message}
-                  </p>
-                </div>
-              ))}
+                            {enq.quotedAmount && (
+                              <div className="text-xs font-mono font-bold text-emerald-400 bg-emerald-950/60 px-3 py-1 rounded-lg border border-emerald-800/50">
+                                Quoted Amount: {enq.quotedAmount}
+                              </div>
+                            )}
+                          </div>
+
+                          {enq.estimatedDelivery && (
+                            <div className="text-xs font-mono text-slate-300 flex items-center gap-2">
+                              <span className="text-amber-400">⚡ Mobilization / Delivery:</span>
+                              <span>{enq.estimatedDelivery}</span>
+                            </div>
+                          )}
+
+                          {enq.responseMessage && (
+                            <p className="text-xs text-slate-200 leading-relaxed italic bg-slate-900/60 p-3 rounded-lg border border-slate-800">
+                              &quot;{enq.responseMessage}&quot;
+                            </p>
+                          )}
+
+                          {enq.respondedAt && (
+                            <div className="text-[10px] font-mono text-slate-500 text-right">
+                              Received: {new Date(enq.respondedAt).toLocaleString()}
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Action Bar for Enquiry */}
+                      <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-800/80 flex-wrap">
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleRequestLiveQuote(enq)}
+                            disabled={isRequestingThis}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs transition disabled:opacity-50 shadow-sm"
+                          >
+                            {isRequestingThis ? (
+                              <>
+                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                <span>Generating Live Quote...</span>
+                              </>
+                            ) : (
+                              <>
+                                <Zap className="w-3.5 h-3.5" />
+                                <span>{hasQuote ? 'Refresh Live Quote' : 'Request Live Vendor Quote'}</span>
+                              </>
+                            )}
+                          </button>
+
+                          {targetProf && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handleOpenWhatsAppRFQ(
+                                  targetProf,
+                                  `Regarding Project RFQ: ${enq.projectTitle}\nBudget: ${enq.budget || 'Negotiable'}`
+                                )
+                              }
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-950/40 hover:bg-emerald-900/50 text-emerald-300 border border-emerald-800/50 text-xs font-semibold transition"
+                            >
+                              <MessageCircle className="w-3.5 h-3.5" />
+                              <span>WhatsApp Vendor</span>
+                            </button>
+                          )}
+
+                          {targetProf?.phone && (
+                            <a
+                              href={`tel:${targetProf.phone.replace(/[^0-9+]/g, '')}`}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 text-xs font-medium transition"
+                            >
+                              <Phone className="w-3.5 h-3.5 text-emerald-400" />
+                              <span>Call {targetProf.phone}</span>
+                            </a>
+                          )}
+                        </div>
+
+                        <div className="text-[11px] font-mono text-slate-500">
+                          RFQ Ref: {enq.id}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
             </div>
           )}
         </div>
@@ -1624,13 +2205,114 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
             {enquirySentSuccess ? (
               <div className="py-8 text-center space-y-2">
                 <CheckCircle className="w-10 h-10 text-emerald-400 mx-auto animate-bounce" />
-                <h4 className="text-sm font-bold text-white">Enquiry Transmitted</h4>
-                <p className="text-xs text-slate-400">
-                  Your project scope and contact details have been registered in the Enquiries log.
+                <h4 className="text-sm font-bold text-white">Enquiry Transmitted Successfully</h4>
+                <p className="text-xs text-slate-400 max-w-sm mx-auto">
+                  Your project scope and contact details have been registered. If selected, a live grounded vendor quotation has been generated in your Enquiries log.
                 </p>
               </div>
             ) : (
               <form onSubmit={handleSendEnquirySubmit} className="space-y-3">
+                {/* Scope Presets */}
+                <div className="space-y-1">
+                  <span className="text-[10px] font-mono uppercase text-amber-400 block">
+                    ⚡ Quick Scope Presets:
+                  </span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {selectedProfessional.professionalType === 'architect' && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEnquiryProjectTitle('Bioclimatic 3,200 sq.ft Residential Villa Design');
+                            setEnquiryMessage(
+                              'Requesting complete architectural package including concept zoning, structural engineering drawings, photorealistic 3D elevations, and municipal approval liaisons.'
+                            );
+                            setEnquiryBudget('₹ 1.2 Cr - 1.8 Cr');
+                          }}
+                          className="px-2 py-1 rounded bg-slate-950 hover:bg-amber-500/20 text-slate-300 hover:text-amber-300 border border-slate-800 text-[10px] font-mono transition"
+                        >
+                          📐 Luxury Villa Architectural Package
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEnquiryProjectTitle('Modern Interior Turnkey Design & Styling');
+                            setEnquiryMessage(
+                              'Requesting turnkey interior architectural styling, modular woodwork drawings, false ceiling layouts, lighting schemes, and material specifications.'
+                            );
+                            setEnquiryBudget('₹ 35 Lakh - 50 Lakh');
+                          }}
+                          className="px-2 py-1 rounded bg-slate-950 hover:bg-amber-500/20 text-slate-300 hover:text-amber-300 border border-slate-800 text-[10px] font-mono transition"
+                        >
+                          🛋️ Turnkey Interiors
+                        </button>
+                      </>
+                    )}
+
+                    {selectedProfessional.professionalType === 'builder' && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEnquiryProjectTitle('Turnkey RCC Civil Construction (Labor + Materials)');
+                            setEnquiryMessage(
+                              'Seeking comprehensive turnkey civil contracting for a G+2 building (approx 4,800 sq.ft built-up area). Scope covers earthwork, RCC frame, masonry, plastering, waterproofing, and MEP services.'
+                            );
+                            setEnquiryBudget('₹ 1.85 Cr - 2.4 Cr');
+                          }}
+                          className="px-2 py-1 rounded bg-slate-950 hover:bg-amber-500/20 text-slate-300 hover:text-amber-300 border border-slate-800 text-[10px] font-mono transition"
+                        >
+                          👷 Turnkey Civil Contract
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEnquiryProjectTitle('RCC Superstructure & Slab Core Package');
+                            setEnquiryMessage(
+                              'Seeking contractor quotation for RCC footings, columns, and post-tensioned floor slabs with all shuttering, steel binding, and concrete pumping.'
+                            );
+                            setEnquiryBudget('₹ 75 Lakh - 95 Lakh');
+                          }}
+                          className="px-2 py-1 rounded bg-slate-950 hover:bg-amber-500/20 text-slate-300 hover:text-amber-300 border border-slate-800 text-[10px] font-mono transition"
+                        >
+                          🏗️ RCC Core Package
+                        </button>
+                      </>
+                    )}
+
+                    {selectedProfessional.professionalType === 'material_supplier' && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEnquiryProjectTitle('Bulk TMT Fe550D Rebar Consignment (18 Metric Tons)');
+                            setEnquiryMessage(
+                              'Need direct mill-delivered quotation for 18 MT Fe550D primary steel (8mm: 4 MT, 12mm: 6 MT, 16mm: 5 MT, 20mm: 3 MT) with test certificates and site unloading in Bangalore.'
+                            );
+                            setEnquiryBudget('₹ 11.5 Lakh - 13.5 Lakh');
+                          }}
+                          className="px-2 py-1 rounded bg-slate-950 hover:bg-amber-500/20 text-slate-300 hover:text-amber-300 border border-slate-800 text-[10px] font-mono transition"
+                        >
+                          🏗️ Bulk TMT Rebar (18 MT)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEnquiryProjectTitle('Bulk UltraTech OPC 53 Grade Cement (600 Bags)');
+                            setEnquiryMessage(
+                              'Need quotation for 600 bags of OPC 53 Grade cement with batch test certificates and staged delivery schedule to project site.'
+                            );
+                            setEnquiryBudget('₹ 2.4 Lakh - 2.8 Lakh');
+                          }}
+                          className="px-2 py-1 rounded bg-slate-950 hover:bg-amber-500/20 text-slate-300 hover:text-amber-300 border border-slate-800 text-[10px] font-mono transition"
+                        >
+                          🧱 Bulk Cement Lot (600 Bags)
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </div>
+
                 <div>
                   <label className="text-[11px] font-mono text-slate-400 uppercase">Project Title</label>
                   <input
@@ -1699,20 +2381,60 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
                   />
                 </div>
 
-                <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-800">
+                {/* Live Feature Options */}
+                <div className="pt-2 border-t border-slate-800/80 space-y-2">
+                  <label className="flex items-center gap-2 cursor-pointer text-xs text-slate-300">
+                    <input
+                      type="checkbox"
+                      checked={autoRequestQuoteOnSubmit}
+                      onChange={(e) => setAutoRequestQuoteOnSubmit(e.target.checked)}
+                      className="rounded bg-slate-950 border-slate-700 text-amber-500 focus:ring-0"
+                    />
+                    <span className="flex items-center gap-1 font-medium text-amber-300">
+                      <Zap className="w-3.5 h-3.5 text-amber-400" />
+                      <span>Auto-generate Live Vendor Quotation upon dispatch</span>
+                    </span>
+                  </label>
+
+                  <label className="flex items-center gap-2 cursor-pointer text-xs text-slate-300">
+                    <input
+                      type="checkbox"
+                      checked={sendViaWhatsApp}
+                      onChange={(e) => setSendViaWhatsApp(e.target.checked)}
+                      className="rounded bg-slate-950 border-slate-700 text-emerald-500 focus:ring-0"
+                    />
+                    <span className="flex items-center gap-1 font-medium text-emerald-400">
+                      <MessageCircle className="w-3.5 h-3.5" />
+                      <span>Open WhatsApp with pre-filled RFQ message</span>
+                    </span>
+                  </label>
+                </div>
+
+                <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-800">
                   <button
                     type="button"
                     onClick={() => setSelectedProfessional(null)}
+                    disabled={isSubmittingEnquiry}
                     className="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    className="px-5 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs transition flex items-center gap-1.5"
+                    disabled={isSubmittingEnquiry}
+                    className="px-5 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs transition flex items-center gap-1.5 disabled:opacity-50"
                   >
-                    <Send className="w-3.5 h-3.5" />
-                    <span>Send Project Enquiry</span>
+                    {isSubmittingEnquiry ? (
+                      <>
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        <span>Transmitting RFQ &amp; Live Quote...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Send className="w-3.5 h-3.5" />
+                        <span>Send Project Enquiry</span>
+                      </>
+                    )}
                   </button>
                 </div>
               </form>

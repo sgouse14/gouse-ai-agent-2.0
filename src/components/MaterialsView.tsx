@@ -34,6 +34,8 @@ import {
   Mail,
   Zap,
   BookOpen,
+  FileText,
+  Upload,
 } from 'lucide-react';
 import { MATERIAL_CATALOG, BUILDING_TYPOLOGY_CHECKLISTS, INITIAL_LIVE_MATERIAL_PRICES } from '../data/initialData';
 import { Project, LiveMaterialPrice, GroundingSource, MaterialPriceAlertSubscription, MaterialPriceAlertItem, BOQItem } from '../types';
@@ -41,6 +43,7 @@ import { formatCurrency, CurrencyCode } from '../utils/formatters';
 import { MaterialPriceAlertsPanel } from './MaterialPriceAlertsPanel';
 import { MaterialAreaTakeoffView } from './MaterialAreaTakeoffView';
 import { ConstructionMaterialsMasterGuideModal } from './ConstructionMaterialsMasterGuideModal';
+import { MaterialPdfSpecUpdaterModal, ExtractedMaterialStandard } from './MaterialPdfSpecUpdaterModal';
 import { getMasterGuideLivePrices } from '../data/constructionMaterialsGuide';
 import { CivilWisdomFormulaMatrix } from './CivilWisdomFormulaMatrix';
 import { getCivilWisdomMaterialOverrides } from '../data/civilWisdomFormulas';
@@ -67,6 +70,21 @@ export const MaterialsView: React.FC<MaterialsViewProps> = ({
   const [activeSection, setActiveSection] = useState<'area-takeoff' | 'live-prices' | 'comparison' | 'checklists' | 'render'>('area-takeoff');
   const [matrixSubView, setMatrixSubView] = useState<'quick-formulas' | 'specifications'>('quick-formulas');
   const [isGuideOpen, setIsGuideOpen] = useState(false);
+  const [isPdfUpdaterOpen, setIsPdfUpdaterOpen] = useState(false);
+  const [pdfSuccessBanner, setPdfSuccessBanner] = useState<string | null>(null);
+
+  const handleApplyPdfStandards = (
+    standards: ExtractedMaterialStandard,
+    createdLivePrices?: LiveMaterialPrice[]
+  ) => {
+    if (createdLivePrices && createdLivePrices.length > 0) {
+      setLivePrices((prev) => [...createdLivePrices, ...prev]);
+    }
+    setPdfSuccessBanner(
+      `✓ Material & Standards successfully updated with ${standards.brandName} (${standards.productVariants?.length || 0} product variants & IS standards ingested)`
+    );
+    setTimeout(() => setPdfSuccessBanner(null), 7000);
+  };
 
   const handleApplyCivilWisdomToTakeoff = (
     overrides: Record<string, { normPerSqFt: number; standardWastagePercent?: number }>,
@@ -506,7 +524,63 @@ export const MaterialsView: React.FC<MaterialsViewProps> = ({
             <BookOpen className="w-3.5 h-3.5 text-amber-400" />
             <span>Master Materials Guide</span>
           </button>
+
+          <button
+            id="btn-open-pdf-spec-updater"
+            onClick={() => setIsPdfUpdaterOpen(true)}
+            className="px-3 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5 bg-gradient-to-r from-amber-500/20 via-purple-500/20 to-slate-800 hover:from-amber-500/30 hover:via-purple-500/30 hover:to-slate-700 text-amber-300 border border-amber-500/40 shadow-sm"
+            title="Upload or paste PDF to update Material & Standards (Birla Opus & Birla OPC ready)"
+          >
+            <FileText className="w-3.5 h-3.5 text-amber-400" />
+            <span>PDF Spec Updater (Birla OPS)</span>
+          </button>
         </div>
+      </div>
+
+      {/* PDF Update Success Toast Banner */}
+      {pdfSuccessBanner && (
+        <div className="rounded-xl border border-emerald-500/30 bg-emerald-950/80 p-3.5 flex items-center justify-between gap-3 text-emerald-200 text-xs font-medium shadow-lg animate-in fade-in">
+          <div className="flex items-center gap-2.5">
+            <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+            <span>{pdfSuccessBanner}</span>
+          </div>
+          <button
+            onClick={() => setPdfSuccessBanner(null)}
+            className="text-emerald-400 hover:text-emerald-200 p-1 rounded"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
+      {/* User PDF Update Readiness Banner */}
+      <div className="rounded-xl border border-amber-500/30 bg-gradient-to-r from-amber-500/10 via-purple-500/10 to-slate-900/60 p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-md">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-500/20 text-amber-400 shrink-0">
+            <FileText className="w-5 h-5" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-xs font-bold text-white">
+                Material & Standards Ready for PDF Ingestion
+              </span>
+              <span className="rounded-full bg-amber-400/20 text-amber-300 border border-amber-400/30 px-2 py-0.5 text-[10px] font-semibold">
+                Birla Opus (OPS) & Birla OPC Ready
+              </span>
+            </div>
+            <p className="text-xs text-slate-300 mt-0.5">
+              Upload your technical PDF or specification datasheet to update brand norms, IS code certifications, coverage parameters, and spot price benchmarks.
+            </p>
+          </div>
+        </div>
+        <button
+          id="btn-banner-upload-pdf-specs"
+          onClick={() => setIsPdfUpdaterOpen(true)}
+          className="whitespace-nowrap flex items-center gap-1.5 rounded-lg bg-amber-500 px-3.5 py-2 text-xs font-bold text-slate-950 hover:bg-amber-400 shadow-sm transition-all shrink-0"
+        >
+          <Upload className="w-3.5 h-3.5" />
+          <span>Upload PDF / Update Specs</span>
+        </button>
       </div>
 
       {/* ========================================================================= */}
@@ -1484,6 +1558,13 @@ export const MaterialsView: React.FC<MaterialsViewProps> = ({
       <ConstructionMaterialsMasterGuideModal
         isOpen={isGuideOpen}
         onClose={() => setIsGuideOpen(false)}
+      />
+
+      {/* PDF / Technical Datasheet Material Standards Updater Modal */}
+      <MaterialPdfSpecUpdaterModal
+        isOpen={isPdfUpdaterOpen}
+        onClose={() => setIsPdfUpdaterOpen(false)}
+        onApplyStandards={handleApplyPdfStandards}
       />
     </div>
   );

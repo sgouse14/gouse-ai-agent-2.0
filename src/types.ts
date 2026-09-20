@@ -143,6 +143,9 @@ export interface ProfessionalProfile {
   sourceTitle?: string;
   isLiveSearch?: boolean;
   isMyPractice?: boolean;
+  liveStatus?: 'online' | 'available' | 'in_consultation';
+  leadTimeDays?: number;
+  deliveryCoverage?: string;
 }
 
 export interface LiveMaterialPrice {
@@ -195,6 +198,8 @@ export interface MarketplaceEnquiry {
   id: string;
   professionalId: string;
   professionalName?: string;
+  professionalType?: ProfessionalType;
+  company?: string;
   clientName: string;
   clientEmail: string;
   clientPhone?: string;
@@ -203,6 +208,11 @@ export interface MarketplaceEnquiry {
   budget?: string;
   status: EnquiryStatus;
   createdAt: string;
+  responseMessage?: string;
+  quotedAmount?: string;
+  estimatedDelivery?: string;
+  respondedAt?: string;
+  isLiveQuote?: boolean;
 }
 
 export interface MaterialComparisonItem {

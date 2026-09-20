@@ -12,6 +12,8 @@ import {
   getDomainFallbackAgentResponse,
   generateSpeechAudio,
   generateCompanyWithAi,
+  generateLiveEnquiryQuote,
+  parseMaterialStandardsFromPDFOrText,
 } from './server/apiService';
 
 const app = express();
@@ -271,6 +273,44 @@ app.post('/api/companies/ai-generate', async (req, res) => {
   } catch (err: any) {
     console.error('Error generating company with AI:', err);
     res.status(500).json({ error: err.message || 'Failed to generate company profile' });
+  }
+});
+
+// Gouse AI: Live Enquiry & Quote generation endpoint
+app.post('/api/enquiries/live-quote', async (req, res) => {
+  try {
+    const { enquiryId, professionalName, company, professionalType, projectTitle, message, budget, clientName } = req.body;
+    const quote = await generateLiveEnquiryQuote({
+      enquiryId,
+      professionalName,
+      company,
+      professionalType,
+      projectTitle: projectTitle || 'Architectural & Construction Project Scope',
+      message: message || 'Request for Quotation and Scope Execution',
+      budget,
+      clientName,
+    });
+    res.json(quote);
+  } catch (err: any) {
+    console.error('Error generating live quote:', err);
+    res.status(500).json({ error: err.message || 'Failed to generate live quote' });
+  }
+});
+
+// Gouse AI: Parse Material & Standards from PDF / Technical Datasheet endpoint
+app.post('/api/materials/parse-pdf-specs', async (req, res) => {
+  try {
+    const { pdfBase64, text, fileName, mimeType } = req.body;
+    const extractedStandards = await parseMaterialStandardsFromPDFOrText({
+      pdfBase64,
+      text,
+      fileName,
+      mimeType,
+    });
+    res.json(extractedStandards);
+  } catch (err: any) {
+    console.error('Error parsing material standards from PDF/text:', err);
+    res.status(500).json({ error: err.message || 'Failed to parse material standards' });
   }
 });
 

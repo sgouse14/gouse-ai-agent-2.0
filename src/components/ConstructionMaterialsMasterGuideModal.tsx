@@ -19,11 +19,14 @@ import {
   MapPin,
   Tag,
   Coins,
+  Copy,
+  Info,
 } from 'lucide-react';
 import {
   CONSTRUCTION_MATERIALS_MASTER_GUIDE,
   MaterialGuideSection,
   MaterialGuideBrand,
+  MASTER_DIRECTORY_METADATA,
 } from '../data/constructionMaterialsGuide';
 
 interface ConstructionMaterialsMasterGuideModalProps {
@@ -55,8 +58,43 @@ export const ConstructionMaterialsMasterGuideModal: React.FC<ConstructionMateria
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTier, setSelectedTier] = useState<'all' | 'National' | 'Regional'>('all');
+  const [selectedSubCategory, setSelectedSubCategory] = useState<string>('all');
   const [selectedTrend, setSelectedTrend] = useState<'all' | 'up' | 'down' | 'stable'>('all');
   const [sortBy, setSortBy] = useState<'default' | 'price_asc' | 'price_desc'>('default');
+  const [copiedSectionId, setCopiedSectionId] = useState<string | null>(null);
+
+  // Available sub-categories for active selection
+  const availableSubCategories = useMemo(() => {
+    const set = new Set<string>();
+    CONSTRUCTION_MATERIALS_MASTER_GUIDE.forEach((sec) => {
+      if (selectedSectionId === 'all' || sec.id === selectedSectionId) {
+        sec.brands.forEach((b) => {
+          if (b.subCategory) set.add(b.subCategory);
+        });
+      }
+    });
+    return Array.from(set);
+  }, [selectedSectionId]);
+
+  // Dynamic summary stats
+  const totalStats = useMemo(() => {
+    let totalBrands = 0;
+    let nationalCount = 0;
+    let regionalCount = 0;
+    CONSTRUCTION_MATERIALS_MASTER_GUIDE.forEach((s) => {
+      s.brands.forEach((b) => {
+        totalBrands++;
+        if (b.category === 'National') nationalCount++;
+        if (b.category === 'Regional') regionalCount++;
+      });
+    });
+    return {
+      totalBrands,
+      nationalCount,
+      regionalCount,
+      categoriesCount: CONSTRUCTION_MATERIALS_MASTER_GUIDE.length,
+    };
+  }, []);
 
   // Filter sections and brands
   const filteredSections = useMemo(() => {
@@ -65,6 +103,10 @@ export const ConstructionMaterialsMasterGuideModal: React.FC<ConstructionMateria
 
       if (selectedTier !== 'all') {
         brands = brands.filter((b) => b.category === selectedTier);
+      }
+
+      if (selectedSubCategory !== 'all') {
+        brands = brands.filter((b) => b.subCategory === selectedSubCategory);
       }
 
       if (selectedTrend !== 'all') {
@@ -77,6 +119,7 @@ export const ConstructionMaterialsMasterGuideModal: React.FC<ConstructionMateria
           (b) =>
             b.brandName.toLowerCase().includes(q) ||
             b.keyVariantsAndDescription.toLowerCase().includes(q) ||
+            (b.subCategory && b.subCategory.toLowerCase().includes(q)) ||
             (b.recommendedUse && b.recommendedUse.toLowerCase().includes(q)) ||
             (b.isCodeRef && b.isCodeRef.toLowerCase().includes(q)) ||
             (b.marketHub && b.marketHub.toLowerCase().includes(q))
@@ -97,7 +140,24 @@ export const ConstructionMaterialsMasterGuideModal: React.FC<ConstructionMateria
       const matchesSection = selectedSectionId === 'all' || section.id === selectedSectionId;
       return matchesSection && section.brands.length > 0;
     });
-  }, [selectedSectionId, searchQuery, selectedTier, selectedTrend, sortBy]);
+  }, [selectedSectionId, searchQuery, selectedTier, selectedSubCategory, selectedTrend, sortBy]);
+
+  const handleCopySpecs = (section: MaterialGuideSection) => {
+    const text = `=== ${section.title} Standards & Specs ===\nIS Codes: ${section.isCodeStandards.join(
+      ', '
+    )}\nBrands:\n${section.brands
+      .map(
+        (b) =>
+          `• ${b.brandName} (${b.subCategory || b.category}): ₹${b.spotPrice}/${b.unit} | Spec: ${
+            b.isCodeRef || 'IS Standard'
+          }\n  Use: ${b.recommendedUse || b.keyVariantsAndDescription}`
+      )
+      .join('\n\n')}`;
+
+    navigator.clipboard.writeText(text);
+    setCopiedSectionId(section.id);
+    setTimeout(() => setCopiedSectionId(null), 2500);
+  };
 
   if (!isOpen) return null;
 
@@ -113,10 +173,10 @@ export const ConstructionMaterialsMasterGuideModal: React.FC<ConstructionMateria
             <div className="flex items-center gap-2 flex-wrap">
               <span className="px-2.5 py-0.5 rounded text-[11px] font-bold font-mono bg-amber-500/10 text-amber-300 border border-amber-500/20 flex items-center gap-1.5">
                 <BookOpen className="w-3.5 h-3.5 text-amber-400" />
-                <span>Construction Materials Master Guide</span>
+                <span>{MASTER_DIRECTORY_METADATA.title}</span>
               </span>
-              <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-slate-800 text-slate-300">
-                IS Code & Specification Standards
+              <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                {MASTER_DIRECTORY_METADATA.subtitle}
               </span>
               {targetMaterialName && (
                 <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-blue-500/20 text-blue-300 border border-blue-500/30">
@@ -125,10 +185,10 @@ export const ConstructionMaterialsMasterGuideModal: React.FC<ConstructionMateria
               )}
             </div>
             <h2 className="text-lg sm:text-xl font-bold text-white tracking-tight">
-              Comprehensive Directory: Cement, Steel, Electricals, Plumbing, Tiles, Glass & Glazing, and Paints
+              {MASTER_DIRECTORY_METADATA.headerNote}
             </h2>
             <p className="text-xs text-slate-400 font-mono">
-              National market leaders and regional specialist brands with certified product variants, ductility grades, and engineering use-cases.
+              Certified product variants, ductility grades, and IS engineering specification standards.
             </p>
           </div>
 
@@ -138,6 +198,25 @@ export const ConstructionMaterialsMasterGuideModal: React.FC<ConstructionMateria
             title="Close Guide"
           >
             <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Highlight Banner: Bharathi Cement Update Announcement */}
+        <div className="px-4 py-2 bg-emerald-950/40 border-b border-emerald-800/40 flex items-center justify-between gap-2 text-xs font-mono text-emerald-300">
+          <div className="flex items-center gap-2">
+            <Sparkles className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+            <span>
+              <strong>Directory Update:</strong> {MASTER_DIRECTORY_METADATA.specialUpdate}
+            </span>
+          </div>
+          <button
+            onClick={() => {
+              setSelectedSectionId('guide-cement');
+              setSearchQuery('Bharathi Cement');
+            }}
+            className="px-2 py-0.5 rounded bg-emerald-800/60 hover:bg-emerald-700 text-white text-[11px] font-bold flex-shrink-0 transition"
+          >
+            View Bharathi Entry
           </button>
         </div>
 
@@ -177,7 +256,7 @@ export const ConstructionMaterialsMasterGuideModal: React.FC<ConstructionMateria
                     : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
                 }`}
               >
-                National
+                National ({totalStats.nationalCount})
               </button>
               <button
                 onClick={() => setSelectedTier('Regional')}
@@ -187,9 +266,25 @@ export const ConstructionMaterialsMasterGuideModal: React.FC<ConstructionMateria
                     : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
                 }`}
               >
-                Regional
+                Regional ({totalStats.regionalCount})
               </button>
             </div>
+
+            {/* Sub-Category Filter Dropdown if applicable */}
+            {availableSubCategories.length > 1 && (
+              <select
+                value={selectedSubCategory}
+                onChange={(e) => setSelectedSubCategory(e.target.value)}
+                className="bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-[10px] font-mono text-slate-300 focus:outline-none focus:border-amber-400"
+              >
+                <option value="all">All Groupings</option>
+                {availableSubCategories.map((sub) => (
+                  <option key={sub} value={sub}>
+                    {sub}
+                  </option>
+                ))}
+              </select>
+            )}
 
             {/* Trend Filter */}
             <div className="flex items-center gap-1">
@@ -243,26 +338,35 @@ export const ConstructionMaterialsMasterGuideModal: React.FC<ConstructionMateria
         {/* Category Navigation Pills */}
         <div className="px-3 sm:px-4 py-2 bg-slate-950/30 border-b border-slate-800 flex items-center gap-1.5 overflow-x-auto no-scrollbar">
           <button
-            onClick={() => setSelectedSectionId('all')}
+            onClick={() => {
+              setSelectedSectionId('all');
+              setSelectedSubCategory('all');
+            }}
             className={`px-3 py-1 rounded-lg text-xs font-mono whitespace-nowrap transition ${
               selectedSectionId === 'all'
                 ? 'bg-slate-800 text-amber-300 font-bold border border-amber-500/30'
                 : 'text-slate-400 hover:text-white hover:bg-slate-850'
             }`}
           >
-            All 7 Categories
+            All 7 Categories ({totalStats.totalBrands} Brands)
           </button>
           {CONSTRUCTION_MATERIALS_MASTER_GUIDE.map((section) => (
             <button
               key={section.id}
-              onClick={() => setSelectedSectionId(section.id)}
-              className={`px-3 py-1 rounded-lg text-xs font-mono whitespace-nowrap transition ${
+              onClick={() => {
+                setSelectedSectionId(section.id);
+                setSelectedSubCategory('all');
+              }}
+              className={`px-3 py-1 rounded-lg text-xs font-mono whitespace-nowrap transition flex items-center gap-1.5 ${
                 selectedSectionId === section.id
                   ? 'bg-slate-800 text-amber-300 font-bold border border-amber-500/30'
                   : 'text-slate-400 hover:text-white hover:bg-slate-850'
               }`}
             >
-              {section.shortTitle}
+              <span>{section.shortTitle}</span>
+              <span className="text-[10px] px-1 rounded bg-slate-900 text-slate-400">
+                {section.brands.length}
+              </span>
             </button>
           ))}
         </div>
@@ -291,7 +395,7 @@ export const ConstructionMaterialsMasterGuideModal: React.FC<ConstructionMateria
                     <p className="text-xs text-slate-400 mt-1 font-mono">{section.description}</p>
                   </div>
 
-                  {/* IS Code Tags */}
+                  {/* IS Code Tags & Copy Specs Button */}
                   <div className="flex flex-wrap gap-1.5 items-center">
                     {section.isCodeStandards.map((code, idx) => (
                       <span
@@ -301,6 +405,23 @@ export const ConstructionMaterialsMasterGuideModal: React.FC<ConstructionMateria
                         {code}
                       </span>
                     ))}
+                    <button
+                      onClick={() => handleCopySpecs(section)}
+                      className="p-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-[10px] font-mono flex items-center gap-1 transition ml-1"
+                      title="Copy IS specifications to clipboard"
+                    >
+                      {copiedSectionId === section.id ? (
+                        <>
+                          <Check className="w-3 h-3 text-emerald-400" />
+                          <span className="text-emerald-400">Copied</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-3 h-3 text-slate-400" />
+                          <span>Specs</span>
+                        </>
+                      )}
+                    </button>
                   </div>
                 </div>
 
@@ -312,11 +433,15 @@ export const ConstructionMaterialsMasterGuideModal: React.FC<ConstructionMateria
                       (selectedBrandName.toLowerCase().includes(brand.brandName.toLowerCase()) ||
                         brand.brandName.toLowerCase().includes(selectedBrandName.toLowerCase()));
 
+                    const isBharathi = brand.brandName.toLowerCase().includes('bharathi');
+
                     return (
                       <div
                         key={brand.id}
                         className={`p-3.5 rounded-xl border font-mono text-xs flex flex-col justify-between transition ${
-                          isSelected
+                          isBharathi
+                            ? 'bg-emerald-950/20 border-emerald-500/40 ring-1 ring-emerald-500/30'
+                            : isSelected
                             ? 'bg-amber-500/10 border-amber-500/50 shadow-md ring-1 ring-amber-500/40'
                             : 'bg-slate-900/80 border-slate-800 hover:border-slate-700'
                         }`}
@@ -324,9 +449,16 @@ export const ConstructionMaterialsMasterGuideModal: React.FC<ConstructionMateria
                         <div className="space-y-2">
                           <div className="flex items-start justify-between gap-2">
                             <div>
-                              <span className="font-bold text-white text-sm block">
-                                {brand.brandName}
-                              </span>
+                              <div className="flex items-center gap-2">
+                                <span className="font-bold text-white text-sm block">
+                                  {brand.brandName}
+                                </span>
+                                {isBharathi && (
+                                  <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+                                    New Separate Entry
+                                  </span>
+                                )}
+                              </div>
                               {brand.isCodeRef && (
                                 <span className="text-[10px] text-slate-400">
                                   Spec: {brand.isCodeRef}
@@ -334,15 +466,22 @@ export const ConstructionMaterialsMasterGuideModal: React.FC<ConstructionMateria
                               )}
                             </div>
 
-                            <span
-                              className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${
-                                brand.category === 'National'
-                                  ? 'bg-blue-500/10 text-blue-300 border-blue-500/30'
-                                  : 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30'
-                              }`}
-                            >
-                              {brand.category}
-                            </span>
+                            <div className="flex flex-col items-end gap-1">
+                              <span
+                                className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${
+                                  brand.category === 'National'
+                                    ? 'bg-blue-500/10 text-blue-300 border-blue-500/30'
+                                    : 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30'
+                                }`}
+                              >
+                                {brand.category}
+                              </span>
+                              {brand.subCategory && (
+                                <span className="px-1.5 py-0.5 rounded text-[9px] bg-slate-800/80 text-slate-300 border border-slate-700 text-right whitespace-nowrap">
+                                  {brand.subCategory}
+                                </span>
+                              )}
+                            </div>
                           </div>
 
                           {/* Live Spot Market Price & Trend Panel */}
@@ -453,7 +592,10 @@ export const ConstructionMaterialsMasterGuideModal: React.FC<ConstructionMateria
               <span>Specification Compliance & Procurement Advisory</span>
             </div>
             <p className="text-[11px]">
-              Note: Specifications and availability vary based on regional distributor networks, project requirements, and technical grades. All structural reinforcement and binding materials must be accompanied by Manufacturer Batch Test Certificates (MTC) conforming to IS 456:2000 and SP 34 standards.
+              {MASTER_DIRECTORY_METADATA.disclaimer}
+            </p>
+            <p className="text-[10px] text-slate-500">
+              All structural reinforcement and binding materials must be accompanied by Manufacturer Batch Test Certificates (MTC) conforming to IS 456:2000, IS 1786, and SP 34 standards.
             </p>
           </div>
         </div>
@@ -461,11 +603,13 @@ export const ConstructionMaterialsMasterGuideModal: React.FC<ConstructionMateria
         {/* Modal Footer */}
         <div className="p-3 sm:p-4 bg-slate-950/90 border-t border-slate-800 flex items-center justify-between flex-wrap gap-2 text-xs font-mono">
           <div className="flex items-center gap-3 text-slate-400 text-[11px]">
-            <span>14 National Leaders</span>
+            <span className="text-blue-300 font-semibold">{totalStats.nationalCount} National Giants</span>
             <span>•</span>
-            <span>7 Regional Specialists</span>
+            <span className="text-emerald-300 font-semibold">{totalStats.regionalCount} Regional Leaders</span>
             <span>•</span>
-            <span>7 Construction Categories</span>
+            <span>{totalStats.categoriesCount} Material Categories</span>
+            <span>•</span>
+            <span className="text-amber-400 font-bold">{totalStats.totalBrands} Total Brands</span>
           </div>
 
           <button

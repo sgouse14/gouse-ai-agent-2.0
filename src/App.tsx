@@ -44,7 +44,20 @@ export function App() {
       if (saved) {
         const parsed: Project[] = JSON.parse(saved);
         const cleaned = parsed.filter((p) => p.id !== 'proj-alvi-01');
-        if (cleaned.length > 0) return cleaned;
+        if (cleaned.length > 0) {
+          return cleaned.map((p) => ({
+            ...p,
+            members: Array.isArray(p.members) && p.members.length > 0 ? p.members : [
+              { id: `mem-${p.id}-1`, name: 'Ar. S. Gouse', email: 'sgouse14@gmail.com', role: 'owner' },
+              { id: `mem-${p.id}-2`, name: 'Engineering & QS Team', email: 'sgouse14@gmail.com', role: 'quantity_surveyor' }
+            ],
+            auditLogs: Array.isArray(p.auditLogs) && p.auditLogs.length > 0 ? p.auditLogs : [
+              { id: `log-${p.id}-1`, projectId: p.id, actor: 'Ar. S. Gouse', action: 'Project Initialized', details: `Workspace initialized for ${p.name}`, timestamp: p.createdAt || new Date().toISOString() }
+            ],
+            files: Array.isArray(p.files) ? p.files : [],
+            analyses: Array.isArray(p.analyses) ? p.analyses : [],
+          }));
+        }
       }
       return INITIAL_PROJECTS;
     } catch {
@@ -70,7 +83,7 @@ export function App() {
     localStorage.setItem('gouse_ai_active_project_id', activeProjectId);
   }, [activeProjectId]);
 
-  const activeProject = projects.find((p) => p.id === activeProjectId) || projects[0];
+  const activeProject: Project = projects.find((p) => p.id === activeProjectId) || projects[0] || INITIAL_PROJECTS[0];
 
   // BOQ Items State
   const [boqItems, setBoqItems] = useState<BOQItem[]>(() => {
@@ -212,6 +225,12 @@ export function App() {
     );
   };
 
+  const handleUpdateEnquiry = (updated: MarketplaceEnquiry) => {
+    setEnquiries((prev) =>
+      prev.map((e) => (e.id === updated.id ? updated : e))
+    );
+  };
+
   const handleSaveProfile = (profile: ProfessionalProfile) => {
     setProfessionals((prev) => {
       const exists = prev.some((p) => p.id === profile.id);
@@ -296,6 +315,7 @@ export function App() {
             enquiries={enquiries}
             onAddEnquiry={handleAddEnquiry}
             onUpdateEnquiryStatus={handleUpdateEnquiryStatus}
+            onUpdateEnquiry={handleUpdateEnquiry}
             onSaveProfile={handleSaveProfile}
             onDeleteProfile={handleDeleteProfile}
             onToggleMyPractice={handleToggleMyPractice}

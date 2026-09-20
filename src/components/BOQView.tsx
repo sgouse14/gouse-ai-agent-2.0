@@ -27,7 +27,6 @@ import {
   Filter,
   Wrench,
   Info,
-  LineChart as LineChartIcon,
   PieChart as PieChartIcon,
   Zap,
   MapPin,
@@ -38,7 +37,6 @@ import {
 } from 'lucide-react';
 import { BOQItem, Project, MarketplaceEnquiry, BuildingFloor, FloorWiseTotal } from '../types';
 import { formatCurrency, CurrencyCode } from '../utils/formatters';
-import { FutureCostSimulator } from './FutureCostSimulator';
 import { BOQDistributionAnalytics } from './BOQDistributionAnalytics';
 import { getItemComponentFractions } from '../utils/boqDistribution';
 import { MarketPriceAutoUpdateModal } from './MarketPriceAutoUpdateModal';
@@ -450,9 +448,6 @@ export const BOQView: React.FC<BOQViewProps> = ({
   const [isAuditActive, setIsAuditActive] = useState(false);
   const [auditFilterOnlyIssues, setAuditFilterOnlyIssues] = useState(false);
 
-  // Future Cost Variations Simulator state
-  const [isSimulatorOpen, setIsSimulatorOpen] = useState(true);
-
   // BOQ Cost Distribution (Materials, Labor & Overheads) state
   const [isDistributionOpen, setIsDistributionOpen] = useState(true);
 
@@ -828,20 +823,6 @@ export const BOQView: React.FC<BOQViewProps> = ({
     setIsCalibrateModal(false);
   };
 
-  // Handle Calibrating Item Rates to Forecasted Index Multiplier
-  const handleApplyForecastMultiplier = (multiplier: number) => {
-    if (multiplier <= 0) return;
-    const calibratedItems = items.map((item) => {
-      const newRate = Math.max(1, Math.round(item.rate * multiplier));
-      return {
-        ...item,
-        rate: newRate,
-        amount: Math.round(item.quantity * newRate),
-      };
-    });
-    onUpdateItems(calibratedItems);
-  };
-
   // Item field editing
   const handleUpdateItemField = (id: string, field: keyof BOQItem, value: any) => {
     const updated = items.map((item) => {
@@ -1170,28 +1151,6 @@ Contact: ${enquiryClientPhone}`,
             ) : isAuditActive ? (
               <span className="text-[10px] text-emerald-400 font-bold">✓ Pass</span>
             ) : null}
-          </button>
-
-          {/* Cost Forecast Simulator Button */}
-          <button
-            id="btn-toggle-cost-simulator"
-            onClick={() => setIsSimulatorOpen(!isSimulatorOpen)}
-            className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition border ${
-              isSimulatorOpen
-                ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-sm font-bold'
-                : 'bg-slate-800 hover:bg-slate-700 text-amber-300 border-amber-500/30'
-            }`}
-            title="Simulate future cost variations over time using historical material price indices"
-          >
-            <LineChartIcon className="w-3.5 h-3.5" />
-            <span>Cost Forecast Simulator</span>
-            <span
-              className={`px-1.5 py-0.5 rounded-full font-mono text-[10px] font-bold ${
-                isSimulatorOpen ? 'bg-slate-950 text-amber-400' : 'bg-amber-500/20 text-amber-300'
-              }`}
-            >
-              WPI
-            </span>
           </button>
 
           {/* BOQ Cost Distribution: Materials, Labor & Overheads Button */}
@@ -1535,70 +1494,6 @@ Contact: ${enquiryClientPhone}`,
                   <span className="text-amber-400 underline">Calibrate</span>
                 </div>
               </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* CATEGORY BREAKDOWN & COST PER SQ.FT */}
-      <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-3">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <Layers className="w-4 h-4 text-amber-400" />
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-300 font-mono">
-              Category Cost & Unit Rate per sq.ft Breakdown
-            </h3>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => {
-                setIsDistributionOpen(true);
-                const el = document.getElementById('boq-cost-distribution-panel');
-                el?.scrollIntoView({ behavior: 'smooth' });
-              }}
-              className="px-2.5 py-0.5 text-xs rounded transition bg-sky-500/15 text-sky-300 border border-sky-500/30 hover:bg-sky-500/25 flex items-center gap-1 font-medium"
-              title="Jump to Materials, Labor & Overheads Distribution"
-            >
-              <PieChartIcon className="w-3 h-3 text-sky-400" />
-              <span>Distribution Breakdown</span>
-            </button>
-            <button
-              onClick={() => setFilterCategory('all')}
-              className={`px-2.5 py-0.5 text-xs rounded transition ${
-                filterCategory === 'all'
-                  ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
-                  : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              Show All ({items.length} items)
-            </button>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2 pt-1">
-          {Object.entries(categoryTotals).map(([cat, amt]) => {
-            const isSelected = filterCategory === cat;
-            const pct = subtotal > 0 ? ((amt / subtotal) * 100).toFixed(1) : '0';
-            const catRatePerSqFt = areaSqFt > 0 ? Math.round(amt / areaSqFt) : 0;
-            return (
-              <button
-                key={cat}
-                onClick={() => setFilterCategory(isSelected ? 'all' : cat)}
-                className={`p-2.5 rounded-lg text-left transition border ${
-                  isSelected
-                    ? 'bg-amber-500/20 border-amber-500 text-white font-medium'
-                    : 'bg-slate-950 border-slate-800 text-slate-300 hover:border-slate-700'
-                }`}
-              >
-                <div className="text-xs text-slate-300 font-medium truncate">{cat}</div>
-                <div className="font-mono text-sm font-bold text-amber-400 mt-0.5">
-                  {formatCurrency(amt, currency)}
-                </div>
-                <div className="flex items-center justify-between text-[10px] text-slate-400 font-mono mt-1 pt-1 border-t border-slate-800/60">
-                  <span>₹{catRatePerSqFt}/sq.ft</span>
-                  <span className="text-slate-500">({pct}%)</span>
-                </div>
-              </button>
             );
           })}
         </div>
@@ -2341,43 +2236,6 @@ Contact: ${enquiryClientPhone}`,
           >
             <PieChartIcon className="w-3.5 h-3.5" />
             <span>Open Cost Distribution</span>
-          </button>
-        </div>
-      )}
-
-      {/* FUTURE COST VARIATION & MATERIAL PRICE INDEX SIMULATOR */}
-      {isSimulatorOpen ? (
-        <FutureCostSimulator
-          items={items}
-          currency={currency}
-          contingencyPercent={contingencyPercent}
-          areaSqFt={areaSqFt}
-          onApplyForecastedRates={handleApplyForecastMultiplier}
-          onClose={() => setIsSimulatorOpen(false)}
-        />
-      ) : (
-        <div className="p-3.5 rounded-xl bg-slate-900 border border-slate-800 hover:border-amber-500/40 transition flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 shadow-sm">
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-400 shrink-0">
-              <LineChartIcon className="w-4 h-4" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-semibold text-white">Future Cost Variation & Price Index Simulator</span>
-                <span className="text-[10px] bg-amber-500/20 text-amber-300 px-1.5 py-0.2 rounded font-mono">36-Mo Historical WPI</span>
-              </div>
-              <p className="text-[11px] text-slate-400">
-                Simulate construction material cost fluctuations over time (Steel Rebar, Cement, Sand, Masonry & Labor) in a predictive line chart.
-              </p>
-            </div>
-          </div>
-          <button
-            id="btn-expand-simulator"
-            onClick={() => setIsSimulatorOpen(true)}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 text-xs font-semibold transition shrink-0 self-start sm:self-auto"
-          >
-            <LineChartIcon className="w-3.5 h-3.5" />
-            <span>Open Cost Simulator</span>
           </button>
         </div>
       )}
