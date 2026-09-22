@@ -1,5 +1,44 @@
 import type { Request } from 'express';
 
+export type SaqlainActionDecision = 'allow' | 'review' | 'block';
+
+const HIGH_IMPACT_ACTIONS = new Set([
+  'delete_project','delete_document','delete_file','overwrite_source',
+  'publish_external','rotate_secret','change_permissions','disable_security',
+]);
+const MUTATING_ACTIONS = new Set([
+  'add_boq_item','update_boq_item','update_contingency','update_area','run_audit',
+  ...HIGH_IMPACT_ACTIONS,
+]);
+
+export function evaluateSaqlainAction(input: {
+  actionType?: unknown;
+  projectId?: unknown;
+  actorAuthenticated?: boolean;
+  approvalGranted?: boolean;
+}): { decision: SaqlainActionDecision; reason: string } {
+  const actionType = typeof input.actionType === 'string' ? input.actionType : '';
+  if (!actionType) return { decision: 'block', reason: 'Missing action type.' };
+
+  // Saqlain has no delete capability. Delete/destructive requests are always blocked.
+  if (HIGH_IMPACT_ACTIONS.has(actionType)) {
+    return { decision: 'block', reason: 'Saqlain policy permanently forbids destructive or delete actions.' };
+  }
+  if (!MUTATING_ACTIONS.has(actionType)) {
+    return { decision: 'allow', reason: 'Read-only or non-mutating action.' };
+  }
+  if (!input.actorAuthenticated) {
+    return { decision: 'block', reason: 'Authenticated actor is required for state mutation.' };
+  }
+  if (!input.projectId || typeof input.projectId !== 'string') {
+    return { decision: 'block', reason: 'Project scope is required for state mutation.' };
+  }
+  if (!input.approvalGranted) {
+    return { decision: 'review', reason: 'Explicit human approval is required before mutating project state.' };
+  }
+  return { decision: 'allow', reason: 'Saqlain policy checks passed; continue with application authorization and audit logging.' };
+}
+
 export function buildSaqlainSecuritySummary(req: Request) {
   const now = new Date().toISOString();
   const target = req.body?.target || 'Gouse AI workspace';
