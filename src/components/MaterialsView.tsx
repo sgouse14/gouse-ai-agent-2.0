@@ -56,6 +56,7 @@ interface MaterialsViewProps {
   onUpdateBOQItems?: (items: BOQItem[]) => void;
   onUpdateProject?: (project: Project) => void;
   onNavigateToBOQ?: () => void;
+  onOpenWorkflowEngine?: () => void;
 }
 
 export const MaterialsView: React.FC<MaterialsViewProps> = ({
@@ -66,6 +67,7 @@ export const MaterialsView: React.FC<MaterialsViewProps> = ({
   onUpdateBOQItems,
   onUpdateProject,
   onNavigateToBOQ,
+  onOpenWorkflowEngine,
 }) => {
   const [activeSection, setActiveSection] = useState<'area-takeoff' | 'live-prices' | 'comparison' | 'checklists' | 'render'>('area-takeoff');
   const [matrixSubView, setMatrixSubView] = useState<'quick-formulas' | 'specifications'>('quick-formulas');
@@ -524,6 +526,21 @@ export const MaterialsView: React.FC<MaterialsViewProps> = ({
             <BookOpen className="w-3.5 h-3.5 text-amber-400" />
             <span>Master Materials Guide</span>
           </button>
+
+          {onOpenWorkflowEngine && (
+            <button
+              id="btn-materials-open-workflow-engine"
+              onClick={onOpenWorkflowEngine}
+              className="px-3 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5 bg-gradient-to-r from-amber-500/20 via-emerald-500/15 to-slate-800 hover:from-amber-500/30 text-amber-300 border border-amber-500/40 shadow-sm"
+              title="Open AI Construction Platform Workflow Engine (Step 4: Material & Quantity Calculation)"
+            >
+              <Zap className="w-3.5 h-3.5 text-amber-400" />
+              <span>AI Workflow Engine</span>
+              <span className="text-[10px] font-mono px-1 rounded bg-amber-500/20 text-amber-300">
+                Step 4
+              </span>
+            </button>
+          )}
 
           <button
             id="btn-open-pdf-spec-updater"

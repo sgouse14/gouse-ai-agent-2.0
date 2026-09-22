@@ -131,8 +131,60 @@ export function matchFormulaToBOQItem(
         null;
       break;
 
+    // --- Extra Reference Guide Formulas (M20 Roof Slab & Steel) ---
+    case 'cw-slab-wet-vol':
+      matchedItem =
+        boqItems.find((i) => containsKeyword(i.name, ['slab concrete', 'roof slab', 'm20 concrete', 'rcc slab', 'ready mix'])) ||
+        boqItems.find((i) => containsKeyword(i.name, ['rcc', 'concrete'])) ||
+        null;
+      break;
+
+    case 'cw-slab-dry-vol':
+      // Dry volume calculation factor (1.54x)
+      matchedItem = null;
+      break;
+
+    case 'cw-slab-cement':
+      matchedItem =
+        boqItems.find((i) => containsKeyword(i.name, ['cement', 'opc', 'ppc'])) ||
+        null;
+      break;
+
+    case 'cw-slab-sand':
+      matchedItem =
+        boqItems.find((i) => containsKeyword(i.name, ['sand', 'm-sand', 'fine aggregate'])) ||
+        null;
+      break;
+
+    case 'cw-slab-coarse-agg':
+      matchedItem =
+        boqItems.find((i) => containsKeyword(i.name, ['aggregate', 'coarse aggregate', 'stone', 'jelly', 'granite metal'])) ||
+        null;
+      break;
+
+    case 'cw-slab-steel':
+      matchedItem =
+        boqItems.find((i) => containsKeyword(i.name, ['steel', 'slab steel', 'rebar', 'tmt', 'fe500', 'fe550'])) ||
+        null;
+      break;
+
     default:
       matchedItem = null;
+  }
+
+  // Handle Regulatory rules (GBA Building Regulations)
+  if (formula.isRegulatory) {
+    return {
+      matchedItem: null,
+      boqQuantity: null,
+      matrixQuantity: calculatedQty,
+      matrixUnit: formula.unit,
+      boqUnit: null,
+      varianceQty: null,
+      variancePercent: null,
+      status: 'matched',
+      statusLabel: 'GBA Regulatory Standard',
+    };
   }
 
   if (!matchedItem) {
@@ -367,6 +419,11 @@ export function syncAllMatrixQuantitiesToBOQ(
   let createdCount = 0;
 
   for (const formula of formulas) {
+    // Skip regulatory rules and intermediate conversion ratio factors from commercial BOQ line items
+    if (formula.isRegulatory || formula.id === 'cw-slab-dry-vol') {
+      continue;
+    }
+
     const calculatedQty = formula.calculateQuantity(params);
     const { updatedItems: nextItems, action } = syncMatrixItemToBOQ(
       formula,

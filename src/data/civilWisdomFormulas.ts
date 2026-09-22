@@ -26,7 +26,13 @@ export interface CivilWisdomFormulaItem {
   quickFormula: string;
   formulaRule: string;
   unit: string;
-  category: 'Civil & Structural' | 'Finishes & Architectural' | 'Substructure' | 'Services & Trades';
+  category:
+    | 'Civil & Structural'
+    | 'Finishes & Architectural'
+    | 'Substructure'
+    | 'Services & Trades'
+    | 'Concrete & Steel Estimation'
+    | 'GBA & Building Regulations';
   iconType:
     | 'cement'
     | 'steel'
@@ -41,11 +47,18 @@ export interface CivilWisdomFormulaItem {
     | 'pcc'
     | 'labour'
     | 'electrical'
-    | 'plumbing';
+    | 'plumbing'
+    | 'slab'
+    | 'ratio'
+    | 'building'
+    | 'voids'
+    | 'rule';
   defaultRate: number; // In INR
   rateUnit: string;
   applicableNormId?: string; // Links to MATERIAL_TAKEOFF_NORMS
   normPerSqFtEquivalent?: number;
+  isRegulatory?: boolean; // When true, represents a building bye-law / compliance threshold rather than a material purchase
+  referenceGuideSection?: '1. CONCRETE & STEEL ESTIMATION' | '2. GBA & BUILDING REGULATIONS';
   calculateQuantity: (params: CivilWisdomCalculationParams) => number;
   calculateCost: (params: CivilWisdomCalculationParams, rate?: number) => number;
   notes: string;
@@ -65,6 +78,13 @@ export interface CivilWisdomCalculationParams {
   labourRatePerSqFt?: number;
   electricalRatePerSqFt?: number;
   plumbingRatePerSqFt?: number;
+  // Extra parameters from Construction & Building Regulations Reference Guide
+  slabThicknessM?: number; // Default 0.125 m (approx 5 inches standard residential roof slab)
+  buildingHeightM?: number; // Building total height in metres (High-Rise threshold check)
+  clearFloorHeightM?: number; // Clear floor-to-floor height in metres (3.5m - 4.5m range)
+  plotAreaSqFt?: number; // Plot Area in Sq.Ft for OC exemption check
+  buildingFloorsLabel?: string; // e.g. "G+2" or "Stilt+3"
+  basementSetbackM?: number; // Basement setback in metres (Min 2.0m)
 }
 
 export const CIVIL_WISDOM_FORMULAS: CivilWisdomFormulaItem[] = [
@@ -348,7 +368,326 @@ export const CIVIL_WISDOM_FORMULAS: CivilWisdomFormulaItem[] = [
     },
     notes: 'Internal CPVC water supply lines, SWR drainage/sewage pipes, rainwater harvesting, overhead tank piping, and CP fittings fixing.',
   },
+  // =========================================================================
+  // SECTION 1: CONCRETE & STEEL ESTIMATION (M20 RESIDENTIAL ROOF SLAB GUIDE)
+  // Source: Construction & Building Regulations Reference Guide
+  // =========================================================================
+  {
+    id: 'cw-slab-wet-vol',
+    item: 'WET CONCRETE (M20 SLAB)',
+    whatItIs: 'Wet Volume of Concrete (Length × Width × Thickness)',
+    quickFormula: 'L × W × T → 11.61 m³ / 1,000 SQ.FT',
+    formulaRule: 'Area (sq.ft) × 0.0929 m²/sq.ft × 0.125m thickness',
+    unit: 'm³',
+    category: 'Concrete & Steel Estimation',
+    iconType: 'slab',
+    defaultRate: 4600,
+    rateUnit: 'per m³',
+    applicableNormId: 'norm-rmc',
+    referenceGuideSection: '1. CONCRETE & STEEL ESTIMATION',
+    calculateQuantity: (p) => {
+      const thickness = p.slabThicknessM ?? 0.125; // 0.125m (~5 inches) standard
+      const areaM2 = p.areaSqFt * 0.092903;
+      return Number((areaM2 * thickness).toFixed(2)); // 1,000 sq ft = 11.61 m³
+    },
+    calculateCost: (p, rate = 4600) => {
+      const thickness = p.slabThicknessM ?? 0.125;
+      const areaM2 = p.areaSqFt * 0.092903;
+      const wetVol = areaM2 * thickness;
+      return Math.round(wetVol * rate);
+    },
+    notes: 'For a 1,000 sq ft (≈ 92.9 m²) slab with 0.125 m thickness, the wet volume is exactly 11.61 m³. Formula: Length × Width × Thickness.',
+  },
+  {
+    id: 'cw-slab-dry-vol',
+    item: 'DRY MIX VOLUME (M20 SLAB)',
+    whatItIs: 'Dry volume conversion (accounts for voids in aggregates)',
+    quickFormula: 'WET VOL × 1.54 → 17.88 m³ / 1,000 SQ.FT',
+    formulaRule: 'Wet Volume (m³) × 1.54 dry factor',
+    unit: 'm³ dry mix',
+    category: 'Concrete & Steel Estimation',
+    iconType: 'concrete',
+    defaultRate: 0,
+    rateUnit: 'dry mix',
+    referenceGuideSection: '1. CONCRETE & STEEL ESTIMATION',
+    calculateQuantity: (p) => {
+      const thickness = p.slabThicknessM ?? 0.125;
+      const wetVol = (p.areaSqFt * 0.092903) * thickness;
+      return Number((wetVol * 1.54).toFixed(2)); // 11.61 * 1.54 = 17.88 m³
+    },
+    calculateCost: () => 0,
+    notes: 'Dry factor of 1.54 accounts for volume voids in dry coarse and fine aggregates. 11.61 m³ × 1.54 = 17.88 m³ of dry mix.',
+  },
+  {
+    id: 'cw-slab-cement',
+    item: 'M20 SLAB CEMENT',
+    whatItIs: 'Cement in M20 Mix (Ratio 1:1.5:3 = 5.5 total parts)',
+    quickFormula: '(1 / 5.5) × DRY VOL → 94 BAGS / 1,000 SQ.FT',
+    formulaRule: '(1 / 5.5) × Dry Vol m³ = 3.25 m³ → 94 bags (50kg each)',
+    unit: 'Bags (50kg)',
+    category: 'Concrete & Steel Estimation',
+    iconType: 'cement',
+    defaultRate: 385,
+    rateUnit: 'per bag',
+    applicableNormId: 'norm-cement',
+    referenceGuideSection: '1. CONCRETE & STEEL ESTIMATION',
+    calculateQuantity: (p) => {
+      const thickness = p.slabThicknessM ?? 0.125;
+      const wetVol = (p.areaSqFt * 0.092903) * thickness;
+      const dryVol = wetVol * 1.54;
+      const cementM3 = (1 / 5.5) * dryVol;
+      // 1 m³ cement = ~1440 kg. Bags = cementM3 * 1440 / 50 -> 3.25 * 28.8 = 93.6 ≈ 94 bags
+      return Math.round((cementM3 * 1440) / 50);
+    },
+    calculateCost: (p, rate = 385) => {
+      const thickness = p.slabThicknessM ?? 0.125;
+      const wetVol = (p.areaSqFt * 0.092903) * thickness;
+      const dryVol = wetVol * 1.54;
+      const cementM3 = (1 / 5.5) * dryVol;
+      const bags = Math.round((cementM3 * 1440) / 50);
+      return Math.round(bags * rate);
+    },
+    notes: 'Cement: (1 / 5.5) × 17.88 m³ = 3.25 m³ → 94 bags (50 kg each) for 1,000 sq ft roof slab.',
+  },
+  {
+    id: 'cw-slab-sand',
+    item: 'M20 SLAB SAND (FINE AGGREGATE)',
+    whatItIs: 'Sand in M20 Mix (Ratio 1:1.5:3 = 5.5 total parts)',
+    quickFormula: '(1.5 / 5.5) × DRY VOL → 172 CFT / 1,000 SQ.FT',
+    formulaRule: '(1.5 / 5.5) × Dry Vol m³ = 4.87 m³ (≈ 172 CFT)',
+    unit: 'CFT',
+    category: 'Concrete & Steel Estimation',
+    iconType: 'sand',
+    defaultRate: 55,
+    rateUnit: 'per CFT',
+    applicableNormId: 'norm-sand',
+    referenceGuideSection: '1. CONCRETE & STEEL ESTIMATION',
+    calculateQuantity: (p) => {
+      const thickness = p.slabThicknessM ?? 0.125;
+      const wetVol = (p.areaSqFt * 0.092903) * thickness;
+      const dryVol = wetVol * 1.54;
+      const sandM3 = (1.5 / 5.5) * dryVol; // 4.87 m³
+      return Math.round(sandM3 * 35.3147); // 4.876 * 35.3147 ≈ 172 CFT
+    },
+    calculateCost: (p, rate = 55) => {
+      const thickness = p.slabThicknessM ?? 0.125;
+      const wetVol = (p.areaSqFt * 0.092903) * thickness;
+      const dryVol = wetVol * 1.54;
+      const sandM3 = (1.5 / 5.5) * dryVol;
+      const cft = Math.round(sandM3 * 35.3147);
+      return Math.round(cft * rate);
+    },
+    notes: 'Sand (Fine Aggregate): (1.5 / 5.5) × 17.88 m³ = 4.87 m³ (≈ 172 cft) for 1,000 sq ft roof slab.',
+  },
+  {
+    id: 'cw-slab-coarse-agg',
+    item: 'M20 SLAB COARSE AGGREGATE',
+    whatItIs: 'Stone / Jelly in M20 Mix (Ratio 1:1.5:3 = 5.5 parts)',
+    quickFormula: '(3 / 5.5) × DRY VOL → 344 CFT / 1,000 SQ.FT',
+    formulaRule: '(3 / 5.5) × Dry Vol m³ = 9.75 m³ (≈ 344 CFT)',
+    unit: 'CFT',
+    category: 'Concrete & Steel Estimation',
+    iconType: 'aggregate',
+    defaultRate: 45,
+    rateUnit: 'per CFT',
+    applicableNormId: 'norm-aggregates',
+    referenceGuideSection: '1. CONCRETE & STEEL ESTIMATION',
+    calculateQuantity: (p) => {
+      const thickness = p.slabThicknessM ?? 0.125;
+      const wetVol = (p.areaSqFt * 0.092903) * thickness;
+      const dryVol = wetVol * 1.54;
+      const coarseM3 = (3 / 5.5) * dryVol; // 9.75 m³
+      return Math.round(coarseM3 * 35.3147); // 9.75 * 35.3147 ≈ 344 CFT
+    },
+    calculateCost: (p, rate = 45) => {
+      const thickness = p.slabThicknessM ?? 0.125;
+      const wetVol = (p.areaSqFt * 0.092903) * thickness;
+      const dryVol = wetVol * 1.54;
+      const coarseM3 = (3 / 5.5) * dryVol;
+      const cft = Math.round(coarseM3 * 35.3147);
+      return Math.round(cft * rate);
+    },
+    notes: 'Coarse Aggregate (Stone/Jelly): (3 / 5.5) × 17.88 m³ = 9.75 m³ (≈ 344 cft) for 1,000 sq ft roof slab.',
+  },
+  {
+    id: 'cw-slab-steel',
+    item: 'SLAB STEEL REINFORCEMENT',
+    whatItIs: 'Standard slabs require ~1% steel by total concrete volume',
+    quickFormula: '1% CONCRETE VOL → 0.9–1.05 T / 1,000 SQ.FT',
+    formulaRule: 'Wet Volume × 1% × 7,850 kg/m³ (incl. lapping & 5% wastage)',
+    unit: 'Tonnes (MT)',
+    category: 'Concrete & Steel Estimation',
+    iconType: 'steel',
+    defaultRate: 65000,
+    rateUnit: 'per MT',
+    applicableNormId: 'norm-steel',
+    referenceGuideSection: '1. CONCRETE & STEEL ESTIMATION',
+    calculateQuantity: (p) => {
+      const thickness = p.slabThicknessM ?? 0.125;
+      const wetVol = (p.areaSqFt * 0.092903) * thickness;
+      // 1% concrete volume: wetVol * 0.01 m³ steel
+      // Density of steel = 7850 kg/m³
+      // Base steel weight = wetVol * 0.01 * 7850 kg = wetVol * 78.5 kg
+      // Including lapping & 5% wastage factor (approx +10% to 15%):
+      // For 11.61 m³ -> 11.61 * 78.5 = 911.4 kg (0.91 MT base); with 10% lapping/wastage = 1.00 MT (range 0.90 to 1.05 MT)
+      const tonnes = (wetVol * 78.5 * 1.10) / 1000;
+      return Number(tonnes.toFixed(2));
+    },
+    calculateCost: (p, rate = 65000) => {
+      const thickness = p.slabThicknessM ?? 0.125;
+      const wetVol = (p.areaSqFt * 0.092903) * thickness;
+      const tonnes = (wetVol * 78.5 * 1.10) / 1000;
+      return Math.round(tonnes * rate);
+    },
+    notes: 'Standard slabs require about 1% steel by total concrete volume. For 11.61 m³ of concrete, this equals roughly 0.9 to 1.05 tonnes of steel bars, including lapping and 5% wastage.',
+  },
+
+  // =========================================================================
+  // SECTION 2: GBA & BUILDING REGULATIONS REFERENCE GUIDE
+  // Source: Construction & Building Regulations Reference Guide
+  // =========================================================================
+  {
+    id: 'cw-gba-high-rise',
+    item: 'HIGH-RISE DEFINITION (GBA)',
+    whatItIs: 'Minimum building height threshold classification',
+    quickFormula: 'HEIGHT ≥ 21 METRES (REVISED FROM 15M)',
+    formulaRule: 'Minimum height threshold revised from 15m to 21m',
+    unit: 'Threshold (21m)',
+    category: 'GBA & Building Regulations',
+    iconType: 'building',
+    defaultRate: 0,
+    rateUnit: 'bye-law rule',
+    isRegulatory: true,
+    referenceGuideSection: '2. GBA & BUILDING REGULATIONS',
+    calculateQuantity: (p) => p.buildingHeightM ?? 21,
+    calculateCost: () => 0,
+    notes: 'The minimum height threshold to classify a structure as a high-rise building has been revised from 15 metres to 21 metres.',
+  },
+  {
+    id: 'cw-gba-voids-setbacks',
+    item: 'VOIDS & BASEMENT SETBACKS',
+    whatItIs: 'Permissible void area & basement clearance rule',
+    quickFormula: 'VOIDS ≤ 10% GBA | BASEMENT SETBACK ≥ 2.0M',
+    formulaRule: 'Total permissible void area ≤ 10% of GBA; Basement setback ≥ 2.0m',
+    unit: 'Max Sq.Ft Cap',
+    category: 'GBA & Building Regulations',
+    iconType: 'voids',
+    defaultRate: 0,
+    rateUnit: 'bye-law rule',
+    isRegulatory: true,
+    referenceGuideSection: '2. GBA & BUILDING REGULATIONS',
+    calculateQuantity: (p) => Math.round(p.areaSqFt * 0.10), // Max permissible void area
+    calculateCost: () => 0,
+    notes: 'Total permissible void area is capped at 10% of the gross built-up area, and basements require a mandatory minimum setback of 2.0 metres.',
+  },
+  {
+    id: 'cw-gba-floor-height',
+    item: 'FLOOR-TO-FLOOR HEIGHT',
+    whatItIs: 'Permissible clear floor-to-floor height range',
+    quickFormula: 'MIN 3.5M TO MAX 4.5M PER FLOOR',
+    formulaRule: 'Permissible clear floor-to-floor height between 3.5m and 4.5m',
+    unit: 'Clear Height (m)',
+    category: 'GBA & Building Regulations',
+    iconType: 'rule',
+    defaultRate: 0,
+    rateUnit: 'bye-law rule',
+    isRegulatory: true,
+    referenceGuideSection: '2. GBA & BUILDING REGULATIONS',
+    calculateQuantity: (p) => p.clearFloorHeightM ?? 3.5,
+    calculateCost: () => 0,
+    notes: 'Permissible clear floor-to-floor height ranges from a minimum of 3.5 metres to a maximum of 4.5 metres per floor.',
+  },
+  {
+    id: 'cw-gba-oc-exemption',
+    item: 'OC EXEMPTIONS (SMALL PLOTS)',
+    whatItIs: 'Occupancy certificate exemption criteria',
+    quickFormula: 'PLOT ≤ 1,200 SQ.FT & (G+2 OR STILT+3)',
+    formulaRule: 'Small residential plots up to 1,200 sq ft (G+2 or Stilt+3) exempt from OC',
+    unit: 'Exemption Rule',
+    category: 'GBA & Building Regulations',
+    iconType: 'rule',
+    defaultRate: 0,
+    rateUnit: 'bye-law rule',
+    isRegulatory: true,
+    referenceGuideSection: '2. GBA & BUILDING REGULATIONS',
+    calculateQuantity: (p) => p.plotAreaSqFt ?? 1200,
+    calculateCost: () => 0,
+    notes: 'Small residential plots (up to 1,200 sq ft with up to Ground + 2 or Stilt + 3 floors) maintain occupancy certificate exemptions if built strictly per approved plans.',
+  },
 ];
+
+/**
+ * Helper to compute roof slab estimation according to Reference Guide
+ * Standard Residential Roof Slab: M20 Grade Concrete (1 : 1.5 : 3 Mix Ratio)
+ */
+export function calculateRoofSlabEstimation(areaSqFt: number, slabThicknessM: number = 0.125) {
+  const slabAreaM2 = Number((areaSqFt * 0.092903).toFixed(2));
+  const wetVolumeM3 = Number((slabAreaM2 * slabThicknessM).toFixed(2));
+  const dryVolumeM3 = Number((wetVolumeM3 * 1.54).toFixed(2));
+  
+  // 1:1.5:3 = 5.5 parts
+  const cementM3 = Number(((1 / 5.5) * dryVolumeM3).toFixed(2));
+  const cementBags = Math.round((cementM3 * 1440) / 50);
+  
+  const sandM3 = Number(((1.5 / 5.5) * dryVolumeM3).toFixed(2));
+  const sandCFT = Math.round(sandM3 * 35.3147);
+  
+  const coarseAggM3 = Number(((3 / 5.5) * dryVolumeM3).toFixed(2));
+  const coarseAggCFT = Math.round(coarseAggM3 * 35.3147);
+  
+  // 1% of concrete volume (wet) + 5% to 10% wastage/lapping
+  const baseSteelKg = wetVolumeM3 * 0.01 * 7850;
+  const steelTonnesMin = Number(((baseSteelKg * 1.0) / 1000).toFixed(2)); // ~0.90 T per 11.61 m³
+  const steelTonnesMax = Number(((baseSteelKg * 1.15) / 1000).toFixed(2)); // ~1.05 T per 11.61 m³
+  const steelTonnesAvg = Number(((baseSteelKg * 1.10) / 1000).toFixed(2)); // ~1.00 T per 11.61 m³
+
+  return {
+    areaSqFt,
+    slabAreaM2,
+    slabThicknessM,
+    wetVolumeM3,
+    dryVolumeM3,
+    cementM3,
+    cementBags,
+    sandM3,
+    sandCFT,
+    coarseAggM3,
+    coarseAggCFT,
+    steelTonnesMin,
+    steelTonnesMax,
+    steelTonnesAvg,
+  };
+}
+
+/**
+ * GBA and Building Regulations Reference Guidelines
+ */
+export const GBA_BUILDING_REGULATIONS = {
+  highRiseDefinition: {
+    title: 'High-Rise Definition',
+    rule: 'The minimum height threshold to classify a structure as a high-rise building has been revised from 15 metres to 21 metres.',
+    revisedThresholdM: 21,
+    previousThresholdM: 15,
+  },
+  voidsAndSetbacks: {
+    title: 'Voids and Setbacks',
+    rule: 'Total permissible void area is capped at 10% of the gross built-up area, and basements require a mandatory minimum setback of 2.0 metres.',
+    maxVoidPercentage: 10,
+    minBasementSetbackM: 2.0,
+  },
+  floorToFloorHeight: {
+    title: 'Floor-to-Floor Height',
+    rule: 'Permissible clear floor-to-floor height ranges from a minimum of 3.5 metres to a maximum of 4.5 metres per floor.',
+    minHeightM: 3.5,
+    maxHeightM: 4.5,
+  },
+  ocExemptions: {
+    title: 'OC Exemptions',
+    rule: 'Small residential plots (up to 1,200 sq ft with up to Ground + 2 or Stilt + 3 floors) maintain occupancy certificate exemptions if built strictly per approved plans.',
+    maxPlotAreaSqFt: 1200,
+    permissibleFloors: 'Ground + 2 or Stilt + 3 floors',
+  },
+};
 
 /**
  * Returns Civil Wisdom material standard overrides for materialTakeoffEngine

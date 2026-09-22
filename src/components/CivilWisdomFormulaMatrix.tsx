@@ -22,12 +22,19 @@ import {
   Plus,
   GitCompare,
   Percent,
+  BookOpen,
+  Scale,
+  ShieldCheck,
+  ShieldAlert,
+  Ruler,
 } from 'lucide-react';
 import {
   CIVIL_WISDOM_FORMULAS,
   CivilWisdomFormulaItem,
   CivilWisdomCalculationParams,
   getCivilWisdomMaterialOverrides,
+  calculateRoofSlabEstimation,
+  GBA_BUILDING_REGULATIONS,
 } from '../data/civilWisdomFormulas';
 import { Project, BOQItem, BuildingFloor } from '../types';
 import { formatCurrency, CurrencyCode } from '../utils/formatters';
@@ -99,17 +106,29 @@ export const CivilWisdomFormulaMatrix: React.FC<CivilWisdomFormulaMatrixProps> =
       labourRatePerSqFt: 320,
       electricalRatePerSqFt: 85,
       plumbingRatePerSqFt: 75,
+      // Extra parameters from Construction & Building Regulations Reference Guide
+      slabThicknessM: 0.125, // 0.125 m (~5 inches) standard residential roof slab
+      buildingHeightM: 15, // 15m test height (under 21m revised threshold)
+      clearFloorHeightM: 3.5, // 3.5m standard (permissible 3.5m - 4.5m)
+      plotAreaSqFt: 1200, // 1,200 sq.ft for OC exemption check
+      buildingFloorsLabel: 'G+2',
+      basementSetbackM: 2.0, // mandatory min 2.0m
     };
   });
 
-  // Main internal views: 'matrix' | 'floors' | 'reconciliation'
-  const [activeTab, setActiveTab] = useState<'matrix' | 'floors' | 'reconciliation'>('matrix');
+  // Main internal views: 'matrix' | 'reference-guide' | 'floors' | 'reconciliation'
+  const [activeTab, setActiveTab] = useState<'matrix' | 'reference-guide' | 'floors' | 'reconciliation'>('matrix');
 
   const [showParameters, setShowParameters] = useState<boolean>(false);
   const [copiedFormula, setCopiedFormula] = useState<string | null>(null);
   const [syncFeedback, setSyncFeedback] = useState<string | null>(null);
   const [filterCategory, setFilterCategory] = useState<string>('all');
   const [selectedFormulaForFloors, setSelectedFormulaForFloors] = useState<string>('cw-cement');
+
+  // Dynamic Roof Slab Calculations based on current params
+  const roofSlabResult = useMemo(() => {
+    return calculateRoofSlabEstimation(params.areaSqFt, params.slabThicknessM ?? 0.125);
+  }, [params.areaSqFt, params.slabThicknessM]);
 
   // Handle Area Source Selection (Area Takeoff Connection)
   const handleAreaSourceChange = (sourceKey: string) => {
@@ -253,6 +272,27 @@ export const CivilWisdomFormulaMatrix: React.FC<CivilWisdomFormulaMatrixProps> =
         return 'bg-yellow-950/80 text-yellow-300 border-yellow-500/50';
       case 'cw-plumbing':
         return 'bg-cyan-950/80 text-cyan-300 border-cyan-500/50';
+      // Extra items from Reference Guide
+      case 'cw-slab-wet-vol':
+        return 'bg-teal-950/80 text-teal-300 border-teal-500/50';
+      case 'cw-slab-dry-vol':
+        return 'bg-slate-900 text-cyan-300 border-cyan-500/50';
+      case 'cw-slab-cement':
+        return 'bg-emerald-950/80 text-emerald-300 border-emerald-500/50';
+      case 'cw-slab-sand':
+        return 'bg-amber-950/80 text-amber-300 border-amber-500/50';
+      case 'cw-slab-coarse-agg':
+        return 'bg-purple-950/80 text-purple-300 border-purple-500/50';
+      case 'cw-slab-steel':
+        return 'bg-blue-950/80 text-blue-300 border-blue-500/50';
+      case 'cw-gba-high-rise':
+        return 'bg-rose-950/80 text-rose-300 border-rose-500/50';
+      case 'cw-gba-voids-setbacks':
+        return 'bg-violet-950/80 text-violet-300 border-violet-500/50';
+      case 'cw-gba-floor-height':
+        return 'bg-sky-950/80 text-sky-300 border-sky-500/50';
+      case 'cw-gba-oc-exemption':
+        return 'bg-emerald-950/80 text-emerald-300 border-emerald-500/50';
       default:
         return 'bg-slate-900 text-slate-300 border-slate-700';
     }
@@ -289,6 +329,16 @@ export const CivilWisdomFormulaMatrix: React.FC<CivilWisdomFormulaMatrixProps> =
         return <span className="text-base">⚡</span>;
       case 'plumbing':
         return <span className="text-base">🚰</span>;
+      case 'slab':
+        return <span className="text-base">🏗️</span>;
+      case 'ratio':
+        return <span className="text-base">⚖️</span>;
+      case 'building':
+        return <span className="text-base">🏢</span>;
+      case 'voids':
+        return <span className="text-base">📐</span>;
+      case 'rule':
+        return <span className="text-base">📜</span>;
       default:
         return <span className="text-base">📋</span>;
     }
@@ -328,28 +378,45 @@ export const CivilWisdomFormulaMatrix: React.FC<CivilWisdomFormulaMatrixProps> =
         </div>
       </div>
 
-      {/* Connection Navigation Tabs: Master Matrix vs Floor Area Takeoff vs BOQ Reconciliation */}
+      {/* Connection Navigation Tabs: Master Matrix vs Reference Guide vs Floor Area Takeoff vs BOQ Reconciliation */}
       <div className="px-4 py-2.5 bg-slate-950 border-b border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 font-mono text-xs">
-        <div className="flex items-center gap-1.5 bg-slate-900 p-1 rounded-xl border border-slate-800">
+        <div className="flex items-center gap-1.5 bg-slate-900 p-1 rounded-xl border border-slate-800 overflow-x-auto">
           <button
             type="button"
             id="tab-cw-matrix-view"
             onClick={() => setActiveTab('matrix')}
-            className={`px-3 py-1.5 rounded-lg transition flex items-center gap-1.5 ${
+            className={`px-3 py-1.5 rounded-lg transition flex items-center gap-1.5 whitespace-nowrap ${
               activeTab === 'matrix'
                 ? 'bg-amber-500 text-slate-950 font-bold shadow-sm'
                 : 'text-slate-400 hover:text-white'
             }`}
           >
             <Sparkles className="w-3.5 h-3.5" />
-            <span>Master Matrix</span>
+            <span>Master Matrix ({CIVIL_WISDOM_FORMULAS.length})</span>
+          </button>
+
+          <button
+            type="button"
+            id="tab-cw-reference-guide-view"
+            onClick={() => setActiveTab('reference-guide')}
+            className={`px-3 py-1.5 rounded-lg transition flex items-center gap-1.5 whitespace-nowrap ${
+              activeTab === 'reference-guide'
+                ? 'bg-amber-500 text-slate-950 font-bold shadow-sm'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <BookOpen className="w-3.5 h-3.5" />
+            <span>Reference Guide (M20 &amp; GBA Rules)</span>
+            <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-amber-400/20 text-amber-300 border border-amber-500/40 font-bold">
+              Guide
+            </span>
           </button>
 
           <button
             type="button"
             id="tab-cw-floor-takeoff-view"
             onClick={() => setActiveTab('floors')}
-            className={`px-3 py-1.5 rounded-lg transition flex items-center gap-1.5 ${
+            className={`px-3 py-1.5 rounded-lg transition flex items-center gap-1.5 whitespace-nowrap ${
               activeTab === 'floors'
                 ? 'bg-amber-500 text-slate-950 font-bold shadow-sm'
                 : 'text-slate-400 hover:text-white'
@@ -363,7 +430,7 @@ export const CivilWisdomFormulaMatrix: React.FC<CivilWisdomFormulaMatrixProps> =
             type="button"
             id="tab-cw-boq-bridge-view"
             onClick={() => setActiveTab('reconciliation')}
-            className={`px-3 py-1.5 rounded-lg transition flex items-center gap-1.5 ${
+            className={`px-3 py-1.5 rounded-lg transition flex items-center gap-1.5 whitespace-nowrap ${
               activeTab === 'reconciliation'
                 ? 'bg-amber-500 text-slate-950 font-bold shadow-sm'
                 : 'text-slate-400 hover:text-white'
@@ -681,7 +748,15 @@ export const CivilWisdomFormulaMatrix: React.FC<CivilWisdomFormulaMatrixProps> =
           <div className="px-4 py-2 bg-slate-950/60 border-b border-slate-800 flex items-center justify-between overflow-x-auto gap-2">
             <div className="flex items-center gap-1.5 font-mono text-xs">
               <span className="text-[11px] text-slate-500 mr-1 hidden sm:inline">Category:</span>
-              {['all', 'Civil & Structural', 'Finishes & Architectural', 'Substructure', 'Services & Trades'].map((cat) => (
+              {[
+                'all',
+                'Civil & Structural',
+                'Concrete & Steel Estimation',
+                'GBA & Building Regulations',
+                'Finishes & Architectural',
+                'Substructure',
+                'Services & Trades',
+              ].map((cat) => (
                 <button
                   key={cat}
                   type="button"
@@ -692,7 +767,13 @@ export const CivilWisdomFormulaMatrix: React.FC<CivilWisdomFormulaMatrixProps> =
                       : 'text-slate-400 hover:text-white border border-transparent'
                   }`}
                 >
-                  {cat === 'all' ? `All Formulas (${CIVIL_WISDOM_FORMULAS.length})` : cat}
+                  {cat === 'all'
+                    ? `All Formulas (${CIVIL_WISDOM_FORMULAS.length})`
+                    : cat === 'Concrete & Steel Estimation'
+                    ? `M20 Slab & Steel (${CIVIL_WISDOM_FORMULAS.filter((f) => f.category === cat).length})`
+                    : cat === 'GBA & Building Regulations'
+                    ? `GBA Regulations (${CIVIL_WISDOM_FORMULAS.filter((f) => f.category === cat).length})`
+                    : cat}
                 </button>
               ))}
             </div>
@@ -775,17 +856,53 @@ export const CivilWisdomFormulaMatrix: React.FC<CivilWisdomFormulaMatrixProps> =
 
                       {/* ESTIMATED BUDGET */}
                       <td className="py-3 px-3 text-right">
-                        <span className="font-bold text-amber-400 font-mono text-xs">
-                          {formatCurrency(cost, currency)}
-                        </span>
-                        <span className="text-[10px] text-slate-500 block">
-                          @ ₹{formula.defaultRate} {formula.rateUnit}
-                        </span>
+                        {formula.isRegulatory ? (
+                          <div>
+                            <span className="inline-block px-1.5 py-0.5 rounded text-[10px] bg-slate-800 text-slate-300 font-bold border border-slate-700">
+                              Standard Norm
+                            </span>
+                            <span className="text-[10px] text-slate-500 block">
+                              GBA Regulation
+                            </span>
+                          </div>
+                        ) : formula.id === 'cw-slab-dry-vol' ? (
+                          <div>
+                            <span className="inline-block px-1.5 py-0.5 rounded text-[10px] bg-cyan-950/60 text-cyan-300 font-bold border border-cyan-800">
+                              1.54× Ratio
+                            </span>
+                            <span className="text-[10px] text-slate-500 block">
+                              Dry Factor Norm
+                            </span>
+                          </div>
+                        ) : (
+                          <>
+                            <span className="font-bold text-amber-400 font-mono text-xs">
+                              {formatCurrency(cost, currency)}
+                            </span>
+                            <span className="text-[10px] text-slate-500 block">
+                              @ ₹{formula.defaultRate} {formula.rateUnit}
+                            </span>
+                          </>
+                        )}
                       </td>
 
                       {/* CONNECTED BOQ QUANTITY & VARIANCE STATUS */}
                       <td className="py-3 px-3">
-                        {boqMatch.matchedItem ? (
+                        {formula.isRegulatory ? (
+                          <div className="flex items-center gap-1.5 text-xs">
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] bg-violet-950/60 text-violet-300 border border-violet-500/30 font-bold">
+                              <ShieldCheck className="w-3 h-3 text-violet-400" />
+                              <span>Statutory Compliance Norm</span>
+                            </span>
+                          </div>
+                        ) : formula.id === 'cw-slab-dry-vol' ? (
+                          <div className="flex items-center gap-1.5 text-xs">
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] bg-cyan-950/60 text-cyan-300 border border-cyan-500/30 font-bold">
+                              <Scale className="w-3 h-3 text-cyan-400" />
+                              <span>Mix Volume Conversion Factor</span>
+                            </span>
+                          </div>
+                        ) : boqMatch.matchedItem ? (
                           <div className="space-y-1">
                             <div className="flex items-center justify-between gap-1 text-[11px]">
                               <span className="text-slate-300 font-medium truncate max-w-[130px]" title={boqMatch.matchedItem.name}>
@@ -826,7 +943,7 @@ export const CivilWisdomFormulaMatrix: React.FC<CivilWisdomFormulaMatrixProps> =
                       {/* ACTIONS: Push to BOQ & Copy */}
                       <td className="py-3 px-3 text-center">
                         <div className="flex items-center justify-center gap-1">
-                          {onUpdateBOQItems && (
+                          {onUpdateBOQItems && !formula.isRegulatory && formula.id !== 'cw-slab-dry-vol' && (
                             <button
                               type="button"
                               onClick={() => handleSyncSingleToBOQ(formula)}
@@ -856,6 +973,533 @@ export const CivilWisdomFormulaMatrix: React.FC<CivilWisdomFormulaMatrixProps> =
                 })}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* TAB: REFERENCE GUIDE (CONCRETE & STEEL ESTIMATION + GBA REGULATIONS)     */}
+      {/* ========================================================================= */}
+      {activeTab === 'reference-guide' && (
+        <div className="p-4 sm:p-5 space-y-6 font-mono text-xs">
+          {/* Header Banner */}
+          <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2">
+                <div className="p-2 rounded-lg bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                  <BookOpen className="w-4 h-4" />
+                </div>
+                <div>
+                  <h4 className="text-sm font-bold text-white tracking-wide">
+                    CONSTRUCTION &amp; BUILDING REGULATIONS REFERENCE GUIDE
+                  </h4>
+                  <p className="text-slate-400 text-xs">
+                    Standard Roof Slab (M20 Grade 1:1.5:3) Concrete &amp; Steel Estimation + GBA Statutory Bye-Laws
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-slate-300 flex items-center gap-2">
+                <span className="text-slate-400">Active Area:</span>
+                <span className="font-bold text-amber-400">{params.areaSqFt.toLocaleString()} sq.ft</span>
+                <span className="text-slate-400 text-[10px]">({(params.areaSqFt * 0.092903).toFixed(1)} m²)</span>
+              </div>
+
+              {onUpdateBOQItems && (
+                <button
+                  type="button"
+                  id="btn-sync-roof-slab-to-boq"
+                  onClick={() => {
+                    const slabFormulas = CIVIL_WISDOM_FORMULAS.filter((f) => f.category === 'Concrete & Steel Estimation' && !f.isRegulatory && f.id !== 'cw-slab-dry-vol');
+                    let currentBOQ = [...boqItems];
+                    slabFormulas.forEach((f) => {
+                      const qty = f.calculateQuantity(params);
+                      const res = syncMatrixItemToBOQ(f, qty, currentBOQ, params.areaSqFt, effectiveFloors);
+                      currentBOQ = res.updatedItems;
+                    });
+                    onUpdateBOQItems(currentBOQ);
+                    setSyncFeedback(`Synchronized ${slabFormulas.length} M20 Roof Slab materials to BOQ schedule`);
+                    setTimeout(() => setSyncFeedback(null), 4000);
+                  }}
+                  className="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold transition flex items-center gap-1.5 shadow-sm"
+                >
+                  <Database className="w-3.5 h-3.5" />
+                  <span>Sync M20 Slab Materials to BOQ</span>
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* SECTION 1: CONCRETE & STEEL ESTIMATION */}
+          <div className="space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800 pb-2">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="px-2 py-0.5 rounded bg-amber-500 text-slate-950 font-black text-[11px]">
+                    SECTION 1
+                  </span>
+                  <h3 className="text-sm font-bold text-white tracking-wide">
+                    CONCRETE &amp; STEEL ESTIMATION
+                  </h3>
+                </div>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Standard Residential Roof Slab: M20 Grade Concrete (1 : 1.5 : 3 Mix Ratio = 5.5 Parts)
+                </p>
+              </div>
+
+              {/* Slab Thickness Selector */}
+              <div className="flex items-center gap-2 text-xs bg-slate-950 px-3 py-1.5 rounded-lg border border-slate-800">
+                <span className="text-slate-400">Slab Thickness:</span>
+                {[0.100, 0.125, 0.150].map((th) => (
+                  <button
+                    key={th}
+                    type="button"
+                    onClick={() => setParams((p) => ({ ...p, slabThicknessM: th }))}
+                    className={`px-2 py-0.5 rounded text-[11px] font-bold transition ${
+                      (params.slabThicknessM ?? 0.125) === th
+                        ? 'bg-amber-500 text-slate-950'
+                        : 'bg-slate-900 text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    {th}m ({th === 0.125 ? '5" Standard' : th === 0.100 ? '4"' : '6"'})
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* 4 Calculation Steps Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Step 1: Calculate Wet Volume */}
+              <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="w-5 h-5 rounded-full bg-teal-500/20 text-teal-300 border border-teal-500/30 flex items-center justify-center font-bold text-[11px]">
+                      1
+                    </span>
+                    <h4 className="font-bold text-teal-300 uppercase tracking-wide text-xs">
+                      Calculate Wet Volume of Concrete
+                    </h4>
+                  </div>
+                  <span className="text-[10px] px-2 py-0.5 rounded bg-teal-950/80 text-teal-300 border border-teal-800 font-mono">
+                    L × W × Thickness
+                  </span>
+                </div>
+
+                <div className="p-3 rounded-lg bg-slate-900 border border-slate-800/80 space-y-2">
+                  <div className="text-slate-300 text-xs leading-relaxed">
+                    <strong className="text-white">Formula:</strong> <code className="text-amber-300 bg-slate-950 px-1.5 py-0.5 rounded">Length × Width × Thickness</code>
+                  </div>
+                  <p className="text-[11px] text-slate-400 leading-relaxed">
+                    <strong>Reference Guide Benchmark:</strong> For a 1,000 sq ft (≈ 92.9 m²) slab with a 0.125 m thickness, wet volume is <strong className="text-teal-300">11.61 m³</strong>.
+                  </p>
+                  <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between text-xs font-mono">
+                    <span className="text-slate-400">Current Project Wet Volume:</span>
+                    <span className="text-base font-bold text-teal-400">
+                      {roofSlabResult.wetVolumeM3.toFixed(2)} m³
+                    </span>
+                  </div>
+                  <div className="text-[10px] text-slate-500">
+                    Calculated as {params.areaSqFt.toLocaleString()} sq ft ({roofSlabResult.slabAreaM2.toFixed(1)} m²) × {params.slabThicknessM ?? 0.125} m
+                  </div>
+                </div>
+              </div>
+
+              {/* Step 2: Convert to Dry Volume */}
+              <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="w-5 h-5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 flex items-center justify-center font-bold text-[11px]">
+                      2
+                    </span>
+                    <h4 className="font-bold text-cyan-300 uppercase tracking-wide text-xs">
+                      Convert to Dry Volume
+                    </h4>
+                  </div>
+                  <span className="text-[10px] px-2 py-0.5 rounded bg-cyan-950/80 text-cyan-300 border border-cyan-800 font-mono">
+                    Wet Vol × 1.54 Factor
+                  </span>
+                </div>
+
+                <div className="p-3 rounded-lg bg-slate-900 border border-slate-800/80 space-y-2">
+                  <div className="text-slate-300 text-xs leading-relaxed">
+                    <strong className="text-white">Formula:</strong> <code className="text-amber-300 bg-slate-950 px-1.5 py-0.5 rounded">Wet Volume × 1.54</code>
+                  </div>
+                  <p className="text-[11px] text-slate-400 leading-relaxed">
+                    <strong>Reference Guide Benchmark:</strong> 11.61 m³ × 1.54 = <strong className="text-cyan-300">17.88 m³</strong> of dry mix.
+                  </p>
+                  <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between text-xs font-mono">
+                    <span className="text-slate-400">Current Project Dry Volume:</span>
+                    <span className="text-base font-bold text-cyan-400">
+                      {roofSlabResult.dryVolumeM3.toFixed(2)} m³
+                    </span>
+                  </div>
+                  <div className="text-[10px] text-slate-500">
+                    Dry factor of 1.54 accounts for aggregate voids and shrinkage when water is added.
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Step 3: Material Breakdown (1:1.5:3 = 5.5 Parts) */}
+            <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <span className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center justify-center font-bold text-[11px]">
+                    3
+                  </span>
+                  <h4 className="font-bold text-emerald-300 uppercase tracking-wide text-xs">
+                    Material Breakdown (Ratio 1 : 1.5 : 3 = 5.5 Total Parts)
+                  </h4>
+                </div>
+                <div className="text-[10px] text-slate-400">
+                  Total Dry Mix: <strong className="text-white">{roofSlabResult.dryVolumeM3.toFixed(2)} m³</strong>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {/* Cement */}
+                <div className="p-3.5 rounded-lg bg-slate-900 border border-emerald-500/30 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-base">📦</span>
+                      <strong className="text-white">Cement (1 Part)</strong>
+                    </div>
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-800 font-mono">
+                      (1 / 5.5) × Dry Vol
+                    </span>
+                  </div>
+                  <div className="space-y-1 text-xs font-mono">
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-400">Volume:</span>
+                      <span className="text-slate-200">{roofSlabResult.cementM3.toFixed(2)} m³</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-400">Bags (50 kg):</span>
+                      <span className="text-sm font-bold text-emerald-400">{roofSlabResult.cementBags} Bags</span>
+                    </div>
+                    <div className="flex items-center justify-between pt-1 border-t border-slate-800 text-[11px]">
+                      <span className="text-slate-500">Ref (1,000 sq ft):</span>
+                      <span className="text-slate-400">94 bags (3.25 m³)</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Sand */}
+                <div className="p-3.5 rounded-lg bg-slate-900 border border-amber-500/30 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-base">⏳</span>
+                      <strong className="text-white">Sand (1.5 Parts)</strong>
+                    </div>
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-950 text-amber-300 border border-amber-800 font-mono">
+                      (1.5 / 5.5) × Dry Vol
+                    </span>
+                  </div>
+                  <div className="space-y-1 text-xs font-mono">
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-400">Volume:</span>
+                      <span className="text-slate-200">{roofSlabResult.sandM3.toFixed(2)} m³</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-400">Cubic Feet:</span>
+                      <span className="text-sm font-bold text-amber-400">{roofSlabResult.sandCFT.toLocaleString()} CFT</span>
+                    </div>
+                    <div className="flex items-center justify-between pt-1 border-t border-slate-800 text-[11px]">
+                      <span className="text-slate-500">Ref (1,000 sq ft):</span>
+                      <span className="text-slate-400">172 CFT (4.87 m³)</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Coarse Aggregate */}
+                <div className="p-3.5 rounded-lg bg-slate-900 border border-purple-500/30 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-base">🪨</span>
+                      <strong className="text-white">Coarse Agg (3 Parts)</strong>
+                    </div>
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-purple-950 text-purple-300 border border-purple-800 font-mono">
+                      (3 / 5.5) × Dry Vol
+                    </span>
+                  </div>
+                  <div className="space-y-1 text-xs font-mono">
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-400">Volume:</span>
+                      <span className="text-slate-200">{roofSlabResult.coarseAggM3.toFixed(2)} m³</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-400">Cubic Feet:</span>
+                      <span className="text-sm font-bold text-purple-400">{roofSlabResult.coarseAggCFT.toLocaleString()} CFT</span>
+                    </div>
+                    <div className="flex items-center justify-between pt-1 border-t border-slate-800 text-[11px]">
+                      <span className="text-slate-500">Ref (1,000 sq ft):</span>
+                      <span className="text-slate-400">344 CFT (9.75 m³)</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Step 4: Steel Reinforcement (Thumb Rule 1%) */}
+            <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="w-5 h-5 rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/30 flex items-center justify-center font-bold text-[11px]">
+                    4
+                  </span>
+                  <h4 className="font-bold text-blue-300 uppercase tracking-wide text-xs">
+                    Steel Reinforcement (Thumb Rule 1% by Concrete Volume)
+                  </h4>
+                </div>
+                <span className="text-[10px] px-2 py-0.5 rounded bg-blue-950/80 text-blue-300 border border-blue-800 font-mono">
+                  1% of Wet Vol × 7,850 kg/m³
+                </span>
+              </div>
+
+              <div className="p-3.5 rounded-lg bg-slate-900 border border-slate-800 space-y-2">
+                <p className="text-slate-300 text-xs leading-relaxed">
+                  <strong className="text-white">Rule:</strong> Standard slabs require about <strong className="text-amber-400">1% steel by total concrete volume</strong>.
+                </p>
+                <p className="text-[11px] text-slate-400 leading-relaxed">
+                  <strong>Reference Guide Benchmark:</strong> For 11.61 m³ of concrete (1,000 sq ft slab), this equals roughly <strong className="text-blue-300">0.9 to 1.05 tonnes</strong> of steel bars, including lapping and 5% wastage.
+                </p>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
+                  <div className="p-2.5 rounded bg-slate-950 border border-slate-800 font-mono text-center">
+                    <span className="text-[10px] text-slate-400 block">Min Range (0.90 MT/1k sq ft):</span>
+                    <strong className="text-sm text-blue-400">{roofSlabResult.steelTonnesMin} MT</strong>
+                    <span className="text-[10px] text-slate-500 block">({(roofSlabResult.steelTonnesMin * 1000).toLocaleString()} Kg)</span>
+                  </div>
+                  <div className="p-2.5 rounded bg-slate-950 border border-blue-500/40 font-mono text-center">
+                    <span className="text-[10px] text-blue-300 block font-bold">Estimated Average:</span>
+                    <strong className="text-base text-white">{roofSlabResult.steelTonnesAvg} MT</strong>
+                    <span className="text-[10px] text-blue-400 block">({(roofSlabResult.steelTonnesAvg * 1000).toLocaleString()} Kg)</span>
+                  </div>
+                  <div className="p-2.5 rounded bg-slate-950 border border-slate-800 font-mono text-center">
+                    <span className="text-[10px] text-slate-400 block">Max Range (1.05 MT/1k sq ft):</span>
+                    <strong className="text-sm text-blue-400">{roofSlabResult.steelTonnesMax} MT</strong>
+                    <span className="text-[10px] text-slate-500 block">({(roofSlabResult.steelTonnesMax * 1000).toLocaleString()} Kg)</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* SECTION 2: GBA & BUILDING REGULATIONS */}
+          <div className="space-y-4 pt-2">
+            <div className="flex items-center gap-2 border-b border-slate-800 pb-2">
+              <span className="px-2 py-0.5 rounded bg-violet-500 text-slate-950 font-black text-[11px]">
+                SECTION 2
+              </span>
+              <h3 className="text-sm font-bold text-white tracking-wide">
+                GBA &amp; BUILDING REGULATIONS SUMMARY
+              </h3>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Rule 1: High-Rise Definition */}
+              <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-base">🏢</span>
+                    <h4 className="font-bold text-rose-300 uppercase tracking-wide text-xs">
+                      High-Rise Definition
+                    </h4>
+                  </div>
+                  <span className="text-[10px] px-2 py-0.5 rounded bg-rose-950/80 text-rose-300 border border-rose-800 font-mono">
+                    Revised Threshold: 21m
+                  </span>
+                </div>
+
+                <p className="text-slate-300 text-xs leading-relaxed">
+                  The minimum height threshold to classify a structure as a high-rise building has been revised from <strong className="text-amber-300">15 metres to 21 metres</strong>.
+                </p>
+
+                <div className="p-3 rounded-lg bg-slate-900 border border-slate-800 space-y-2">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-slate-400">Test Building Height:</span>
+                    <div className="flex items-center gap-1.5">
+                      <input
+                        type="number"
+                        min="1"
+                        max="150"
+                        value={params.buildingHeightM ?? 15}
+                        onChange={(e) => setParams((p) => ({ ...p, buildingHeightM: Number(e.target.value) || 0 }))}
+                        className="w-16 bg-slate-950 border border-slate-700 rounded px-1.5 py-0.5 text-center font-bold text-white text-xs"
+                      />
+                      <span className="text-slate-400">metres</span>
+                    </div>
+                  </div>
+
+                  <div className="pt-2 border-t border-slate-800 flex items-center gap-2 text-xs">
+                    {(params.buildingHeightM ?? 15) >= 21 ? (
+                      <div className="p-2 rounded bg-rose-950/60 border border-rose-500/40 text-rose-300 flex items-start gap-2 w-full">
+                        <ShieldAlert className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+                        <div>
+                          <strong className="block text-rose-200 font-bold">CLASSIFIED AS HIGH-RISE STRUCTURE</strong>
+                          <span className="text-[11px] text-rose-300">Mandatory NBC high-rise fire evacuation, dual staircases, and specialized structural committee approval apply.</span>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="p-2 rounded bg-emerald-950/60 border border-emerald-500/40 text-emerald-300 flex items-start gap-2 w-full">
+                        <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                        <div>
+                          <strong className="block text-emerald-200 font-bold">REGULAR LOW / MID-RISE BUILDING</strong>
+                          <span className="text-[11px] text-emerald-300">Height is below 21 metres. Governed under standard municipal bye-laws.</span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Rule 2: Voids and Setbacks */}
+              <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-base">📐</span>
+                    <h4 className="font-bold text-violet-300 uppercase tracking-wide text-xs">
+                      Voids &amp; Setbacks
+                    </h4>
+                  </div>
+                  <span className="text-[10px] px-2 py-0.5 rounded bg-violet-950/80 text-violet-300 border border-violet-800 font-mono">
+                    Max 10% Voids • Min 2m Setback
+                  </span>
+                </div>
+
+                <p className="text-slate-300 text-xs leading-relaxed">
+                  Total permissible void area is capped at <strong className="text-amber-300">10% of the gross built-up area</strong>, and basements require a <strong className="text-violet-300">mandatory minimum setback of 2.0 metres</strong>.
+                </p>
+
+                <div className="p-3 rounded-lg bg-slate-900 border border-slate-800 space-y-2 font-mono text-xs">
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-400">Current GBA:</span>
+                    <span className="text-white font-bold">{params.areaSqFt.toLocaleString()} sq.ft</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-400">Max Permissible Voids (10% Cap):</span>
+                    <span className="text-amber-400 font-bold">{(params.areaSqFt * 0.10).toLocaleString()} sq.ft</span>
+                  </div>
+                  <div className="flex items-center justify-between pt-1 border-t border-slate-800">
+                    <span className="text-slate-400">Basement Setback Requirement:</span>
+                    <span className="text-emerald-400 font-bold">≥ 2.00 Metres (6.56 ft)</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Rule 3: Floor-to-Floor Height */}
+              <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-base">📏</span>
+                    <h4 className="font-bold text-sky-300 uppercase tracking-wide text-xs">
+                      Floor-to-Floor Height
+                    </h4>
+                  </div>
+                  <span className="text-[10px] px-2 py-0.5 rounded bg-sky-950/80 text-sky-300 border border-sky-800 font-mono">
+                    3.5m – 4.5m Clear
+                  </span>
+                </div>
+
+                <p className="text-slate-300 text-xs leading-relaxed">
+                  Permissible clear floor-to-floor height ranges from a <strong className="text-sky-300">minimum of 3.5 metres to a maximum of 4.5 metres per floor</strong>.
+                </p>
+
+                <div className="p-3 rounded-lg bg-slate-900 border border-slate-800 space-y-2">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-slate-400">Floor Clear Height:</span>
+                    <div className="flex items-center gap-1.5">
+                      <input
+                        type="number"
+                        step="0.1"
+                        min="2.5"
+                        max="6.0"
+                        value={params.clearFloorHeightM ?? 3.5}
+                        onChange={(e) => setParams((p) => ({ ...p, clearFloorHeightM: Number(e.target.value) || 0 }))}
+                        className="w-16 bg-slate-950 border border-slate-700 rounded px-1.5 py-0.5 text-center font-bold text-white text-xs"
+                      />
+                      <span className="text-slate-400">metres</span>
+                    </div>
+                  </div>
+
+                  <div className="pt-2 border-t border-slate-800 text-xs">
+                    {(params.clearFloorHeightM ?? 3.5) >= 3.5 && (params.clearFloorHeightM ?? 3.5) <= 4.5 ? (
+                      <div className="p-2 rounded bg-emerald-950/60 border border-emerald-500/40 text-emerald-300 flex items-center gap-2">
+                        <Check className="w-4 h-4 text-emerald-400" />
+                        <span>Complies with standard clear height regulation (3.5m - 4.5m range)</span>
+                      </div>
+                    ) : (
+                      <div className="p-2 rounded bg-amber-950/60 border border-amber-500/40 text-amber-300 flex items-center gap-2">
+                        <AlertTriangle className="w-4 h-4 text-amber-400" />
+                        <span>Outside recommended clear height envelope (requires special municipal derogation)</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Rule 4: OC Exemptions */}
+              <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-base">📜</span>
+                    <h4 className="font-bold text-emerald-300 uppercase tracking-wide text-xs">
+                      OC Exemptions (Small Residential Plots)
+                    </h4>
+                  </div>
+                  <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-950/80 text-emerald-300 border border-emerald-800 font-mono">
+                    ≤ 1,200 sq.ft • G+2 or S+3
+                  </span>
+                </div>
+
+                <p className="text-slate-300 text-xs leading-relaxed">
+                  Small residential plots (up to <strong className="text-amber-300">1,200 sq ft</strong> with up to <strong className="text-emerald-300">Ground + 2</strong> or <strong className="text-emerald-300">Stilt + 3</strong> floors) maintain occupancy certificate exemptions if built strictly per approved plans.
+                </p>
+
+                <div className="p-3 rounded-lg bg-slate-900 border border-slate-800 space-y-2">
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div>
+                      <span className="text-[10px] text-slate-400 block">Plot Area (sq.ft):</span>
+                      <input
+                        type="number"
+                        value={params.plotAreaSqFt ?? 1200}
+                        onChange={(e) => setParams((p) => ({ ...p, plotAreaSqFt: Number(e.target.value) || 0 }))}
+                        className="w-full bg-slate-950 border border-slate-700 rounded px-2 py-1 text-center font-bold text-white text-xs mt-0.5"
+                      />
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-slate-400 block">Floor Typology:</span>
+                      <select
+                        value={params.buildingFloorsLabel ?? 'G+2'}
+                        onChange={(e) => setParams((p) => ({ ...p, buildingFloorsLabel: e.target.value }))}
+                        className="w-full bg-slate-950 border border-slate-700 rounded px-2 py-1 text-xs text-white mt-0.5 font-bold"
+                      >
+                        <option value="G+2">Ground + 2 Floors</option>
+                        <option value="S+3">Stilt + 3 Floors</option>
+                        <option value="G+3">Ground + 3 Floors</option>
+                        <option value="G+4">Ground + 4 Floors</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="pt-2 border-t border-slate-800 text-xs">
+                    {(params.plotAreaSqFt ?? 1200) <= 1200 && ['G+2', 'S+3'].includes(params.buildingFloorsLabel ?? 'G+2') ? (
+                      <div className="p-2 rounded bg-emerald-950/60 border border-emerald-500/40 text-emerald-300 flex items-center gap-2">
+                        <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+                        <span className="text-[11px]">Eligible for Occupancy Certificate (OC) exemption if strictly built as per approved plan.</span>
+                      </div>
+                    ) : (
+                      <div className="p-2 rounded bg-slate-800 border border-slate-700 text-slate-300 flex items-center gap-2">
+                        <Info className="w-4 h-4 text-slate-400 shrink-0" />
+                        <span className="text-[11px]">Standard full OC inspection &amp; sanction mandatory (Plot &gt; 1,200 sq.ft or exceeds G+2/S+3).</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       )}
@@ -1155,14 +1799,14 @@ export const CivilWisdomFormulaMatrix: React.FC<CivilWisdomFormulaMatrixProps> =
           <div className="space-y-1">
             <div className="flex items-center gap-2">
               <h4 className="font-bold text-amber-300 uppercase tracking-wider text-[11px]">
-                NOTE FROM CIVIL WISDOM
+                NOTE FROM CIVIL WISDOM &amp; REFERENCE GUIDE
               </h4>
               <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20">
                 Connected to Area Takeoff &amp; BOQ Quantities
               </span>
             </div>
             <p className="text-slate-300 text-xs leading-relaxed">
-              These formulas provide a quick estimate for preliminary planning. Actual quantities may vary based on design, specifications, method of construction and site conditions. All 14 materials are connected to your floor-wise area takeoff and can be synchronized into your BOQ schedule with one click.
+              These formulas provide rapid, reliable empirical estimates for preliminary planning and budget reconciliation. The matrix includes all 14 baseline consumption norms, the complete M20 Roof Slab concrete &amp; steel conversion breakdown (1:1.5:3 with 1.54 dry factor and 1% steel rule), plus current GBA Building Regulations (21m high-rise threshold, 10% void cap, 2m basement setback, 3.5m–4.5m clear height, and small plot OC exemptions). All material quantities can be synchronized into your BOQ schedule with one click.
             </p>
           </div>
         </div>
@@ -1170,20 +1814,20 @@ export const CivilWisdomFormulaMatrix: React.FC<CivilWisdomFormulaMatrixProps> =
         {/* Quick summary strip */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 text-[11px] text-slate-400">
           <div className="p-2 rounded bg-slate-900 border border-slate-800">
-            <span className="block text-[10px] text-slate-500">Cement Baseline:</span>
-            <strong className="text-white">{(params.areaSqFt * 0.4).toLocaleString()} Bags</strong>
+            <span className="block text-[10px] text-slate-500">Cement Baseline / M20 Slab:</span>
+            <strong className="text-white">{(params.areaSqFt * 0.4).toLocaleString()} Bags / {roofSlabResult.cementBags} Bags</strong>
           </div>
           <div className="p-2 rounded bg-slate-900 border border-slate-800">
-            <span className="block text-[10px] text-slate-500">Steel Reinforcement:</span>
-            <strong className="text-white">{(params.areaSqFt * 4.0).toLocaleString()} Kg ({((params.areaSqFt * 4.0) / 1000).toFixed(2)} MT)</strong>
+            <span className="block text-[10px] text-slate-500">Steel Baseline / M20 Slab:</span>
+            <strong className="text-white">{((params.areaSqFt * 4.0) / 1000).toFixed(2)} MT / {roofSlabResult.steelTonnesAvg} MT</strong>
           </div>
           <div className="p-2 rounded bg-slate-900 border border-slate-800">
-            <span className="block text-[10px] text-slate-500">Fine Agg. (Sand):</span>
-            <strong className="text-white">{(params.areaSqFt * 1.8).toLocaleString()} CFT</strong>
+            <span className="block text-[10px] text-slate-500">Sand Baseline / M20 Slab:</span>
+            <strong className="text-white">{(params.areaSqFt * 1.8).toLocaleString()} CFT / {roofSlabResult.sandCFT.toLocaleString()} CFT</strong>
           </div>
           <div className="p-2 rounded bg-slate-900 border border-slate-800">
-            <span className="block text-[10px] text-slate-500">Coarse Agg. (Grit):</span>
-            <strong className="text-white">{(params.areaSqFt * 1.5).toLocaleString()} CFT</strong>
+            <span className="block text-[10px] text-slate-500">Coarse Agg / M20 Slab:</span>
+            <strong className="text-white">{(params.areaSqFt * 1.5).toLocaleString()} CFT / {roofSlabResult.coarseAggCFT.toLocaleString()} CFT</strong>
           </div>
         </div>
       </div>

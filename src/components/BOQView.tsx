@@ -288,6 +288,7 @@ interface BOQViewProps {
   onChangeContingency: (val: number) => void;
   onUpdateProject?: (project: Project) => void;
   onAddEnquiry?: (enquiry: MarketplaceEnquiry) => void;
+  onOpenWorkflowEngine?: () => void;
 }
 
 const CATEGORIES = [
@@ -387,6 +388,7 @@ export const BOQView: React.FC<BOQViewProps> = ({
   onChangeContingency,
   onUpdateProject,
   onAddEnquiry,
+  onOpenWorkflowEngine,
 }) => {
   // Built-up area in sq.ft state (synced with activeProject)
   const [areaSqFt, setAreaSqFt] = useState<number>(() => {
@@ -1097,6 +1099,23 @@ Contact: ${enquiryClientPhone}`,
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          {/* AI Workflow Engine (Step 3) Button */}
+          {onOpenWorkflowEngine && (
+            <button
+              id="btn-boq-open-workflow-engine"
+              type="button"
+              onClick={onOpenWorkflowEngine}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-gradient-to-r from-amber-500/20 via-emerald-500/15 to-slate-900 border border-amber-500/40 text-amber-300 hover:from-amber-500/30 text-xs font-bold transition shadow-sm"
+              title="Open AI Construction Platform Workflow Engine (Step 3: Populate BOQ & Estimation)"
+            >
+              <Zap className="w-3.5 h-3.5 text-amber-400" />
+              <span>AI Workflow Engine</span>
+              <span className="text-[10px] font-mono px-1 rounded bg-amber-500/20 text-amber-300">
+                Step 3
+              </span>
+            </button>
+          )}
+
           {/* Calibrate to Market Price Button */}
           <button
             id="btn-calibrate-market-rate"

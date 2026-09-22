@@ -6,6 +6,7 @@ import { BOQView } from './components/BOQView';
 import { MarketplaceView } from './components/MarketplaceView';
 import { MaterialsView } from './components/MaterialsView';
 import { SpecialistChatView } from './components/SpecialistChatView';
+import { SequentialWorkflowEngineModal } from './components/SequentialWorkflowEngineModal';
 import {
   INITIAL_PROJECTS,
   INITIAL_BOQ_ITEMS,
@@ -253,6 +254,7 @@ export function App() {
 
   const [marketplaceCategory, setMarketplaceCategory] = useState<string | undefined>(undefined);
   const [marketplaceQuery, setMarketplaceQuery] = useState<string | undefined>(undefined);
+  const [isWorkflowEngineOpen, setIsWorkflowEngineOpen] = useState(false);
 
   const handleNavigateToMarketplace = (category?: string, query?: string) => {
     setMarketplaceCategory(category);
@@ -279,6 +281,7 @@ export function App() {
         currency={currency}
         onChangeCurrency={setCurrency}
         isOnline={isOnline}
+        onOpenWorkflowEngine={() => setIsWorkflowEngineOpen(true)}
       />
 
       {/* Navigation Bar */}
@@ -293,6 +296,7 @@ export function App() {
             onSelectProject={setActiveProjectId}
             onUpdateProject={handleUpdateProject}
             onCreateProject={handleCreateProject}
+            onOpenWorkflowEngine={() => setIsWorkflowEngineOpen(true)}
           />
         )}
 
@@ -306,6 +310,7 @@ export function App() {
             onChangeContingency={setContingencyPercent}
             onUpdateProject={handleUpdateProject}
             onAddEnquiry={handleAddEnquiry}
+            onOpenWorkflowEngine={() => setIsWorkflowEngineOpen(true)}
           />
         )}
 
@@ -334,6 +339,7 @@ export function App() {
             onUpdateBOQItems={setBoqItems}
             onUpdateProject={handleUpdateProject}
             onNavigateToBOQ={() => setActiveTab('boq')}
+            onOpenWorkflowEngine={() => setIsWorkflowEngineOpen(true)}
           />
         )}
 
@@ -348,6 +354,18 @@ export function App() {
           />
         )}
       </main>
+
+      {/* Sequential Workflow Engine Modal (Structured Prompt Architecture v1.0) */}
+      <SequentialWorkflowEngineModal
+        isOpen={isWorkflowEngineOpen}
+        onClose={() => setIsWorkflowEngineOpen(false)}
+        activeProject={activeProject}
+        onUpdateProject={handleUpdateProject}
+        boqItems={boqItems}
+        onUpdateBOQItems={setBoqItems}
+        onNavigateToTab={(tab) => setActiveTab(tab)}
+        currency={currency}
+      />
 
       {/* Footer */}
       <footer className="border-t border-slate-800/80 bg-slate-950 px-4 py-4 text-center text-xs text-slate-400 font-mono">
