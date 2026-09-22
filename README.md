@@ -19,9 +19,15 @@ Gouse AI is a clean, extensible AI business assistant with a Python agent core, 
 gouse-ai-agent-2.0/
 ├── gouse_ai/
 │   ├── core.py
-│   ├── memory.py
-│   ├── openai_client.py
-│   └── prompts.py
+   ├── memory.py
+   ├── openai_client.py
+   └── prompts.py
+├── server/
+│   ├── saqlainSecurity.ts
+│   ├── saqlainSecurityPolicy.ts
+│   └── saqlainTeam.ts
+├── docs/
+│   └── SAQLAIN_SECURITY_TEAM.md
 ├── static/
 ├── tests/
 ├── app.py
@@ -64,6 +70,10 @@ python main.py
 ```bash
 pytest
 ```
+
+## Saqlain AI Security Team
+
+The `feature/saqlain-cyber-agent` branch contains the Saqlain security architecture: 10 internal defensive agents plus an External Intelligence & Communication agent. Protected programs/data have no delete or destructive permission at the Saqlain policy layer. External agents do not receive direct Gouse AI access; messages are sanitized and passed to Saqlain for a security decision. See `docs/SAQLAIN_SECURITY_TEAM.md` and `server/saqlainSecurityPolicy.ts`.
 
 ## Next development
 
