@@ -230,7 +230,7 @@ export async function generateChatResponse(
     design:
       'You are the Architectural Design & Massing AI Agent. Focus on spatial programming, volume adjacencies, massing studies, natural daylighting, facade design, and circulation flow.',
     code:
-      'You are the Building Code & Regulatory AI Agent. Focus on NBC (National Building Code) / IBC standards, municipal zoning bylaws, FSI/FAR limits, fire egress, setbacks, universal accessibility, and statutory compliance.',
+      'You are the Building Code, Nambike Nakshe 2.0 & Regulatory AI Agent. Focus on Nambike Nakshe 2.0 self-certification, GBA (Greater Bengaluru Authority) 15% deviation regularization, relaxed setbacks for small plots (<1,500 sq ft & <600 sq ft), NBC 2016 Part 3 & 4 standards, municipal zoning bylaws, FSI/FAR limits, fire egress, universal accessibility, and automated statutory compliance gates.',
     documentation:
       'You are the Architectural Documentation AI Agent. Focus on CSI MasterFormat specifications, drawing schedules, detail coordination, submittals, RFI logs, and quality assurance.',
     quantity:
@@ -666,7 +666,23 @@ export function getDomainFallbackAgentResponse(
   let thought = 'Audited active project parameters, building codes, and construction benchmarks.';
   let toolsUsed = ['BOQ Inspector', 'Architecture Knowledge Base'];
 
-  if (lower.includes('steel') || lower.includes('rebar') || lower.includes('tmt') || lower.includes('iron') || lower.includes('fe550')) {
+  if (lower.includes('nambike') || lower.includes('nakshe') || lower.includes('platform specification') || (lower.includes('platform') && lower.includes('spec')) || lower.includes('gba')) {
+    thought = `Evaluated ${areaSqFt.toLocaleString()} sq.ft proposal against Nambike Nakshe 2.0 trust-based self-certification, GBA 15% deviation regularization, small-plot relaxed setbacks (<1500 sq ft & <600 sq ft), and the 4-stage CAD-to-BOQ platform specification.`;
+    toolsUsed = ['Nambike Nakshe 2.0 Gatekeeper', 'GBA Statutory Bylaws Validator', 'Automated CAD-to-BOQ Engine', 'IS 456 / IS 1200 SMM Auditor'];
+    actions.push({
+      id: `act-workflow-${Date.now()}`,
+      type: 'open_workflow_engine',
+      title: 'Launch Gouse AI Agent Engine',
+      description: 'Open Gouse AI Agent 4-Stage Municipal Compliance & CAD Analysis Engine (System Rating: 9.8 / 10)',
+    });
+    actions.push({
+      id: `act-contingency-${Date.now()}`,
+      type: 'update_contingency',
+      title: 'Lock 7.5% Statutory Contingency',
+      description: 'Buffer against municipal regularization fees and material escalation',
+      payload: { percent: 7.5 },
+    });
+  } else if (lower.includes('steel') || lower.includes('rebar') || lower.includes('tmt') || lower.includes('iron') || lower.includes('fe550')) {
     const steelQtyMT = Number(((areaSqFt * 4.2) / 1000).toFixed(1));
     thought = `Calculated steel consumption at ~4.2 kg/sq.ft for ${areaSqFt.toLocaleString()} sq.ft built-up area. Cross-referenced IS 1786 primary mill indices (Tata Tiscon / JSW Neosteel Fe550D).`;
     toolsUsed = ['Structural Takeoff Engine', 'IS 1786 Steel Benchmark', 'BOQ Inspector'];
@@ -797,6 +813,47 @@ export function getDomainFallbackResponse(
 1. **Jerarquía Espacial**: Mantener alturas libres mínimas de 3.0 m en estancias principales para optimizar ventilación e iluminación natural.
 2. **Coordinación Estructural**: Alinear retículas de pilares (4.5m x 6.0m) para optimizar luces y evitar losas de transferencia.
 3. **Presupuesto y Cómputo (BOQ)**: Reservar entre un 7.5% y un 10% para imprevistos y fluctuaciones de materias primas.`;
+  }
+
+  if (lower.includes('nambike') || lower.includes('nakshe') || lower.includes('platform specification') || (lower.includes('platform') && lower.includes('spec')) || lower.includes('gba') || lower.includes('gouse ai agent')) {
+    return `### 🏛️ Gouse AI Agent (Automated CAD Analysis & BOQ Engine)
+
+**System Assessment & Architecture Rating**: **9.8 / 10** (Production Ready)  
+**Governing Authority Framework**: BBMP / GBA (Greater Bengaluru Authority) & National Building Code (NBC 2016)  
+**Integrated Pipeline**: 4-Stage Sequential Architectural Intelligence Engine
+
+---
+
+#### 1. Statutory Regulatory Highlights & Municipal Framework
+- **Trust-Based Self-Certification**: Under Karnataka's **Nambike Nakshe 2.0**, registered architects and civil/structural engineers can self-certify building plans for automated provisional sanction without manual bureaucratic delays.
+- **GBA 15% Deviation Regularization**: The Greater Bengaluru Authority (GBA) policy extends permissible deviation regularization limits from 5% up to **15%** (subject to structural safety audit clearance and compounded municipal fee payments) for site plots under **500 m²** (~5,382 sq.ft) and building heights under **15 meters**.
+- **Relaxed Setbacks for Small & Compact Plots**:
+  • **Plots under 1,500 sq.ft** (e.g., 30×40 ft, 30×50 ft): Front setback reduced to **2.5 ft (0.75m)**, Side setbacks reduced to **2.0 ft (0.60m)**, Rear setback **4.0 ft (1.20m)**.
+  • **Micro-plots under 600 sq.ft** (e.g., 20×30 ft): **0.0 ft (Zero)** rear setback statutory rule applied.
+- **Mandatory Rainwater Harvesting (RWH)**: Mandatory for all plots ≥ 1,200 sq.ft with minimum 60 liters/sq.m storage/recharge capacity.
+- **Solar Rooftop Ready**: Conduit routing and structural dead load provision for rooftop PV net-metering.
+- **NBC 2016 Part 4 Egress**: 1.5m clear corridor width and fire tender peripheral driveway clearance.
+
+---
+
+#### 2. Gouse AI Agent: 4-Stage Sequential Architecture Pipeline
+1. **Stage 1: Project & Workspace Ingestion (CAD Extraction & ADS Deductions)**
+   - Ingest AutoCAD vector geometry (\`.dwg\` / \`.dxf\`).
+   - Extract site plot boundary ($L \\times W$), apply statutory setbacks, calculate gross building footprint, and deduct core non-FAR cutouts (stairwells, lift shafts, ventilation wells) for true **Net Built-Up Area per floor**.
+   - Coordinate dynamic floor stacking (Basement, Stilt, Ground, Typical Upper, Terrace).
+2. **Stage 2: Gatekeeper Stage (Municipal Regulatory Gate)**
+   - Algorithmic compliance audit validating Floor Area Ratio (FAR/FSI), Ground Coverage percentage, and setback envelopes against Nambike Nakshe 2.0 & GBA provisions.
+   - Enforce regulatory gate: cost estimation remains guarded until statutory compliance or regularization approval is satisfied.
+3. **Stage 3: BOQ & Estimation (Financial Rate Mapping)**
+   - Transfer certified net built-up area directly into the Schedule of Rates (SOR).
+   - Real-time civil trade breakdown: Substructure (~16.5%), RCC Superstructure (~30.5%), Masonry & Plaster (~14.5%), Finishes (~17.5%), Plumbing (~7.5%), Electrical (~7.0%), Waterproofing & Paint (~6.5%).
+4. **Stage 4: Material & Standards (IS Takeoff Calculation)**
+   - Precision material calculation per Indian Standards: Cement @ 0.42 bags/sq.ft (IS 269/1489), Fe550D TMT Rebar @ 4.2 kg/sq.ft (IS 1786), AAC Blocks @ 0.026 m³/sq.ft (IS 2185), Sand/M-Sand @ 1.85 cft/sq.ft (IS 383).
+
+---
+
+#### 3. Execution & Action Gate
+Click **"Launch Gouse AI Agent Engine"** below or tap the **Gouse AI Agent** button in the top navigation bar to open the live interactive 4-stage engine!`;
   }
 
   if (lower.includes('boq') || lower.includes('cost') || lower.includes('estimate') || specialist === 'quantity') {

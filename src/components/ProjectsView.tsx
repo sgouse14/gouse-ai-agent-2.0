@@ -1449,14 +1449,14 @@ Preliminary architectural audit and technical advisory for **${name || 'Project'
         const directAreaSmsHref = `sms:${cleanPhone(companyPhone)}?body=${encodeURIComponent(areaSmsMessage)}`;
 
         // Instagram Presentation Kit
-        const instagramCaption = `🏛️ ${showcaseTitle} | Modern Biophilic Architecture\n\n📐 Built-up Area: ${projectAreaSqFt}\n📍 Location: ${projectLocation}, India\n🌿 Design DNA: Natural daylight shafts, wire-cut brick fins & passive climate courtyards\n✅ Standards: NBC 2016 verified setback envelopes\n\nArchitect: Ar. S. Gouse | Gouse AI Studio\n💬 Click below or tap link in bio to Send Direct Area SMS for private architectural consultation.\n\n#ArchitectureDesign #LuxuryVilla #IndianArchitecture #BangaloreHomes #BiophilicArchitecture #ModernVilla #ArchDaily #GouseAI #NBC2016 #ArchitecturalWalkthrough`;
+        const instagramCaption = `🏛️ ${showcaseTitle} | Modern Biophilic Architecture\n\n📐 Built-up Area: ${projectAreaSqFt}\n📍 Location: ${projectLocation}, India\n🌿 Design DNA: Natural daylight shafts, wire-cut brick fins & passive climate courtyards\n✅ Standards: NBC 2016 verified setback envelopes\n\nArchitect: Ar. S. Gouse | Gouse AI Agent\n💬 Click below or tap link in bio to Send Direct Area SMS for private architectural consultation.\n\n#ArchitectureDesign #LuxuryVilla #IndianArchitecture #BangaloreHomes #BiophilicArchitecture #ModernVilla #ArchDaily #GouseAIAgent #NBC2016 #ArchitecturalWalkthrough`;
 
         // Facebook Presentation Kit
-        const facebookPost = `🏛️ PROJECT SPOTLIGHT: ${showcaseTitle}\n\nWe are proud to share the architectural milestone for ${showcaseTitle}, located in ${projectLocation}. Spanning ${projectAreaSqFt}, this residence marries biophilic spatial philosophy with structural engineering precision.\n\nKey Highlights:\n• NBC 2016 statutory setback optimization\n• Microclimate-responsive central courtyard\n• Integrated bill of quantities (BOQ) with zero rate escalation\n\nBook Private Consultation: Click below to Send Direct Area SMS (${projectAreaSqFt})\nExplore full project documentation & 3D virtual tour: ${shareUrl}\n\nPrincipal Architect: Ar. S. Gouse | Gouse AI Studio`;
+        const facebookPost = `🏛️ PROJECT SPOTLIGHT: ${showcaseTitle}\n\nWe are proud to share the architectural milestone for ${showcaseTitle}, located in ${projectLocation}. Spanning ${projectAreaSqFt}, this residence marries biophilic spatial philosophy with structural engineering precision.\n\nKey Highlights:\n• NBC 2016 statutory setback optimization\n• Microclimate-responsive central courtyard\n• Integrated bill of quantities (BOQ) with zero rate escalation\n\nBook Private Consultation: Click below to Send Direct Area SMS (${projectAreaSqFt})\nExplore full project documentation & 3D virtual tour: ${shareUrl}\n\nPrincipal Architect: Ar. S. Gouse | Gouse AI Agent`;
 
         // YouTube 3D Walkthrough Kit
         const youtubeVideoTitle = `${showcaseTitle} — 4K 3D Architectural Walkthrough & Virtual Tour | Ar. S. Gouse`;
-        const youtubeDescription = `Experience the complete 3D virtual architectural walkthrough of ${showcaseTitle}.\n\nBuilt-up Area: ${projectAreaSqFt}\nLocation: ${projectLocation}, India\nLead Architect: Ar. S. Gouse (Gouse AI Studio)\nDirect Area SMS Consultation: Click below to send instant SMS inquiry for ${projectAreaSqFt}\n\nCHAPTER TIMESTAMPS:\n00:00 - Drone Aerial View & Biophilic Site Context\n01:10 - Double-Height Living & Courtyard Cross-Ventilation\n02:25 - Master Suite & Open-to-Sky Terraces\n03:45 - Structural Framing, Column Grid & Setbacks\n\nProject Portal: ${shareUrl}\n\n#ArchitectureWalkthrough #3DVirtualTour #LuxuryVilla #BangaloreArchitecture #GouseAI #NBC2016`;
+        const youtubeDescription = `Experience the complete 3D virtual architectural walkthrough of ${showcaseTitle}.\n\nBuilt-up Area: ${projectAreaSqFt}\nLocation: ${projectLocation}, India\nLead Architect: Ar. S. Gouse (Gouse AI Agent)\nDirect Area SMS Consultation: Click below to send instant SMS inquiry for ${projectAreaSqFt}\n\nCHAPTER TIMESTAMPS:\n00:00 - Drone Aerial View & Biophilic Site Context\n01:10 - Double-Height Living & Courtyard Cross-Ventilation\n02:25 - Master Suite & Open-to-Sky Terraces\n03:45 - Structural Framing, Column Grid & Setbacks\n\nProject Portal: ${shareUrl}\n\n#ArchitectureWalkthrough #3DVirtualTour #LuxuryVilla #BangaloreArchitecture #GouseAIAgent #NBC2016`;
 
         const handleCopyShareLink = () => {
           navigator.clipboard.writeText(shareUrl);
@@ -2267,7 +2267,7 @@ Preliminary architectural audit and technical advisory for **${name || 'Project'
                                 </div>
                                 <div>
                                   <div className="flex items-center gap-1">
-                                    <span className="text-xs font-bold text-white leading-none">gouse_architecture</span>
+                                    <span className="text-xs font-bold text-white leading-none">gouse ai agent</span>
                                     <CheckCircle2 className="h-3 w-3 text-sky-400 fill-current" />
                                   </div>
                                   <span className="text-[10px] text-slate-400 font-mono">Sponsored</span>
@@ -2336,7 +2336,7 @@ Preliminary architectural audit and technical advisory for **${name || 'Project'
                             {/* Caption Footer */}
                             <div className="p-3 text-xs space-y-1 bg-slate-950">
                               <p className="text-slate-300 line-clamp-2">
-                                <strong className="text-white font-semibold">gouse_architecture</strong> {activeAd.primaryText}
+                                <strong className="text-white font-semibold">gouse ai agent</strong> {activeAd.primaryText}
                               </p>
                               <p className="text-[10px] text-slate-500 font-mono">
                                 4,812 views • 342 saves • Sponsored by {companyName}
@@ -2996,7 +2996,7 @@ Preliminary architectural audit and technical advisory for **${name || 'Project'
                             GA
                           </div>
                           <div>
-                            <div className="text-xs font-bold text-white">Gouse AI Architecture</div>
+                            <div className="text-xs font-bold text-white">Gouse AI Agent</div>
                             <div className="text-[10px] text-slate-400">{activeProject.location || 'Bengaluru, India'} • Public Portfolio</div>
                           </div>
                         </div>

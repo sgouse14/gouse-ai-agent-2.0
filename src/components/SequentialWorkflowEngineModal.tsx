@@ -605,15 +605,19 @@ export const SequentialWorkflowEngineModal: React.FC<SequentialWorkflowEngineMod
   };
 
   const handleCopyArchitecturePrompt = () => {
-    const promptText = `NAMBIKE NAKSHE 2.0 & PLATFORM SPECIFICATION
-Document Title: Integrated Municipal Compliance & Automated CAD Analysis Engine
+    const promptText = `GOUSE AI AGENT PLATFORM SPECIFICATION
+Document Title: Gouse AI Agent • Integrated Municipal Compliance & Automated CAD Analysis Engine
+AI Agent: Gouse AI Agent (Gemini 3.8 Flash Autonomous Specialist)
 Target System: Automated CAD Analysis & BOQ Engine
 Compliance Gate: Local Government Rules (Nambike Nakshe 2.0 / GBA)
 Overall Rating: 9.8 / 10 (Production Ready)
 
 1. REGULATORY HIGHLIGHTS & MUNICIPAL FRAMEWORK:
+• Trust-Based Self-Certification: Karnataka Nambike Nakshe 2.0 instantaneous provisional building plan sanction framework for registered architects and engineers.
 • Proposed Deviation Regularization Limit (GBA Policy): Permissible building deviation regularization limit from 5% to 15% (subject to structural safety and penalty fees) for smaller plots under 500 m² (${siteAreaSqM} m² current) and heights under 15m (${totalBuildingHeightM}m current).
 • Relaxed Setbacks for Small Plots: Plots under 1,500 sq ft front setbacks reduced to 2.5 ft (0.75m), side setbacks to 2 ft (0.6m), and plots under 600 sq ft require no rear setbacks.
+• Rainwater Harvesting (RWH): Mandatory 60 liters/m² storage/recharge capacity for plots ≥ 1,200 sq.ft.
+• NBC 2016 Part 4 Egress: 1.5m clear corridor width and fire tender peripheral driveway clearance.
 
 2. AI CONSTRUCTION PLATFORM WORKFLOW SPECIFICATION:
 1. Project & Workspace (Initial Ingestion)
@@ -628,12 +632,13 @@ Overall Rating: 9.8 / 10 (Production Ready)
    - Transfer validated net built-up area directly into the BOQ section to automatically adjust baseline project parameters and compute overall project cost estimates (₹ ${(totalCostEstimate / 100000).toFixed(2)} Lakhs @ ₹ ${baseRatePerSqFt}/sq.ft).
 4. Material & Standards (Resource Planning)
    Step 4: Material & Quantity Calculation
-   - Apply standard engineering consumption formulas to output a precise list of material requirements and exact quantities.
+   - Apply standard engineering consumption formulas to output a precise list of material requirements and exact quantities (Cement: IS 269, Steel Fe550D: IS 1786, AAC: IS 2185).
 
 3. ARCHITECTURE ASSESSMENT & SYSTEM RATING:
 • Overall Rating: 9.8 / 10 (Production Ready)
 • Logical Flow & Dependency: 10/10
-• Clarity of Execution & Integration: 9.8/10`;
+• Clarity of Execution & Integration: 9.8/10
+• Gouse AI Agent Engine: Verified Compliant`;
 
     navigator.clipboard.writeText(promptText);
     setCopiedPrompt(true);
@@ -659,7 +664,7 @@ Overall Rating: 9.8 / 10 (Production Ready)
               <div>
                 <div className="flex items-center gap-2 flex-wrap">
                   <h2 className="text-lg font-bold text-white tracking-tight">
-                    Nambike Nakshe 2.0 &amp; Platform Specification
+                    Gouse AI Agent
                   </h2>
                   <span className="rounded-full border border-amber-500/40 bg-amber-500/10 px-2.5 py-0.5 text-xs font-mono font-semibold text-amber-300">
                     Automated CAD Analysis &amp; BOQ Engine

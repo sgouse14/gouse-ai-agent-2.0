@@ -317,7 +317,7 @@ export function exportFloorWiseReportToPDF({
 
   const sigColWidth = (pageWidth - margin * 2) / 4;
   const sigTitles = [
-    { role: 'Lead Quantity Surveyor', org: 'Gouse AI Q.S. Division' },
+    { role: 'Lead Quantity Surveyor', org: 'Gouse AI Agent Q.S. Division' },
     { role: 'Principal Architect', org: 'Ar. S. Gouse & Partners' },
     { role: 'Structural Consultant', org: 'IS 456 Structural Audit' },
     { role: 'Client / Employer', org: 'Acceptance & Sign-off' },

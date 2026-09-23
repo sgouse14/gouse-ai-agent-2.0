@@ -43,6 +43,7 @@ interface SpecialistChatViewProps {
   onUpdateBOQItems?: (items: BOQItem[]) => void;
   onUpdateProject?: (project: Project) => void;
   onNavigateToBOQ?: () => void;
+  onOpenWorkflowEngine?: () => void;
 }
 
 interface SpecialistConfig {
@@ -76,12 +77,12 @@ const SPECIALISTS: SpecialistConfig[] = [
   },
   {
     id: 'code',
-    title: 'Codes & Regulations',
-    role: 'NBC / IBC & Statutory',
+    title: 'Nambike Nakshe & Bylaws',
+    role: 'Nambike Nakshe 2.0 & NBC',
     voiceName: 'Charon',
     icon: Scale,
-    desc: 'NBC / IBC building codes, FSI/FAR ratios, egress routes, setbacks, and life safety.',
-    expertise: ['NBC Part 3 & 4', 'FSI/FAR Calculations', 'Fire Egress', 'Accessibility / ADA'],
+    desc: 'Nambike Nakshe 2.0 self-certification, GBA bylaws, 15% deviation limits, relaxed setbacks, and NBC 2016.',
+    expertise: ['Nambike Nakshe 2.0', 'GBA 15% Deviation', 'Small Plot Setbacks', 'FAR & Ground Coverage'],
   },
   {
     id: 'documentation',
@@ -182,6 +183,18 @@ const QUICK_PROMPTS = [
 
 const AGENT_WORKFLOWS = [
   {
+    title: 'Gouse AI Agent Audit',
+    icon: '🏛️',
+    tag: 'Municipal Gatekeeper',
+    prompt: 'Run Gouse AI Agent statutory compliance audit: verify GBA 15% deviation regularization, small plot relaxed setbacks, and FAR limits.',
+  },
+  {
+    title: 'Gouse AI Agent Spec',
+    icon: '⚡',
+    tag: 'Spec 9.8/10',
+    prompt: 'Generate Gouse AI Agent Platform Specification: explain the 4-stage CAD extraction, municipal gatekeeper, BOQ mapping, and material takeoff.',
+  },
+  {
     title: 'Audit Project BOQ',
     icon: '🔍',
     tag: 'Full Audit',
@@ -220,6 +233,7 @@ export const SpecialistChatView: React.FC<SpecialistChatViewProps> = ({
   onUpdateBOQItems,
   onUpdateProject,
   onNavigateToBOQ,
+  onOpenWorkflowEngine,
 }) => {
   const [selectedSpecialist, setSelectedSpecialist] = useState<SpecialistType>('general');
   const [selectedLanguage, setSelectedLanguage] = useState('en-IN');
@@ -247,20 +261,21 @@ export const SpecialistChatView: React.FC<SpecialistChatViewProps> = ({
     {
       id: 'msg-init',
       role: 'assistant',
-      content: `Welcome to Gouse AI Studio. I am your **Autonomous Principal Architectural Specialist Agent**.
+      content: `Welcome to Gouse AI Agent. I am your **Autonomous Principal Architectural Agent**.
 Active Project: **${activeProject.name}** (${activeProject.projectType || 'Architecture'}, ${activeProject.location || 'Site'}).
 Built-up Footprint: **${(activeProject.builtUpAreaSqFt || 3500).toLocaleString()} sq.ft** | Live BOQ Items: **${boqItems?.length || 0} line items**.
 
-I operate as an **Autonomous Engineering Agent**:
-- 🧠 Transparent Chain-of-Thought reasoning for every design & engineering query
-- ⚡ Live architectural tools (IS 456 Structural Rules, NBC 2016 Code Engine, IS 1200 SMM Auditor, Market Pricing Benchmark)
-- 📋 Concrete 1-Click Action proposals you can apply directly to your Project BOQ
-- 🎙️ Multi-lingual continuous voice dialogue in 25+ regional & global languages.`,
+I operate as an **Autonomous Engineering & Municipal Agent**:
+- 🏛️ **Nambike Nakshe 2.0 Compliance Gate**: Automated check for GBA 15% deviation regularization, small-plot relaxed setbacks (<1500 sq ft & <600 sq ft), and municipal plan approvals
+- ⚡ **4-Stage Platform Engine**: CAD ingestion & net area extraction, gatekeeper compliance, BOQ population, and IS material consumption takeoffs (System Rating: 9.8/10)
+- 🧠 **Transparent Chain-of-Thought Reasoning**: Live architectural tools (IS 456 Structural Rules, NBC 2016 Code Engine, IS 1200 SMM Auditor, Market Pricing Benchmark)
+- 📋 **Concrete 1-Click Action Proposals**: Execute BOQ adjustments or launch the Nambike Nakshe 2.0 engine directly
+- 🎙️ **Multi-lingual Voice Dialogue**: 25+ regional & global languages supported.`,
       timestamp: new Date().toISOString(),
       specialist: 'general',
       language: 'en-IN',
-      agentToolsUsed: ['Principal Masterplan Engine', 'IS 456 Structural Rules', 'BOQ Inspector'],
-      agentThought: `Synchronized with ${activeProject.name} active spatial data (${(activeProject.builtUpAreaSqFt || 3500).toLocaleString()} sq.ft). Ready to audit structural framing, NBC statutory egress, and bill of quantities.`,
+      agentToolsUsed: ['Nambike Nakshe 2.0 Gatekeeper', 'IS 456 Structural Rules', 'BOQ Inspector'],
+      agentThought: `Synchronized with ${activeProject.name} active spatial data (${(activeProject.builtUpAreaSqFt || 3500).toLocaleString()} sq.ft). Ready to audit Nambike Nakshe 2.0 bylaws, structural framing, NBC statutory egress, and bill of quantities.`,
     },
   ]);
 
@@ -308,6 +323,14 @@ I operate as an **Autonomous Engineering Agent**:
       setToastNotification({
         message: `Updated project contingency reserve to ${action.payload.percent}%!`,
         type: 'success',
+      });
+    } else if (action.type === ('open_workflow_engine' as any)) {
+      if (onOpenWorkflowEngine) {
+        onOpenWorkflowEngine();
+      }
+      setToastNotification({
+        message: 'Opened Gouse AI Agent Engine (4-Stage Pipeline)',
+        type: 'info',
       });
     } else if (action.type === 'run_audit' || action.type === 'inspect_pricing') {
       if (onNavigateToBOQ) {
@@ -711,7 +734,7 @@ For **${activeProject.name || 'this proposal'}** (${activeProject.projectType ||
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-xs uppercase tracking-wider font-mono text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20 font-bold flex items-center gap-1">
               <Sparkles className="w-3 h-3 text-amber-400" />
-              Autonomous Specialist Agent
+              Gouse AI Agent
             </span>
             <span className="text-xs text-slate-400 font-mono flex items-center gap-1">
               Gemini 3.8 Flash + Multi-Modal TTS
@@ -721,15 +744,32 @@ For **${activeProject.name || 'this proposal'}** (${activeProject.projectType ||
             </span>
           </div>
           <h2 className="text-2xl font-bold tracking-tight text-white mt-1.5">
-            Specialist Architectural AI & Autonomous Voice Agent
+            Gouse AI Agent • Autonomous Specialist Studio
           </h2>
           <p className="text-xs text-slate-400">
             Consult multi-disciplinary architectural agents with transparent reasoning, tool execution, and 1-click project BOQ proposals.
           </p>
         </div>
 
-        {/* Global Voice & Audio Controls */}
+        {/* Global Voice & Audio Controls & Gouse AI Agent Quick Launch */}
         <div className="flex items-center gap-2 flex-wrap">
+          {/* Gouse AI Agent Platform Engine Button */}
+          {onOpenWorkflowEngine && (
+            <button
+              id="btn-agent-open-gouse-ai-agent"
+              type="button"
+              onClick={onOpenWorkflowEngine}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-mono transition bg-gradient-to-r from-amber-500/20 via-emerald-500/15 to-slate-900 border-amber-500/40 text-amber-300 hover:border-amber-400 hover:text-white shadow-sm"
+              title="Open Gouse AI Agent (4-Stage Pipeline, Rating 9.8/10)"
+            >
+              <Zap className="w-3.5 h-3.5 text-amber-400" />
+              <span className="font-bold">Gouse AI Agent</span>
+              <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                9.8/10
+              </span>
+            </button>
+          )}
+
           {/* Hands-Free Auto-Speak Toggle */}
           <button
             id="toggle-auto-speak"

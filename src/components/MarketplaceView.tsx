@@ -282,7 +282,7 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
     const cleanNum = (prof.whatsapp || prof.phone || '').replace(/[^0-9]/g, '');
     if (!cleanNum) return;
     const text = encodeURIComponent(
-      `Hello ${prof.name} (${prof.company}),\n\nI am contacting you from the Gouse AI Architecture & Construction Workspace regarding an upcoming project in ${prof.location || 'Bangalore'}.\n\n${customScope ? `Scope: ${customScope}\n\n` : ''}We would like to request your quotation and discuss availability.`
+      `Hello ${prof.name} (${prof.company}),\n\nI am contacting you from the Gouse AI Agent Workspace regarding an upcoming project in ${prof.location || 'Bangalore'}.\n\n${customScope ? `Scope: ${customScope}\n\n` : ''}We would like to request your quotation and discuss availability.`
     );
     window.open(`https://wa.me/${cleanNum}?text=${text}`, '_blank');
   };

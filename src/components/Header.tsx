@@ -58,7 +58,7 @@ export const Header: React.FC<HeaderProps> = ({
           <div>
             <div className="flex items-center gap-2 flex-wrap">
               <span className="text-lg sm:text-xl font-bold tracking-tight text-white font-serif-classic">
-                GOUSE AI
+                GOUSE AI AGENT
               </span>
               <span
                 className="text-[10px] font-mono uppercase px-2 py-0.5 rounded border font-semibold transition-colors"
@@ -68,7 +68,7 @@ export const Header: React.FC<HeaderProps> = ({
                   color: currentTheme.colors['300'],
                 }}
               >
-                v3.8 ArchAgent
+                AI Agent Studio
               </span>
             </div>
             <p className="text-xs text-slate-400">
@@ -117,17 +117,17 @@ export const Header: React.FC<HeaderProps> = ({
             </select>
           </div>
 
-          {/* AI Workflow Engine v1.0 Button */}
+          {/* Gouse AI Agent Engine Button */}
           {onOpenWorkflowEngine && (
             <button
               id="btn-header-open-workflow-engine"
               type="button"
               onClick={onOpenWorkflowEngine}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-amber-500/20 via-emerald-500/15 to-slate-950 hover:from-amber-500/30 hover:via-emerald-500/25 text-xs font-bold text-amber-300 border border-amber-500/40 shadow-sm transition"
-              title="Open AI Construction Platform Workflow Engine (Structured Prompt Architecture v1.0 - Rating 9.8/10)"
+              title="Open Gouse AI Agent (Automated CAD Analysis & BOQ Engine - Rating 9.8/10)"
             >
               <Zap className="w-3.5 h-3.5 text-amber-400" />
-              <span className="hidden sm:inline">AI Workflow Engine</span>
+              <span className="hidden sm:inline">Gouse AI Agent</span>
               <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
                 9.8/10
               </span>

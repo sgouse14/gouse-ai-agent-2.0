@@ -351,6 +351,7 @@ export function App() {
             onUpdateBOQItems={setBoqItems}
             onUpdateProject={handleUpdateProject}
             onNavigateToBOQ={() => setActiveTab('boq')}
+            onOpenWorkflowEngine={() => setIsWorkflowEngineOpen(true)}
           />
         )}
       </main>
@@ -371,8 +372,8 @@ export function App() {
       <footer className="border-t border-slate-800/80 bg-slate-950 px-4 py-4 text-center text-xs text-slate-400 font-mono">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
           <div className="flex items-center gap-2">
-            <span className="font-bold text-amber-400">GOUSE AI</span>
-            <span>• ArchAgent 2.0 Studio</span>
+            <span className="font-bold text-amber-400">GOUSE AI AGENT</span>
+            <span>• AI Agent Studio</span>
           </div>
           <div>
             <span>Powered by Gemini 3.8 Flash • Architecture • BOQ Estimation • Code Intelligence</span>

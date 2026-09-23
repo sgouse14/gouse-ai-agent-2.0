@@ -200,7 +200,7 @@ export const FloorWisePrintReportModal: React.FC<FloorWisePrintReportModalProps>
           <div className="border-b-2 border-slate-900 pb-4 flex justify-between items-start">
             <div>
               <div className="text-[11px] font-mono tracking-widest uppercase text-amber-700 font-bold">
-                Gouse AI • Architecture, Engineering & Construction Intelligence
+                Gouse AI Agent • Engineering & Construction Intelligence
               </div>
               <h1 className="text-xl sm:text-2xl font-bold text-slate-950 tracking-tight mt-0.5">
                 SCHEDULE OF RATES & QUANTITIES (FLOOR-WISE BREAKDOWN)
@@ -397,7 +397,7 @@ export const FloorWisePrintReportModal: React.FC<FloorWisePrintReportModalProps>
           <div className="pt-8 border-t border-slate-300 grid grid-cols-4 gap-4 text-center text-xs">
             <div className="border-t border-slate-400 pt-2 font-mono">
               <div className="font-bold text-slate-900">Lead Quantity Surveyor</div>
-              <div className="text-[10px] text-slate-500">Gouse AI Q.S. Division</div>
+              <div className="text-[10px] text-slate-500">Gouse AI Agent Q.S. Division</div>
             </div>
             <div className="border-t border-slate-400 pt-2 font-mono">
               <div className="font-bold text-slate-900">Principal Architect</div>
