@@ -4,6 +4,7 @@ export type ReportHandoffStatus = 'QUEUED' | 'SAQLAIN_REVIEW' | 'GOUSE_REVIEW' |
 
 export interface SaqlainBackupAgent { id:string; name:string; mission:string; intervalMinutes:30; canDeleteSourceFiles:false; canOverwriteSourceFiles:false; }
 export interface BackupTaskLock { taskId:string; agentId:string|null; status:BackupTaskStatus; lockedAt:string|null; leaseUntil:string|null; attempt:number; }
+export type ReportHandoffStatus = 'QUEUED' | 'SAQLAIN_REVIEW' | 'GOUSE_REVIEW' | 'ACCEPTED' | 'REJECTED';
 export interface BackupReport { taskId:string; agentId:string; status:'COMPLETED'|'FAILED'; createdAt:string; filesCopied:number; source:'gouse-ai'|'saqlain-ai'|'protected-files'; checksum?:string; notes?:string; }
 
 export const SAQLAIN_BACKUP_TEAM: readonly SaqlainBackupAgent[] = Object.freeze([
@@ -17,10 +18,13 @@ export const SAQLAIN_BACKUP_TEAM: readonly SaqlainBackupAgent[] = Object.freeze(
 export const SAQLAIN_BACKUP_INTERVAL_MINUTES=30;
 export const SAQLAIN_MANAGER_ID_START=1010;
 export const SAQLAIN_MANAGER_ID_STEP=2;
+export const SAQLAIN_MANAGER_ID_START=1010;
+export const SAQLAIN_MANAGER_ID_STEP=2;
 export const SAQLAIN_TASK_ID_START=1;
 export const SAQLAIN_TASK_ID_STEP=2;
 export const SAQLAIN_BACKUP_POLICY=Object.freeze({originalsRemainUntouched:true,deleteOriginals:false,overwriteOriginals:false,overwriteVerifiedBackups:false,externalAccess:false,exclusiveTaskLock:true,reportFlow:['queue-manager','saqlain-ai','gouse-ai'] as const,duplicateReportForHandoff:false});
 
+export function formatBackupManagerTaskId(sequence:number):string { if(!Number.isInteger(sequence)||sequence<1) throw new Error('sequence must be a positive integer'); return (SAQLAIN_MANAGER_ID_START+(sequence-1)*SAQLAIN_MANAGER_ID_STEP).toString().padStart(5,'0'); }
 export function formatBackupManagerTaskId(sequence:number):string { if(!Number.isInteger(sequence)||sequence<1) throw new Error('sequence must be a positive integer'); return (SAQLAIN_MANAGER_ID_START+(sequence-1)*SAQLAIN_MANAGER_ID_STEP).toString().padStart(5,'0'); }
 export function formatBackupTaskId(sequence:number):string { if(!Number.isInteger(sequence)||sequence<1) throw new Error('sequence must be a positive integer'); return (SAQLAIN_TASK_ID_START+(sequence-1)*SAQLAIN_TASK_ID_STEP).toString().padStart(4,'0'); }
 export function createBackupTask(sequence:number):BackupTaskLock { return {taskId:formatBackupTaskId(sequence),agentId:null,status:'UNASSIGNED',lockedAt:null,leaseUntil:null,attempt:0}; }
