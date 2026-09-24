@@ -416,9 +416,9 @@ export const BOQView: React.FC<BOQViewProps> = ({
   // Send Tender Enquiry modal
   const [isEnquiryModal, setIsEnquiryModal] = useState(false);
   const [enquirySuccess, setEnquirySuccess] = useState(false);
-  const [enquiryClientName, setEnquiryClientName] = useState('Ar. Gouse');
-  const [enquiryClientEmail, setEnquiryClientEmail] = useState('principal@gouseai.com');
-  const [enquiryClientPhone, setEnquiryClientPhone] = useState('+91 98450 12345');
+  const [enquiryClientName, setEnquiryClientName] = useState('Ar. S. Gouse');
+  const [enquiryClientEmail, setEnquiryClientEmail] = useState('sgouse14@gmail.com');
+  const [enquiryClientPhone, setEnquiryClientPhone] = useState('+91 8073947241');
   const [enquiryTenderNotes, setEnquiryTenderNotes] = useState('');
 
   // Add Item form state

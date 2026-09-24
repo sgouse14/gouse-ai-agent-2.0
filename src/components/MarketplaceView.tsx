@@ -110,8 +110,8 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
   const [enquiryMessage, setEnquiryMessage] = useState('');
   const [enquiryBudget, setEnquiryBudget] = useState('');
   const [enquiryClientName, setEnquiryClientName] = useState('Ar. S. Gouse');
-  const [enquiryClientEmail, setEnquiryClientEmail] = useState('architect@studio.com');
-  const [enquiryClientPhone, setEnquiryClientPhone] = useState('+91 98450 12345');
+  const [enquiryClientEmail, setEnquiryClientEmail] = useState('sgouse14@gmail.com');
+  const [enquiryClientPhone, setEnquiryClientPhone] = useState('+91 8073947241');
   const [enquirySentSuccess, setEnquirySentSuccess] = useState(false);
   const [sendViaWhatsApp, setSendViaWhatsApp] = useState<boolean>(true);
   const [autoRequestQuoteOnSubmit, setAutoRequestQuoteOnSubmit] = useState<boolean>(true);
@@ -119,15 +119,15 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
 
   // User Profile Form State
   const [profileType, setProfileType] = useState<ProfessionalType>('architect');
-  const [profileName, setProfileName] = useState('Ar. Principal Architect');
-  const [profileCompany, setProfileCompany] = useState('Design & Build Architectural Practice');
+  const [profileName, setProfileName] = useState('Ar. S. Gouse');
+  const [profileCompany, setProfileCompany] = useState('Gouse AI Architecture & Construction');
   const [profileLocation, setProfileLocation] = useState('Bangalore, Karnataka');
   const [profileAddress, setProfileAddress] = useState(
-    'Architectural Design Studio & Experience Center, Bangalore, Karnataka'
+    'Sector 2, 27th Main Rd, HSR Layout, Bangalore, Karnataka 560102'
   );
-  const [profilePhone, setProfilePhone] = useState('+91 98450 12345');
-  const [profileWhatsapp, setProfileWhatsapp] = useState('+91 98450 12345');
-  const [profileEmail, setProfileEmail] = useState('principal@archstudio.com');
+  const [profilePhone, setProfilePhone] = useState('+91 8073947241');
+  const [profileWhatsapp, setProfileWhatsapp] = useState('+91 8073947241');
+  const [profileEmail, setProfileEmail] = useState('sgouse14@gmail.com');
   const [profileWebsite, setProfileWebsite] = useState('https://archstudio.com');
   const [profileServices, setProfileServices] = useState(
     'Architectural Planning, 3D Photorealistic Elevations, Interior Design, Turnkey Civil Contracting, BOQ & Quantity Takeoffs, Municipal Sanctions'

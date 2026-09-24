@@ -394,7 +394,7 @@ I operate as an **Autonomous Engineering & Municipal Agent**:
       (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
 
     if (!SpeechRecognition) {
-      alert('Speech Recognition is not supported in this browser. Please use Chrome, Edge, or Safari.');
+      console.warn('Speech Recognition is not supported in this browser. Please use Chrome, Edge, or Safari.');
       return;
     }
 

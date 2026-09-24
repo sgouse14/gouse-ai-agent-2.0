@@ -45,6 +45,8 @@ export interface AuditEvent {
   timestamp: string;
 }
 
+export type CurrencyCode = 'INR' | 'USD' | 'EUR' | 'GBP' | 'AED';
+
 export interface Project {
   id: string;
   name: string;
@@ -55,6 +57,8 @@ export interface Project {
   builtUpAreaSqFt?: number;
   contingencyPercent?: number;
   floors?: BuildingFloor[];
+  currency?: CurrencyCode;
+  pgPropertyDetails?: PgPropertyDetails;
   files: ProjectFile[];
   analyses: AnalysisReport[];
   members: TeamMember[];
@@ -252,5 +256,85 @@ export interface ChatMessage {
   agentThought?: string;
   agentToolsUsed?: string[];
   agentActions?: AgentAction[];
+}
+
+export type PgRoomType =
+  | 'Single Private Room'
+  | 'Double Sharing'
+  | 'Triple Sharing'
+  | 'Four Sharing'
+  | '1BHK Suite / Floor'
+  | '2BHK Family Flat'
+  | 'Studio Apartment';
+
+export type PgOccupancyStatus = 'Available' | 'Occupied' | 'Under Maintenance';
+
+export interface PgHouseRoomUnit {
+  id: string;
+  roomNumber: string;
+  floorName: string;
+  roomType: PgRoomType;
+  totalBeds: number;
+  occupiedBeds: number;
+  rentPerBedMonthly: number;
+  securityDeposit: number;
+  furnishing: 'Fully Furnished' | 'Semi Furnished' | 'Semi-Furnished' | 'Unfurnished';
+  hasAttachedBath: boolean;
+  hasBalcony: boolean;
+  hasAirConditioning: boolean;
+  notes?: string;
+  imageUrl?: string;
+}
+
+export interface PgGalleryImage {
+  id: string;
+  title: string;
+  category: 'Exterior' | 'Bedroom' | 'Dining & Lounge' | 'Washroom' | 'Terrace';
+  imageUrl: string;
+  caption: string;
+}
+
+export interface PgHouseAmenities {
+  wifi: boolean;
+  cctv: boolean;
+  powerBackup: boolean;
+  washingMachine: boolean;
+  roWater: boolean;
+  housekeeping: boolean;
+  parking: boolean;
+  solarWater: boolean;
+  refrigerator: boolean;
+  fingerprintAccess: boolean;
+  messMeals: boolean;
+  gymOrFitness: boolean;
+}
+
+export interface BangaloreLocalDetails {
+  locality: string;
+  zone: 'South Bangalore' | 'East Bangalore' | 'Central Bangalore' | 'Electronic City Hub' | 'North Bangalore';
+  nammaMetroStation?: string;
+  waterSupply: string;
+  bescomPower: string;
+  foodMenuNotes?: string;
+  bbmpApprovalKhata?: string;
+  nearbyTechParks?: string[];
+}
+
+export interface PgPropertyDetails {
+  propertyName: string;
+  propertyType: 'PG / Co-Living Facility' | 'Independent House / Rental Floors' | 'Hybrid PG & House' | 'Luxury Villa & Apartments';
+  genderCategory: 'Coliving (Unisex)' | 'Gents PG' | 'Ladies PG' | 'Family & Working Professionals';
+  targetAudience: string;
+  foodIncluded: boolean;
+  foodType: string;
+  noticePeriodDays: number;
+  gateClosingTime: string;
+  contactPerson: string;
+  contactPhone: string;
+  depositMonths: number;
+  amenities: PgHouseAmenities;
+  images?: PgGalleryImage[];
+  rooms: PgHouseRoomUnit[];
+  bangaloreDetails?: BangaloreLocalDetails;
 }
 

@@ -28,11 +28,32 @@ app.get('/ping', (_req, res) => {
   res.status(200).send('pong');
 });
 
+// Official Contact details for Ar. S. Gouse
+export const OFFICIAL_CONTACT = {
+  name: 'Ar. S. Gouse',
+  phone: '+91 8073947241',
+  rawPhone: '8073947241',
+  whatsapp: '+918073947241',
+  whatsappUrl: 'https://wa.me/918073947241',
+  email: 'sgouse14@gmail.com',
+  company: 'Gouse AI Architecture & UrbanNest Co-Living',
+  location: 'Bangalore, Karnataka, India',
+};
+
+// Contact endpoint for frontend & external integrations
+app.get('/api/contact', (_req, res) => {
+  res.json(OFFICIAL_CONTACT);
+});
+
 // Health endpoint
 app.get('/api/health', (req, res) => {
   res.json({
     status: 'ok',
     agent: 'Gouse AI - Architecture & Construction Intelligence',
+    owner: 'Ar. S. Gouse',
+    phone: '+91 8073947241',
+    whatsapp: '+918073947241',
+    email: 'sgouse14@gmail.com',
     version: '3.8.0',
     model: 'gemini-3.8-flash',
     features: [

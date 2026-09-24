@@ -26,6 +26,8 @@ import {
   Building,
   RotateCcw,
   Sliders,
+  Home,
+  Bed,
 } from 'lucide-react';
 import { Project, BOQItem, BuildingFloor } from '../types';
 import { formatCurrency, CurrencyCode } from '../utils/formatters';
@@ -138,6 +140,25 @@ const CAD_PLAN_PRESETS: CadPlanPreset[] = [
     permissibleFar: 2.25,
     maxGroundCoveragePct: 60,
   },
+  {
+    id: 'cad-05',
+    fileName: 'PG_House_Executive_Coliving.dwg',
+    planName: 'G+3 Executive PG House & Co-Living',
+    description: 'Purpose-built PG House with 18 studio rooms, dining hall, shared lounge, attached baths, and commercial-residential compliance under GBA / Nambike Nakshe 2.0',
+    sitePlotLengthFt: 60,
+    sitePlotWidthFt: 35,
+    frontSetbackFt: 8,
+    rearSetbackFt: 5,
+    leftSetbackFt: 3.5,
+    rightSetbackFt: 3.5,
+    floorsCount: 4,
+    staircaseCutoutAreaSqFt: 180,
+    liftShaftAreaSqFt: 60,
+    ventCutoutAreaSqFt: 80,
+    governingAuthority: 'GBA PG / Co-Living Guidelines & Nambike Nakshe 2.0',
+    permissibleFar: 2.1,
+    maxGroundCoveragePct: 70,
+  },
 ];
 
 function generateDefaultFloors(count: number, areaPerFloor: number, floorHeightM = 3.3): BuildingFloor[] {
@@ -232,7 +253,7 @@ export const SequentialWorkflowEngineModal: React.FC<SequentialWorkflowEngineMod
   const [materialsApplied, setMaterialsApplied] = useState<boolean>(false);
   const [copiedPrompt, setCopiedPrompt] = useState<boolean>(false);
 
-  // Step 1 Sub-section view filter (Allows separating CAD Ingestion, ADS Area Deductions & Setbacks, and Floor Stacking)
+  // Step 1 Sub-section view filter (Allows separating CAD Ingestion, ADS Area Deductions & Setbacks, Floor Stacking)
   const [step1SubSection, setStep1SubSection] = useState<'all' | 'cad' | 'ads' | 'stacking'>('all');
 
   if (!isOpen) return null;

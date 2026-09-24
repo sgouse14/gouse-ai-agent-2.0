@@ -7,6 +7,7 @@ import { MarketplaceView } from './components/MarketplaceView';
 import { MaterialsView } from './components/MaterialsView';
 import { SpecialistChatView } from './components/SpecialistChatView';
 import { SequentialWorkflowEngineModal } from './components/SequentialWorkflowEngineModal';
+import { PgHousePropertyListingSection } from './components/PgHousePropertyListingSection';
 import {
   INITIAL_PROJECTS,
   INITIAL_BOQ_ITEMS,
@@ -298,6 +299,28 @@ export function App() {
             onCreateProject={handleCreateProject}
             onOpenWorkflowEngine={() => setIsWorkflowEngineOpen(true)}
           />
+        )}
+
+        {activeTab === 'pg_coliving' && (
+          <div className="max-w-7xl mx-auto px-4 lg:px-8 py-6 space-y-6">
+            <PgHousePropertyListingSection
+              project={activeProject}
+              onUpdateProject={handleUpdateProject}
+              currency={currency}
+              mode="pg"
+            />
+          </div>
+        )}
+
+        {activeTab === 'rent_house' && (
+          <div className="max-w-7xl mx-auto px-4 lg:px-8 py-6 space-y-6">
+            <PgHousePropertyListingSection
+              project={activeProject}
+              onUpdateProject={handleUpdateProject}
+              currency={currency}
+              mode="rent_house"
+            />
+          </div>
         )}
 
         {activeTab === 'boq' && (

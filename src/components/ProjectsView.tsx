@@ -17,6 +17,7 @@ import {
   Zap,
   Scale,
   Building2,
+  Building,
   Calculator,
   Layers,
   ArrowRight,
@@ -47,9 +48,12 @@ import {
   Radio,
   UserCheck,
   Phone,
+  Home,
+  Bed,
 } from 'lucide-react';
 import { Project, ProjectFile, AnalysisReport, TeamMember, AuditEvent } from '../types';
 import { formatDate } from '../utils/formatters';
+import { PgHousePropertyListingSection } from './PgHousePropertyListingSection';
 
 interface ProjectsViewProps {
   projects: Project[];
@@ -68,7 +72,7 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
   onCreateProject,
   onOpenWorkflowEngine,
 }) => {
-  const [activeTab, setActiveTab] = useState<'overview' | 'files' | 'intelligence' | 'team' | 'social'>('intelligence');
+  const [activeTab, setActiveTab] = useState<'overview' | 'files' | 'intelligence' | 'team' | 'social' | 'pg_listing' | 'rent_house_listing'>('intelligence');
   const [isCreatingProject, setIsCreatingProject] = useState(false);
   const [newProjectName, setNewProjectName] = useState('');
   const [newProjectType, setNewProjectType] = useState('Residential Architecture');
@@ -779,6 +783,38 @@ Preliminary architectural audit and technical advisory for **${name || 'Project'
           <span>Social Ads &amp; Company Promotion</span>
           <span className="rounded bg-gradient-to-r from-pink-500/20 via-sky-500/20 to-red-500/20 text-amber-200 border border-amber-500/30 text-[10px] px-2 py-0.2 font-mono font-bold">
             INSTAGRAM • FACEBOOK • YOUTUBE ADS
+          </span>
+        </button>
+
+        <button
+          id="tab-btn-pg-listing"
+          onClick={() => setActiveTab('pg_listing')}
+          className={`flex items-center gap-2 px-4 py-2.5 text-xs font-medium border-b-2 transition ${
+            activeTab === 'pg_listing'
+              ? 'border-amber-400 text-amber-400 bg-amber-500/5'
+              : 'border-transparent text-slate-400 hover:text-slate-200'
+          }`}
+        >
+          <Building className="w-3.5 h-3.5 text-amber-400" />
+          <span>PG &amp; Co-Living</span>
+          <span className="rounded bg-gradient-to-r from-rose-500/20 to-amber-500/20 text-rose-300 border border-rose-500/30 text-[10px] px-2 py-0.2 font-mono font-bold">
+            BEDS • MESS
+          </span>
+        </button>
+
+        <button
+          id="tab-btn-rent-house"
+          onClick={() => setActiveTab('rent_house_listing')}
+          className={`flex items-center gap-2 px-4 py-2.5 text-xs font-medium border-b-2 transition ${
+            activeTab === 'rent_house_listing'
+              ? 'border-emerald-400 text-emerald-400 bg-emerald-500/5'
+              : 'border-transparent text-slate-400 hover:text-slate-200'
+          }`}
+        >
+          <Home className="w-3.5 h-3.5 text-emerald-400" />
+          <span>Rent House &amp; Flats</span>
+          <span className="rounded bg-gradient-to-r from-emerald-500/20 to-teal-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] px-2 py-0.2 font-mono font-bold">
+            1-4 BHK • VASTU
           </span>
         </button>
 
@@ -3158,6 +3194,30 @@ Preliminary architectural audit and technical advisory for **${name || 'Project'
           </div>
         );
       })()}
+
+      {/* Tab: PG & Co-Living Section */}
+      {activeTab === 'pg_listing' && (
+        <div className="space-y-4">
+          <PgHousePropertyListingSection
+            project={activeProject}
+            onUpdateProject={onUpdateProject}
+            currency={activeProject.currency || 'INR'}
+            mode="pg"
+          />
+        </div>
+      )}
+
+      {/* Tab: Rent House & Flats Section */}
+      {activeTab === 'rent_house_listing' && (
+        <div className="space-y-4">
+          <PgHousePropertyListingSection
+            project={activeProject}
+            onUpdateProject={onUpdateProject}
+            currency={activeProject.currency || 'INR'}
+            mode="rent_house"
+          />
+        </div>
+      )}
     </div>
   );
 };

@@ -47,10 +47,28 @@ function apiMiddlewarePlugin() {
         }
 
         try {
+          if (url === '/api/contact') {
+            return sendJson(res, {
+              name: 'Ar. S. Gouse',
+              role: 'Chief Architect & Director',
+              phone: '+91 8073947241',
+              rawPhone: '8073947241',
+              whatsapp: '+918073947241',
+              whatsappUrl: 'https://wa.me/918073947241',
+              email: 'sgouse14@gmail.com',
+              company: 'Gouse AI Architecture & UrbanNest Co-Living',
+              location: 'Bangalore, Karnataka, India',
+            });
+          }
+
           if (url === '/api/health') {
             return sendJson(res, {
               status: 'ok',
               agent: "ALVI's Architecture, Interior Designers & Construction - AI Intelligence",
+              owner: 'Ar. S. Gouse',
+              phone: '+91 8073947241',
+              whatsapp: '+918073947241',
+              email: 'sgouse14@gmail.com',
               version: '3.8.0',
               model: 'gemini-3.8-flash',
               features: [

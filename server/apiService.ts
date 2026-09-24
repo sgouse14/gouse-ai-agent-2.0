@@ -170,7 +170,8 @@ Always follow these architecture-specific operating principles:
    - Actionable Next Steps
 3. Clearly distinguish confirmed parameters from design assumptions.
 4. Do not present conceptual analysis as certified engineering or life-safety sign-off. Recommend registered architect/engineer verification where required.
-5. Be concise, highly professional, and insightful.`;
+5. Be concise, highly professional, and insightful.
+6. Principal Architect & Platform Lead: Ar. S. Gouse. Official Contact Phone / WhatsApp: +91 8073947241. Email: sgouse14@gmail.com. Provide direct consultation details when requested.`;
 
 export const LANGUAGE_PROMPT_MAP: Record<string, { name: string; native: string }> = {
   'en-IN': { name: 'English (Indian construction context)', native: 'English' },
@@ -1510,26 +1511,26 @@ function getVerifiedProfessionalsDirectory(
     {
       id: 'dir-11',
       professionalType: 'architect',
-      name: 'Ar. Priya Sundaram',
-      company: 'Studio Form & Void Architects',
-      bio: 'Award-winning sustainable architectural studio specializing in bioclimatic passive solar residences, institutional campuses, and mass timber structures. LEED AP and COA certified.',
-      services: 'Architectural Design, Master Planning, Sustainable Bioclimatic Modeling, Interior Architecture, Municipal Sanctions',
-      location: 'Bangalore & Chennai',
-      address: '42, 100ft Road, Indiranagar, Bangalore, Karnataka 560038',
+      name: 'Ar. S. Gouse',
+      company: 'Gouse AI Architecture & UrbanNest Co-Living',
+      bio: 'Principal Architect & Urbanist specializing in residential architecture, co-living & PG housing complexes, BIM coordination, and statutory approvals. Over 14 years of practice across Bangalore.',
+      services: 'Architectural Design, Master Planning, Sustainable Bioclimatic Modeling, PG & Housing Development, Municipal Sanctions',
+      location: 'Bangalore, Karnataka',
+      address: 'Sector 2, 27th Main Rd, HSR Layout, Bangalore, Karnataka 560102',
       verified: true,
       rating: 4.9,
-      completedProjects: 48,
+      completedProjects: 52,
       experienceYears: 14,
-      email: 'priya@studioformvoid.com',
-      phone: '+91 98450 12345',
-      whatsapp: '+91 98450 12345',
-      website: 'https://studioformvoid.com',
-      sourceUrl: 'https://studioformvoid.com',
-      sourceTitle: 'Studio Form & Void Official Portal',
+      email: 'sgouse14@gmail.com',
+      phone: '+91 8073947241',
+      whatsapp: '+91 8073947241',
+      website: 'https://gouse-ai.studio',
+      sourceUrl: 'https://gouse-ai.studio',
+      sourceTitle: 'Gouse AI Architecture Portal',
       isLiveSearch: true,
       liveStatus: 'online',
       leadTimeDays: 7,
-      deliveryCoverage: 'South India & Western Region'
+      deliveryCoverage: 'Bangalore & South India'
     },
     {
       id: 'dir-12',
@@ -2155,8 +2156,8 @@ Respond ONLY with valid, raw JSON (no markdown fences, no explanatory text) matc
     completedProjects: 45,
     experienceYears: 12,
     email: `contact@${companyName.toLowerCase().replace(/[^a-z0-9]/g, '') || 'studio'}.com`,
-    phone: '+91 98450 33421',
-    whatsapp: '+91 98450 33421',
+    phone: '+91 8073947241',
+    whatsapp: '+91 8073947241',
     website: `https://${companyName.toLowerCase().replace(/[^a-z0-9]/g, '') || 'studio'}.com`,
     specialties: ['Bespoke Architecture', 'Sustainable Design', 'Turnkey Fit-outs', 'BIM Coordination'],
     isAiGenerated: true,
