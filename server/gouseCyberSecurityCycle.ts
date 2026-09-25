@@ -49,20 +49,26 @@ export function createCycleAssignments(taskId: string, agentIds: string[]): Cycl
 }
 
 /** Re-check identity before every sensitive operation, not only at assignment time. */
-export function verifyAgentIdentity(
-  expectedAgentId: string,
-  presentedAgentId: string,
-): IdentityStatus {
+export function verifyAgentIdentity(expectedAgentId: string, presentedAgentId: string): IdentityStatus {
   if (!presentedAgentId || presentedAgentId !== expectedAgentId) return 'INVALID';
   return 'VALID';
 }
 
 /** A previously valid identity can still become a security event if it changes later. */
-export function holdOnIdentityInconsistency(
-  previous: IdentityStatus,
-  current: IdentityStatus,
-): boolean {
+export function holdOnIdentityInconsistency(previous: IdentityStatus, current: IdentityStatus): boolean {
   return previous === 'VALID' && current !== 'VALID';
+}
+
+/** Invalid identity blocks the sensitive action and holds the cycle for review. */
+export function authorizeSensitiveOperation(
+  expectedAgentId: string,
+  presentedAgentId: string,
+  previousIdentity: IdentityStatus = 'VALID',
+): { allowed: boolean; identityStatus: IdentityStatus; action: 'ALLOW' | 'HOLD' } {
+  const identityStatus = verifyAgentIdentity(expectedAgentId, presentedAgentId);
+  const inconsistent = holdOnIdentityInconsistency(previousIdentity, identityStatus);
+  const allowed = identityStatus === 'VALID' && !inconsistent;
+  return { allowed, identityStatus: inconsistent ? 'INCONSISTENT' : identityStatus, action: allowed ? 'ALLOW' : 'HOLD' };
 }
 
 export function buildCycleReport(input: {
