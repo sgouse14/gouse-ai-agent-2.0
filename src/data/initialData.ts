@@ -235,12 +235,62 @@ A purpose-built 5,200 sq.ft co-living asset yielding ~11.8% gross annual ROI in 
       }
     ],
     members: [
-      { id: 'mem-pg-1', name: 'Ar. S. Gouse (Lead Architect)', email: 'sgouse14@gmail.com', role: 'owner' }
+      {
+        id: 'mem-pg-1',
+        name: 'Gouse AI',
+        email: 'sgouse14@gmail.com',
+        role: 'owner',
+        avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=600&q=80',
+        department: 'Executive Leadership & AI Architecture',
+        phone: '+91 80739 47241',
+      }
     ],
     auditLogs: [
-      { id: 'log-pg-1', projectId: 'proj-pg-01', actor: 'Ar. S. Gouse', action: 'Project Created', details: 'Initialized UrbanNest Executive PG House property workspace', timestamp: '2026-03-14T09:00:00Z' }
+      { id: 'log-pg-1', projectId: 'proj-pg-01', actor: 'Gouse AI', action: 'Project Created', details: 'Initialized UrbanNest Executive PG House property workspace', timestamp: '2026-03-14T09:00:00Z' }
     ],
     createdAt: '2026-03-14T09:00:00Z'
+  },
+  {
+    id: 'proj-rent-01',
+    name: 'Prestige Green Glen - 1 to 4 BHK Rental Flats & Independent Houses',
+    projectType: 'Rent House, Flats & Luxury Apartments',
+    location: 'Bellandur / Outer Ring Road, Bangalore, Karnataka',
+    description: 'A premium 14-unit residential enclave offering East-facing 1BHK, 2BHK, 3BHK, and 4BHK duplex flats with 100% Vastu compliance, BWSSB Cauvery water, BESCOM 3-phase power, 24/7 security, modular kitchens, and verified lease agreements.',
+    status: 'construction',
+    builtUpAreaSqFt: 18500,
+    files: [
+      {
+        id: 'file-rent-01',
+        name: 'Prestige_Rental_Flats_MasterPlan_Vastu.pdf',
+        size: '5.2 MB',
+        type: 'application/pdf',
+        uploadDate: '2026-03-15',
+        extractedText: 'PRESTIGE RENTAL SUITES: 1BHK, 2BHK, 3BHK floor layouts with dedicated utility balconies, covered car parking, and EV charging stations.'
+      }
+    ],
+    analyses: [
+      {
+        id: 'an-rent-01',
+        title: 'Rental Yield & Vastu Compliance Audit: Prestige Green Glen',
+        timestamp: '2026-03-15T11:00:00Z',
+        focus: 'Rental Asset Yield & Tenant Profiling',
+        analysis: `## 1. Rental Flat Enclave Overview - Prestige Green Glen
+Features 14 high-demand residential flats generating solid recurring monthly cashflow in the Outer Ring Road IT belt.
+
+## 2. Vastu & Spatial Highlights
+- 100% East & North facing main entry doors.
+- Master bedrooms oriented South-West with cross-ventilation fenestrations.
+- Kitchens placed in Agni (South-East) zone compliant with classic architectural treatises.`
+      }
+    ],
+    members: [
+      { id: 'mem-rent-1', name: 'Gouse AI', email: 'sgouse14@gmail.com', role: 'owner' },
+      { id: 'mem-rent-2', name: 'Leasing & Property Management', email: 'sgouse14@gmail.com', role: 'quantity_surveyor' }
+    ],
+    auditLogs: [
+      { id: 'log-rent-1', projectId: 'proj-rent-01', actor: 'Gouse AI', action: 'Project Created', details: 'Initialized Prestige Rental Flats & Houses workspace', timestamp: '2026-03-15T10:00:00Z' }
+    ],
+    createdAt: '2026-03-15T10:00:00Z'
   },
   {
     id: 'proj-001',
@@ -300,14 +350,14 @@ The Villa Serenity project presents a well-articulated biophilic response to the
       }
     ],
     members: [
-      { id: 'mem-1', name: 'Ar. Gouse (Principal)', email: 'principal@gouseai.com', role: 'owner' },
+      { id: 'mem-1', name: 'Gouse AI', email: 'principal@gouseai.com', role: 'owner' },
       { id: 'mem-2', name: 'Priya Sundaram', email: 'priya@studioformvoid.com', role: 'architect' },
       { id: 'mem-3', name: 'Er. Rajesh K.', email: 'rajesh@apexstructures.in', role: 'structural_engineer' },
       { id: 'mem-4', name: 'Sameer Sen (Client)', email: 'client.sen@outlook.com', role: 'client' }
     ],
     auditLogs: [
-      { id: 'log-01', projectId: 'proj-001', actor: 'Ar. Gouse', action: 'Project Initialized', details: 'Created Villa Serenity architectural project profile', timestamp: '2026-03-10T09:15:00Z' },
-      { id: 'log-02', projectId: 'proj-001', actor: 'Ar. Gouse', action: 'Drawing Attached', details: 'Uploaded Villa_Floorplan_Schematic_L1.pdf', timestamp: '2026-03-10T10:45:00Z' },
+      { id: 'log-01', projectId: 'proj-001', actor: 'Gouse AI', action: 'Project Initialized', details: 'Created Villa Serenity architectural project profile', timestamp: '2026-03-10T09:15:00Z' },
+      { id: 'log-02', projectId: 'proj-001', actor: 'Gouse AI', action: 'Drawing Attached', details: 'Uploaded Villa_Floorplan_Schematic_L1.pdf', timestamp: '2026-03-10T10:45:00Z' },
       { id: 'log-03', projectId: 'proj-001', actor: 'Priya Sundaram', action: 'Intelligence Run', details: 'Executed Passive Solar & Cross-Ventilation Review audit', timestamp: '2026-03-12T14:30:00Z' }
     ],
     createdAt: '2026-03-10T09:15:00Z'
@@ -332,11 +382,11 @@ The Villa Serenity project presents a well-articulated biophilic response to the
     ],
     analyses: [],
     members: [
-      { id: 'mem-1', name: 'Ar. Gouse (Principal)', email: 'principal@gouseai.com', role: 'owner' },
+      { id: 'mem-1', name: 'Gouse AI', email: 'principal@gouseai.com', role: 'owner' },
       { id: 'mem-5', name: 'Vikramaditya Buildcon', email: 'contracts@vikramaditya.co.in', role: 'quantity_surveyor' }
     ],
     auditLogs: [
-      { id: 'log-04', projectId: 'proj-002', actor: 'Ar. Gouse', action: 'Project Initialized', details: 'Created Nexus Commercial Hub project space', timestamp: '2026-03-05T11:00:00Z' }
+      { id: 'log-04', projectId: 'proj-002', actor: 'Gouse AI', action: 'Project Initialized', details: 'Created Nexus Commercial Hub project space', timestamp: '2026-03-05T11:00:00Z' }
     ],
     createdAt: '2026-03-05T11:00:00Z'
   },
@@ -351,10 +401,10 @@ The Villa Serenity project presents a well-articulated biophilic response to the
     files: [],
     analyses: [],
     members: [
-      { id: 'mem-1', name: 'Ar. Gouse (Principal)', email: 'principal@gouseai.com', role: 'owner' }
+      { id: 'mem-1', name: 'Gouse AI', email: 'principal@gouseai.com', role: 'owner' }
     ],
     auditLogs: [
-      { id: 'log-05', projectId: 'proj-003', actor: 'Ar. Gouse', action: 'Project Initialized', details: 'Created Haveli Conservation project', timestamp: '2026-02-28T16:20:00Z' }
+      { id: 'log-05', projectId: 'proj-003', actor: 'Gouse AI', action: 'Project Initialized', details: 'Created Haveli Conservation project', timestamp: '2026-02-28T16:20:00Z' }
     ],
     createdAt: '2026-02-28T16:20:00Z'
   }

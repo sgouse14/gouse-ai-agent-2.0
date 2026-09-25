@@ -27,6 +27,11 @@ export interface AnalysisReport {
   analysis: string;
   timestamp: string;
   focus: string;
+  score?: number;
+  grade?: string;
+  standardsCited?: string[];
+  keyMetrics?: Array<{ label: string; value: string; status: 'good' | 'warning' | 'info' }>;
+  actionChecklist?: Array<{ id: string; text: string; completed: boolean; priority: 'high' | 'medium' | 'low' }>;
 }
 
 export interface TeamMember {
@@ -34,6 +39,9 @@ export interface TeamMember {
   name: string;
   email: string;
   role: 'owner' | 'architect' | 'structural_engineer' | 'mep_engineer' | 'quantity_surveyor' | 'client';
+  avatarUrl?: string;
+  department?: string;
+  phone?: string;
 }
 
 export interface AuditEvent {
@@ -336,5 +344,28 @@ export interface PgPropertyDetails {
   images?: PgGalleryImage[];
   rooms: PgHouseRoomUnit[];
   bangaloreDetails?: BangaloreLocalDetails;
+}
+
+export interface SocialMediaItem {
+  id: string;
+  projectId?: string;
+  type: 'photo' | 'video';
+  title: string;
+  caption: string;
+  url: string;
+  thumbnailUrl?: string;
+  fileName?: string;
+  fileSize?: string;
+  dimensions?: string;
+  aspectRatio: '16:9' | '9:16' | '1:1' | '4:5';
+  duration?: string;
+  platform: 'all' | 'instagram' | 'facebook' | 'youtube' | 'linkedin';
+  category: '3d_walkthrough' | 'site_elevation' | 'drone_aerial' | 'interior_design' | 'floor_plan' | 'slab_casting' | 'handover';
+  uploadedAt: string;
+  architectAttribution: string;
+  tags: string[];
+  likesCount?: number;
+  viewsCount?: number;
+  isFeatured?: boolean;
 }
 

@@ -1,7 +1,7 @@
 import React from 'react';
-import { Building2, Building, Home, Calculator, Store, Layers, Mic } from 'lucide-react';
+import { Building2, Building, Home, Calculator, Store, Layers, Mic, Share2 } from 'lucide-react';
 
-export type TabType = 'projects' | 'pg_coliving' | 'rent_house' | 'boq' | 'marketplace' | 'materials' | 'specialist';
+export type TabType = 'projects' | 'social' | 'pg_coliving' | 'rent_house' | 'boq' | 'marketplace' | 'materials' | 'specialist';
 
 interface NavigationProps {
   activeTab: TabType;
@@ -11,6 +11,7 @@ interface NavigationProps {
 export const Navigation: React.FC<NavigationProps> = ({ activeTab, onSelectTab }) => {
   const tabs = [
     { id: 'projects' as TabType, label: 'Projects & Workspace', icon: Building2, count: null },
+    { id: 'social' as TabType, label: 'Social & Media Hub', icon: Share2, badge: 'PHOTOS & VIDEOS' },
     { id: 'pg_coliving' as TabType, label: 'PG & Co-Living', icon: Building, badge: 'PG' },
     { id: 'rent_house' as TabType, label: 'Rent House & Flats', icon: Home, badge: 'RENT' },
     { id: 'boq' as TabType, label: 'BOQ & Estimation', icon: Calculator, count: null },

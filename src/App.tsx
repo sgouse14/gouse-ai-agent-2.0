@@ -8,6 +8,7 @@ import { MaterialsView } from './components/MaterialsView';
 import { SpecialistChatView } from './components/SpecialistChatView';
 import { SequentialWorkflowEngineModal } from './components/SequentialWorkflowEngineModal';
 import { PgHousePropertyListingSection } from './components/PgHousePropertyListingSection';
+import { SocialMediaStudio } from './components/SocialMediaStudio';
 import {
   INITIAL_PROJECTS,
   INITIAL_BOQ_ITEMS,
@@ -47,18 +48,31 @@ export function App() {
         const parsed: Project[] = JSON.parse(saved);
         const cleaned = parsed.filter((p) => p.id !== 'proj-alvi-01');
         if (cleaned.length > 0) {
-          return cleaned.map((p) => ({
-            ...p,
-            members: Array.isArray(p.members) && p.members.length > 0 ? p.members : [
-              { id: `mem-${p.id}-1`, name: 'Ar. S. Gouse', email: 'sgouse14@gmail.com', role: 'owner' },
-              { id: `mem-${p.id}-2`, name: 'Engineering & QS Team', email: 'sgouse14@gmail.com', role: 'quantity_surveyor' }
-            ],
-            auditLogs: Array.isArray(p.auditLogs) && p.auditLogs.length > 0 ? p.auditLogs : [
-              { id: `log-${p.id}-1`, projectId: p.id, actor: 'Ar. S. Gouse', action: 'Project Initialized', details: `Workspace initialized for ${p.name}`, timestamp: p.createdAt || new Date().toISOString() }
-            ],
-            files: Array.isArray(p.files) ? p.files : [],
-            analyses: Array.isArray(p.analyses) ? p.analyses : [],
-          }));
+          const existingIds = new Set(cleaned.map((p) => p.id));
+          const missingInitial = INITIAL_PROJECTS.filter((p) => !existingIds.has(p.id));
+          const combined = [...cleaned, ...missingInitial];
+          return combined.map((p) => {
+            const rawMembers = Array.isArray(p.members) && p.members.length > 0 ? p.members : [
+              { id: `mem-${p.id}-1`, name: 'Gouse AI', email: 'sgouse14@gmail.com', role: 'owner' as const },
+              { id: `mem-${p.id}-2`, name: 'Engineering & QS Team', email: 'sgouse14@gmail.com', role: 'quantity_surveyor' as const }
+            ];
+            // Ensure company lead name is Gouse AI
+            const updatedMembers = rawMembers.map((m) => {
+              if (m.role === 'owner' || m.name.toLowerCase().includes('gouse') || m.name.toLowerCase().includes('principal')) {
+                return { ...m, name: 'Gouse AI', role: 'owner' as const };
+              }
+              return m;
+            });
+            return {
+              ...p,
+              members: updatedMembers,
+              auditLogs: Array.isArray(p.auditLogs) && p.auditLogs.length > 0 ? p.auditLogs : [
+                { id: `log-${p.id}-1`, projectId: p.id, actor: 'Gouse AI', action: 'Project Initialized', details: `Workspace initialized for ${p.name}`, timestamp: p.createdAt || new Date().toISOString() }
+              ],
+              files: Array.isArray(p.files) ? p.files : [],
+              analyses: Array.isArray(p.analyses) ? p.analyses : [],
+            };
+          });
         }
       }
       return INITIAL_PROJECTS;
@@ -195,16 +209,16 @@ export function App() {
       members: [
         {
           id: `mem-${Date.now()}`,
-          name: 'Ar. Gouse',
+          name: 'Gouse AI',
           email: 'principal@gouseai.com',
-          role: 'architect',
+          role: 'owner',
         },
       ],
       auditLogs: [
         {
           id: `log-${Date.now()}`,
           projectId: `proj-${Date.now()}`,
-          actor: 'Ar. Gouse',
+          actor: 'Gouse AI',
           action: 'Project Created',
           details: `Initial project setup for ${newProj.name}`,
           timestamp: new Date().toISOString(),
@@ -298,7 +312,17 @@ export function App() {
             onUpdateProject={handleUpdateProject}
             onCreateProject={handleCreateProject}
             onOpenWorkflowEngine={() => setIsWorkflowEngineOpen(true)}
+            currency={currency}
           />
+        )}
+
+        {activeTab === 'social' && (
+          <div className="max-w-7xl mx-auto px-4 lg:px-8 py-6 space-y-6">
+            <SocialMediaStudio
+              activeProject={activeProject}
+              onOpenWorkflowEngine={() => setIsWorkflowEngineOpen(true)}
+            />
+          </div>
         )}
 
         {activeTab === 'pg_coliving' && (
