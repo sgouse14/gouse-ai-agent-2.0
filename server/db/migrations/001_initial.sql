@@ -57,3 +57,25 @@ CREATE INDEX IF NOT EXISTS idx_customers_org ON customers(organization_id);
 CREATE INDEX IF NOT EXISTS idx_enquiries_org_status ON enquiries(organization_id, status);
 CREATE INDEX IF NOT EXISTS idx_enquiries_customer ON enquiries(customer_id);
 CREATE INDEX IF NOT EXISTS idx_audit_org_created ON audit_events(organization_id, created_at DESC);
+
+CREATE TABLE IF NOT EXISTS agent_task_events (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  task_id UUID NOT NULL,
+  from_agent TEXT NOT NULL,
+  to_agent TEXT NOT NULL,
+  action TEXT NOT NULL,
+  status TEXT NOT NULL,
+  language TEXT,
+  payload JSONB NOT NULL DEFAULT '{}'::jsonb,
+  result JSONB,
+  error TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  completed_at TIMESTAMPTZ
+);
+
+CREATE INDEX IF NOT EXISTS idx_agent_task_events_org_created
+  ON agent_task_events(organization_id, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_agent_task_events_task
+  ON agent_task_events(task_id);
