@@ -2,6 +2,7 @@ import express from 'express';
 import path from 'path';
 import fs from 'fs';
 import crmRouter from './server/crm/router';
+import agentRouter from './server/api/agentRoutes';
 import {
   generateChatResponse,
   generateProjectIntelligence,
@@ -20,3 +21,4 @@ import {
 const app = express();
 app.use(express.json({ limit: '20mb' }));
 app.use('/api/v1', crmRouter);
+app.use('/api/v1', agentRouter);
