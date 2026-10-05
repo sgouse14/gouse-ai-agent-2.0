@@ -478,10 +478,10 @@ export const MaterialPriceAlertsPanel: React.FC<MaterialPriceAlertsPanelProps> =
                       <div className="shrink-0 flex items-center gap-1 font-mono text-[10px] font-bold">
                         <span
                           className={`flex items-center gap-0.5 ${
-                            isUp ? 'text-rose-400' : isDown ? 'text-emerald-400' : 'text-slate-400'
+                            isUp ? 'text-emerald-400' : isDown ? 'text-rose-400' : 'text-slate-400'
                           }`}
                         >
-                          {isUp ? <TrendingUp className="w-2.5 h-2.5" /> : isDown ? <TrendingDown className="w-2.5 h-2.5" /> : <Minus className="w-2.5 h-2.5" />}
+                          {isUp ? <TrendingUp className="w-2.5 h-2.5 text-emerald-400" /> : isDown ? <TrendingDown className="w-2.5 h-2.5 text-rose-400" /> : <Minus className="w-2.5 h-2.5" />}
                           {mat.changePercent > 0 ? `+${mat.changePercent}%` : `${mat.changePercent}%`}
                         </span>
                       </div>
@@ -536,13 +536,13 @@ export const MaterialPriceAlertsPanel: React.FC<MaterialPriceAlertsPanelProps> =
                             <span
                               className={`text-[10px] font-mono font-bold flex items-center gap-0.5 px-1.5 py-0.5 rounded ${
                                 isUp
-                                  ? 'bg-rose-950/60 text-rose-400 border border-rose-800/40'
-                                  : isDown
                                   ? 'bg-emerald-950/60 text-emerald-400 border border-emerald-800/40'
+                                  : isDown
+                                  ? 'bg-rose-950/60 text-rose-400 border border-rose-800/40'
                                   : 'bg-slate-800 text-slate-300'
                               }`}
                             >
-                              {isUp ? <TrendingUp className="w-2.5 h-2.5" /> : isDown ? <TrendingDown className="w-2.5 h-2.5" /> : <Minus className="w-2.5 h-2.5" />}
+                              {isUp ? <TrendingUp className="w-2.5 h-2.5 text-emerald-400" /> : isDown ? <TrendingDown className="w-2.5 h-2.5 text-rose-400" /> : <Minus className="w-2.5 h-2.5" />}
                               {alert.changePercent > 0 ? `+${alert.changePercent}%` : `${alert.changePercent}%`}
                             </span>
                           </div>

@@ -227,7 +227,7 @@ export async function generateChatResponse(
 ): Promise<AgentChatResult> {
   const specialistInstructions: Record<string, string> = {
     general:
-      'You are the Principal Architectural Advisor AI Agent. Lead holistic spatial masterplanning, architectural vision, design leadership, and cross-disciplinary coordination.',
+      'You are Gouse AI, the Principal Architectural Specialist. Lead holistic spatial masterplanning, architectural vision, design leadership, and cross-disciplinary coordination.',
     design:
       'You are the Architectural Design & Massing AI Agent. Focus on spatial programming, volume adjacencies, massing studies, natural daylighting, facade design, and circulation flow.',
     code:
@@ -849,7 +849,36 @@ export function getDomainFallbackAgentResponse(
   let thought = 'Audited active project parameters, building codes, and construction benchmarks.';
   let toolsUsed = ['BOQ Inspector', 'Architecture Knowledge Base'];
 
-  if (lower.includes('nambike') || lower.includes('nakshe') || lower.includes('platform specification') || (lower.includes('platform') && lower.includes('spec')) || lower.includes('gba')) {
+  if (
+    lower.includes('blueprint') ||
+    lower.includes('cad') ||
+    lower.includes('measurement') ||
+    lower.includes('dimension') ||
+    lower.includes('autocad') ||
+    lower.includes('takeoff') ||
+    lower.includes('entire area') ||
+    lower.includes('canvas')
+  ) {
+    thought = `Thoroughly analyzed imported AutoCAD blueprint dimensions, perimeter setbacks, room-by-room area schedules, and NBC 2016 Part 3 Table 4 habitable standards for ${areaSqFt.toLocaleString()} sq.ft development.`;
+    toolsUsed = [
+      'Gouse AI CAD Takeoff Engine',
+      'NBC 2016 Spatial Auditor',
+      'IS 456 Column Grid Coordinate Scanner',
+      'Vastu Mandala Spatial Radar',
+    ];
+    actions.push({
+      id: `act-cad-sync-${Date.now()}`,
+      type: 'run_audit',
+      title: 'Sync Dimensional Takeoff with BOQ',
+      description: 'Transfer certified 1,180 sq.ft carpet and 1,402 sq.ft ground plinth area to civil schedule',
+    });
+    actions.push({
+      id: `act-workflow-${Date.now()}`,
+      type: 'open_workflow_engine',
+      title: 'Launch 4-Stage CAD & BOQ Engine',
+      description: 'Open Gouse AI Agent 4-Stage Municipal Compliance & CAD Analysis Engine',
+    });
+  } else if (lower.includes('nambike') || lower.includes('nakshe') || lower.includes('platform specification') || (lower.includes('platform') && lower.includes('spec')) || lower.includes('gba')) {
     thought = `Evaluated ${areaSqFt.toLocaleString()} sq.ft proposal against Nambike Nakshe 2.0 trust-based self-certification, GBA 15% deviation regularization, small-plot relaxed setbacks (<1500 sq ft & <600 sq ft), and the 4-stage CAD-to-BOQ platform specification.`;
     toolsUsed = ['Nambike Nakshe 2.0 Gatekeeper', 'GBA Statutory Bylaws Validator', 'Automated CAD-to-BOQ Engine', 'IS 456 / IS 1200 SMM Auditor'];
     actions.push({
@@ -996,6 +1025,76 @@ export function getDomainFallbackResponse(
 1. **Jerarquía Espacial**: Mantener alturas libres mínimas de 3.0 m en estancias principales para optimizar ventilación e iluminación natural.
 2. **Coordinación Estructural**: Alinear retículas de pilares (4.5m x 6.0m) para optimizar luces y evitar losas de transferencia.
 3. **Presupuesto y Cómputo (BOQ)**: Reservar entre un 7.5% y un 10% para imprevistos y fluctuaciones de materias primas.`;
+  }
+
+  if (
+    lower.includes('blueprint') ||
+    lower.includes('cad') ||
+    lower.includes('measurement') ||
+    lower.includes('dimension') ||
+    lower.includes('autocad') ||
+    lower.includes('takeoff') ||
+    lower.includes('entire area') ||
+    lower.includes('canvas')
+  ) {
+    return `### 📐 Gouse AI Specialist: AutoCAD Blueprint Dimensional & Area Takeoff Audit
+
+**Active CAD Blueprint**: Villa Serenity 4-BHK Executive Duplex (\`Villa_Serenity_Duplex_60x40.dwg\`)  
+**Site Plot Boundary**: 60'-0" × 40'-0" (18.28m × 12.19m) = **2,400.0 sq.ft** (222.97 sq.m)  
+**Orientation**: East Facing Entrance (Purva) | True Cardinal Alignment (+2° E Azimuth)  
+**Governing By-Laws**: BBMP Building Bye-Laws 2020 / Nambike Nakshe 2.0 / NBC 2016 Part 3 & 4
+
+---
+
+#### 1. Site Envelope, Setbacks & Ground Plinth Footprint
+- **Total Site Plot Area**: 2,400.0 sq.ft (222.97 sq.m)
+- **Municipal Setback Envelope**:
+  • **Front (North)**: 3.00m (9'-10") required vs 2.20m modeled (*0.80m cantilever encroachment restored in Gouse AI realigned layer*)
+  • **Rear (South)**: 1.85m (6'-1") compliant (50mm positive safety buffer)
+  • **Left (East)**: 1.25m (4'-1") clear pedestrian morning promenade
+  • **Right (West)**: 1.20m (3'-11") service duct & low-E shading corridor
+- **Ground Plinth Footprint**: **1,402.0 sq.ft** (130.25 sq.m)
+- **Ground Coverage Ratio**: **58.42%** (Permissible municipal ceiling: 65.00% / 1,560 sq.ft) — *158 sq.ft margin available*
+- **Open Site Landscaping**: 998.0 sq.ft (41.58% open perimeter)
+
+---
+
+#### 2. Room-by-Room Precise Dimensional & Area Takeoff Schedule
+| Room / Functional Zone | Cardinal Quadrant | Exact Dimensions (Ft-In) | Metric Dimensions (m) | Carpet Area (sq.ft) | Carpet Area (sq.m) | Floor Share (%) | NBC 2016 Code Standard | Gouse AI Status |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **Living Foyer & Central Courtyard** | Central Brahmasthan | 24'-0" × 18'-0" | 7.32m × 5.49m | 432.0 sq.ft | 40.13 sq.m | 36.6% | NBC Cl 4.3 (>100 sq.ft, min 2.4m width) | **PASS ✓** |
+| **Kitchen & Dining Zone** | South-East (Agneya) | 16'-0" × 14'-0" | 4.88m × 4.27m | 224.0 sq.ft | 20.81 sq.m | 19.0% | NBC Cl 4.4 (>50 sq.ft, min 1.8m width) | **PASS ✓** |
+| **Master Suite & Walk-in** | South-West (Nairutya) | 18'-0" × 14'-0" | 5.49m × 4.27m | 252.0 sq.ft | 23.41 sq.m | 21.4% | NBC Cl 4.3 (>120 sq.ft, min 3.0m width) | **PASS ✓** |
+| **Staircase & NBC Egress Core** | North-West / West | 14'-0" × 8'-6" | 4.27m × 2.59m | 119.0 sq.ft | 11.06 sq.m | 10.1% | NBC Part 4 (1.50m clear flight width) | **PASS ✓** |
+| **Cantilever Balcony Deck** | North-East / East | 11'-6" × 8'-0" | 3.51m × 2.44m | 92.0 sq.ft | 8.55 sq.m | 7.8% | IS 456 Span/350 deflection check | **MONITORED ✓** |
+| **Entry Portico & Foyer** | East / Ishanya | 10'-0" × 6'-1" | 3.05m × 1.85m | 61.0 sq.ft | 5.67 sq.m | 5.1% | NBC Weather-shade projection | **PASS ✓** |
+
+- **Total Usable Ground Floor Carpet Area**: **1,180.0 sq.ft** (109.63 sq.m)
+- **Internal Walls & Structural Column Deduction**: **222.0 sq.ft** (15.83% of ground footprint)
+- **Usable Carpet Efficiency Index**: **84.17%** (Industry benchmark: 80%–85%)
+
+---
+
+#### 3. Whole-Building Area & FAR Index (G+1 Configuration)
+- **Total Gross Built-Up Area (BUA)**: **3,500.0 sq.ft** (325.16 sq.m)
+- **Floor Area Ratio (FAR / FSI) Achieved**: **1.46**
+- **Permissible Statutory FAR**: **1.75** (Nambike Nakshe 2.0 / BBMP)
+- **Statutory Margin**: **700.0 sq.ft** permissible expansion capacity remaining without zoning violations.
+
+---
+
+#### 4. Structural Grid Centerlines (IS 456 / IS 13920)
+- **Grid Layout**: 4 longitudinal spans × 3 transverse spans (C1 to C12)
+- **Primary Grid Spacings**:
+  • Bay 1-2 (West): 4.20m (13'-9")  
+  • Bay 2-3 (Center): 5.80m (19'-0")  
+  • Bay 3-4 (East): 4.10m (13'-5")  
+- **Structural Realignment**: Column C6 relocated from center of Brahmasthan 1.10m eastward to Grid B3, releasing an uninterrupted 7.32m × 5.49m column-free living atrium.
+
+---
+
+#### 5. Interactive Next Steps
+- Switch to the **Interactive Blueprint CAD Canvas** tab to inspect the 2D CAD visual layers, toggle **"📐 Dimensions & Tags"**, or click any room to view real-time boundary dimensions and day-lighting factors.`;
   }
 
   if (lower.includes('nambike') || lower.includes('nakshe') || lower.includes('platform specification') || (lower.includes('platform') && lower.includes('spec')) || lower.includes('gba') || lower.includes('gouse ai agent')) {

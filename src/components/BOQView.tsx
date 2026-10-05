@@ -14,6 +14,7 @@ import {
   AlertCircle,
   Building,
   TrendingUp,
+  TrendingDown,
   Gauge,
   Send,
   RefreshCw,
@@ -2789,10 +2790,27 @@ Contact: ${enquiryClientPhone}`,
                                 </span>
                               );
                             }
+                            const isRising = match.rateDelta > 0;
+                            const isFalling = match.rateDelta < 0;
                             return (
                               <div className="mt-0.5 flex items-center gap-1 text-[9px] font-mono">
-                                <span className={match.rateDelta > 0 ? 'text-amber-400' : 'text-sky-400'}>
-                                  Mkt: ₹{match.marketRate.toLocaleString()} ({match.percentDelta > 0 ? `+${match.percentDelta}%` : `${match.percentDelta}%`})
+                                <span
+                                  className={`flex items-center gap-0.5 font-bold ${
+                                    isRising
+                                      ? 'text-emerald-400'
+                                      : isFalling
+                                      ? 'text-rose-400'
+                                      : 'text-slate-400'
+                                  }`}
+                                >
+                                  {isRising ? (
+                                    <TrendingUp className="w-2.5 h-2.5 text-emerald-400" />
+                                  ) : isFalling ? (
+                                    <TrendingDown className="w-2.5 h-2.5 text-rose-400" />
+                                  ) : null}
+                                  <span>
+                                    Mkt: ₹{match.marketRate.toLocaleString()} ({match.percentDelta > 0 ? `+${match.percentDelta}%` : `${match.percentDelta}%`})
+                                  </span>
                                 </span>
                                 <button
                                   type="button"

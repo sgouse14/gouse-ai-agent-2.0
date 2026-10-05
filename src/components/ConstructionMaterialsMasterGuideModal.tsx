@@ -302,23 +302,23 @@ export const ConstructionMaterialsMasterGuideModal: React.FC<ConstructionMateria
                 onClick={() => setSelectedTrend('up')}
                 className={`px-2 py-1 rounded-lg text-[10px] font-mono transition flex items-center gap-0.5 ${
                   selectedTrend === 'up'
-                    ? 'bg-rose-500/30 text-rose-300 border border-rose-500/50 font-bold'
+                    ? 'bg-emerald-500/30 text-emerald-300 border border-emerald-500/50 font-bold'
                     : 'bg-slate-850 text-slate-400 hover:bg-slate-800'
                 }`}
               >
-                <TrendingUp className="w-3 h-3 text-rose-400" />
-                <span>Rising</span>
+                <TrendingUp className="w-3 h-3 text-emerald-400" />
+                <span>Rising (Green)</span>
               </button>
               <button
                 onClick={() => setSelectedTrend('down')}
                 className={`px-2 py-1 rounded-lg text-[10px] font-mono transition flex items-center gap-0.5 ${
                   selectedTrend === 'down'
-                    ? 'bg-emerald-500/30 text-emerald-300 border border-emerald-500/50 font-bold'
+                    ? 'bg-rose-500/30 text-rose-300 border border-rose-500/50 font-bold'
                     : 'bg-slate-850 text-slate-400 hover:bg-slate-800'
                 }`}
               >
-                <TrendingDown className="w-3 h-3 text-emerald-400" />
-                <span>Falling</span>
+                <TrendingDown className="w-3 h-3 text-rose-400" />
+                <span>Falling (Red)</span>
               </button>
             </div>
 
@@ -485,34 +485,63 @@ export const ConstructionMaterialsMasterGuideModal: React.FC<ConstructionMateria
                           </div>
 
                           {/* Live Spot Market Price & Trend Panel */}
-                          <div className="p-2.5 rounded-lg bg-slate-950/90 border border-amber-500/30">
+                          <div
+                            className={`p-2.5 rounded-lg transition-colors ${
+                              brand.trend === 'up'
+                                ? 'bg-gradient-to-r from-emerald-950/40 via-slate-950 to-slate-950 border border-emerald-500/40 shadow-sm'
+                                : brand.trend === 'down'
+                                ? 'bg-gradient-to-r from-rose-950/40 via-slate-950 to-slate-950 border border-rose-500/40 shadow-sm'
+                                : 'bg-slate-950/90 border border-slate-800'
+                            }`}
+                          >
                             <div className="flex items-center justify-between gap-2">
                               <div>
-                                <span className="text-[9px] uppercase font-bold text-slate-400 block">
-                                  Live Spot Price
+                                <span className="text-[9px] uppercase font-bold text-slate-400 flex items-center gap-1.5">
+                                  <span
+                                    className={`w-1.5 h-1.5 rounded-full ${
+                                      brand.trend === 'up'
+                                        ? 'bg-emerald-400 animate-pulse'
+                                        : brand.trend === 'down'
+                                        ? 'bg-rose-400 animate-pulse'
+                                        : 'bg-slate-500'
+                                    }`}
+                                  />
+                                  <span>Live Spot Price</span>
                                 </span>
-                                <div className="text-amber-300 font-bold text-sm sm:text-base flex items-baseline gap-1">
+                                <div
+                                  className={`font-bold text-sm sm:text-base flex items-baseline gap-1 font-mono transition-colors ${
+                                    brand.trend === 'up'
+                                      ? 'text-emerald-400'
+                                      : brand.trend === 'down'
+                                      ? 'text-rose-400'
+                                      : 'text-amber-300'
+                                  }`}
+                                >
                                   <span>₹{brand.spotPrice.toLocaleString()}</span>
-                                  <span className="text-[10px] text-slate-400 font-normal">/ {brand.unit}</span>
+                                  <span className="text-[10px] text-slate-400 font-normal font-sans">/ {brand.unit}</span>
                                 </div>
                               </div>
 
-                              {/* Trend Badge */}
+                              {/* Trend Badge: Rising Green & Falling Red */}
                               <div className="text-right">
                                 <span
-                                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold ${
+                                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold font-mono shadow-sm ${
                                     brand.trend === 'up'
-                                      ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40'
+                                      ? 'bg-emerald-950/90 text-emerald-300 border border-emerald-500/50'
                                       : brand.trend === 'down'
-                                      ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                                      ? 'bg-rose-950/90 text-rose-300 border border-rose-500/50'
                                       : 'bg-slate-800 text-slate-300 border border-slate-700'
                                   }`}
                                 >
-                                  {brand.trend === 'up' && <TrendingUp className="w-3 h-3 text-rose-400" />}
-                                  {brand.trend === 'down' && <TrendingDown className="w-3 h-3 text-emerald-400" />}
+                                  {brand.trend === 'up' && <TrendingUp className="w-3 h-3 text-emerald-400 stroke-[2.5]" />}
+                                  {brand.trend === 'down' && <TrendingDown className="w-3 h-3 text-rose-400 stroke-[2.5]" />}
                                   {brand.trend === 'stable' && <Minus className="w-3 h-3 text-slate-400" />}
                                   <span>
-                                    {brand.changePercent > 0 ? `+${brand.changePercent}%` : brand.changePercent < 0 ? `${brand.changePercent}%` : 'Stable'}
+                                    {brand.changePercent > 0
+                                      ? `+${brand.changePercent}% Rising`
+                                      : brand.changePercent < 0
+                                      ? `${brand.changePercent}% Falling`
+                                      : 'Stable'}
                                   </span>
                                 </span>
                                 <span className="block text-[9px] text-slate-400 mt-0.5">

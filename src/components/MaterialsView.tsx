@@ -36,6 +36,12 @@ import {
   BookOpen,
   FileText,
   Upload,
+  Play,
+  Pause,
+  ArrowUpRight,
+  ArrowDownRight,
+  Activity,
+  BarChart2,
 } from 'lucide-react';
 import { MATERIAL_CATALOG, BUILDING_TYPOLOGY_CHECKLISTS, INITIAL_LIVE_MATERIAL_PRICES } from '../data/initialData';
 import { Project, LiveMaterialPrice, GroundingSource, MaterialPriceAlertSubscription, MaterialPriceAlertItem, BOQItem } from '../types';
@@ -69,7 +75,7 @@ export const MaterialsView: React.FC<MaterialsViewProps> = ({
   onNavigateToBOQ,
   onOpenWorkflowEngine,
 }) => {
-  const [activeSection, setActiveSection] = useState<'area-takeoff' | 'live-prices' | 'comparison' | 'checklists' | 'render'>('area-takeoff');
+  const [activeSection, setActiveSection] = useState<'live-prices' | 'area-takeoff' | 'comparison' | 'checklists' | 'render'>('live-prices');
   const [matrixSubView, setMatrixSubView] = useState<'quick-formulas' | 'specifications'>('quick-formulas');
   const [isGuideOpen, setIsGuideOpen] = useState(false);
   const [isPdfUpdaterOpen, setIsPdfUpdaterOpen] = useState(false);
@@ -239,6 +245,166 @@ export const MaterialsView: React.FC<MaterialsViewProps> = ({
     });
   };
 
+  // Live Spot Price Auto-Ticker & Real-Time Fluctuation Simulation State
+  const [isLiveTickerActive, setIsLiveTickerActive] = useState<boolean>(true);
+  const [tickedMaterialIds, setTickedMaterialIds] = useState<Record<string, 'up' | 'down'>>({});
+  const [marketTrendFilter, setMarketTrendFilter] = useState<'all' | 'up' | 'down'>('all');
+
+  // Real-Time Market UP vs Market DOWN Breadth & Sentiment Metrics
+  const marketBreadth = useMemo(() => {
+    let upCount = 0;
+    let downCount = 0;
+    let stableCount = 0;
+    let totalGain = 0;
+    let totalLoss = 0;
+
+    livePrices.forEach((m) => {
+      if (m.trend === 'up' || m.changePercent > 0) {
+        upCount++;
+        totalGain += Math.abs(m.changePercent);
+      } else if (m.trend === 'down' || m.changePercent < 0) {
+        downCount++;
+        totalLoss += Math.abs(m.changePercent);
+      } else {
+        stableCount++;
+      }
+    });
+
+    const isBullish = upCount >= downCount;
+    const avgGain = upCount > 0 ? (totalGain / upCount).toFixed(2) : '0.00';
+    const avgLoss = downCount > 0 ? (totalLoss / downCount).toFixed(2) : '0.00';
+    const netPoints = Math.round((upCount * 22.4) - (downCount * 18.6));
+    const compositeIndex = 14850 + netPoints;
+    const netPercent = (((totalGain - totalLoss) / Math.max(1, livePrices.length))).toFixed(2);
+
+    const totalCount = Math.max(1, livePrices.length);
+    const upRatio = Math.round((upCount / totalCount) * 100);
+    const downRatio = Math.round((downCount / totalCount) * 100);
+
+    return {
+      upCount,
+      downCount,
+      stableCount,
+      isBullish,
+      avgGain,
+      avgLoss,
+      netPoints,
+      compositeIndex,
+      netPercent,
+      upRatio,
+      downRatio,
+      totalCount: livePrices.length,
+    };
+  }, [livePrices]);
+
+  // Top 3 Market UP (Gainers) and Top 3 Market DOWN (Losers)
+  const topGainers = useMemo(() => {
+    return [...livePrices]
+      .filter((m) => m.trend === 'up' || m.changePercent > 0)
+      .sort((a, b) => b.changePercent - a.changePercent)
+      .slice(0, 3);
+  }, [livePrices]);
+
+  const topLosers = useMemo(() => {
+    return [...livePrices]
+      .filter((m) => m.trend === 'down' || m.changePercent < 0)
+      .sort((a, b) => a.changePercent - b.changePercent)
+      .slice(0, 3);
+  }, [livePrices]);
+
+  // Periodic Live Spot Price Market Fluctuation Engine (Simulates real-time mill & yard spot changes)
+  useEffect(() => {
+    if (!isLiveTickerActive) return;
+
+    const interval = setInterval(() => {
+      setLivePrices((prev) => {
+        if (!prev || prev.length === 0) return prev;
+        // Pick 1 random commodity to fluctuate
+        const randomIndex = Math.floor(Math.random() * Math.min(prev.length, 16));
+        const target = prev[randomIndex];
+        if (!target) return prev;
+
+        // Alternate or random direction
+        const isUp = Math.random() > 0.46;
+        const deltaPercent = Number((0.4 + Math.random() * 0.9).toFixed(1));
+        const priceDelta = Math.max(1, Math.round(target.currentPrice * (deltaPercent / 100)));
+        const newPrice = isUp ? target.currentPrice + priceDelta : Math.max(10, target.currentPrice - priceDelta);
+        const newChangePercent = Number((isUp ? deltaPercent : -deltaPercent).toFixed(1));
+
+        setTickedMaterialIds((ticked) => ({
+          ...ticked,
+          [target.id]: isUp ? 'up' : 'down',
+        }));
+
+        setTimeout(() => {
+          setTickedMaterialIds((ticked) => {
+            const next = { ...ticked };
+            delete next[target.id];
+            return next;
+          });
+        }, 2200);
+
+        return prev.map((item, idx) =>
+          idx === randomIndex
+            ? {
+                ...item,
+                currentPrice: newPrice,
+                changePercent: newChangePercent,
+                trend: isUp ? ('up' as const) : ('down' as const),
+              }
+            : item
+        );
+      });
+      setLastRefreshedAt(new Date().toISOString());
+    }, 3200);
+
+    return () => clearInterval(interval);
+  }, [isLiveTickerActive]);
+
+  // Simulation handler: Trigger immediate Market UP Surge (Green)
+  const handleSimulateSpotRise = () => {
+    setLivePrices((prev) =>
+      prev.map((item, idx) => {
+        if (idx % 2 === 0 || idx < 4) {
+          const delta = Math.max(1, Math.round(item.currentPrice * 0.026));
+          setTickedMaterialIds((ticked) => ({ ...ticked, [item.id]: 'up' }));
+          return {
+            ...item,
+            currentPrice: item.currentPrice + delta,
+            changePercent: Number((Math.abs(item.changePercent) + 2.6).toFixed(1)),
+            trend: 'up' as const,
+          };
+        }
+        return item;
+      })
+    );
+    setTimeout(() => setTickedMaterialIds({}), 3000);
+    setAlertFeedbackToast('🟢 MARKET UP RALLY: Major commodities surging green (+2.6% avg gain). Composite Index advancing.');
+    setTimeout(() => setAlertFeedbackToast(null), 4000);
+  };
+
+  // Simulation handler: Trigger immediate Market DOWN Drop (Red)
+  const handleSimulateSpotDrop = () => {
+    setLivePrices((prev) =>
+      prev.map((item, idx) => {
+        if (idx % 2 !== 0 || idx < 5) {
+          const delta = Math.max(1, Math.round(item.currentPrice * 0.023));
+          setTickedMaterialIds((ticked) => ({ ...ticked, [item.id]: 'down' }));
+          return {
+            ...item,
+            currentPrice: Math.max(10, item.currentPrice - delta),
+            changePercent: -Number((Math.abs(item.changePercent) + 2.3).toFixed(1)),
+            trend: 'down' as const,
+          };
+        }
+        return item;
+      })
+    );
+    setTimeout(() => setTickedMaterialIds({}), 3000);
+    setAlertFeedbackToast('🔴 MARKET DOWN DIP: Commodity rates corrected red (-2.3% avg dip). Composite Index softening.');
+    setTimeout(() => setAlertFeedbackToast(null), 4000);
+  };
+
   const handleDismissAlert = (alertId: string) => {
     setRecentAlerts((prev) => prev.filter((a) => a.id !== alertId));
   };
@@ -353,6 +519,11 @@ export const MaterialsView: React.FC<MaterialsViewProps> = ({
     if (showSubscribedOnly) {
       list = list.filter((p) => subscription.subscribedMaterialIds.includes(p.id));
     }
+    if (marketTrendFilter === 'up') {
+      list = list.filter((p) => p.trend === 'up' || p.changePercent > 0);
+    } else if (marketTrendFilter === 'down') {
+      list = list.filter((p) => p.trend === 'down' || p.changePercent < 0);
+    }
     if (selectedMaterialCategory !== 'all') {
       list = list.filter((p) => p.category.toLowerCase().includes(selectedMaterialCategory.toLowerCase()));
     }
@@ -366,7 +537,7 @@ export const MaterialsView: React.FC<MaterialsViewProps> = ({
       );
     }
     return list;
-  }, [livePrices, selectedMaterialCategory, customMaterialQuery, showSubscribedOnly, subscription.subscribedMaterialIds]);
+  }, [livePrices, selectedMaterialCategory, customMaterialQuery, showSubscribedOnly, marketTrendFilter, subscription.subscribedMaterialIds]);
 
   // Material calculation
   const calcMaterial = MATERIAL_CATALOG.find((m) => m.id === calcMaterialId) || MATERIAL_CATALOG[0];
@@ -457,28 +628,31 @@ export const MaterialsView: React.FC<MaterialsViewProps> = ({
         {/* Section Navigation Tabs */}
         <div className="flex flex-wrap items-center gap-1.5 bg-slate-900/90 p-1.5 rounded-xl border border-slate-800">
           <button
+            id="tab-live-prices"
+            onClick={() => setActiveSection('live-prices')}
+            className={`px-3.5 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
+              activeSection === 'live-prices'
+                ? 'bg-amber-500 text-slate-950 shadow-sm font-bold'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <Coins className="w-3.5 h-3.5" />
+            <span>Live Spot Market</span>
+            <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-emerald-950/90 text-emerald-300 border border-emerald-500/40">
+              ▲ Green / ▼ Red
+            </span>
+          </button>
+          <button
             id="tab-area-takeoff"
             onClick={() => setActiveSection('area-takeoff')}
-            className={`px-3.5 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
+            className={`px-3.5 py-2 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 ${
               activeSection === 'area-takeoff'
-                ? 'bg-amber-500 text-slate-950 shadow-sm'
+                ? 'bg-amber-500 text-slate-950 shadow-sm font-bold'
                 : 'text-slate-400 hover:text-white'
             }`}
           >
             <Zap className="w-3.5 h-3.5" />
             <span>Area Takeoff & Quantities</span>
-          </button>
-          <button
-            id="tab-live-prices"
-            onClick={() => setActiveSection('live-prices')}
-            className={`px-3.5 py-2 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 ${
-              activeSection === 'live-prices'
-                ? 'bg-amber-500 text-slate-950 shadow-sm'
-                : 'text-slate-400 hover:text-white'
-            }`}
-          >
-            <Coins className="w-3.5 h-3.5" />
-            <span>Live Spot Prices</span>
           </button>
           <button
             id="tab-comparison"
@@ -551,6 +725,76 @@ export const MaterialsView: React.FC<MaterialsViewProps> = ({
             <FileText className="w-3.5 h-3.5 text-amber-400" />
             <span>PDF Spec Updater (Birla OPS)</span>
           </button>
+        </div>
+      </div>
+
+      {/* Real-Time Live Spot Market Ticker Bar inside Materials & Standards */}
+      <div className="rounded-xl border border-slate-800 bg-slate-950/90 p-3 shadow-md flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+        <div className="flex items-center gap-2.5 flex-wrap">
+          <div className="flex items-center gap-2">
+            <span className="relative flex h-2.5 w-2.5">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500" />
+            </span>
+            <span className="text-xs font-mono font-bold text-white uppercase tracking-wider">
+              Live Spot Market:
+            </span>
+          </div>
+
+          <div className="flex items-center gap-1.5 text-xs font-mono">
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-emerald-950/80 text-emerald-300 border border-emerald-500/40 font-bold shadow-sm">
+              <TrendingUp className="w-3 h-3 text-emerald-400 stroke-[2.5]" />
+              <span>Rising: GREEN (+%)</span>
+            </span>
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-rose-950/80 text-rose-300 border border-rose-500/40 font-bold shadow-sm">
+              <TrendingDown className="w-3 h-3 text-rose-400 stroke-[2.5]" />
+              <span>Falling: RED (-%)</span>
+            </span>
+          </div>
+        </div>
+
+        {/* Quick commodity pills preview */}
+        <div
+          onClick={() => setActiveSection('live-prices')}
+          className="flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5 cursor-pointer"
+          title="Click to view full Live Spot Market Rates"
+        >
+          {livePrices.slice(0, 5).map((m) => {
+            const isUp = m.trend === 'up';
+            const isDown = m.trend === 'down';
+            return (
+              <div
+                key={m.id}
+                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-mono transition-all shrink-0 ${
+                  isUp
+                    ? 'bg-emerald-950/40 border-emerald-500/40 text-emerald-300 hover:border-emerald-400'
+                    : isDown
+                    ? 'bg-rose-950/40 border-rose-500/40 text-rose-300 hover:border-rose-400'
+                    : 'bg-slate-900 border-slate-800 text-slate-300'
+                }`}
+              >
+                <span className="text-slate-400 text-[11px] truncate max-w-[90px]">{m.name.split(' ')[0]} {m.name.split(' ')[1] || ''}:</span>
+                <span className={`font-extrabold ${isUp ? 'text-emerald-400' : isDown ? 'text-rose-400' : 'text-white'}`}>
+                  ₹{m.currentPrice.toLocaleString()}
+                </span>
+                <span className="text-[10px] font-bold flex items-center gap-0.5">
+                  {isUp ? (
+                    <>
+                      <TrendingUp className="w-2.5 h-2.5 text-emerald-400 stroke-[2.5]" />
+                      <span>+{m.changePercent}% UP</span>
+                    </>
+                  ) : isDown ? (
+                    <>
+                      <TrendingDown className="w-2.5 h-2.5 text-rose-400 stroke-[2.5]" />
+                      <span>{m.changePercent}% DOWN</span>
+                    </>
+                  ) : (
+                    <span>0%</span>
+                  )}
+                </span>
+              </div>
+            );
+          })}
         </div>
       </div>
 
@@ -692,13 +936,15 @@ export const MaterialsView: React.FC<MaterialsViewProps> = ({
                     <div className="space-y-0.5">
                       <div className="flex items-center gap-1.5 font-bold text-white">
                         <span>{alert.materialName}</span>
-                        <span className={alert.trend === 'up' ? 'text-rose-400 font-mono' : 'text-emerald-400 font-mono'}>
-                          ({alert.changePercent > 0 ? `+${alert.changePercent}%` : `${alert.changePercent}%`})
+                        <span className={alert.trend === 'up' ? 'text-emerald-400 font-mono font-bold' : 'text-rose-400 font-mono font-bold'}>
+                          ({alert.changePercent > 0 ? `+${alert.changePercent}%` : `${alert.changePercent}%`} {alert.trend === 'up' ? '▲ Rising' : '▼ Falling'})
                         </span>
                       </div>
                       <div className="text-[11px] text-slate-400 font-mono">
                         Old: ₹{alert.oldPrice.toLocaleString()} →{' '}
-                        <span className="text-amber-300 font-bold">New: ₹{alert.newPrice.toLocaleString()} / {alert.unit}</span>
+                        <span className={alert.trend === 'up' ? 'text-emerald-300 font-bold' : 'text-rose-300 font-bold'}>
+                          New: ₹{alert.newPrice.toLocaleString()} / {alert.unit}
+                        </span>
                       </div>
                       <p className="text-[10px] text-slate-400 line-clamp-1">
                         {alert.trendReason}
@@ -710,34 +956,335 @@ export const MaterialsView: React.FC<MaterialsViewProps> = ({
             </div>
           )}
 
+          {/* ========================================================================= */}
+          {/* LIVE MARKET UP & DOWN EXCHANGE BOARD (BULL / BEAR SENTIMENT & CMI INDEX)  */}
+          {/* ========================================================================= */}
+          <div className="p-4 rounded-2xl bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 border border-slate-800 shadow-xl space-y-4">
+            {/* Row 1: Header with Live Sentiment, Composite CMI Index & Simulation Triggers */}
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-slate-800/80 pb-4">
+              <div className="space-y-1.5">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-[10px] font-mono uppercase font-bold tracking-wider px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700 flex items-center gap-1.5">
+                    <Activity className="w-3 h-3 text-amber-400" />
+                    <span>Real-Time Market Exchange</span>
+                  </span>
+
+                  {/* Market Sentiment Pill: UP (Bullish) or DOWN (Bearish) */}
+                  <span
+                    className={`inline-flex items-center gap-1.5 text-xs font-mono font-bold px-2.5 py-0.5 rounded-full shadow-sm ${
+                      marketBreadth.isBullish
+                        ? 'bg-emerald-950 text-emerald-300 border border-emerald-500/50'
+                        : 'bg-rose-950 text-rose-300 border border-rose-500/50'
+                    }`}
+                  >
+                    <span
+                      className={`w-2 h-2 rounded-full animate-ping ${
+                        marketBreadth.isBullish ? 'bg-emerald-400' : 'bg-rose-400'
+                      }`}
+                    />
+                    <span>
+                      {marketBreadth.isBullish ? 'MARKET UP • BULLISH RALLY' : 'MARKET DOWN • BEARISH DIP'}
+                    </span>
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-3 flex-wrap">
+                  <span className="text-sm font-bold text-slate-300">
+                    Construction Material Index (CMI):
+                  </span>
+                  <span
+                    className={`font-mono text-2xl font-black tracking-tight transition-colors ${
+                      marketBreadth.isBullish ? 'text-emerald-400' : 'text-rose-400'
+                    }`}
+                  >
+                    ₹{marketBreadth.compositeIndex.toLocaleString()}
+                  </span>
+                  <span
+                    className={`text-xs font-mono font-bold px-2 py-0.5 rounded flex items-center gap-1 shadow-sm ${
+                      marketBreadth.isBullish
+                        ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                        : 'bg-rose-500/20 text-rose-300 border border-rose-500/40'
+                    }`}
+                  >
+                    {marketBreadth.isBullish ? (
+                      <>
+                        <TrendingUp className="w-3.5 h-3.5 text-emerald-400 stroke-[3]" />
+                        <span>+{marketBreadth.netPoints} pts (+{marketBreadth.netPercent}%) ▲ MARKET UP</span>
+                      </>
+                    ) : (
+                      <>
+                        <TrendingDown className="w-3.5 h-3.5 text-rose-400 stroke-[3]" />
+                        <span>{marketBreadth.netPoints} pts ({marketBreadth.netPercent}%) ▼ MARKET DOWN</span>
+                      </>
+                    )}
+                  </span>
+                </div>
+              </div>
+
+              {/* Simulation Quick Action Triggers */}
+              <div className="flex items-center gap-2 flex-wrap">
+                <button
+                  type="button"
+                  id="btn-rally-market-up"
+                  onClick={handleSimulateSpotRise}
+                  className="px-3 py-1.5 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/50 text-xs font-mono font-bold transition flex items-center gap-1.5 shadow-sm hover:scale-[1.02]"
+                  title="Simulate Market UP (Surge steel, cement & aggregates spot rates)"
+                >
+                  <TrendingUp className="w-3.5 h-3.5 text-emerald-400 stroke-[2.5]" />
+                  <span>▲ Push Market UP (Green)</span>
+                </button>
+
+                <button
+                  type="button"
+                  id="btn-dip-market-down"
+                  onClick={handleSimulateSpotDrop}
+                  className="px-3 py-1.5 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/50 text-xs font-mono font-bold transition flex items-center gap-1.5 shadow-sm hover:scale-[1.02]"
+                  title="Simulate Market DOWN (Discount masonry, sand & finish spot rates)"
+                >
+                  <TrendingDown className="w-3.5 h-3.5 text-rose-400 stroke-[2.5]" />
+                  <span>▼ Push Market DOWN (Red)</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setIsLiveTickerActive(!isLiveTickerActive)}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-mono font-semibold transition border flex items-center gap-1.5 ${
+                    isLiveTickerActive
+                      ? 'bg-slate-900 border-slate-700 text-slate-300 hover:text-white'
+                      : 'bg-emerald-500 text-slate-950 font-bold border-emerald-400'
+                  }`}
+                  title={isLiveTickerActive ? 'Pause real-time auto-ticking' : 'Resume real-time auto-ticking'}
+                >
+                  {isLiveTickerActive ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
+                  <span>{isLiveTickerActive ? 'Ticks Active (3.2s)' : 'Resume Ticks'}</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Row 2: Advance / Decline Market Breadth Ratio Bar */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-xs font-mono flex-wrap gap-2">
+                <div className="flex items-center gap-2">
+                  <span className="font-bold text-emerald-400 flex items-center gap-1">
+                    <TrendingUp className="w-3.5 h-3.5 text-emerald-400 stroke-[2.5]" />
+                    <span>Market UP: {marketBreadth.upCount} Commodities ({marketBreadth.upRatio}%)</span>
+                  </span>
+                  <span className="text-slate-500">•</span>
+                  <span className="text-emerald-400/90 text-[11px]">
+                    Avg Gain: +{marketBreadth.avgGain}%
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <span className="text-slate-400 text-[11px]">
+                    Flat / Stable: {marketBreadth.stableCount}
+                  </span>
+                  <span className="text-slate-500">•</span>
+                  <span className="font-bold text-rose-400 flex items-center gap-1">
+                    <TrendingDown className="w-3.5 h-3.5 text-rose-400 stroke-[2.5]" />
+                    <span>Market DOWN: {marketBreadth.downCount} Commodities ({marketBreadth.downRatio}%)</span>
+                  </span>
+                  <span className="text-rose-400/90 text-[11px]">
+                    Avg Loss: -{marketBreadth.avgLoss}%
+                  </span>
+                </div>
+              </div>
+
+              {/* Bi-Color Advance/Decline Segmented Ratio Bar */}
+              <div className="h-2.5 w-full bg-slate-950 rounded-full overflow-hidden flex border border-slate-800">
+                <div
+                  style={{ width: `${Math.max(5, marketBreadth.upRatio)}%` }}
+                  className="bg-emerald-500 transition-all duration-500 shadow-sm shadow-emerald-500/50"
+                  title={`Market UP: ${marketBreadth.upCount} items (${marketBreadth.upRatio}%)`}
+                />
+                <div
+                  style={{ width: `${Math.max(2, 100 - marketBreadth.upRatio - marketBreadth.downRatio)}%` }}
+                  className="bg-slate-700 transition-all duration-500"
+                  title={`Unchanged: ${marketBreadth.stableCount} items`}
+                />
+                <div
+                  style={{ width: `${Math.max(5, marketBreadth.downRatio)}%` }}
+                  className="bg-rose-500 transition-all duration-500 shadow-sm shadow-rose-500/50"
+                  title={`Market DOWN: ${marketBreadth.downCount} items (${marketBreadth.downRatio}%)`}
+                />
+              </div>
+            </div>
+
+            {/* Row 3: Top Gainers (Market UP) & Top Losers (Market DOWN) Quick Columns */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+              {/* Top Gainers (Market UP) */}
+              <div className="p-3 rounded-xl bg-emerald-950/20 border border-emerald-500/30 space-y-2">
+                <div className="flex items-center justify-between text-xs font-bold text-emerald-400 font-mono">
+                  <span className="flex items-center gap-1.5">
+                    <TrendingUp className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>Top Market UP Gainers (Rising)</span>
+                  </span>
+                  <span className="text-[10px] text-emerald-300 font-normal">Bullish Velocity</span>
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  {topGainers.map((m) => (
+                    <div
+                      key={m.id}
+                      onClick={() => setCustomMaterialQuery(m.name)}
+                      className="p-2 rounded-lg bg-slate-900/90 border border-emerald-500/30 hover:border-emerald-400 transition cursor-pointer space-y-0.5"
+                    >
+                      <span className="text-[10px] text-slate-300 font-medium block truncate" title={m.name}>
+                        {m.name}
+                      </span>
+                      <div className="flex items-baseline justify-between">
+                        <span className="text-xs font-bold font-mono text-emerald-400">
+                          ₹{m.currentPrice.toLocaleString()}
+                        </span>
+                        <span className="text-[9px] font-mono font-bold text-emerald-300">
+                          +{m.changePercent}%
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Top Losers (Market DOWN) */}
+              <div className="p-3 rounded-xl bg-rose-950/20 border border-rose-500/30 space-y-2">
+                <div className="flex items-center justify-between text-xs font-bold text-rose-400 font-mono">
+                  <span className="flex items-center gap-1.5">
+                    <TrendingDown className="w-3.5 h-3.5 text-rose-400" />
+                    <span>Top Market DOWN Losers (Falling)</span>
+                  </span>
+                  <span className="text-[10px] text-rose-300 font-normal">Discount Dip</span>
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  {topLosers.map((m) => (
+                    <div
+                      key={m.id}
+                      onClick={() => setCustomMaterialQuery(m.name)}
+                      className="p-2 rounded-lg bg-slate-900/90 border border-rose-500/30 hover:border-rose-400 transition cursor-pointer space-y-0.5"
+                    >
+                      <span className="text-[10px] text-slate-300 font-medium block truncate" title={m.name}>
+                        {m.name}
+                      </span>
+                      <div className="flex items-baseline justify-between">
+                        <span className="text-xs font-bold font-mono text-rose-400">
+                          ₹{m.currentPrice.toLocaleString()}
+                        </span>
+                        <span className="text-[9px] font-mono font-bold text-rose-300">
+                          {m.changePercent}%
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Row 4: Dedicated Market UP and DOWN Filter Tabs */}
+            <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-800 text-xs">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className="text-[11px] text-slate-400 font-mono mr-1">Filter Movement:</span>
+                <button
+                  type="button"
+                  onClick={() => setMarketTrendFilter('all')}
+                  className={`px-3 py-1 rounded-lg text-xs font-mono font-semibold transition border ${
+                    marketTrendFilter === 'all'
+                      ? 'bg-slate-800 text-white border-amber-500/50 shadow-sm'
+                      : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-white'
+                  }`}
+                >
+                  All Commodities ({livePrices.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMarketTrendFilter('up')}
+                  className={`px-3 py-1 rounded-lg text-xs font-mono font-bold transition border flex items-center gap-1.5 ${
+                    marketTrendFilter === 'up'
+                      ? 'bg-emerald-950 text-emerald-300 border-emerald-500 shadow-sm shadow-emerald-500/20'
+                      : 'bg-slate-950 text-emerald-400/80 border-slate-800 hover:border-emerald-500/40 hover:text-emerald-300'
+                  }`}
+                >
+                  <TrendingUp className="w-3 h-3 text-emerald-400" />
+                  <span>▲ Market UP Only ({marketBreadth.upCount})</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMarketTrendFilter('down')}
+                  className={`px-3 py-1 rounded-lg text-xs font-mono font-bold transition border flex items-center gap-1.5 ${
+                    marketTrendFilter === 'down'
+                      ? 'bg-rose-950 text-rose-300 border-rose-500 shadow-sm shadow-rose-500/20'
+                      : 'bg-slate-950 text-rose-400/80 border-slate-800 hover:border-rose-500/40 hover:text-rose-300'
+                  }`}
+                >
+                  <TrendingDown className="w-3 h-3 text-rose-400" />
+                  <span>▼ Market DOWN Only ({marketBreadth.downCount})</span>
+                </button>
+              </div>
+
+              <div className="text-[11px] text-slate-400 font-mono flex items-center gap-1.5">
+                <Clock className="w-3 h-3 text-amber-400" />
+                <span>Last Spot Movement: {new Date(lastRefreshedAt).toLocaleTimeString()}</span>
+              </div>
+            </div>
+          </div>
+
           {/* Quick Commodity Ticker Strip */}
           <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2.5">
             {livePrices.slice(0, 7).map((mat) => {
               const isUp = mat.trend === 'up';
               const isDown = mat.trend === 'down';
+              const isTicked = tickedMaterialIds[mat.id];
+
               return (
                 <div
                   key={mat.id}
-                  className="p-2.5 rounded-lg bg-slate-900 border border-slate-800 space-y-1 hover:border-slate-700 transition"
+                  className={`p-2.5 rounded-lg bg-slate-900 border space-y-1 transition duration-300 ${
+                    isTicked === 'up'
+                      ? 'border-emerald-500 bg-emerald-950/20 shadow-sm shadow-emerald-500/10'
+                      : isTicked === 'down'
+                      ? 'border-rose-500 bg-rose-950/20 shadow-sm shadow-rose-500/10'
+                      : isUp
+                      ? 'border-emerald-800/40 hover:border-emerald-500/40'
+                      : isDown
+                      ? 'border-rose-800/40 hover:border-rose-500/40'
+                      : 'border-slate-800 hover:border-slate-700'
+                  }`}
                 >
                   <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-mono text-slate-400 uppercase truncate max-w-[90px]">
+                    <span className="text-[10px] font-mono text-slate-400 uppercase truncate max-w-[85px]">
                       {mat.name.split(' ')[0]} {mat.name.split(' ')[1] || ''}
                     </span>
                     <span
-                      className={`text-[10px] font-mono font-bold flex items-center gap-0.5 ${
-                        isUp ? 'text-rose-400' : isDown ? 'text-emerald-400' : 'text-slate-400'
+                      className={`text-[10px] font-mono font-bold flex items-center gap-0.5 px-1 py-0.2 rounded ${
+                        isUp
+                          ? 'bg-emerald-950/80 text-emerald-400 border border-emerald-500/40'
+                          : isDown
+                          ? 'bg-rose-950/80 text-rose-400 border border-rose-500/40'
+                          : 'text-slate-400'
                       }`}
                     >
-                      {isUp ? <TrendingUp className="w-2.5 h-2.5" /> : isDown ? <TrendingDown className="w-2.5 h-2.5" /> : <Minus className="w-2.5 h-2.5" />}
-                      {mat.changePercent > 0 ? `+${mat.changePercent}%` : `${mat.changePercent}%`}
+                      {isUp ? (
+                        <>
+                          <TrendingUp className="w-2.5 h-2.5 text-emerald-400 stroke-[2.5]" />
+                          <span>+{mat.changePercent}% UP</span>
+                        </>
+                      ) : isDown ? (
+                        <>
+                          <TrendingDown className="w-2.5 h-2.5 text-rose-400 stroke-[2.5]" />
+                          <span>{mat.changePercent}% DOWN</span>
+                        </>
+                      ) : (
+                        <>
+                          <Minus className="w-2.5 h-2.5 text-slate-400" />
+                          <span>0%</span>
+                        </>
+                      )}
                     </span>
                   </div>
 
-                  <p className="text-sm font-bold font-mono text-white">
+                  <p className={`text-sm font-bold font-mono transition-colors ${
+                    isUp ? 'text-emerald-400' : isDown ? 'text-rose-400' : 'text-white'
+                  }`}>
                     ₹{mat.currentPrice.toLocaleString()}
                   </p>
-                  <span className="text-[9px] text-slate-500 block truncate">
+                  <span className="text-[9px] text-slate-500 block truncate font-mono">
                     /{mat.unit}
                   </span>
                 </div>
@@ -937,14 +1484,23 @@ export const MaterialsView: React.FC<MaterialsViewProps> = ({
               const isDown = mat.trend === 'down';
               const isTracked = subscription.subscribedMaterialIds.includes(mat.id);
               const isAlertsActive = subscription.enabled && isTracked;
+              const isTicked = tickedMaterialIds[mat.id];
 
               return (
                 <div
                   key={mat.id}
                   id={`live-price-${mat.id}`}
-                  className={`p-5 rounded-xl bg-slate-900 border flex flex-col justify-between space-y-4 transition group shadow-sm ${
-                    isAlertsActive
+                  className={`p-5 rounded-xl bg-slate-900 border flex flex-col justify-between space-y-4 transition duration-300 group shadow-sm ${
+                    isTicked === 'up'
+                      ? 'border-emerald-500 ring-2 ring-emerald-500/50 bg-gradient-to-b from-emerald-950/20 to-slate-900 shadow-md shadow-emerald-500/10'
+                      : isTicked === 'down'
+                      ? 'border-rose-500 ring-2 ring-rose-500/50 bg-gradient-to-b from-rose-950/20 to-slate-900 shadow-md shadow-rose-500/10'
+                      : isAlertsActive
                       ? 'border-amber-500/50 bg-gradient-to-b from-slate-900 to-amber-950/10 shadow-amber-500/5'
+                      : isUp
+                      ? 'border-emerald-800/40 hover:border-emerald-500/50'
+                      : isDown
+                      ? 'border-rose-800/40 hover:border-rose-500/50'
                       : 'border-slate-800 hover:border-slate-700'
                   }`}
                 >
@@ -977,18 +1533,32 @@ export const MaterialsView: React.FC<MaterialsViewProps> = ({
                       </div>
 
                       <div className="flex flex-col items-end gap-1.5 shrink-0">
-                        {/* Trend Badge */}
+                        {/* Trend Badge: Rising Green & Falling Red */}
                         <span
-                          className={`text-[11px] font-mono font-bold px-2 py-0.5 rounded flex items-center gap-1 shrink-0 ${
+                          className={`text-[11px] font-mono font-bold px-2.5 py-1 rounded-md flex items-center gap-1 shrink-0 shadow-sm ${
                             isUp
-                              ? 'bg-rose-950/60 text-rose-400 border border-rose-800/40'
+                              ? 'bg-emerald-950/80 text-emerald-300 border border-emerald-500/50 shadow-emerald-950/30'
                               : isDown
-                              ? 'bg-emerald-950/60 text-emerald-400 border border-emerald-800/40'
+                              ? 'bg-rose-950/80 text-rose-300 border border-rose-500/50 shadow-rose-950/30'
                               : 'bg-slate-800 text-slate-300 border border-slate-700'
                           }`}
                         >
-                          {isUp ? <TrendingUp className="w-3 h-3" /> : isDown ? <TrendingDown className="w-3 h-3" /> : <Minus className="w-3 h-3" />}
-                          <span>{mat.changePercent > 0 ? `+${mat.changePercent}%` : `${mat.changePercent}%`}</span>
+                          {isUp ? (
+                            <>
+                              <TrendingUp className="w-3.5 h-3.5 text-emerald-400 stroke-[2.5]" />
+                              <span>{mat.changePercent > 0 ? `+${mat.changePercent}%` : `${mat.changePercent}%`} Rising</span>
+                            </>
+                          ) : isDown ? (
+                            <>
+                              <TrendingDown className="w-3.5 h-3.5 text-rose-400 stroke-[2.5]" />
+                              <span>{mat.changePercent < 0 ? `${mat.changePercent}%` : `-${mat.changePercent}%`} Falling</span>
+                            </>
+                          ) : (
+                            <>
+                              <Minus className="w-3.5 h-3.5 text-slate-400" />
+                              <span>0.0% Stable</span>
+                            </>
+                          )}
                         </span>
 
                         {/* Dedicated Toggle Button for Periodic Price Change Notifications */}
@@ -1025,20 +1595,146 @@ export const MaterialsView: React.FC<MaterialsViewProps> = ({
                       </div>
                     </div>
 
-                    {/* Spot Rate Hero Block */}
-                    <div className="p-3 rounded-lg bg-slate-950 border border-slate-800 space-y-1">
+                    {/* Spot Rate Hero Block with Green (Rising) and Red (Falling) live indicators */}
+                    <div
+                      className={`p-3 rounded-xl border space-y-1.5 transition-all duration-300 ${
+                        isTicked === 'up'
+                          ? 'bg-gradient-to-r from-emerald-950/40 via-emerald-900/20 to-slate-950 border-emerald-500 shadow-md shadow-emerald-500/10 ring-1 ring-emerald-500/50'
+                          : isTicked === 'down'
+                          ? 'bg-gradient-to-r from-rose-950/40 via-rose-900/20 to-slate-950 border-rose-500 shadow-md shadow-rose-500/10 ring-1 ring-rose-500/50'
+                          : isUp
+                          ? 'bg-gradient-to-r from-emerald-950/20 to-slate-950 border-emerald-500/30'
+                          : isDown
+                          ? 'bg-gradient-to-r from-rose-950/20 to-slate-950 border-rose-500/30'
+                          : 'bg-slate-950 border-slate-800'
+                      }`}
+                    >
                       <div className="flex items-baseline justify-between">
-                        <span className="text-[11px] text-slate-400 font-mono">Current Spot Rate:</span>
-                        <span className="text-[11px] text-slate-400 font-mono">Range: ₹{mat.minPrice.toLocaleString()} - ₹{mat.maxPrice.toLocaleString()}</span>
-                      </div>
-                      <div className="flex items-baseline gap-1.5">
-                        <span className="text-xl font-extrabold font-mono text-amber-400">
-                          ₹{mat.currentPrice.toLocaleString()}
+                        <span className="text-[11px] text-slate-400 font-mono flex items-center gap-1.5">
+                          <span
+                            className={`w-2 h-2 rounded-full ${
+                              isUp
+                                ? 'bg-emerald-400 animate-pulse'
+                                : isDown
+                                ? 'bg-rose-400 animate-pulse'
+                                : 'bg-slate-500'
+                            }`}
+                          />
+                          Current Spot Rate:
                         </span>
-                        <span className="text-xs text-slate-400 font-mono">
-                          / {mat.unit}
+                        <span
+                          className={`text-[10px] font-mono uppercase font-bold px-1.5 py-0.5 rounded shadow-sm ${
+                            isUp
+                              ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                              : isDown
+                              ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40'
+                              : 'bg-slate-800 text-slate-400'
+                          }`}
+                        >
+                          {isUp ? '▲ Market UP (Rising)' : isDown ? '▼ Market DOWN (Falling)' : '● Market Flat'}
                         </span>
                       </div>
+                      <div className="flex items-baseline justify-between">
+                        <div className="flex items-baseline gap-1.5">
+                          <span
+                            className={`text-2xl font-black font-mono transition-colors ${
+                              isUp
+                                ? 'text-emerald-400'
+                                : isDown
+                                ? 'text-rose-400'
+                                : 'text-amber-400'
+                            }`}
+                          >
+                            ₹{mat.currentPrice.toLocaleString()}
+                          </span>
+                          <span className="text-xs text-slate-400 font-mono">
+                            / {mat.unit}
+                          </span>
+                        </div>
+                        <span className={`text-[10px] font-mono font-bold ${isUp ? 'text-emerald-300' : isDown ? 'text-rose-300' : 'text-slate-400'}`}>
+                          {isUp ? `+₹${Math.round(mat.currentPrice * (mat.changePercent / 100)).toLocaleString()} ▲` : isDown ? `-₹${Math.round(mat.currentPrice * (Math.abs(mat.changePercent) / 100)).toLocaleString()} ▼` : '0 pts'}
+                        </span>
+                      </div>
+
+                      {/* Intraday SVG Sparkline Waveform (Market UP / DOWN) */}
+                      <div className="flex items-center justify-between pt-1 border-t border-slate-800/60">
+                        <span className={`text-[9px] font-mono font-bold flex items-center gap-1 ${isUp ? 'text-emerald-400' : isDown ? 'text-rose-400' : 'text-slate-400'}`}>
+                          {isUp ? <TrendingUp className="w-2.5 h-2.5 text-emerald-400" /> : isDown ? <TrendingDown className="w-2.5 h-2.5 text-rose-400" /> : <Minus className="w-2.5 h-2.5" />}
+                          <span>{isUp ? 'Bullish Intraday Wave' : isDown ? 'Bearish Intraday Wave' : 'Stable Waveform'}</span>
+                        </span>
+                        <svg className="w-20 h-5 shrink-0 overflow-visible" viewBox="0 0 80 20">
+                          <defs>
+                            <linearGradient id={`grad-${mat.id}`} x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="0%" stopColor={isUp ? '#10b981' : isDown ? '#f43f5e' : '#94a3b8'} stopOpacity="0.4" />
+                              <stop offset="100%" stopColor={isUp ? '#10b981' : isDown ? '#f43f5e' : '#94a3b8'} stopOpacity="0.0" />
+                            </linearGradient>
+                          </defs>
+                          <polygon
+                            points={
+                              isUp
+                                ? '0,17 16,14 32,15 48,7 64,10 80,3 80,20 0,20'
+                                : isDown
+                                ? '0,3 16,7 32,5 48,13 64,11 80,18 80,20 0,20'
+                                : '0,10 16,11 32,9 48,11 64,10 80,10 80,20 0,20'
+                            }
+                            fill={`url(#grad-${mat.id})`}
+                          />
+                          <polyline
+                            fill="none"
+                            stroke={isUp ? '#10b981' : isDown ? '#f43f5e' : '#94a3b8'}
+                            strokeWidth="1.8"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            points={
+                              isUp
+                                ? '0,17 16,14 32,15 48,7 64,10 80,3'
+                                : isDown
+                                ? '0,3 16,7 32,5 48,13 64,11 80,18'
+                                : '0,10 16,11 32,9 48,11 64,10 80,10'
+                            }
+                          />
+                          <circle
+                            cx="80"
+                            cy={isUp ? '3' : isDown ? '18' : '10'}
+                            r="2"
+                            fill={isUp ? '#34d399' : isDown ? '#fb7185' : '#cbd5e1'}
+                          />
+                        </svg>
+                      </div>
+
+                      {/* Day's High / Low Market Range Bar */}
+                      {(() => {
+                        const rangeSpan = Math.max(1, mat.maxPrice - mat.minPrice);
+                        const needlePos = Math.min(96, Math.max(4, Math.round(((mat.currentPrice - mat.minPrice) / rangeSpan) * 100)));
+                        return (
+                          <div className="pt-1 border-t border-slate-800/60 space-y-1">
+                            <div className="flex items-center justify-between text-[9px] font-mono text-slate-400">
+                              <span>Low: ₹{mat.minPrice.toLocaleString()}</span>
+                              <span className="text-[8px] text-slate-500 uppercase tracking-widest">Day Range</span>
+                              <span>High: ₹{mat.maxPrice.toLocaleString()}</span>
+                            </div>
+                            <div className="relative h-1.5 w-full bg-slate-950 rounded-full overflow-hidden border border-slate-800/80">
+                              <div
+                                className={`h-full ${
+                                  isUp
+                                    ? 'bg-gradient-to-r from-emerald-950 via-emerald-800 to-emerald-500'
+                                    : isDown
+                                    ? 'bg-gradient-to-r from-rose-950 via-rose-800 to-rose-500'
+                                    : 'bg-slate-700'
+                                }`}
+                                style={{ width: `${needlePos}%` }}
+                              />
+                              <div
+                                className={`absolute top-0 bottom-0 w-2 -ml-1 rounded-full shadow-sm ${
+                                  isUp ? 'bg-emerald-400 ring-1 ring-emerald-300' : isDown ? 'bg-rose-400 ring-1 ring-rose-300' : 'bg-amber-400'
+                                }`}
+                                style={{ left: `${needlePos}%` }}
+                                title={`Spot Rate: ₹${mat.currentPrice.toLocaleString()}`}
+                              />
+                            </div>
+                          </div>
+                        );
+                      })()}
                     </div>
 
                     {/* Brand benchmark */}

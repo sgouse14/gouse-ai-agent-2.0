@@ -39,7 +39,7 @@ export const Header: React.FC<HeaderProps> = ({
     <>
       <header
         id="app-header"
-        className="border-b border-slate-800 bg-slate-900/95 backdrop-blur sticky top-0 z-40 px-4 lg:px-8 py-3 transition-colors"
+        className="border-b border-slate-800 bg-slate-900/95 backdrop-blur sticky top-0 z-40 transition-colors shadow-md px-4 lg:px-8 py-3"
       >
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center md:justify-between gap-3">
         {/* Brand identity */}
@@ -72,7 +72,7 @@ export const Header: React.FC<HeaderProps> = ({
               </span>
             </div>
             <p className="text-xs text-slate-400">
-              Architecture &amp; Construction Intelligence Workspace
+              Architecture &amp; Construction Intelligence
             </p>
           </div>
         </div>

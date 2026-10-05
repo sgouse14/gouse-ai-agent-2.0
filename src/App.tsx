@@ -53,15 +53,54 @@ export function App() {
           const combined = [...cleaned, ...missingInitial];
           return combined.map((p) => {
             const rawMembers = Array.isArray(p.members) && p.members.length > 0 ? p.members : [
-              { id: `mem-${p.id}-1`, name: 'Gouse AI', email: 'sgouse14@gmail.com', role: 'owner' as const },
-              { id: `mem-${p.id}-2`, name: 'Engineering & QS Team', email: 'sgouse14@gmail.com', role: 'quantity_surveyor' as const }
-            ];
-            // Ensure company lead name is Gouse AI
-            const updatedMembers = rawMembers.map((m) => {
-              if (m.role === 'owner' || m.name.toLowerCase().includes('gouse') || m.name.toLowerCase().includes('principal')) {
-                return { ...m, name: 'Gouse AI', role: 'owner' as const };
+              {
+                id: `mem-${p.id}-1`,
+                name: 'Gouse AI',
+                email: 'sgouse14@gmail.com',
+                role: 'owner' as const,
+                avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=600&q=80',
+                department: 'Executive Leadership & Principal Architecture',
+                phone: '+91 80739 47241',
+              },
+              {
+                id: `mem-${p.id}-2`,
+                name: 'Engineering & QS Team',
+                email: 'sgouse14@gmail.com',
+                role: 'quantity_surveyor' as const,
+                avatarUrl: 'https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?auto=format&fit=crop&w=600&q=80',
+                department: 'Structural Engineering & Cost Auditing',
+                phone: '+91 80412 89001',
               }
-              return m;
+            ];
+            // Ensure company lead name is Gouse AI and all members have image avatar
+            const updatedMembers = rawMembers.map((m) => {
+              const isLead = m.role === 'owner' || m.name.toLowerCase().includes('gouse') || m.name.toLowerCase().includes('principal');
+              const avatar = m.avatarUrl || (isLead
+                ? 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=600&q=80'
+                : m.name.toLowerCase().includes('priya') || m.role === 'architect'
+                ? 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=600&q=80'
+                : m.role === 'structural_engineer' || m.name.toLowerCase().includes('rajesh')
+                ? 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=600&q=80'
+                : m.role === 'client' || m.name.toLowerCase().includes('sameer')
+                ? 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?auto=format&fit=crop&w=600&q=80'
+                : 'https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=600&q=80');
+
+              if (isLead) {
+                return {
+                  ...m,
+                  name: 'Gouse AI',
+                  role: 'owner' as const,
+                  avatarUrl: avatar,
+                  department: m.department || 'Executive Leadership & Principal Architecture',
+                  phone: m.phone || '+91 80739 47241',
+                };
+              }
+              return {
+                ...m,
+                avatarUrl: avatar,
+                department: m.department || 'Design & Project Execution',
+                phone: m.phone || '+91 98450 12890',
+              };
             });
             return {
               ...p,
@@ -212,6 +251,9 @@ export function App() {
           name: 'Gouse AI',
           email: 'principal@gouseai.com',
           role: 'owner',
+          avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=600&q=80',
+          department: 'Executive Leadership & Principal Architecture',
+          phone: '+91 80739 47241',
         },
       ],
       auditLogs: [

@@ -284,8 +284,24 @@ Features 14 high-demand residential flats generating solid recurring monthly cas
       }
     ],
     members: [
-      { id: 'mem-rent-1', name: 'Gouse AI', email: 'sgouse14@gmail.com', role: 'owner' },
-      { id: 'mem-rent-2', name: 'Leasing & Property Management', email: 'sgouse14@gmail.com', role: 'quantity_surveyor' }
+      {
+        id: 'mem-rent-1',
+        name: 'Gouse AI',
+        email: 'sgouse14@gmail.com',
+        role: 'owner',
+        avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=600&q=80',
+        department: 'Executive Leadership & Principal Architecture',
+        phone: '+91 80739 47241',
+      },
+      {
+        id: 'mem-rent-2',
+        name: 'Leasing & Property Management',
+        email: 'sgouse14@gmail.com',
+        role: 'quantity_surveyor',
+        avatarUrl: 'https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?auto=format&fit=crop&w=600&q=80',
+        department: 'Asset Leasing, Tenant Relations & Operations',
+        phone: '+91 80412 89001',
+      }
     ],
     auditLogs: [
       { id: 'log-rent-1', projectId: 'proj-rent-01', actor: 'Gouse AI', action: 'Project Created', details: 'Initialized Prestige Rental Flats & Houses workspace', timestamp: '2026-03-15T10:00:00Z' }
@@ -350,10 +366,42 @@ The Villa Serenity project presents a well-articulated biophilic response to the
       }
     ],
     members: [
-      { id: 'mem-1', name: 'Gouse AI', email: 'principal@gouseai.com', role: 'owner' },
-      { id: 'mem-2', name: 'Priya Sundaram', email: 'priya@studioformvoid.com', role: 'architect' },
-      { id: 'mem-3', name: 'Er. Rajesh K.', email: 'rajesh@apexstructures.in', role: 'structural_engineer' },
-      { id: 'mem-4', name: 'Sameer Sen (Client)', email: 'client.sen@outlook.com', role: 'client' }
+      {
+        id: 'mem-1',
+        name: 'Gouse AI',
+        email: 'principal@gouseai.com',
+        role: 'owner',
+        avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=600&q=80',
+        department: 'Executive Leadership & Principal Architecture',
+        phone: '+91 80739 47241',
+      },
+      {
+        id: 'mem-2',
+        name: 'Priya Sundaram',
+        email: 'priya@studioformvoid.com',
+        role: 'architect',
+        avatarUrl: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=600&q=80',
+        department: 'Senior Architectural Design & Sustainable Modeling',
+        phone: '+91 98450 12890',
+      },
+      {
+        id: 'mem-3',
+        name: 'Er. Rajesh K.',
+        email: 'rajesh@apexstructures.in',
+        role: 'structural_engineer',
+        avatarUrl: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=600&q=80',
+        department: 'Structural Dynamics & Foundation Engineering',
+        phone: '+91 94480 34112',
+      },
+      {
+        id: 'mem-4',
+        name: 'Sameer Sen (Client)',
+        email: 'client.sen@outlook.com',
+        role: 'client',
+        avatarUrl: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?auto=format&fit=crop&w=600&q=80',
+        department: 'Client Representative & Project Stakeholder',
+        phone: '+91 99001 56789',
+      }
     ],
     auditLogs: [
       { id: 'log-01', projectId: 'proj-001', actor: 'Gouse AI', action: 'Project Initialized', details: 'Created Villa Serenity architectural project profile', timestamp: '2026-03-10T09:15:00Z' },
@@ -382,8 +430,24 @@ The Villa Serenity project presents a well-articulated biophilic response to the
     ],
     analyses: [],
     members: [
-      { id: 'mem-1', name: 'Gouse AI', email: 'principal@gouseai.com', role: 'owner' },
-      { id: 'mem-5', name: 'Vikramaditya Buildcon', email: 'contracts@vikramaditya.co.in', role: 'quantity_surveyor' }
+      {
+        id: 'mem-1',
+        name: 'Gouse AI',
+        email: 'principal@gouseai.com',
+        role: 'owner',
+        avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=600&q=80',
+        department: 'Executive Leadership & Principal Architecture',
+        phone: '+91 80739 47241',
+      },
+      {
+        id: 'mem-5',
+        name: 'Vikramaditya Buildcon',
+        email: 'contracts@vikramaditya.co.in',
+        role: 'quantity_surveyor',
+        avatarUrl: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=600&q=80',
+        department: 'Quantity Surveying, Estimation & Procurement',
+        phone: '+91 98200 45671',
+      }
     ],
     auditLogs: [
       { id: 'log-04', projectId: 'proj-002', actor: 'Gouse AI', action: 'Project Initialized', details: 'Created Nexus Commercial Hub project space', timestamp: '2026-03-05T11:00:00Z' }
@@ -401,7 +465,15 @@ The Villa Serenity project presents a well-articulated biophilic response to the
     files: [],
     analyses: [],
     members: [
-      { id: 'mem-1', name: 'Gouse AI', email: 'principal@gouseai.com', role: 'owner' }
+      {
+        id: 'mem-1',
+        name: 'Gouse AI',
+        email: 'principal@gouseai.com',
+        role: 'owner',
+        avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=600&q=80',
+        department: 'Executive Leadership & Principal Architecture',
+        phone: '+91 80739 47241',
+      }
     ],
     auditLogs: [
       { id: 'log-05', projectId: 'proj-003', actor: 'Gouse AI', action: 'Project Initialized', details: 'Created Haveli Conservation project', timestamp: '2026-02-28T16:20:00Z' }

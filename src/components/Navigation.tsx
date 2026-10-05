@@ -1,5 +1,5 @@
 import React from 'react';
-import { Building2, Building, Home, Calculator, Store, Layers, Mic, Share2 } from 'lucide-react';
+import { Building2, Building, Home, Calculator, Store, Layers, Sparkles, Share2 } from 'lucide-react';
 
 export type TabType = 'projects' | 'social' | 'pg_coliving' | 'rent_house' | 'boq' | 'marketplace' | 'materials' | 'specialist';
 
@@ -10,14 +10,14 @@ interface NavigationProps {
 
 export const Navigation: React.FC<NavigationProps> = ({ activeTab, onSelectTab }) => {
   const tabs = [
-    { id: 'projects' as TabType, label: 'Projects & Workspace', icon: Building2, count: null },
+    { id: 'projects' as TabType, label: 'Projects', icon: Building2, count: null },
     { id: 'social' as TabType, label: 'Social & Media Hub', icon: Share2, badge: 'PHOTOS & VIDEOS' },
     { id: 'pg_coliving' as TabType, label: 'PG & Co-Living', icon: Building, badge: 'PG' },
     { id: 'rent_house' as TabType, label: 'Rent House & Flats', icon: Home, badge: 'RENT' },
     { id: 'boq' as TabType, label: 'BOQ & Estimation', icon: Calculator, count: null },
     { id: 'marketplace' as TabType, label: 'Marketplace & Enquiries', icon: Store, count: null },
     { id: 'materials' as TabType, label: 'Materials & Standards', icon: Layers, count: null },
-    { id: 'specialist' as TabType, label: 'Specialist AI & Voice', icon: Mic, badge: 'AI' },
+    { id: 'specialist' as TabType, label: 'Gouse AI Specialist', icon: Sparkles, badge: 'AGENT GUI' },
   ];
 
   return (

@@ -430,25 +430,47 @@ export const MarketPriceAutoUpdateModal: React.FC<MarketPriceAutoUpdateModalProp
                     </td>
 
                     {/* Market Rate */}
-                    <td className="py-2.5 px-3 text-right font-mono font-bold text-amber-400">
-                      ₹{match.marketRate.toLocaleString()}
+                    <td className="py-2.5 px-3 text-right font-mono font-bold">
+                      <span
+                        className={
+                          match.rateDelta > 0
+                            ? 'text-emerald-400'
+                            : match.rateDelta < 0
+                            ? 'text-rose-400'
+                            : 'text-amber-400'
+                        }
+                      >
+                        ₹{match.marketRate.toLocaleString()}
+                      </span>
                     </td>
 
-                    {/* Delta */}
+                    {/* Delta: Rising Green & Falling Red */}
                     <td className="py-2.5 px-3 text-right font-mono">
                       {isMissing ? (
-                        <span className="text-emerald-400 font-bold">New</span>
+                        <span className="text-emerald-400 font-bold">New Item</span>
                       ) : (
                         <span
-                          className={`font-semibold ${
-                            isUnderpriced
-                              ? 'text-amber-400'
-                              : isOverpriced
-                              ? 'text-emerald-400'
+                          className={`inline-flex items-center gap-0.5 font-bold px-1.5 py-0.5 rounded text-[11px] ${
+                            match.percentDelta > 0
+                              ? 'bg-emerald-950/80 text-emerald-400 border border-emerald-500/40'
+                              : match.percentDelta < 0
+                              ? 'bg-rose-950/80 text-rose-400 border border-rose-500/40'
                               : 'text-slate-400'
                           }`}
                         >
-                          {match.percentDelta > 0 ? `+${match.percentDelta}%` : `${match.percentDelta}%`}
+                          {match.percentDelta > 0 ? (
+                            <>
+                              <TrendingUp className="w-2.5 h-2.5 text-emerald-400" />
+                              <span>+{match.percentDelta}%</span>
+                            </>
+                          ) : match.percentDelta < 0 ? (
+                            <>
+                              <TrendingDown className="w-2.5 h-2.5 text-rose-400" />
+                              <span>{match.percentDelta}%</span>
+                            </>
+                          ) : (
+                            <span>0.0%</span>
+                          )}
                         </span>
                       )}
                     </td>
