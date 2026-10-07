@@ -1398,9 +1398,9 @@ export const MaterialsView: React.FC<MaterialsViewProps> = ({
               </div>
             </div>
 
-            {/* Quick Filter Pill for Subscribed Materials */}
+            {/* Quick Filter Pill for Subscribed Materials & Key Brand Spotlights */}
             <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-800 text-xs">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <button
                   type="button"
                   id="filter-tracked-subscriptions-only"
@@ -1412,8 +1412,67 @@ export const MaterialsView: React.FC<MaterialsViewProps> = ({
                   }`}
                 >
                   <BellRing className={`w-3.5 h-3.5 ${showSubscribedOnly ? 'text-slate-950' : 'text-amber-400'}`} />
-                  <span>Subscribed Materials Only ({subscription.subscribedMaterialIds.length})</span>
+                  <span>Subscribed Materials ({subscription.subscribedMaterialIds.length})</span>
                 </button>
+
+                {/* Quick Brand Spotlight Chips */}
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="text-[11px] font-mono text-slate-500 uppercase tracking-wider">Spotlights:</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedMaterialCategory('Steel & Reinforcement');
+                      setCustomMaterialQuery('A-One Gold');
+                    }}
+                    className={`px-2.5 py-1 rounded-full text-[11px] font-mono font-bold transition border flex items-center gap-1 ${
+                      customMaterialQuery === 'A-One Gold'
+                        ? 'bg-amber-500 text-slate-950 border-amber-400'
+                        : 'bg-slate-950 text-amber-300 border-amber-500/30 hover:border-amber-400 hover:bg-slate-900'
+                    }`}
+                  >
+                    <span>⚡ A-One Gold (Steel)</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedMaterialCategory('Cement & Concrete');
+                      setCustomMaterialQuery('Bharati Cement');
+                    }}
+                    className={`px-2.5 py-1 rounded-full text-[11px] font-mono font-bold transition border flex items-center gap-1 ${
+                      customMaterialQuery === 'Bharati Cement'
+                        ? 'bg-emerald-500 text-slate-950 border-emerald-400'
+                        : 'bg-slate-950 text-emerald-300 border-emerald-500/30 hover:border-emerald-400 hover:bg-slate-900'
+                    }`}
+                  >
+                    <span>🧱 Bharati Cement</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedMaterialCategory('Cement & Concrete');
+                      setCustomMaterialQuery('JSW Cement');
+                    }}
+                    className={`px-2.5 py-1 rounded-full text-[11px] font-mono font-bold transition border flex items-center gap-1 ${
+                      customMaterialQuery === 'JSW Cement'
+                        ? 'bg-teal-500 text-slate-950 border-teal-400'
+                        : 'bg-slate-950 text-teal-300 border-teal-500/30 hover:border-teal-400 hover:bg-slate-900'
+                    }`}
+                  >
+                    <span>🌱 JSW Cement</span>
+                  </button>
+                  {(customMaterialQuery || selectedMaterialCategory !== 'all') && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedMaterialCategory('all');
+                        setCustomMaterialQuery('');
+                      }}
+                      className="px-2 py-0.5 rounded text-[10px] font-mono text-slate-400 hover:text-white hover:underline"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
 
                 {showSubscribedOnly && (
                   <span className="text-[11px] text-amber-300/90 font-mono">

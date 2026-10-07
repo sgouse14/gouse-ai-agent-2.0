@@ -960,6 +960,7 @@ export const BOQView: React.FC<BOQViewProps> = ({
           { name: 'Earthwork excavation in foundation trenches', category: 'Substructure', unit: 'm3', quantity: Math.round(140 * (aiAreaSqFt / 3000)), rate: 280, notes: `Footprint for ${aiAreaSqFt} sq.ft` },
           { name: 'PCC 1:4:8 in foundation bed (100mm thick)', category: 'Concrete Works', unit: 'm3', quantity: Math.round(24 * (aiAreaSqFt / 3000) * 10) / 10, rate: 4800, notes: '40mm aggregate base' },
           { name: 'RCC M25 grade in columns, beams & slabs', category: 'Concrete Works', unit: 'm3', quantity: Math.round(52 * (aiAreaSqFt / 3000) * 10) / 10, rate: 8500, notes: 'Complete formwork & curing' },
+          { name: 'JSW Cement Concreel HD & Eco-Friendly Green PSC', category: 'Concrete Works', unit: 'nos', quantity: Math.round(1450 * (aiAreaSqFt / 3000)), rate: 375, notes: 'IS 455 Portland Slag Cement with low heat of hydration and crack prevention' },
           { name: 'Fe550D TMT thermo-mechanically treated rebar', category: 'Concrete Works', unit: 'MT', quantity: Math.round(4.8 * (aiAreaSqFt / 3000) * 10) / 10, rate: 72000, notes: 'Cut, bend and placed in position' },
           { name: 'AAC lightweight block masonry (200mm)', category: 'Masonry', unit: 'm3', quantity: Math.round(65 * (aiAreaSqFt / 3000) * 10) / 10, rate: 5600, notes: 'With polymer adhesive joints' },
           { name: 'Internal & external cement plastering (12-15mm)', category: 'Finishes', unit: 'sq.m', quantity: Math.round(380 * (aiAreaSqFt / 3000)), rate: 260, notes: 'Double coat sponge finish' },

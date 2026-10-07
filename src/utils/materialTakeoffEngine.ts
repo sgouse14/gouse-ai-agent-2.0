@@ -86,6 +86,8 @@ export const MATERIAL_TAKEOFF_NORMS: MaterialTakeoffNorm[] = [
     premiumMultiplier: 1.12,
     luxuryMultiplier: 1.25,
     brands: [
+      'JSW Cement (Concreel HD & Green PSC)',
+      'Bharati Cement (Vicat Tech OPC 53 & PPC)',
       'UltraTech Cement (OPC & PPC)',
       'Ambuja Cements (PPC & Cool Walls)',
       'ACC & Shree Cement (Suraksha, Bangur)',
@@ -111,6 +113,7 @@ export const MATERIAL_TAKEOFF_NORMS: MaterialTakeoffNorm[] = [
     premiumMultiplier: 1.08,
     luxuryMultiplier: 1.18,
     brands: [
+      'A-One Gold Steel (A-One Gold Fe550D)',
       'Tata Tiscon (Tiscon 550D, Super)',
       'JSW Neosteel (Fe 500D, Fe 550D)',
       'SAIL & Jindal Panther (SAIL SEQR, Fe 550D)',

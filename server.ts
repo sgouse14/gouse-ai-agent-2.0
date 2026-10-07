@@ -14,6 +14,8 @@ import {
   generateCompanyWithAi,
   generateLiveEnquiryQuote,
   parseMaterialStandardsFromPDFOrText,
+  translateArchitecturalText,
+  generateMaterialPriceAlerts,
 } from './server/apiService';
 
 const app = express();
@@ -69,17 +71,19 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// Chat endpoint with multi-lingual specialist support
+// Chat endpoint with multi-lingual specialist support and dual Gemini / ChatGPT engine integration
 app.post('/api/chat', async (req, res) => {
   try {
-    const { message, specialist, projectContext, language, boqContext, projectData } = req.body;
+    const { message, specialist, projectContext, language, boqContext, projectData, engine, aiEngine } = req.body;
+    const selectedEngine = (engine || aiEngine || 'gemini') as 'gemini' | 'chatgpt' | 'hybrid';
     const result = await generateChatResponse(
       message || '',
       specialist || 'general',
       projectContext || '',
       language || 'en-IN',
       boqContext,
-      projectData
+      projectData,
+      selectedEngine
     );
     if (typeof result === 'object' && result !== null) {
       res.json(result);
@@ -88,12 +92,13 @@ app.post('/api/chat', async (req, res) => {
     }
   } catch (_err) {
     const fallback = getDomainFallbackAgentResponse(
-      req.body.message || '',
-      req.body.specialist || 'general',
-      req.body.projectContext,
-      req.body.language || 'en-IN',
-      req.body.boqContext,
-      req.body.projectData
+      req.body?.message || '',
+      req.body?.specialist || 'general',
+      req.body?.projectContext,
+      req.body?.language,
+      req.body?.boqContext,
+      req.body?.projectData,
+      (req.body?.engine || req.body?.aiEngine || 'gemini') as 'gemini' | 'chatgpt' | 'hybrid'
     );
     res.json(fallback);
   }
@@ -129,6 +134,36 @@ app.post('/api/voice/tts', async (req, res) => {
       audioBase64: null,
       notice: 'Browser speech synthesis fallback active',
     });
+  }
+});
+
+// Autonomous Multi-lingual Translation Endpoint
+app.post('/api/translate', async (req, res) => {
+  try {
+    const { text, targetLanguage, sourceLanguage } = req.body;
+    const result = await translateArchitecturalText(
+      text || '',
+      targetLanguage || 'kn-IN',
+      sourceLanguage || 'auto'
+    );
+    res.json(result);
+  } catch (err: any) {
+    res.status(500).json({
+      error: 'Failed to translate',
+      translatedText: req.body?.text || '',
+      targetLanguage: req.body?.targetLanguage || 'kn-IN',
+    });
+  }
+});
+
+// Autonomous Material Price Radar & Live Alerts Endpoint
+app.post('/api/materials/radar-alerts', async (req, res) => {
+  try {
+    const { projectData } = req.body;
+    const alerts = await generateMaterialPriceAlerts(projectData);
+    res.json({ alerts, timestamp: new Date().toISOString() });
+  } catch (err: any) {
+    res.status(500).json({ error: 'Failed to generate price alerts' });
   }
 });
 

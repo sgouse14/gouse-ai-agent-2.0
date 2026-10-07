@@ -264,6 +264,8 @@ export interface ChatMessage {
   agentThought?: string;
   agentToolsUsed?: string[];
   agentActions?: AgentAction[];
+  aiEngine?: 'gemini' | 'chatgpt' | 'hybrid';
+  modelName?: string;
 }
 
 export type PgRoomType =
