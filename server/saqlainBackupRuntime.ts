@@ -59,6 +59,14 @@ export function createSaqlainBackupRuntime(options: SaqlainBackupRuntimeOptions)
   let inFlight: Promise<BackupRecoveryCycleReport> | null = null;
   let lastReport: BackupRecoveryCycleReport | null = null;
   let cycleSequence = 0;
+  // Serialize audit appends: all five agents may finish together, while the
+  // durable JSONL audit log intentionally permits only one writer at a time.
+  let auditQueue: Promise<unknown> = Promise.resolve();
+  function appendAudit(input: Parameters<typeof appendDurableAuditEvent>[1]) {
+    const next = auditQueue.then(() => appendDurableAuditEvent(options.auditFilePath!, input));
+    auditQueue = next.then(() => undefined, () => undefined);
+    return next;
+  }
 
   async function runAgent(agent: SaqlainBackupAgent, cycleId: string): Promise<AgentCycleResult> {
     const startedAt = now().toISOString();
@@ -71,7 +79,7 @@ export function createSaqlainBackupRuntime(options: SaqlainBackupRuntimeOptions)
 
     if (options.auditFilePath) {
       try {
-        await appendDurableAuditEvent(options.auditFilePath, {
+        await appendAudit({
           eventType: 'BACKUP_RECOVERY_AGENT_CYCLE',
           actorId: agent.id,
           outcome: outcome.status === 'VERIFIED' ? 'INFO' : 'HOLD',
