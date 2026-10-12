@@ -1,18 +1,15 @@
 /**
  * Gouse Cyber Security AI — unified 30-minute backup/recovery cycle.
- * Three controlled roles operate in each cycle:
- * 1) Backup agent
- * 2) Recovery agent
- * 3) Duplicate/verification agent
- *
- * Identity is re-checked for every sensitive operation. A wrong or inconsistent
- * identity is treated as a security event and the task is held for review.
+ * Four backup agents and one recovery agent are assigned per cycle.
+ * Originals are always protected; any identity mismatch or suspicious entry
+ * places the cycle on HOLD for human/security review.
  */
-
 export const CYCLE_MINUTES = 30;
-export const CYCLE_AGENT_COUNT = 3;
+export const BACKUP_AGENT_COUNT = 4;
+export const RECOVERY_AGENT_COUNT = 1;
+export const CYCLE_AGENT_COUNT = BACKUP_AGENT_COUNT + RECOVERY_AGENT_COUNT;
 
-export type CycleRole = 'BACKUP' | 'RECOVERY' | 'DUPLICATE_VERIFIER';
+export type CycleRole = 'BACKUP' | 'RECOVERY';
 export type CycleStatus = 'PENDING' | 'RUNNING' | 'HOLD' | 'VERIFIED' | 'FAILED';
 export type IdentityStatus = 'VALID' | 'INVALID' | 'INCONSISTENT';
 
@@ -25,9 +22,8 @@ export interface CycleAgentAssignment {
 
 export interface SecurityCycleReport {
   taskId: string;
-  backupAgentId: string;
+  backupAgentIds: string[];
   recoveryAgentId: string;
-  verifierAgentId: string;
   duplicateDetected: boolean;
   suspiciousEntryDetected: boolean;
   requiredCopyVerified: boolean;
@@ -37,20 +33,22 @@ export interface SecurityCycleReport {
 }
 
 export function createCycleAssignments(taskId: string, agentIds: string[]): CycleAgentAssignment[] {
-  if (!taskId) throw new Error('taskId is required.');
-  if (agentIds.length < CYCLE_AGENT_COUNT) {
-    throw new Error('Three approved agents are required: backup, recovery, and duplicate verifier.');
+  if (!taskId.trim()) throw new Error('taskId is required.');
+  if (agentIds.length !== CYCLE_AGENT_COUNT || agentIds.some((id) => !id.trim())) {
+    throw new Error('Exactly five non-empty approved agent IDs are required: four backups and one recovery agent.');
   }
+  if (new Set(agentIds).size !== agentIds.length) throw new Error('Each cycle assignment must use a distinct agent ID.');
   return [
-    { taskId, agentId: agentIds[0], role: 'BACKUP', identityStatus: 'VALID' },
-    { taskId, agentId: agentIds[1], role: 'RECOVERY', identityStatus: 'VALID' },
-    { taskId, agentId: agentIds[2], role: 'DUPLICATE_VERIFIER', identityStatus: 'VALID' },
+    ...agentIds.slice(0, BACKUP_AGENT_COUNT).map((agentId) => ({
+      taskId, agentId, role: 'BACKUP' as const, identityStatus: 'VALID' as const,
+    })),
+    { taskId, agentId: agentIds[BACKUP_AGENT_COUNT], role: 'RECOVERY', identityStatus: 'VALID' },
   ];
 }
 
 /** Re-check identity before every sensitive operation, not only at assignment time. */
 export function verifyAgentIdentity(expectedAgentId: string, presentedAgentId: string): IdentityStatus {
-  if (!presentedAgentId || presentedAgentId !== expectedAgentId) return 'INVALID';
+  if (!expectedAgentId || !presentedAgentId || presentedAgentId !== expectedAgentId) return 'INVALID';
   return 'VALID';
 }
 
@@ -73,22 +71,17 @@ export function authorizeSensitiveOperation(
 
 export function buildCycleReport(input: {
   taskId: string;
-  backupAgentId: string;
+  backupAgentIds: string[];
   recoveryAgentId: string;
-  verifierAgentId: string;
   duplicateDetected: boolean;
   suspiciousEntryDetected: boolean;
   requiredCopyVerified: boolean;
   identityCheckPassed: boolean;
 }): SecurityCycleReport {
-  const clean =
-    input.identityCheckPassed &&
-    !input.duplicateDetected &&
-    !input.suspiciousEntryDetected &&
-    input.requiredCopyVerified;
-  return {
-    ...input,
-    originalProtected: true,
-    status: clean ? 'VERIFIED' : 'HOLD',
-  };
+  if (input.backupAgentIds.length !== BACKUP_AGENT_COUNT || new Set([...input.backupAgentIds, input.recoveryAgentId]).size !== CYCLE_AGENT_COUNT) {
+    throw new Error('A report must identify four distinct backup agents and one distinct recovery agent.');
+  }
+  const clean = input.identityCheckPassed && !input.duplicateDetected &&
+    !input.suspiciousEntryDetected && input.requiredCopyVerified;
+  return { ...input, originalProtected: true, status: clean ? 'VERIFIED' : 'HOLD' };
 }
