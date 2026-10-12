@@ -92,3 +92,39 @@ test('continuous runtime rejects overlapping source, backup, and recovery direct
     await rm(base, { recursive: true, force: true });
   }
 });
+
+
+test('successive cycles use distinct snapshot identifiers even with a fixed clock', async () => {
+  const base = await mkdtemp(join(tmpdir(), 'saqlain-cycle-ids-'));
+  const roots = {
+    'gouse-ai': join(base, 'gouse'),
+    'saqlain-ai': join(base, 'saqlain'),
+    'protected-files': join(base, 'protected'),
+  };
+  try {
+    await Promise.all(Object.values(roots).map((root) => mkdir(root)));
+    await Promise.all([
+      writeFile(join(roots['gouse-ai'], 'app.txt'), 'gouse'),
+      writeFile(join(roots['saqlain-ai'], 'agent.txt'), 'saqlain'),
+      writeFile(join(roots['protected-files'], 'policy.txt'), 'protected'),
+    ]);
+    const runtime = createApprovedContinuousBackupRuntime({
+      storageRoot: join(base, 'backup-store'),
+      recoveryStagingRoot: join(base, 'recovery-staging'),
+      approvedRoots: roots,
+      sourceByAgentId: {
+        'saq-backup-gouse': 'gouse-ai',
+        'saq-backup-saqlain': 'saqlain-ai',
+        'saq-backup-files': 'protected-files',
+      },
+      now: () => new Date('2026-10-12T00:00:00.000Z'),
+    });
+    const first = await runtime.runCycle();
+    const second = await runtime.runCycle();
+    assert.equal(first.status, 'VERIFIED');
+    assert.equal(second.status, 'VERIFIED');
+    assert.notEqual(first.cycleId, second.cycleId);
+  } finally {
+    await rm(base, { recursive: true, force: true });
+  }
+});
