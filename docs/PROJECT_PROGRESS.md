@@ -72,7 +72,7 @@ External-facing Gousiya agents are outside Gouse AI and must use approved, scope
 
 ## Latest Agent ID implementation
 
-Added `server/saqlainAgentIdentity.ts` on this branch. It defines owner-approved agent registration, cryptographically random 128-bit binary IDs, rotation only after verified task completion, a stable internal agent key, suspension support, and audit events. Retired IDs remain in an issued-ID ledger and are not reused by the module. The caller must persist the registry, issued-ID ledger, and audit events durably and atomically; this is not yet wired to a database, Queue Manager, or Saqlain Gatekeeper. No automated tests or production validation are claimed for this change.
+Added `server/saqlainAgentIdentity.ts` and `server/saqlainTaskIdentityIntegration.ts` on this branch. The identity module defines owner-approved registration, cryptographically random 128-bit binary IDs, stable agent keys, suspension, audit events, and no-reuse tracking. The integration helper checks current identity and task-lock ownership, verifies the completion report, and rotates the ID only after successful verification. `verifyCurrentBinaryAgentId` provides a registry lookup helper for Gatekeeper integration. These are code modules, not a complete production integration: the caller must atomically persist task state, agent registry, issued-ID ledger, and audit events in durable storage. The helpers are not yet wired into live API routes or a database, and no automated tests or production validation are claimed.
 
 ## Current development branch
 
