@@ -2,6 +2,7 @@ import { createVerifiedLocalSnapshot, type BackupStorageResult } from './saqlain
 import { readApprovedBackupSource, type BackupSourceLimits } from './saqlainBackupSourceAdapter.ts';
 import type { BackupManifest } from './saqlainBackupManifest.ts';
 import type { SaqlainBackupAgent } from './saqlainBackupTeam.ts';
+import { relative, resolve, sep } from 'node:path';
 
 export interface ApprovedBackupAgentConfig {
   storageRoot: string;
@@ -25,6 +26,11 @@ export async function runApprovedBackupAgentSnapshot(
     approvedRoots: config.approvedRoots,
     limits: config.limits,
   });
+  const resolvedStorage = resolve(config.storageRoot);
+  const storageRelativeToSource = relative(sourceResult.root, resolvedStorage);
+  if (storageRelativeToSource === '' || (!storageRelativeToSource.startsWith('..' + sep) && storageRelativeToSource !== '..' && !storageRelativeToSource.startsWith('/'))) {
+    throw new Error('Backup storage must not be inside the approved source root.');
+  }
   const snapshotId = (cycleId + '-' + agent.id).replace(/[^A-Za-z0-9._-]/g, '-').slice(0, 120);
   return createVerifiedLocalSnapshot({
     storageRoot: config.storageRoot,
