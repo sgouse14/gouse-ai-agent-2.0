@@ -1,5 +1,5 @@
-import type { AgentIdentityState } from "./saqlainAgentIdentity";
-import { verifyCurrentBinaryAgentId } from "./saqlainTaskIdentityIntegration";
+import type { AgentIdentityState } from "./saqlainAgentIdentity.ts";
+import { verifyCurrentBinaryAgentId } from "./saqlainTaskIdentityIntegration.ts";
 
 export type GatekeeperDecision = "PASS" | "HOLD" | "BLOCK";
 
