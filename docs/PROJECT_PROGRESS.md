@@ -4,8 +4,8 @@ Updated: 2026-10-12
 
 ## Overall status
 
-**Estimated implementation progress: ~43% complete**
-**Estimated remaining: ~57%**
+**Estimated implementation progress: ~44% complete**
+**Estimated remaining: ~56%**
 
 This is an engineering/planning estimate, not a measured code-coverage percentage.
 
@@ -22,7 +22,7 @@ This is an engineering/planning estimate, not a measured code-coverage percentag
 | Saqlain Gatekeeper basic module | ~35% |
 | 11-agent security team definitions | ~60% |
 | Security policy / India compliance definitions | ~60% |
-| Backup/recovery architecture | ~35% |
+| Backup/recovery architecture | ~40% |
 
 Implemented security boundary principles include protected originals, no destructive deletion/overwrite, identity checks, task ownership, security holds, and defensive-only external containment.
 
@@ -30,7 +30,7 @@ Implemented security boundary principles include protected originals, no destruc
 
 | Area | Estimated status |
 |---|---:|
-| 4 Backup Agents | ~35% |
+| 4 Backup Agents | ~40% |
 | 1 Recovery Agent | ~25% |
 | 24/7 backup operation | ~10% |
 | 24/7 recovery operation | ~10% |
@@ -44,7 +44,7 @@ Implemented security boundary principles include protected originals, no destruc
 
 - Registry-aware Gatekeeper evaluator added; live API middleware integration and real credential verifier still required
 - Durable database-backed Agent ID registry/ledger and atomic transaction integration (the new identity module defines the contract but does not itself provide persistence)
-- Four-backup + one-recovery role definitions, cycle assignment checks, backup manifest generation, SHA-256 file-copy verification, and manifest integrity checks are implemented; actual storage adapters and runtime operations remain pending
+- Four-backup + one-recovery role definitions, cycle assignment checks, SHA-256 manifests, append-only local snapshots, read-back verification, and queue-task integration are implemented. The caller still supplies authorized source bytes; agent scheduling, durable queue state, off-host replication, and production storage protections remain pending
 - 24/7 scheduler/runtime
 - Full 30-minute end-to-end verification workflow
 - 11-agent chain orchestration module added with ordered reviews, evidence references, HOLD/re-review flow, terminal rejection, and sanitized step-11 external intelligence; durable audit persistence, reviewer authentication, 30-minute scheduler integration, and live workflow wiring remain pending
@@ -73,7 +73,7 @@ External-facing Gousiya agents are outside Gouse AI and must use approved, scope
 
 ## Latest Agent ID implementation
 
-Added `server/saqlainAgentIdentity.ts` and `server/saqlainTaskIdentityIntegration.ts` on this branch. The identity module defines owner-approved registration, cryptographically random 128-bit binary IDs, stable agent keys, suspension, audit events, and no-reuse tracking. The integration helper checks current identity and task-lock ownership, verifies the completion report, and rotates the ID only after successful verification. `verifyCurrentBinaryAgentId` provides a registry lookup helper for Gatekeeper integration. These are code modules, not a complete production integration: the caller must atomically persist task state, agent registry, issued-ID ledger, and audit events in durable storage. The helpers are not yet wired into live API routes or a database. Added `server/saqlainAgentIdentity.test.ts`, `server/saqlainGatekeeper.test.ts`, `server/saqlainVerificationChain.test.ts`, `server/saqlainBackupCycle.test.ts`, and `server/saqlainBackupManifest.test.ts`. The backup/recovery cycle is explicitly four backup agents plus one recovery agent, duplicate declarations in `server/saqlainBackupTeam.ts` were removed, and the SHA-256 manifest module validates safe relative paths, detects duplicate paths, verifies copied bytes, and detects manifest tampering. Added `server/saqlainBackupStorage.ts` and its tests for uniquely named local snapshots, exclusive file creation, read-back checksum verification, persisted manifest verification, and fail-closed handling that leaves partial snapshots for investigation instead of deleting data. The npm test script includes six test files. `.github/workflows/saqlain-security-tests.yml` runs the security suite with Node.js 22. CI has not yet reported a confirmed pass, so test success remains unverified.
+Added `server/saqlainAgentIdentity.ts` and `server/saqlainTaskIdentityIntegration.ts` on this branch. The identity module defines owner-approved registration, cryptographically random 128-bit binary IDs, stable agent keys, suspension, audit events, and no-reuse tracking. The integration helper checks current identity and task-lock ownership, verifies the completion report, and rotates the ID only after successful verification. `verifyCurrentBinaryAgentId` provides a registry lookup helper for Gatekeeper integration. These are code modules, not a complete production integration: the caller must atomically persist task state, agent registry, issued-ID ledger, and audit events in durable storage. The helpers are not yet wired into live API routes or a database. Added `server/saqlainAgentIdentity.test.ts`, `server/saqlainGatekeeper.test.ts`, `server/saqlainVerificationChain.test.ts`, `server/saqlainBackupCycle.test.ts`, `server/saqlainBackupManifest.test.ts`, `server/saqlainBackupStorage.test.ts`, and `server/saqlainBackupTaskIntegration.test.ts`. The backup/recovery cycle is explicitly four backup agents plus one recovery agent, duplicate declarations in `server/saqlainBackupTeam.ts` were removed, and the SHA-256 manifest module validates safe relative paths, detects duplicate paths, verifies copied bytes, and detects manifest tampering. Added `server/saqlainBackupStorage.ts` and tests for uniquely named local snapshots, exclusive file creation, read-back checksum verification, persisted manifest verification, and fail-closed handling that retains partial snapshots for investigation. Added `server/saqlainBackupTaskIntegration.ts` to require a task lock and verified snapshot before a queue task can complete and a reviewer-ready report can be returned; failures are held and not handed off. The npm test script includes seven test files. `.github/workflows/saqlain-security-tests.yml` runs the security suite with Node.js 22. CI has not yet reported a confirmed pass, so test success remains unverified.
 
 ## Current development branch
 
@@ -83,10 +83,10 @@ main remains untouched. Pull Request #1 remains open/draft for review.
 
 ## Recommended implementation order
 
-1. Confirm CI execution; fix TypeScript/runtime failures across all four security test files
-2. Add durable storage and atomic audit persistence for identity + verification workflow
+1. Confirm CI execution; fix TypeScript/runtime failures across all seven security test files
+2. Add durable database-backed queue state and atomic audit persistence for identity + verification workflow
 3. Integrate authenticated reviewers and the 30-minute HOLD re-review scheduler
-4. Connect the five-agent backup/recovery assignments to real versioned storage and checksum verification
+4. Connect the five-agent assignments to authorized source adapters, off-host versioned storage, and restore drills
 5. Implement controlled 24/7 runtime and Saqlain monitoring
 6. Implement authorization credential generation/verification and external API permission gateway
 7. Implement Gousiya as the final-stage emergency/external liaison component
