@@ -115,7 +115,6 @@ export function createApprovedContinuousBackupRuntime(
         });
         staged += 1;
       }
-      snapshotsByCycle.delete(cycleId);
       return { status: 'VERIFIED', summary: 'Recovery rehearsal staged and checksum-verified ' + staged + ' copies in the separate recovery directory; originals were not modified.' };
     }
 
@@ -128,5 +127,6 @@ export function createApprovedContinuousBackupRuntime(
     now: options.now,
     setIntervalFn: options.setIntervalFn,
     clearIntervalFn: options.clearIntervalFn,
+    onCycleComplete: (cycleId) => { snapshotsByCycle.delete(cycleId); },
   });
 }
