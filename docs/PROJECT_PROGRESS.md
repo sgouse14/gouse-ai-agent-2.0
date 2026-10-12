@@ -22,7 +22,7 @@ This is an engineering/planning estimate, not a measured code-coverage percentag
 | Saqlain Gatekeeper basic module | ~35% |
 | 11-agent security team definitions | ~60% |
 | Security policy / India compliance definitions | ~60% |
-| Backup/recovery architecture | ~20% |
+| Backup/recovery architecture | ~25% |
 
 Implemented security boundary principles include protected originals, no destructive deletion/overwrite, identity checks, task ownership, security holds, and defensive-only external containment.
 
@@ -30,8 +30,8 @@ Implemented security boundary principles include protected originals, no destruc
 
 | Area | Estimated status |
 |---|---:|
-| 4 Backup Agents | ~20% |
-| 1 Recovery Agent | ~20% |
+| 4 Backup Agents | ~25% |
+| 1 Recovery Agent | ~25% |
 | 24/7 backup operation | ~10% |
 | 24/7 recovery operation | ~10% |
 | Saqlain 30-minute verification of all 5 agents | ~60% design/partial |
@@ -44,7 +44,7 @@ Implemented security boundary principles include protected originals, no destruc
 
 - Registry-aware Gatekeeper evaluator added; live API middleware integration and real credential verifier still required
 - Durable database-backed Agent ID registry/ledger and atomic transaction integration (the new identity module defines the contract but does not itself provide persistence)
-- Complete 4-backup + 1-recovery runtime deployment
+- Four-backup + one-recovery role definitions and cycle assignment checks are implemented; runtime deployment and actual backup/recovery operations remain pending
 - 24/7 scheduler/runtime
 - Full 30-minute end-to-end verification workflow
 - 11-agent chain orchestration module added with ordered reviews, evidence references, HOLD/re-review flow, terminal rejection, and sanitized step-11 external intelligence; durable audit persistence, reviewer authentication, 30-minute scheduler integration, and live workflow wiring remain pending
@@ -53,7 +53,7 @@ Implemented security boundary principles include protected originals, no destruc
 - Full immutable audit storage
 - Complete external-agent communication gateway
 - Gousiya emergency component and its external agent team
-- Run Agent ID and Gatekeeper tests in CI and fix any failures
+- CI workflow added for security unit tests on feature-branch pushes and pull requests to main; workflow result has not yet been confirmed
 - End-to-end security testing
 - Stress/failure testing
 - Production security hardening
@@ -73,7 +73,7 @@ External-facing Gousiya agents are outside Gouse AI and must use approved, scope
 
 ## Latest Agent ID implementation
 
-Added `server/saqlainAgentIdentity.ts` and `server/saqlainTaskIdentityIntegration.ts` on this branch. The identity module defines owner-approved registration, cryptographically random 128-bit binary IDs, stable agent keys, suspension, audit events, and no-reuse tracking. The integration helper checks current identity and task-lock ownership, verifies the completion report, and rotates the ID only after successful verification. `verifyCurrentBinaryAgentId` provides a registry lookup helper for Gatekeeper integration. These are code modules, not a complete production integration: the caller must atomically persist task state, agent registry, issued-ID ledger, and audit events in durable storage. The helpers are not yet wired into live API routes or a database. Added `server/saqlainAgentIdentity.test.ts`, `server/saqlainGatekeeper.test.ts`, and `server/saqlainVerificationChain.test.ts`, and updated the npm test script to run all three. Tests are committed but have not been executed in this GitHub integration; passing status is not confirmed.
+Added `server/saqlainAgentIdentity.ts` and `server/saqlainTaskIdentityIntegration.ts` on this branch. The identity module defines owner-approved registration, cryptographically random 128-bit binary IDs, stable agent keys, suspension, audit events, and no-reuse tracking. The integration helper checks current identity and task-lock ownership, verifies the completion report, and rotates the ID only after successful verification. `verifyCurrentBinaryAgentId` provides a registry lookup helper for Gatekeeper integration. These are code modules, not a complete production integration: the caller must atomically persist task state, agent registry, issued-ID ledger, and audit events in durable storage. The helpers are not yet wired into live API routes or a database. Added `server/saqlainAgentIdentity.test.ts`, `server/saqlainGatekeeper.test.ts`, `server/saqlainVerificationChain.test.ts`, and `server/saqlainBackupCycle.test.ts`. The backup/recovery cycle is now explicitly four backup agents plus one recovery agent, and duplicate declarations in `server/saqlainBackupTeam.ts` were removed. The npm test script includes all four test files. `.github/workflows/saqlain-security-tests.yml` runs the security suite with Node.js 22. CI has not yet reported a confirmed pass, so test success remains unverified.
 
 ## Current development branch
 
@@ -83,10 +83,10 @@ main remains untouched. Pull Request #1 remains open/draft for review.
 
 ## Recommended implementation order
 
-1. Run and fix the Agent ID, Gatekeeper, and 11-agent verification-chain tests
+1. Confirm CI execution; fix TypeScript/runtime failures across all four security test files
 2. Add durable storage and atomic audit persistence for identity + verification workflow
 3. Integrate authenticated reviewers and the 30-minute HOLD re-review scheduler
-4. Implement 4 Backup Agents + 1 Recovery Agent
+4. Connect the five-agent backup/recovery assignments to real versioned storage and checksum verification
 5. Implement controlled 24/7 runtime and Saqlain monitoring
 6. Implement authorization credential generation/verification and external API permission gateway
 7. Implement Gousiya as the final-stage emergency/external liaison component
