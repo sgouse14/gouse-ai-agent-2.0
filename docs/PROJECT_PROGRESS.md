@@ -4,8 +4,8 @@ Updated: 2026-10-12
 
 ## Overall status
 
-**Estimated implementation progress: ~44% complete**
-**Estimated remaining: ~56%**
+**Estimated implementation progress: ~45% complete**
+**Estimated remaining: ~55%**
 
 This is an engineering/planning estimate, not a measured code-coverage percentage.
 
@@ -50,7 +50,7 @@ Implemented security boundary principles include protected originals, no destruc
 - 11-agent chain orchestration module added with ordered reviews, evidence references, HOLD/re-review flow, terminal rejection, and sanitized step-11 external intelligence; durable audit persistence, reviewer authentication, 30-minute scheduler integration, and live workflow wiring remain pending
 - Authorization credential generation, rotation and verification
 - Internal/external token ledger and exchange controls
-- Full immutable audit storage
+- Hash-chained JSONL audit log with exclusive writer lock, fsync, and tamper detection implemented; off-host/WORM storage, key-backed signatures, and integration across all security events remain pending
 - Complete external-agent communication gateway
 - Gousiya emergency component and its external agent team
 - CI workflow added for security unit tests on feature-branch pushes and pull requests to main; workflow result has not yet been confirmed
@@ -73,7 +73,7 @@ External-facing Gousiya agents are outside Gouse AI and must use approved, scope
 
 ## Latest Agent ID implementation
 
-Added `server/saqlainAgentIdentity.ts` and `server/saqlainTaskIdentityIntegration.ts` on this branch. The identity module defines owner-approved registration, cryptographically random 128-bit binary IDs, stable agent keys, suspension, audit events, and no-reuse tracking. The integration helper checks current identity and task-lock ownership, verifies the completion report, and rotates the ID only after successful verification. `verifyCurrentBinaryAgentId` provides a registry lookup helper for Gatekeeper integration. These are code modules, not a complete production integration: the caller must atomically persist task state, agent registry, issued-ID ledger, and audit events in durable storage. The helpers are not yet wired into live API routes or a database. Added `server/saqlainAgentIdentity.test.ts`, `server/saqlainGatekeeper.test.ts`, `server/saqlainVerificationChain.test.ts`, `server/saqlainBackupCycle.test.ts`, `server/saqlainBackupManifest.test.ts`, `server/saqlainBackupStorage.test.ts`, and `server/saqlainBackupTaskIntegration.test.ts`. The backup/recovery cycle is explicitly four backup agents plus one recovery agent, duplicate declarations in `server/saqlainBackupTeam.ts` were removed, and the SHA-256 manifest module validates safe relative paths, detects duplicate paths, verifies copied bytes, and detects manifest tampering. Added `server/saqlainBackupStorage.ts` and tests for uniquely named local snapshots, exclusive file creation, read-back checksum verification, persisted manifest verification, and fail-closed handling that retains partial snapshots for investigation. Added `server/saqlainBackupTaskIntegration.ts` to require a task lock and verified snapshot before a queue task can complete and a reviewer-ready report can be returned; failures are held and not handed off. The npm test script includes seven test files. `.github/workflows/saqlain-security-tests.yml` runs the security suite with Node.js 22. CI has not yet reported a confirmed pass, so test success remains unverified.
+Added `server/saqlainAgentIdentity.ts` and `server/saqlainTaskIdentityIntegration.ts` on this branch. The identity module defines owner-approved registration, cryptographically random 128-bit binary IDs, stable agent keys, suspension, audit events, and no-reuse tracking. The integration helper checks current identity and task-lock ownership, verifies the completion report, and rotates the ID only after successful verification. `verifyCurrentBinaryAgentId` provides a registry lookup helper for Gatekeeper integration. These are code modules, not a complete production integration: the caller must atomically persist task state, agent registry, issued-ID ledger, and audit events in durable storage. The helpers are not yet wired into live API routes or a database. Added `server/saqlainAgentIdentity.test.ts`, `server/saqlainGatekeeper.test.ts`, `server/saqlainVerificationChain.test.ts`, `server/saqlainBackupCycle.test.ts`, `server/saqlainBackupManifest.test.ts`, `server/saqlainBackupStorage.test.ts`, and `server/saqlainBackupTaskIntegration.test.ts`. The backup/recovery cycle is explicitly four backup agents plus one recovery agent, duplicate declarations in `server/saqlainBackupTeam.ts` were removed, and the SHA-256 manifest module validates safe relative paths, detects duplicate paths, verifies copied bytes, and detects manifest tampering. Added `server/saqlainBackupStorage.ts` and tests for uniquely named local snapshots, exclusive file creation, read-back checksum verification, persisted manifest verification, and fail-closed handling that retains partial snapshots for investigation. Added `server/saqlainBackupTaskIntegration.ts` to require a task lock and verified snapshot before a queue task can complete and a reviewer-ready report can be returned; failures are held and not handed off. Added `server/saqlainAuditLog.ts` with hash-chained JSONL records, exclusive writer lock, fsync, and history-integrity validation, plus tamper-detection tests. This audit module is not yet wired into every task/identity/Gatekeeper event and is not tamper-proof against privileged OS users. The npm test script includes eight test files. `.github/workflows/saqlain-security-tests.yml` runs the security suite with Node.js 22. CI has not yet reported a confirmed pass, so test success remains unverified.
 
 ## Current development branch
 
@@ -83,8 +83,8 @@ main remains untouched. Pull Request #1 remains open/draft for review.
 
 ## Recommended implementation order
 
-1. Confirm CI execution; fix TypeScript/runtime failures across all seven security test files
-2. Add durable database-backed queue state and atomic audit persistence for identity + verification workflow
+1. Confirm CI execution; fix TypeScript/runtime failures across all eight security test files
+2. Integrate the hash-chained audit log with backup tasks, identity rotation, Gatekeeper decisions, and verification-chain transitions; then add durable database-backed queue state and atomic transactions
 3. Integrate authenticated reviewers and the 30-minute HOLD re-review scheduler
 4. Connect the five-agent assignments to authorized source adapters, off-host versioned storage, and restore drills
 5. Implement controlled 24/7 runtime and Saqlain monitoring
