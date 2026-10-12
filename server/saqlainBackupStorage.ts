@@ -47,6 +47,12 @@ export async function createVerifiedLocalSnapshot(input: {
   if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,119}$/.test(snapshotId) || snapshotId === '.' || snapshotId === '..') {
     throw new Error('snapshotId contains unsupported characters.');
   }
+  const safeFiles = input.files.map((file) => {
+    const relativePath = validateRelativeBackupPath(file.relativePath);
+    if (relativePath === 'backup-manifest.json') throw new Error('backup-manifest.json is reserved for the generated manifest.');
+    return { ...file, relativePath };
+  });
+  if (safeFiles.length === 0) throw new Error('At least one file is required.');
   const root = resolve(input.storageRoot);
   await mkdir(root, { recursive: true, mode: 0o700 });
   const snapshotDirectory = resolve(root, snapshotId);
@@ -55,8 +61,8 @@ export async function createVerifiedLocalSnapshot(input: {
   await mkdir(snapshotDirectory, { recursive: false, mode: 0o700 });
 
   try {
-    const manifest = createBackupManifest({ snapshotId, source: input.source, files: input.files, now: input.now });
-    for (const file of input.files) {
+    const manifest = createBackupManifest({ snapshotId, source: input.source, files: safeFiles, now: input.now });
+    for (const file of safeFiles) {
       const safePath = validateRelativeBackupPath(file.relativePath);
       const target = resolve(snapshotDirectory, safePath);
       assertWithinRoot(snapshotDirectory, target);
