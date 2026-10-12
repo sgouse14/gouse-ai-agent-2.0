@@ -71,11 +71,13 @@ export function createApprovedContinuousBackupRuntime(
       const snapshots = snapshotsByCycle.get(cycleId);
       const sourceAgents = SAQLAIN_BACKUP_TEAM.filter((candidate) => candidate.role === 'BACKUP' && candidate.id !== 'saq-backup-verify');
       if (!snapshots || snapshots.size !== sourceAgents.length) {
+        snapshotsByCycle.delete(cycleId);
         return { status: 'HOLD', summary: 'Expected source snapshots are missing; recovery is blocked.' };
       }
       for (const sourceAgent of sourceAgents) {
         const snapshot = snapshots.get(sourceAgent.id);
         if (!snapshot || !(await verifyPersistedSnapshot(snapshot))) {
+          snapshotsByCycle.delete(cycleId);
           return { status: 'HOLD', summary: 'Snapshot integrity check failed for ' + sourceAgent.id + '; recovery is blocked.' };
         }
       }
@@ -113,6 +115,7 @@ export function createApprovedContinuousBackupRuntime(
         });
         staged += 1;
       }
+      snapshotsByCycle.delete(cycleId);
       return { status: 'VERIFIED', summary: 'Recovery rehearsal staged and checksum-verified ' + staged + ' copies in the separate recovery directory; originals were not modified.' };
     }
 
