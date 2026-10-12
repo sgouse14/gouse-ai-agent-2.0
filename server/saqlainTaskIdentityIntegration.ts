@@ -2,13 +2,13 @@ import {
   type AgentIdentityState,
   type AgentIdentityRecord,
   rotateAgentIdAfterVerifiedTask,
-} from "./saqlainAgentIdentity";
+} from "./saqlainAgentIdentity.ts";
 import {
   type QueueReport,
   type QueueTask,
   completeQueueTask,
   verifyQueueReport,
-} from "./saqlainTaskQueueManager";
+} from "./saqlainTaskQueueManager.ts";
 
 export interface VerifiedTaskCompletion {
   completedTask: QueueTask;
