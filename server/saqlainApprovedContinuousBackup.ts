@@ -58,8 +58,6 @@ export function createApprovedContinuousBackupRuntime(
   }
 
   const snapshotsByCycle = new Map<string, Map<string, BackupStorageResult>>();
-  const agentById = new Map(SAQLAIN_BACKUP_TEAM.map((agent) => [agent.id, agent]));
-
   const runAgentCycle = async (agent: SaqlainBackupAgent, cycleId: string): Promise<AgentCycleOutcome> => {
     if (agent.role === 'BACKUP' && agent.id !== 'saq-backup-verify') {
       const snapshot = await runApprovedBackupAgentSnapshot(agent, cycleId, options);
