@@ -9,7 +9,7 @@
     "lint": "tsc --noEmit",
     "preview": "vite preview --host 0.0.0.0 --port 3000",
     "start": "node dist/server.cjs",
-    "test": "node --experimental-strip-types --test server/saqlainAgentIdentity.test.ts server/saqlainGatekeeper.test.ts"
+    "test": "node --experimental-strip-types --test server/saqlainAgentIdentity.test.ts server/saqlainGatekeeper.test.ts server/saqlainVerificationChain.test.ts"
   },
   "dependencies": {
     "@google/genai": "^2.22.0",
