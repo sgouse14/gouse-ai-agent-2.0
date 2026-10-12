@@ -53,7 +53,7 @@ test('enforces source file and total-byte limits', async () => {
       source: 'protected-files',
       approvedRoots: { 'protected-files': root },
       limits: { maxFileBytes: 4 },
-    }), /file size limit/);
+    }), /exceeds configured size limit/);
     await assert.rejects(() => readApprovedBackupSource({
       source: 'protected-files',
       approvedRoots: { 'protected-files': root },
