@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { appendDurableAuditEvent } from './saqlainAuditLog.ts';
 import { SAQLAIN_BACKUP_TEAM, SAQLAIN_BACKUP_INTERVAL_MINUTES, type SaqlainBackupAgent } from './saqlainBackupTeam.ts';
 
@@ -33,6 +34,8 @@ export interface SaqlainBackupRuntimeOptions {
   now?: () => Date;
   setIntervalFn?: (callback: () => void, milliseconds: number) => ReturnType<typeof setInterval>;
   clearIntervalFn?: (handle: ReturnType<typeof setInterval>) => void;
+  /** Optional cleanup for per-cycle in-memory state, called after every completed cycle. */
+  onCycleComplete?: (cycleId: string) => void;
 }
 
 export interface SaqlainBackupRuntime {
@@ -109,10 +112,9 @@ export function createSaqlainBackupRuntime(options: SaqlainBackupRuntimeOptions)
   async function executeCycle(): Promise<BackupRecoveryCycleReport> {
     cycleSequence += 1;
     const startedAt = now().toISOString();
-    // Include wall-clock time so a process restart is less likely to reuse a
-    // prior snapshot ID. This reduces collisions but is not durable cycle state.
-    const cycleStamp = startedAt.replace(/[-:.TZ]/g, '').slice(0, 14);
-    const cycleId = 'saqlain-cycle-' + cycleStamp + '-' + String(cycleSequence).padStart(8, '0');
+    // A cryptographically random suffix prevents accidental ID reuse across
+    // process restarts even when clocks or in-memory counters repeat.
+    const cycleId = 'saqlain-cycle-' + randomUUID();
     // Stage the cycle so integrity verification cannot race the snapshot writers,
     // and recovery never starts before the verification agent has reported.
     const sourceBackupAgents = SAQLAIN_BACKUP_TEAM.filter((agent) =>
@@ -128,8 +130,11 @@ export function createSaqlainBackupRuntime(options: SaqlainBackupRuntimeOptions)
       verificationResult = await runAgent(verifier, cycleId);
       results.push(verificationResult);
     }
+    const sourceResults = results.filter((result) => result.role === 'BACKUP' && result.agentId !== 'saq-backup-verify');
+    const allSourceAgentsVerified = sourceResults.length === sourceBackupAgents.length &&
+      sourceResults.every((result) => result.status === 'VERIFIED');
     if (recovery) {
-      if (verificationResult?.status === 'VERIFIED') {
+      if (verificationResult?.status === 'VERIFIED' && allSourceAgentsVerified) {
         results.push(await runAgent(recovery, cycleId));
       } else {
         const heldAt = now().toISOString();
@@ -137,7 +142,7 @@ export function createSaqlainBackupRuntime(options: SaqlainBackupRuntimeOptions)
           agentId: recovery.id,
           role: recovery.role,
           status: 'HOLD',
-          summary: 'Recovery blocked because backup verification did not pass.',
+          summary: 'Recovery blocked because backup verification or a source-agent audit/result did not pass.',
           startedAt: heldAt,
           finishedAt: now().toISOString(),
         });
@@ -153,6 +158,7 @@ export function createSaqlainBackupRuntime(options: SaqlainBackupRuntimeOptions)
       results: Object.freeze(results),
     });
     lastReport = report;
+    try { options.onCycleComplete?.(cycleId); } catch { /* cleanup must not invalidate the completed report */ }
     return report;
   }
 
