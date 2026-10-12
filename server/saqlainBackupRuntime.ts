@@ -110,7 +110,18 @@ export function createSaqlainBackupRuntime(options: SaqlainBackupRuntimeOptions)
     cycleSequence += 1;
     const cycleId = 'saqlain-cycle-' + String(cycleSequence).padStart(8, '0');
     const startedAt = now().toISOString();
-    const results = await Promise.all(SAQLAIN_BACKUP_TEAM.map((agent) => runAgent(agent, cycleId)));
+    // Stage the cycle so integrity verification cannot race the snapshot writers,
+    // and recovery never starts before the verification agent has reported.
+    const sourceBackupAgents = SAQLAIN_BACKUP_TEAM.filter((agent) =>
+      agent.role === 'BACKUP' && agent.id !== 'saq-backup-verify'
+    );
+    const verifier = SAQLAIN_BACKUP_TEAM.find((agent) => agent.id === 'saq-backup-verify');
+    const recovery = SAQLAIN_BACKUP_TEAM.find((agent) => agent.role === 'RECOVERY');
+    const results: AgentCycleResult[] = [
+      ...await Promise.all(sourceBackupAgents.map((agent) => runAgent(agent, cycleId))),
+    ];
+    if (verifier) results.push(await runAgent(verifier, cycleId));
+    if (recovery) results.push(await runAgent(recovery, cycleId));
     const verified = results.filter((result) => result.status === 'VERIFIED').length;
     const heldOrFailed = results.some((result) => result.status !== 'VERIFIED');
     const report: BackupRecoveryCycleReport = Object.freeze({
