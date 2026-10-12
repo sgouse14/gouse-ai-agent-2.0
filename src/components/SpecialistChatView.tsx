@@ -2709,6 +2709,9 @@ ${autonomousPowerActive ? '*Autonomous Agent Status: All price hedge actions are
   }, [toastNotification]);
 
   const recognitionRef = useRef<any>(null);
+  const chatMediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const chatAudioChunksRef = useRef<Blob[]>([]);
+  const chatStreamRef = useRef<MediaStream | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const currentAudioRef = useRef<HTMLAudioElement | null>(null);
 
@@ -2733,19 +2736,22 @@ ${autonomousPowerActive ? '*Autonomous Agent Status: All price hedge actions are
           // ignore
         }
       }
+      if (chatMediaRecorderRef.current && chatMediaRecorderRef.current.state === 'recording') {
+        try {
+          chatMediaRecorderRef.current.stop();
+        } catch (_e) {
+          // ignore
+        }
+      }
+      if (chatStreamRef.current) {
+        chatStreamRef.current.getTracks().forEach((t) => t.stop());
+        chatStreamRef.current = null;
+      }
     };
   }, []);
 
-  // Speech Recognition Setup (Microphone)
-  const toggleVoiceInput = () => {
-    const SpeechRecognition =
-      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-
-    if (!SpeechRecognition) {
-      console.warn('Speech Recognition is not supported in this browser. Please use Chrome, Edge, or Safari.');
-      return;
-    }
-
+  // Speech Recognition & Gemini Audio Setup (Microphone)
+  const toggleVoiceInput = async () => {
     if (isListening) {
       if (recognitionRef.current) {
         try {
@@ -2754,49 +2760,125 @@ ${autonomousPowerActive ? '*Autonomous Agent Status: All price hedge actions are
           // ignore
         }
       }
+      if (chatMediaRecorderRef.current && chatMediaRecorderRef.current.state === 'recording') {
+        try {
+          chatMediaRecorderRef.current.stop();
+        } catch (_e) {
+          // ignore
+        }
+      }
+      if (chatStreamRef.current) {
+        chatStreamRef.current.getTracks().forEach((t) => t.stop());
+        chatStreamRef.current = null;
+      }
       setIsListening(false);
       return;
     }
 
+    setIsListening(true);
+    setVoiceTranscript('');
+
+    // Start MediaRecorder in parallel for foolproof capture
     try {
-      const recognition = new SpeechRecognition();
-      // Map 'auto' to user's system locale or default to 'en-IN'
-      recognition.lang = selectedLanguage === 'auto' ? navigator.language || 'en-IN' : selectedLanguage;
-      recognition.interimResults = true;
-      recognition.continuous = false;
-
-      recognition.onstart = () => {
-        setIsListening(true);
-        setVoiceTranscript('');
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      chatStreamRef.current = stream;
+      chatAudioChunksRef.current = [];
+      let mimeType = 'audio/webm';
+      if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) mimeType = 'audio/webm;codecs=opus';
+      const recorder = new MediaRecorder(stream, { mimeType });
+      recorder.ondataavailable = (e) => {
+        if (e.data && e.data.size > 0) chatAudioChunksRef.current.push(e.data);
       };
-
-      recognition.onresult = (event: any) => {
-        let transcript = '';
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-          transcript += event.results[i][0].transcript;
+      recorder.onstop = async () => {
+        if (chatAudioChunksRef.current.length > 0) {
+          const blob = new Blob(chatAudioChunksRef.current, { type: mimeType });
+          chatAudioChunksRef.current = [];
+          const reader = new FileReader();
+          reader.onloadend = async () => {
+            const base64Data = (reader.result as string)?.split(',')[1];
+            if (base64Data) {
+              try {
+                const res = await fetch('/api/voice/gemini-audio', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    audioBase64: base64Data,
+                    mimeType,
+                    activeTab: 'specialist',
+                    activeProject,
+                  }),
+                });
+                if (res.ok) {
+                  const data = await res.json();
+                  if (data.transcript && data.transcript !== 'Voice recorded') {
+                    setVoiceTranscript(data.transcript);
+                    setInputMessage(data.transcript);
+                    if (walkieTalkieActive) {
+                      handleSendMessage(data.transcript);
+                    }
+                  }
+                }
+              } catch {
+                // Ignore
+              }
+            }
+          };
+          reader.readAsDataURL(blob);
         }
-        setVoiceTranscript(transcript);
-        setInputMessage(transcript);
       };
+      chatMediaRecorderRef.current = recorder;
+      recorder.start(250);
+    } catch (micErr) {
+      console.warn('Microphone stream notice in Specialist chat:', micErr);
+    }
 
-      recognition.onerror = (err: any) => {
-        console.warn('Speech recognition warning:', err);
-        setIsListening(false);
-      };
+    // Also run SpeechRecognition for instant client preview
+    const SpeechRecognition =
+      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
 
-      recognition.onend = () => {
-        setIsListening(false);
-        // If in Walkie-Talkie mode and transcript exists, auto-submit
-        if (walkieTalkieActive && inputMessage.trim()) {
-          handleSendMessage(inputMessage.trim());
-        }
-      };
+    if (SpeechRecognition) {
+      try {
+        const recognition = new SpeechRecognition();
+        recognition.lang = selectedLanguage === 'auto' ? navigator.language || 'en-IN' : selectedLanguage;
+        recognition.interimResults = true;
+        recognition.continuous = false;
 
-      recognitionRef.current = recognition;
-      recognition.start();
-    } catch (err) {
-      console.error('Error starting speech recognition:', err);
-      setIsListening(false);
+        recognition.onstart = () => {
+          setIsListening(true);
+        };
+
+        recognition.onresult = (event: any) => {
+          let transcript = '';
+          for (let i = event.resultIndex; i < event.results.length; i++) {
+            transcript += event.results[i][0].transcript;
+          }
+          setVoiceTranscript(transcript);
+          setInputMessage(transcript);
+        };
+
+        recognition.onerror = (err: any) => {
+          console.log('Speech recognition notice (MediaRecorder active):', err.error);
+        };
+
+        recognition.onend = () => {
+          if (chatMediaRecorderRef.current && chatMediaRecorderRef.current.state === 'recording') {
+            try {
+              chatMediaRecorderRef.current.stop();
+            } catch (_e) {
+              // ignore
+            }
+          }
+          setIsListening(false);
+          if (walkieTalkieActive && inputMessage.trim()) {
+            handleSendMessage(inputMessage.trim());
+          }
+        };
+
+        recognitionRef.current = recognition;
+        recognition.start();
+      } catch (err) {
+        console.warn('Error starting speech recognition:', err);
+      }
     }
   };
 
@@ -2949,7 +3031,9 @@ ${autonomousPowerActive ? '*Autonomous Agent Status: All price hedge actions are
       qLower.includes('price alert') ||
       qLower.includes('automatic like agent') ||
       qLower.includes('like agent') ||
-      qLower.includes('everythink');
+      qLower.includes('everythink') ||
+      qLower.includes('deveop') ||
+      qLower.includes('develop');
 
     if (isAutonomousPowerRequest) {
       setAutonomousPowerActive(true);
@@ -2960,6 +3044,21 @@ ${autonomousPowerActive ? '*Autonomous Agent Status: All price hedge actions are
       if (qLower.includes('alert price') || qLower.includes('price alert')) {
         handleScanPriceAlerts();
       }
+    }
+
+    const isAgentWorkfaceRequest =
+      qLower.includes('agent work') ||
+      qLower.includes('works agent') ||
+      qLower.includes('show agent') ||
+      qLower.includes('workface') ||
+      qLower.includes('agent team');
+
+    if (isAgentWorkfaceRequest) {
+      setStudioTab('agent_mesh');
+      setToastNotification({
+        message: '🤖 Loaded Gouse AI Autonomous Agent Workface & Multi-Agent Mesh!',
+        type: 'success',
+      });
     }
 
     const engineToUse = customEngine || selectedEngine;
@@ -3429,7 +3528,7 @@ For **${activeProject.name || 'this proposal'}** (${activeProject.projectType ||
           }`}
         >
           <Network className="w-4 h-4" />
-          <span>Connected Platform AI Agents</span>
+          <span>Agent Workface & Mesh</span>
           <span
             className={`text-[10px] font-mono px-1.5 py-0.5 rounded-full flex items-center gap-1 ${
               studioTab === 'agent_mesh'
@@ -6276,6 +6375,18 @@ For **${activeProject.name || 'this proposal'}** (${activeProject.projectType ||
                   <Globe className="w-3.5 h-3.5" />
                   <span>🌐 Work Transel</span>
                 </button>
+
+                {/* 🤖 AGENT WORKFACE & TEAM BUTTON */}
+                <button
+                  type="button"
+                  id="btn-show-agent-workface"
+                  onClick={() => setStudioTab('agent_mesh')}
+                  className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-slate-950 text-xs font-mono font-bold flex items-center gap-1.5 transition shadow-sm active:scale-95"
+                  title="Open Gouse AI Autonomous Multi-Agent Workface & Orchestration Mesh"
+                >
+                  <Network className="w-3.5 h-3.5 fill-slate-950 text-slate-950" />
+                  <span>🤖 Agent Workface</span>
+                </button>
               </div>
             </div>
 
@@ -6960,6 +7071,8 @@ For **${activeProject.name || 'this proposal'}** (${activeProject.projectType ||
           </div>
         </div>
       )}
+
+
 
       {/* ========================================================================= */}
       {/* MODAL 1: AUTOCAD BLUEPRINT & VECTOR PLAN IMPORTER                         */}

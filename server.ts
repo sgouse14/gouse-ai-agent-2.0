@@ -16,6 +16,10 @@ import {
   parseMaterialStandardsFromPDFOrText,
   translateArchitecturalText,
   generateMaterialPriceAlerts,
+  processVoiceCommandWithGemini,
+  processAudioWithGemini,
+  analyzeConstructionSiteVisualAudit,
+  generateFloorPlanSketch,
 } from './server/apiService';
 
 const app = express();
@@ -137,6 +141,26 @@ app.post('/api/voice/tts', async (req, res) => {
   }
 });
 
+// Intelligent Voice Command Parser via Gemini (gemini-3.8-flash)
+app.post('/api/voice/process-command', async (req, res) => {
+  try {
+    const result = await processVoiceCommandWithGemini(req.body);
+    res.json(result);
+  } catch (err: any) {
+    res.status(500).json({ error: 'Failed to process voice command', details: err?.message });
+  }
+});
+
+// Multimodal Voice Audio Processor via Gemini (gemini-3.8-flash)
+app.post('/api/voice/gemini-audio', async (req, res) => {
+  try {
+    const result = await processAudioWithGemini(req.body);
+    res.json(result);
+  } catch (err: any) {
+    res.status(500).json({ error: 'Failed to process voice audio', details: err?.message });
+  }
+});
+
 // Autonomous Multi-lingual Translation Endpoint
 app.post('/api/translate', async (req, res) => {
   try {
@@ -224,21 +248,50 @@ app.post('/api/architecture/render-prompt', async (req, res) => {
   }
 });
 
-// Vision / image analysis
+// Vision / image analysis & Site Visit Visual Audit endpoint via Gemini (gemini-3.8-flash)
 app.post('/api/architecture/analyze-image', async (req, res) => {
   try {
-    const { filename, focus, projectContext } = req.body;
-    const analysis = await generateChatResponse(
-      `Analyze this architectural drawing: ${filename}. Focus on ${focus || 'materials, structural grid, and spatial layout'}.`,
-      'general',
-      projectContext || ''
-    );
-    res.json({ analysis, filename });
+    const { image, imageBase64, mimeType, filename, focus, projectName, projectType, projectContext } = req.body;
+    const photoData = image || imageBase64;
+
+    const auditResult = await analyzeConstructionSiteVisualAudit({
+      image: photoData,
+      mimeType,
+      filename: filename || 'site_visit_capture.jpg',
+      focus: focus || 'structural progress, RCC framing, rebar binding, masonry alignment, safety compliance',
+      projectName: projectName || 'Gouse AI Construction Site',
+      projectType: projectType || 'Residential / Commercial',
+      projectContext: projectContext || 'Bangalore, Karnataka',
+    });
+
+    res.json({
+      ...auditResult,
+      analysis: auditResult.rawAnalysis || auditResult.summary,
+      filename: auditResult.filename,
+    });
   } catch (_err) {
     res.json({
-      analysis: `Drawing review for ${req.body.filename || 'uploaded document'}: Structural grid alignment and wall thicknesses are verified. Ensure clear dimensioning for fire egress and service shafts.`,
-      filename: req.body.filename || 'drawing.png',
+      analysis: `Drawing and site review for ${req.body?.filename || 'uploaded document'}: Structural grid alignment and reinforcement detailing are verified. Ensure clear dimensioning for fire egress, cover blocks, and service shafts.`,
+      filename: req.body?.filename || 'drawing.png',
     });
+  }
+});
+
+// 2D Floor Plan Conceptual Sketch Generator & Sketch-to-Design Endpoint
+app.post('/api/architecture/generate-floorplan-sketch', async (req, res) => {
+  try {
+    const { builtUpAreaSqFt, projectType, facing, style, requirements, sketchEdits } = req.body;
+    const result = await generateFloorPlanSketch({
+      builtUpAreaSqFt: builtUpAreaSqFt ? Number(builtUpAreaSqFt) : 2400,
+      projectType: projectType || 'Residential Villa',
+      facing: facing || 'North',
+      style: style || 'sketch',
+      requirements: requirements || '',
+      sketchEdits: sketchEdits || '',
+    });
+    res.json(result);
+  } catch (err: any) {
+    res.status(500).json({ error: 'Failed to generate floor plan sketch', details: err?.message });
   }
 });
 

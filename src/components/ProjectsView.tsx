@@ -130,6 +130,7 @@ interface ProjectsViewProps {
   onUpdateProject: (updated: Project) => void;
   onCreateProject: (newProj: Partial<Project>) => void;
   onOpenWorkflowEngine?: () => void;
+  onOpenSiteCamera?: () => void;
   currency?: CurrencyCode;
 }
 
@@ -140,9 +141,10 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
   onUpdateProject,
   onCreateProject,
   onOpenWorkflowEngine,
+  onOpenSiteCamera,
   currency = 'INR',
 }) => {
-  const [activeTab, setActiveTab] = useState<'social' | 'pg_listing' | 'rent_house_listing' | 'team'>('team');
+  const [activeTab, setActiveTab] = useState<'team' | 'site_audits' | 'social' | 'pg_listing' | 'rent_house_listing'>('team');
   const [isCreatingProject, setIsCreatingProject] = useState(false);
   const [newProjectName, setNewProjectName] = useState('');
   const [newProjectType, setNewProjectType] = useState('Residential Architecture');
@@ -418,6 +420,22 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
           </button>
 
           <button
+            id="tab-btn-site-audits"
+            onClick={() => setActiveTab('site_audits')}
+            className={`flex items-center gap-2 px-4 py-2.5 text-xs font-medium border-b-2 transition ${
+              activeTab === 'site_audits'
+                ? 'border-amber-400 text-amber-400 bg-amber-500/5'
+                : 'border-transparent text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <Camera className="w-3.5 h-3.5 text-amber-400" />
+            <span>Site Visit &amp; Audits ({activeProject.siteAudits?.length || 0})</span>
+            <span className="rounded bg-gradient-to-r from-amber-500/20 to-yellow-500/20 text-amber-300 border border-amber-500/30 text-[10px] px-2 py-0.2 font-mono font-bold">
+              AI CAMERA • IS 456
+            </span>
+          </button>
+
+          <button
             id="tab-btn-social"
             onClick={() => setActiveTab('social')}
             className={`flex items-center gap-2 px-4 py-2.5 text-xs font-medium border-b-2 transition ${
@@ -502,6 +520,19 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
             >
               <Zap className="h-3.5 w-3.5 text-amber-400" />
               <span>4-Step Engine</span>
+            </button>
+          )}
+
+          {onOpenSiteCamera && (
+            <button
+              id="btn-projects-open-site-camera"
+              type="button"
+              onClick={onOpenSiteCamera}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-amber-500/20 via-yellow-500/15 to-slate-900 hover:from-amber-500/30 border border-amber-500/40 text-amber-300 font-bold text-xs transition shadow-sm shrink-0"
+              title="Open Site Visit Camera & Snap Photos for AI Visual Progress Audit"
+            >
+              <Camera className="w-3.5 h-3.5 text-amber-400" />
+              <span>Site Camera</span>
             </button>
           )}
         </div>
@@ -1039,6 +1070,171 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
                   </button>
                 </div>
               </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Tab: Site Visit Camera & AI Visual Audits */}
+      {activeTab === 'site_audits' && (
+        <div className="space-y-6 animate-in fade-in duration-200">
+          {/* Header Hero Card */}
+          <div className="p-5 sm:p-6 rounded-2xl bg-gradient-to-r from-slate-900 via-slate-950 to-slate-900 border border-slate-800 shadow-xl flex flex-col md:flex-row md:items-center md:justify-between gap-5">
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <div className="h-10 w-10 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400">
+                  <Camera className="w-5 h-5 stroke-[2.2]" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                    <span>Site Visit Camera &amp; AI Visual Audits</span>
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                      GEMINI 3.8 FLASH
+                    </span>
+                  </h3>
+                  <p className="text-xs text-slate-400">
+                    Empowering site engineers &amp; clients to snap active site photos and conduct automated structural audits
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-4 text-xs font-mono text-slate-400 pt-1">
+                <span className="flex items-center gap-1.5 text-slate-300">
+                  <MapPin className="w-3.5 h-3.5 text-amber-400" />
+                  <span>{activeProject.location || 'Bangalore, India'}</span>
+                </span>
+                <span>•</span>
+                <span>Typology: {activeProject.projectType}</span>
+                <span>•</span>
+                <span className="text-emerald-400 font-semibold">
+                  {activeProject.siteAudits?.length || 0} Audits Recorded
+                </span>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2.5 shrink-0">
+              {onOpenSiteCamera && (
+                <button
+                  type="button"
+                  onClick={onOpenSiteCamera}
+                  className="px-5 py-3 rounded-xl bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-300 text-slate-950 font-bold text-xs hover:scale-105 active:scale-95 transition shadow-lg shadow-amber-500/20 flex items-center gap-2"
+                >
+                  <Camera className="w-4 h-4 stroke-[2.5]" />
+                  <span>Snap New Site Photo</span>
+                  <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-slate-950/20 border border-slate-950/30 font-bold">
+                    AI AUDIT
+                  </span>
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Audit Records List */}
+          {activeProject.siteAudits && activeProject.siteAudits.length > 0 ? (
+            <div className="space-y-4">
+              <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center justify-between">
+                <span>Verified Inspection Log ({activeProject.siteAudits.length})</span>
+                <span className="text-[10px] font-mono text-slate-400">IS 456:2000 &amp; IS 13920</span>
+              </h4>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {activeProject.siteAudits.map((audit) => (
+                  <div
+                    key={audit.auditId}
+                    className="p-4 rounded-2xl bg-slate-950 border border-slate-800 hover:border-slate-700 transition space-y-3.5 flex flex-col justify-between"
+                  >
+                    <div className="space-y-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-center gap-2.5">
+                          {audit.imageUrl ? (
+                            <img
+                              src={audit.imageUrl}
+                              alt="Site Visit"
+                              className="w-14 h-14 rounded-xl object-cover border border-slate-800 shrink-0"
+                            />
+                          ) : (
+                            <div className="w-14 h-14 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-center text-amber-400 shrink-0">
+                              <Camera className="w-6 h-6" />
+                            </div>
+                          )}
+                          <div>
+                            <span className="text-[10px] font-mono text-slate-400 block">
+                              {new Date(audit.timestamp).toLocaleDateString('en-IN', {
+                                day: '2-digit',
+                                month: 'short',
+                                year: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit',
+                              })}
+                            </span>
+                            <h5 className="text-sm font-bold text-white line-clamp-1">{audit.stageName}</h5>
+                            <span className="text-xs text-slate-400 font-mono">
+                              Quality: <strong className="text-emerald-400">{audit.qualityScore}/10</strong> • {audit.complianceGrade}
+                            </span>
+                          </div>
+                        </div>
+
+                        <span className="text-base font-bold font-mono text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2.5 py-1 rounded-lg shrink-0">
+                          {audit.completionPercentage}%
+                        </span>
+                      </div>
+
+                      <p className="text-xs text-slate-300 leading-relaxed line-clamp-2">
+                        {audit.summary}
+                      </p>
+
+                      {audit.boqMilestoneRecommendations && (
+                        <div className="p-2.5 rounded-lg bg-emerald-950/30 border border-emerald-500/20 text-[11px] text-emerald-300 space-y-0.5">
+                          <span className="font-semibold block text-emerald-400">
+                            BOQ Milestone: {audit.boqMilestoneRecommendations.recommendedMilestone}
+                          </span>
+                          <span className="text-slate-300">{audit.boqMilestoneRecommendations.action}</span>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex items-center justify-between pt-2 border-t border-slate-800/80 text-xs text-slate-400">
+                      <span>{audit.observations?.length || 0} Observations checked</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const text = encodeURIComponent(
+                            `*GOUSE AI SITE AUDIT*\nProject: ${audit.projectName}\nStage: ${audit.stageName} (${audit.completionPercentage}%)\nScore: ${audit.qualityScore}/10\nSummary: ${audit.summary}`
+                          );
+                          window.open(`https://wa.me/918073947241?text=${text}`, '_blank');
+                        }}
+                        className="text-amber-400 hover:text-amber-300 font-medium flex items-center gap-1"
+                      >
+                        <Share2 className="w-3.5 h-3.5" />
+                        <span>WhatsApp Ar. S. Gouse</span>
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="p-8 sm:p-12 rounded-2xl bg-slate-950 border border-dashed border-slate-800 text-center space-y-4">
+              <div className="w-16 h-16 rounded-full bg-amber-500/10 border border-amber-500/30 mx-auto flex items-center justify-center text-amber-400">
+                <Camera className="w-8 h-8" />
+              </div>
+              <div className="max-w-md mx-auto space-y-1.5">
+                <h4 className="text-base font-bold text-white">No Site Visits Snapped Yet</h4>
+                <p className="text-xs text-slate-400">
+                  Open the Site Visit Camera on your phone or laptop to snap active construction photos.
+                  The AI will instantly inspect structural rebar, cover blocks, shuttering, and sign off BOQ milestones!
+                </p>
+              </div>
+              {onOpenSiteCamera && (
+                <button
+                  type="button"
+                  onClick={onOpenSiteCamera}
+                  className="px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs transition shadow-md shadow-amber-500/20 inline-flex items-center gap-2"
+                >
+                  <Camera className="w-4 h-4" />
+                  <span>Launch Site Visit Camera</span>
+                </button>
+              )}
             </div>
           )}
         </div>

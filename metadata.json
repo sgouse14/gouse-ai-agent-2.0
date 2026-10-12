@@ -2,7 +2,8 @@
   "name": "Gouse AI - Architecture Intelligence Workspace",
   "description": "Gouse AI - Architecture & Construction Intelligence Workspace. AI-powered architectural intelligence, interior styling, turnkey construction, and BOQ estimation workspace",
   "requestFramePermissions": [
-    "microphone"
+    "microphone",
+    "camera"
   ],
   "majorCapabilities": [
     "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"

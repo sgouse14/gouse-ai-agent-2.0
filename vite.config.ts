@@ -11,9 +11,16 @@ import {
   getDomainFallbackResponse,
   generateSpeechAudio,
   generateCompanyWithAi,
+  processVoiceCommandWithGemini,
+  processAudioWithGemini,
+  analyzeConstructionSiteVisualAudit,
+  generateFloorPlanSketch,
 } from './server/apiService';
 
 function getRequestBody(req: any): Promise<any> {
+  if (req.body && typeof req.body === 'object') {
+    return Promise.resolve(req.body);
+  }
   return new Promise((resolve) => {
     let body = '';
     req.on('data', (chunk: any) => {
@@ -26,6 +33,10 @@ function getRequestBody(req: any): Promise<any> {
         resolve({});
       }
     });
+    req.on('error', () => resolve({}));
+    if (typeof req.resume === 'function') {
+      req.resume();
+    }
   });
 }
 
@@ -140,6 +151,26 @@ function apiMiddlewarePlugin() {
             }
           }
 
+          if (url === '/api/voice/process-command' && req.method === 'POST') {
+            const body = await getRequestBody(req);
+            try {
+              const result = await processVoiceCommandWithGemini(body);
+              return sendJson(res, result);
+            } catch (err: any) {
+              return sendJson(res, { error: 'Failed to process voice command', details: err?.message }, 500);
+            }
+          }
+
+          if (url === '/api/voice/gemini-audio' && req.method === 'POST') {
+            const body = await getRequestBody(req);
+            try {
+              const result = await processAudioWithGemini(body);
+              return sendJson(res, result);
+            } catch (err: any) {
+              return sendJson(res, { error: 'Failed to process voice audio', details: err?.message }, 500);
+            }
+          }
+
           if (url === '/api/intelligence' && req.method === 'POST') {
             const body = await getRequestBody(req);
             const result = await generateProjectIntelligence(
@@ -172,12 +203,34 @@ function apiMiddlewarePlugin() {
 
           if (url === '/api/architecture/analyze-image' && req.method === 'POST') {
             const body = await getRequestBody(req);
-            const response = await generateChatResponse(
-              `Analyze this architectural drawing/render: ${body.filename || 'Drawing'}. Focus on ${body.focus || 'materials, structural grid, and spatial layout'}. Detail visible elements, drawing type, scale implications, and coordination flags.`,
-              'general',
-              body.projectContext || ''
-            );
-            return sendJson(res, { analysis: response, filename: body.filename });
+            const photoData = body.image || body.imageBase64;
+            const auditResult = await analyzeConstructionSiteVisualAudit({
+              image: photoData,
+              mimeType: body.mimeType,
+              filename: body.filename || 'site_visit_capture.jpg',
+              focus: body.focus || 'structural progress, RCC framing, rebar binding, masonry alignment, safety compliance',
+              projectName: body.projectName || 'Gouse AI Active Site',
+              projectType: body.projectType || 'Residential / Commercial',
+              projectContext: body.projectContext || 'Bangalore, Karnataka',
+            });
+            return sendJson(res, {
+              ...auditResult,
+              analysis: auditResult.rawAnalysis || auditResult.summary,
+              filename: auditResult.filename,
+            });
+          }
+
+          if (url === '/api/architecture/generate-floorplan-sketch' && req.method === 'POST') {
+            const body = await getRequestBody(req);
+            const result = await generateFloorPlanSketch({
+              builtUpAreaSqFt: body.builtUpAreaSqFt ? Number(body.builtUpAreaSqFt) : 2400,
+              projectType: body.projectType || 'Residential Villa',
+              facing: body.facing || 'North',
+              style: body.style || 'sketch',
+              requirements: body.requirements || '',
+              sketchEdits: body.sketchEdits || '',
+            });
+            return sendJson(res, result);
           }
 
           if (url === '/api/search/professionals') {

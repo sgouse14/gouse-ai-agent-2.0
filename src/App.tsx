@@ -9,19 +9,22 @@ import { SpecialistChatView } from './components/SpecialistChatView';
 import { SequentialWorkflowEngineModal } from './components/SequentialWorkflowEngineModal';
 import { PgHousePropertyListingSection } from './components/PgHousePropertyListingSection';
 import { SocialMediaStudio } from './components/SocialMediaStudio';
+import { GlobalVoiceCommandListener } from './components/GlobalVoiceCommandListener';
+import { SiteVisitCameraModal } from './components/SiteVisitCameraModal';
 import {
   INITIAL_PROJECTS,
   INITIAL_BOQ_ITEMS,
   INITIAL_PROFESSIONALS,
   INITIAL_ENQUIRIES,
 } from './data/initialData';
-import { Project, BOQItem, ProfessionalProfile, MarketplaceEnquiry, EnquiryStatus } from './types';
+import { Project, BOQItem, ProfessionalProfile, MarketplaceEnquiry, EnquiryStatus, SiteAuditResult } from './types';
 import { CurrencyCode } from './utils/formatters';
 import { ensureItemFloorBreakdown, DEFAULT_BUILDING_FLOORS } from './utils/floorTakeoffEngine';
 
 export function App() {
   // Navigation
   const [activeTab, setActiveTab] = useState<TabType>('projects');
+  const [isSiteCameraOpen, setIsSiteCameraOpen] = useState<boolean>(false);
 
   // Currency
   const [currency, setCurrency] = useState<CurrencyCode>('INR');
@@ -312,11 +315,34 @@ export function App() {
   const [marketplaceCategory, setMarketplaceCategory] = useState<string | undefined>(undefined);
   const [marketplaceQuery, setMarketplaceQuery] = useState<string | undefined>(undefined);
   const [isWorkflowEngineOpen, setIsWorkflowEngineOpen] = useState(false);
+  const [isGlobalVoiceListening, setIsGlobalVoiceListening] = useState(false);
 
   const handleNavigateToMarketplace = (category?: string, query?: string) => {
     setMarketplaceCategory(category);
     setMarketplaceQuery(query);
     setActiveTab('marketplace');
+  };
+
+  const handleSaveSiteAudit = (audit: SiteAuditResult) => {
+    if (!activeProject) return;
+    const currentAudits = activeProject.siteAudits || [];
+    const updatedAudits = [audit, ...currentAudits];
+    const auditLogEntry = {
+      id: `log-audit-${Date.now()}`,
+      projectId: activeProject.id,
+      actor: 'Gouse AI Site Camera',
+      action: `Site Visit Visual Audit: ${audit.stageName}`,
+      details: `Progress: ${audit.completionPercentage}% • Score: ${audit.qualityScore}/10 (${audit.complianceGrade}) • Milestone: ${
+        audit.boqMilestoneRecommendations?.recommendedMilestone || 'Inspection Complete'
+      }`,
+      timestamp: new Date().toISOString(),
+    };
+    const updatedLogs = [auditLogEntry, ...(activeProject.auditLogs || [])];
+    handleUpdateProject({
+      ...activeProject,
+      siteAudits: updatedAudits,
+      auditLogs: updatedLogs,
+    });
   };
 
   return (
@@ -339,6 +365,9 @@ export function App() {
         onChangeCurrency={setCurrency}
         isOnline={isOnline}
         onOpenWorkflowEngine={() => setIsWorkflowEngineOpen(true)}
+        onToggleVoiceListener={() => setIsGlobalVoiceListening((prev) => !prev)}
+        isVoiceListening={isGlobalVoiceListening}
+        onOpenSiteCamera={() => setIsSiteCameraOpen(true)}
       />
 
       {/* Navigation Bar */}
@@ -354,6 +383,7 @@ export function App() {
             onUpdateProject={handleUpdateProject}
             onCreateProject={handleCreateProject}
             onOpenWorkflowEngine={() => setIsWorkflowEngineOpen(true)}
+            onOpenSiteCamera={() => setIsSiteCameraOpen(true)}
             currency={currency}
           />
         )}
@@ -445,6 +475,14 @@ export function App() {
         )}
       </main>
 
+      {/* Site Visit Camera Modal (Live Camera Viewfinder & Gemini Multi-Modal Visual Audit) */}
+      <SiteVisitCameraModal
+        isOpen={isSiteCameraOpen}
+        onClose={() => setIsSiteCameraOpen(false)}
+        activeProject={activeProject}
+        onSaveAuditToProject={handleSaveSiteAudit}
+      />
+
       {/* Sequential Workflow Engine Modal (Structured Prompt Architecture v1.0) */}
       <SequentialWorkflowEngineModal
         isOpen={isWorkflowEngineOpen}
@@ -455,6 +493,30 @@ export function App() {
         onUpdateBOQItems={setBoqItems}
         onNavigateToTab={(tab) => setActiveTab(tab)}
         currency={currency}
+      />
+
+      {/* Global Voice Command Listener */}
+      <GlobalVoiceCommandListener
+        activeTab={activeTab}
+        onNavigateTab={setActiveTab}
+        projects={projects}
+        activeProject={activeProject}
+        onSelectProject={setActiveProjectId}
+        onUpdateProject={handleUpdateProject}
+        onCreateProject={handleCreateProject}
+        currency={currency}
+        onChangeCurrency={setCurrency}
+        contingencyPercent={contingencyPercent}
+        onChangeContingency={setContingencyPercent}
+        onOpenWorkflowEngine={() => setIsWorkflowEngineOpen(true)}
+        onOpenSettings={() => {
+          const btn = document.getElementById('btn-open-user-settings');
+          btn?.click();
+        }}
+        boqItems={boqItems}
+        onUpdateBOQItems={setBoqItems}
+        isExternalListening={isGlobalVoiceListening}
+        onToggleExternalListening={() => setIsGlobalVoiceListening((prev) => !prev)}
       />
 
       {/* Footer */}

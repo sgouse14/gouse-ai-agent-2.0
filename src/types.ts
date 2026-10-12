@@ -55,6 +55,81 @@ export interface AuditEvent {
 
 export type CurrencyCode = 'INR' | 'USD' | 'EUR' | 'GBP' | 'AED';
 
+export interface SiteAuditObservation {
+  id: string;
+  category: 'structural' | 'rebar' | 'concrete' | 'masonry' | 'safety' | 'finishing';
+  status: 'passed' | 'warning' | 'critical';
+  title: string;
+  description: string;
+  isCodeStandard?: string;
+  recommendation?: string;
+}
+
+export interface SiteAuditResult {
+  auditId: string;
+  timestamp: string;
+  projectName: string;
+  stageName: string;
+  completionPercentage: number;
+  qualityScore: number;
+  complianceGrade: string;
+  summary: string;
+  observations: SiteAuditObservation[];
+  structuralIntegrityNotes: string[];
+  safetyCompliance: {
+    passed: string[];
+    warnings: string[];
+    ppeComplianceScore: number;
+  };
+  boqMilestoneRecommendations: {
+    recommendedMilestone: string;
+    action: string;
+    suggestedReleasePercentage?: number;
+    itemsToVerify: string[];
+  };
+  nextSteps: string[];
+  rawAnalysis: string;
+  filename?: string;
+  imageUrl?: string;
+}
+
+export interface FloorPlanRoom {
+  id: string;
+  name: string;
+  category: 'living' | 'bedroom' | 'kitchen' | 'bathroom' | 'utility' | 'balcony' | 'circulation' | 'pooja' | 'office';
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  dimensionsFt: string;
+  areaSqFt: number;
+  vastuDirection?: string;
+  description?: string;
+}
+
+export interface FloorPlanSketchResult {
+  planId: string;
+  planTitle: string;
+  projectType: string;
+  builtUpAreaSqFt: number;
+  netCarpetAreaSqFt: number;
+  efficiencyRatio: number;
+  plotDimensions: string;
+  facing: string;
+  style: 'sketch' | 'blueprint' | 'minimal' | 'watercolor';
+  rooms: FloorPlanRoom[];
+  designRationale: string[];
+  vastuNotes: string[];
+  boqEstimates: {
+    wallMasonrySqFt: number;
+    flooringSqFt: number;
+    doorCount: number;
+    windowCount: number;
+    estimatedCostINR: number;
+  };
+  generatedAt: string;
+}
+
 export interface Project {
   id: string;
   name: string;
@@ -69,6 +144,7 @@ export interface Project {
   pgPropertyDetails?: PgPropertyDetails;
   files: ProjectFile[];
   analyses: AnalysisReport[];
+  siteAudits?: SiteAuditResult[];
   members: TeamMember[];
   auditLogs: AuditEvent[];
   createdAt: string;

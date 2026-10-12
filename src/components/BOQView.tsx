@@ -34,13 +34,15 @@ import {
   Building2,
   TableProperties,
   FileDown,
-  HardHat
+  HardHat,
+  Activity,
 } from 'lucide-react';
 import { BOQItem, Project, MarketplaceEnquiry, BuildingFloor, FloorWiseTotal } from '../types';
 import { formatCurrency, CurrencyCode } from '../utils/formatters';
 import { BOQDistributionAnalytics } from './BOQDistributionAnalytics';
 import { getItemComponentFractions } from '../utils/boqDistribution';
 import { MarketPriceAutoUpdateModal } from './MarketPriceAutoUpdateModal';
+import { BOQRealTimePriceMonitor } from './BOQRealTimePriceMonitor';
 import { AreaTakeoffAutoUpdateModal } from './AreaTakeoffAutoUpdateModal';
 import { LabourCostBreakdownModal } from './LabourCostBreakdownModal';
 import {
@@ -463,6 +465,9 @@ export const BOQView: React.FC<BOQViewProps> = ({
   const [activeMarketBasis, setActiveMarketBasis] = useState<MarketPricingBasis>('spot_market');
   const [marketUpdateBanner, setMarketUpdateBanner] = useState<{ message: string; submessage?: string } | null>(null);
 
+  // Real-Time Marketplace Price Monitor state
+  const [showPriceMonitor, setShowPriceMonitor] = useState<boolean>(true);
+
   // Building Floors & Level Breakdown States
   const [floors, setFloors] = useState<BuildingFloor[]>(() => {
     if (activeProject.floors && activeProject.floors.length > 0) {
@@ -675,6 +680,35 @@ export const BOQView: React.FC<BOQViewProps> = ({
       };
     });
 
+    onUpdateItems(updated);
+  };
+
+  const handleUpdateItemRateFromMonitor = (itemId: string, newRate: number) => {
+    const updated = items.map((it) =>
+      it.id === itemId
+        ? {
+            ...it,
+            rate: newRate,
+            amount: Math.round(it.quantity * newRate),
+          }
+        : it
+    );
+    onUpdateItems(updated);
+  };
+
+  const handleUpdateMultipleItemRatesFromMonitor = (updates: Array<{ id: string; newRate: number }>) => {
+    const map = new Map(updates.map((u) => [u.id, u.newRate]));
+    const updated = items.map((it) => {
+      if (map.has(it.id)) {
+        const newRate = map.get(it.id)!;
+        return {
+          ...it,
+          rate: newRate,
+          amount: Math.round(it.quantity * newRate),
+        };
+      }
+      return it;
+    });
     onUpdateItems(updated);
   };
 
@@ -1118,6 +1152,30 @@ Contact: ${enquiryClientPhone}`,
             </button>
           )}
 
+          {/* Real-Time Live Price Monitor Button */}
+          <button
+            id="btn-toggle-price-monitor"
+            onClick={() => setShowPriceMonitor((prev) => !prev)}
+            className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition border ${
+              showPriceMonitor
+                ? 'bg-amber-500 text-slate-950 border-amber-400 font-bold shadow-sm'
+                : 'bg-slate-800 hover:bg-slate-700 text-amber-300 border-amber-500/30'
+            }`}
+            title="Real-Time Price Monitoring: track live material price fluctuations & push/visual alerts"
+          >
+            <Activity className={`w-3.5 h-3.5 ${showPriceMonitor ? 'text-slate-950' : 'text-amber-400 animate-pulse'}`} />
+            <span>Live Price Monitor</span>
+            <span
+              className={`px-1.5 py-0.5 rounded-full font-mono text-[10px] font-bold ${
+                showPriceMonitor
+                  ? 'bg-slate-950 text-amber-400'
+                  : 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+              }`}
+            >
+              {showPriceMonitor ? 'ACTIVE' : 'RADAR'}
+            </span>
+          </button>
+
           {/* Calibrate to Market Price Button */}
           <button
             id="btn-calibrate-market-rate"
@@ -1340,6 +1398,17 @@ Contact: ${enquiryClientPhone}`,
             Dismiss
           </button>
         </div>
+      )}
+
+      {/* REAL-TIME MARKETPLACE PRICE MONITORING & FLUCTUATION ALERT SYSTEM */}
+      {showPriceMonitor && (
+        <BOQRealTimePriceMonitor
+          items={items}
+          activeProject={activeProject}
+          currency={currency}
+          onUpdateItemRate={handleUpdateItemRateFromMonitor}
+          onUpdateMultipleItemRates={handleUpdateMultipleItemRatesFromMonitor}
+        />
       )}
 
       {/* SQUARE FOOTAGE CONTROLLER BAR (User can set square feet directly) */}

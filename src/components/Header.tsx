@@ -8,6 +8,9 @@ import {
   Coins,
   Palette,
   Zap,
+  Mic,
+  Sparkles,
+  Camera,
 } from 'lucide-react';
 import { Project } from '../types';
 import { CurrencyCode } from '../utils/formatters';
@@ -22,6 +25,9 @@ interface HeaderProps {
   onChangeCurrency: (c: CurrencyCode) => void;
   isOnline: boolean;
   onOpenWorkflowEngine?: () => void;
+  onToggleVoiceListener?: () => void;
+  isVoiceListening?: boolean;
+  onOpenSiteCamera?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -32,6 +38,9 @@ export const Header: React.FC<HeaderProps> = ({
   onChangeCurrency,
   isOnline,
   onOpenWorkflowEngine,
+  onToggleVoiceListener,
+  isVoiceListening,
+  onOpenSiteCamera,
 }) => {
   const { currentTheme, isSettingsOpen, setIsSettingsOpen } = useTheme();
 
@@ -130,6 +139,52 @@ export const Header: React.FC<HeaderProps> = ({
               <span className="hidden sm:inline">Gouse AI Agent</span>
               <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
                 9.8/10
+              </span>
+            </button>
+          )}
+
+          {/* Site Visit Camera Button */}
+          {onOpenSiteCamera && (
+            <button
+              id="btn-header-site-camera"
+              type="button"
+              onClick={onOpenSiteCamera}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-amber-500/20 via-yellow-500/15 to-slate-950 hover:from-amber-500/30 hover:via-yellow-500/25 text-xs font-bold text-amber-300 border border-amber-500/40 shadow-sm transition"
+              title="Open Site Visit Camera & Snap Photos for AI Visual Progress Audit"
+            >
+              <Camera className="w-3.5 h-3.5 text-amber-400" />
+              <span className="hidden sm:inline">Site Visit Camera</span>
+              <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                AI AUDIT
+              </span>
+            </button>
+          )}
+
+          {/* Global Voice Command Microphone Button */}
+          {onToggleVoiceListener && (
+            <button
+              id="btn-header-voice-command"
+              type="button"
+              onClick={onToggleVoiceListener}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition shadow-sm ${
+                isVoiceListening
+                  ? 'bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 text-white shadow-purple-500/30 border border-purple-400 animate-pulse'
+                  : 'bg-slate-950/80 hover:bg-slate-800 border border-indigo-500/30 hover:border-indigo-400 text-indigo-300 hover:text-white shadow-xs'
+              }`}
+              title={isVoiceListening ? 'Gemini Live Listening... Click to stop (Alt+V)' : 'Activate Gemini Live Voice Assistant (Alt+V)'}
+            >
+              <Sparkles className={`w-3.5 h-3.5 ${isVoiceListening ? 'animate-spin text-white' : 'text-indigo-400'}`} />
+              <span className="hidden md:inline font-mono">
+                {isVoiceListening ? 'Gemini Live' : 'Gemini Voice'}
+              </span>
+              <span
+                className={`text-[9px] font-mono px-1.5 py-0.2 rounded ${
+                  isVoiceListening
+                    ? 'bg-black/40 text-white'
+                    : 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30'
+                }`}
+              >
+                Alt+V
               </span>
             </button>
           )}

@@ -254,7 +254,7 @@ export const BOQRealTimePriceMonitor: React.FC<BOQRealTimePriceMonitorProps> = (
             projectData: {
               builtUpAreaSqFt: activeProject.builtUpAreaSqFt || 3000,
               location,
-              floors: activeProject.floorsCount || 3,
+              floors: (activeProject as any).floorsCount || (activeProject.floors ? activeProject.floors.length : 3),
             },
           }),
         });
