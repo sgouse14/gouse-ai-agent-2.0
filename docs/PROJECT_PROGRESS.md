@@ -53,6 +53,7 @@ Implemented security boundary principles include protected originals, no destruc
 - Full immutable audit storage
 - Complete external-agent communication gateway
 - Gousiya emergency component and its external agent team
+- Run the new Agent ID lifecycle tests in CI and fix any failures
 - End-to-end security testing
 - Stress/failure testing
 - Production security hardening
