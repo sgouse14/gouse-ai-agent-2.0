@@ -73,6 +73,7 @@ test('runtime prevents overlapping cycles and holds failed agent work', async ()
   const report = await first;
   assert.equal(report.status, 'PARTIAL');
   assert.equal(report.results.find((result) => result.agentId === SAQLAIN_BACKUP_TEAM[1].id)?.status, 'FAILED');
+  assert.equal(report.results.find((result) => result.role === 'RECOVERY')?.status, 'HOLD');
 });
 
 test('audit write failure downgrades the agent result to HOLD', async () => {
