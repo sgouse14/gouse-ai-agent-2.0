@@ -38,6 +38,12 @@ test('requires an explicit approved root and rejects symlinks', async () => {
       source: 'gouse-ai',
       approvedRoots: { 'gouse-ai': root },
     }), /Symlink/);
+    const rootAlias = join(root, 'root-alias');
+    await symlink(outside, rootAlias, 'dir');
+    await assert.rejects(() => readApprovedBackupSource({
+      source: 'gouse-ai',
+      approvedRoots: { 'gouse-ai': rootAlias },
+    }), /real directory, not a symlink/);
   } finally {
     await rm(root, { recursive: true, force: true });
     await rm(outside, { recursive: true, force: true });
