@@ -22,7 +22,7 @@ This is an engineering/planning estimate, not a measured code-coverage percentag
 | Saqlain Gatekeeper basic module | ~35% |
 | 11-agent security team definitions | ~60% |
 | Security policy / India compliance definitions | ~60% |
-| Backup/recovery architecture | ~30% |
+| Backup/recovery architecture | ~35% |
 
 Implemented security boundary principles include protected originals, no destructive deletion/overwrite, identity checks, task ownership, security holds, and defensive-only external containment.
 
@@ -30,7 +30,7 @@ Implemented security boundary principles include protected originals, no destruc
 
 | Area | Estimated status |
 |---|---:|
-| 4 Backup Agents | ~30% |
+| 4 Backup Agents | ~35% |
 | 1 Recovery Agent | ~25% |
 | 24/7 backup operation | ~10% |
 | 24/7 recovery operation | ~10% |
@@ -73,7 +73,7 @@ External-facing Gousiya agents are outside Gouse AI and must use approved, scope
 
 ## Latest Agent ID implementation
 
-Added `server/saqlainAgentIdentity.ts` and `server/saqlainTaskIdentityIntegration.ts` on this branch. The identity module defines owner-approved registration, cryptographically random 128-bit binary IDs, stable agent keys, suspension, audit events, and no-reuse tracking. The integration helper checks current identity and task-lock ownership, verifies the completion report, and rotates the ID only after successful verification. `verifyCurrentBinaryAgentId` provides a registry lookup helper for Gatekeeper integration. These are code modules, not a complete production integration: the caller must atomically persist task state, agent registry, issued-ID ledger, and audit events in durable storage. The helpers are not yet wired into live API routes or a database. Added `server/saqlainAgentIdentity.test.ts`, `server/saqlainGatekeeper.test.ts`, `server/saqlainVerificationChain.test.ts`, `server/saqlainBackupCycle.test.ts`, and `server/saqlainBackupManifest.test.ts`. The backup/recovery cycle is explicitly four backup agents plus one recovery agent, duplicate declarations in `server/saqlainBackupTeam.ts` were removed, and a SHA-256 manifest module now validates safe relative paths, detects duplicate paths, verifies copied bytes, and detects manifest tampering. The npm test script includes all five test files. `.github/workflows/saqlain-security-tests.yml` runs the security suite with Node.js 22. CI has not yet reported a confirmed pass, so test success remains unverified.
+Added `server/saqlainAgentIdentity.ts` and `server/saqlainTaskIdentityIntegration.ts` on this branch. The identity module defines owner-approved registration, cryptographically random 128-bit binary IDs, stable agent keys, suspension, audit events, and no-reuse tracking. The integration helper checks current identity and task-lock ownership, verifies the completion report, and rotates the ID only after successful verification. `verifyCurrentBinaryAgentId` provides a registry lookup helper for Gatekeeper integration. These are code modules, not a complete production integration: the caller must atomically persist task state, agent registry, issued-ID ledger, and audit events in durable storage. The helpers are not yet wired into live API routes or a database. Added `server/saqlainAgentIdentity.test.ts`, `server/saqlainGatekeeper.test.ts`, `server/saqlainVerificationChain.test.ts`, `server/saqlainBackupCycle.test.ts`, and `server/saqlainBackupManifest.test.ts`. The backup/recovery cycle is explicitly four backup agents plus one recovery agent, duplicate declarations in `server/saqlainBackupTeam.ts` were removed, and the SHA-256 manifest module validates safe relative paths, detects duplicate paths, verifies copied bytes, and detects manifest tampering. Added `server/saqlainBackupStorage.ts` and its tests for uniquely named local snapshots, exclusive file creation, read-back checksum verification, persisted manifest verification, and fail-closed handling that leaves partial snapshots for investigation instead of deleting data. The npm test script includes six test files. `.github/workflows/saqlain-security-tests.yml` runs the security suite with Node.js 22. CI has not yet reported a confirmed pass, so test success remains unverified.
 
 ## Current development branch
 
