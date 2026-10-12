@@ -35,7 +35,7 @@ export interface VerificationReview {
 }
 
 export interface VerificationAuditEvent {
-  event: 'CHAIN_CREATED' | 'REVIEW_RECORDED' | 'CHAIN_HELD' | 'CHAIN_REJECTED' | 'CHAIN_VERIFIED';
+  event: 'CHAIN_CREATED' | 'REVIEW_RECORDED' | 'CHAIN_HELD' | 'CHAIN_RESUMED' | 'CHAIN_REJECTED' | 'CHAIN_VERIFIED';
   chainId: string;
   at: string;
   order?: number;
@@ -173,4 +173,27 @@ export function submitVerificationReview(
 export function getCurrentVerificationRole(chain: VerificationChain) {
   if (chain.status !== 'IN_PROGRESS') return null;
   return VERIFICATION_CHAIN_ROLES[chain.currentOrder - 1] ?? null;
+}
+
+/**
+ * Resume a held chain at the same reviewer step after an authorized coordinator
+ * schedules re-verification. The caller must enforce the 30-minute schedule
+ * and authenticate the coordinator; this pure function does not schedule work.
+ */
+export function resumeHeldVerificationChain(chain: VerificationChain, now = new Date()): VerificationChain {
+  if (chain.status !== 'HOLD') throw new Error('Only a held chain can be resumed.');
+  const at = now.toISOString();
+  return {
+    ...chain,
+    status: 'IN_PROGRESS',
+    auditEvents: [...chain.auditEvents, {
+      event: 'CHAIN_RESUMED',
+      chainId: chain.chainId,
+      at,
+      order: chain.currentOrder,
+      agentId: VERIFICATION_CHAIN_ROLES[chain.currentOrder - 1]?.agentId,
+      reason: 'Held step reopened for re-verification; scheduling is handled by the caller.',
+    }],
+    grantsAccess: false,
+  };
 }
