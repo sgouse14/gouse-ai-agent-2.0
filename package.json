@@ -9,7 +9,7 @@
     "lint": "tsc --noEmit",
     "preview": "vite preview --host 0.0.0.0 --port 3000",
     "start": "node dist/server.cjs",
-    "test": "node --experimental-strip-types --test server/saqlainAgentIdentity.test.ts server/saqlainGatekeeper.test.ts server/saqlainVerificationChain.test.ts server/saqlainBackupCycle.test.ts server/saqlainBackupManifest.test.ts server/saqlainBackupStorage.test.ts server/saqlainBackupTaskIntegration.test.ts server/saqlainBackupRuntime.test.ts server/saqlainBackupSourceAdapter.test.ts server/saqlainAuditLog.test.ts"
+    "test": "node --experimental-strip-types --test server/saqlainAgentIdentity.test.ts server/saqlainGatekeeper.test.ts server/saqlainVerificationChain.test.ts server/saqlainBackupCycle.test.ts server/saqlainBackupManifest.test.ts server/saqlainBackupStorage.test.ts server/saqlainBackupTaskIntegration.test.ts server/saqlainBackupRuntime.test.ts server/saqlainBackupSourceAdapter.test.ts server/saqlainApprovedBackupCycle.test.ts server/saqlainAuditLog.test.ts"
   },
   "dependencies": {
     "@google/genai": "^2.22.0",
