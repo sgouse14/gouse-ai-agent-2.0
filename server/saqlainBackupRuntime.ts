@@ -120,8 +120,26 @@ export function createSaqlainBackupRuntime(options: SaqlainBackupRuntimeOptions)
     const results: AgentCycleResult[] = [
       ...await Promise.all(sourceBackupAgents.map((agent) => runAgent(agent, cycleId))),
     ];
-    if (verifier) results.push(await runAgent(verifier, cycleId));
-    if (recovery) results.push(await runAgent(recovery, cycleId));
+    let verificationResult: AgentCycleResult | undefined;
+    if (verifier) {
+      verificationResult = await runAgent(verifier, cycleId);
+      results.push(verificationResult);
+    }
+    if (recovery) {
+      if (verificationResult?.status === 'VERIFIED') {
+        results.push(await runAgent(recovery, cycleId));
+      } else {
+        const heldAt = now().toISOString();
+        results.push({
+          agentId: recovery.id,
+          role: recovery.role,
+          status: 'HOLD',
+          summary: 'Recovery blocked because backup verification did not pass.',
+          startedAt: heldAt,
+          finishedAt: now().toISOString(),
+        });
+      }
+    }
     const verified = results.filter((result) => result.status === 'VERIFIED').length;
     const heldOrFailed = results.some((result) => result.status !== 'VERIFIED');
     const report: BackupRecoveryCycleReport = Object.freeze({
