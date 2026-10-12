@@ -38,10 +38,15 @@ export async function readApprovedBackupSource(input: {
     throw new Error('Backup source limits must be positive safe integers.');
   }
 
-  const root = await realpath(resolve(configuredRoot));
+  const configuredPath = resolve(configuredRoot);
+  const configuredInfo = await lstat(configuredPath);
+  if (!configuredInfo.isDirectory() || configuredInfo.isSymbolicLink()) {
+    throw new Error('Approved backup root must be a real directory, not a symlink.');
+  }
+  const root = await realpath(configuredPath);
   const rootInfo = await lstat(root);
   if (!rootInfo.isDirectory() || rootInfo.isSymbolicLink()) {
-    throw new Error('Approved backup root must be a real directory.');
+    throw new Error('Resolved approved backup root must be a real directory.');
   }
 
   const files: BackupFileInput[] = [];
