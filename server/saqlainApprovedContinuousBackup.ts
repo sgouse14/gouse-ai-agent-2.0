@@ -1,0 +1,131 @@
+import { readFile } from 'node:fs/promises';
+import { relative, resolve, sep } from 'node:path';
+import { verifyBackupCopy, verifyBackupManifest, type BackupManifest } from './saqlainBackupManifest.ts';
+import { createVerifiedLocalSnapshot, type BackupStorageResult } from './saqlainBackupStorage.ts';
+import { SAQLAIN_BACKUP_TEAM, type SaqlainBackupAgent } from './saqlainBackupTeam.ts';
+import { runApprovedBackupAgentSnapshot, type ApprovedBackupAgentConfig } from './saqlainApprovedBackupCycle.ts';
+import { createSaqlainBackupRuntime, type AgentCycleOutcome, type SaqlainBackupRuntime, type SaqlainBackupRuntimeOptions } from './saqlainBackupRuntime.ts';
+
+export interface ApprovedContinuousBackupOptions extends Omit<SaqlainBackupRuntimeOptions, 'runAgentCycle'>, ApprovedBackupAgentConfig {
+  /** Separate destination for recovery rehearsals. Never point this at an original source. */
+  recoveryStagingRoot: string;
+}
+
+function isWithin(parent: string, child: string): boolean {
+  const rel = relative(parent, child);
+  return rel === '' || (rel !== '..' && !rel.startsWith('..' + sep) && !rel.startsWith('/'));
+}
+
+function assertDisjointRoots(a: string, b: string, label: string): void {
+  const left = resolve(a);
+  const right = resolve(b);
+  if (isWithin(left, right) || isWithin(right, left)) {
+    throw new Error(label + ' must be separate, non-overlapping directories.');
+  }
+}
+
+async function verifyPersistedSnapshot(snapshot: BackupStorageResult): Promise<boolean> {
+  try {
+    const manifest = JSON.parse(await readFile(snapshot.manifestPath, 'utf8')) as BackupManifest;
+    if (!verifyBackupManifest(manifest) || manifest.snapshotId !== snapshot.snapshotId) return false;
+    for (const entry of manifest.entries) {
+      const path = resolve(snapshot.directory, entry.relativePath);
+      if (!isWithin(snapshot.directory, path) || path === snapshot.directory) return false;
+      const bytes = new Uint8Array(await readFile(path));
+      if (!verifyBackupCopy(entry, bytes).verified) return false;
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Wires approved local sources into the 30-minute runtime. The recovery role
+ * performs a restore rehearsal into a separate staging root; it never restores
+ * over originals. Actual production deployment still needs a supervisor,
+ * off-host replication, alerts, and operator-approved restore procedures.
+ */
+export function createApprovedContinuousBackupRuntime(
+  options: ApprovedContinuousBackupOptions,
+): SaqlainBackupRuntime {
+  assertDisjointRoots(options.storageRoot, options.recoveryStagingRoot, 'Backup storage and recovery staging');
+  for (const source of Object.values(options.approvedRoots)) {
+    if (source) {
+      assertDisjointRoots(source, options.storageRoot, 'Source and backup storage');
+      assertDisjointRoots(source, options.recoveryStagingRoot, 'Source and recovery staging');
+    }
+  }
+
+  const snapshotsByCycle = new Map<string, Map<string, BackupStorageResult>>();
+  const agentById = new Map(SAQLAIN_BACKUP_TEAM.map((agent) => [agent.id, agent]));
+
+  const runAgentCycle = async (agent: SaqlainBackupAgent, cycleId: string): Promise<AgentCycleOutcome> => {
+    if (agent.role === 'BACKUP' && agent.id !== 'saq-backup-verify') {
+      const snapshot = await runApprovedBackupAgentSnapshot(agent, cycleId, options);
+      const snapshots = snapshotsByCycle.get(cycleId) ?? new Map<string, BackupStorageResult>();
+      snapshots.set(agent.id, snapshot);
+      snapshotsByCycle.set(cycleId, snapshots);
+      return { status: 'VERIFIED', summary: 'Created snapshot ' + snapshot.snapshotId + ' with ' + snapshot.verifiedFiles + ' verified files.' };
+    }
+
+    if (agent.id === 'saq-backup-verify') {
+      const snapshots = snapshotsByCycle.get(cycleId);
+      const sourceAgents = SAQLAIN_BACKUP_TEAM.filter((candidate) => candidate.role === 'BACKUP' && candidate.id !== 'saq-backup-verify');
+      if (!snapshots || snapshots.size !== sourceAgents.length) {
+        return { status: 'HOLD', summary: 'Expected source snapshots are missing; recovery is blocked.' };
+      }
+      for (const sourceAgent of sourceAgents) {
+        const snapshot = snapshots.get(sourceAgent.id);
+        if (!snapshot || !(await verifyPersistedSnapshot(snapshot))) {
+          return { status: 'HOLD', summary: 'Snapshot integrity check failed for ' + sourceAgent.id + '; recovery is blocked.' };
+        }
+      }
+      return { status: 'VERIFIED', summary: 'All ' + snapshots.size + ' source snapshots and persisted manifests re-verified.' };
+    }
+
+    if (agent.role === 'RECOVERY') {
+      const snapshots = snapshotsByCycle.get(cycleId);
+      const sourceAgents = SAQLAIN_BACKUP_TEAM.filter((candidate) => candidate.role === 'BACKUP' && candidate.id !== 'saq-backup-verify');
+      if (!snapshots || snapshots.size !== sourceAgents.length) {
+        return { status: 'HOLD', summary: 'Recovery rehearsal blocked: source snapshots are missing.' };
+      }
+      for (const sourceAgent of sourceAgents) {
+        const snapshot = snapshots.get(sourceAgent.id);
+        if (!snapshot || !(await verifyPersistedSnapshot(snapshot))) {
+          return { status: 'HOLD', summary: 'Recovery rehearsal blocked: snapshot failed re-verification.' };
+        }
+      }
+      let staged = 0;
+      for (const sourceAgent of sourceAgents) {
+        const snapshot = snapshots.get(sourceAgent.id)!;
+        const files = [];
+        for (const entry of snapshot.manifest.entries) {
+          files.push({
+            relativePath: entry.relativePath,
+            bytes: new Uint8Array(await readFile(resolve(snapshot.directory, entry.relativePath))),
+          });
+        }
+        await createVerifiedLocalSnapshot({
+          storageRoot: options.recoveryStagingRoot,
+          snapshotId: (cycleId + '-recovery-' + sourceAgent.id).replace(/[^A-Za-z0-9._-]/g, '-').slice(0, 120),
+          source: snapshot.manifest.source,
+          files,
+          now: options.now?.(),
+        });
+        staged += 1;
+      }
+      return { status: 'VERIFIED', summary: 'Recovery rehearsal staged and checksum-verified ' + staged + ' copies in the separate recovery directory; originals were not modified.' };
+    }
+
+    return { status: 'HOLD', summary: 'Unknown agent role; work held for review.' };
+  };
+
+  return createSaqlainBackupRuntime({
+    runAgentCycle,
+    auditFilePath: options.auditFilePath,
+    now: options.now,
+    setIntervalFn: options.setIntervalFn,
+    clearIntervalFn: options.clearIntervalFn,
+  });
+}
