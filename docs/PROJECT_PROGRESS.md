@@ -42,7 +42,7 @@ Implemented security boundary principles include protected originals, no destruc
 
 ## Not yet implemented or production-verified
 
-- Full Saqlain Gatekeeper API integration and hardening
+- Registry-aware Gatekeeper evaluator added; live API middleware integration and real credential verifier still required
 - Durable database-backed Agent ID registry/ledger and atomic transaction integration (the new identity module defines the contract but does not itself provide persistence)
 - Complete 4-backup + 1-recovery runtime deployment
 - 24/7 scheduler/runtime
@@ -53,7 +53,7 @@ Implemented security boundary principles include protected originals, no destruc
 - Full immutable audit storage
 - Complete external-agent communication gateway
 - Gousiya emergency component and its external agent team
-- Run the new Agent ID lifecycle tests in CI and fix any failures
+- Run Agent ID and Gatekeeper tests in CI and fix any failures
 - End-to-end security testing
 - Stress/failure testing
 - Production security hardening
@@ -73,7 +73,7 @@ External-facing Gousiya agents are outside Gouse AI and must use approved, scope
 
 ## Latest Agent ID implementation
 
-Added `server/saqlainAgentIdentity.ts` and `server/saqlainTaskIdentityIntegration.ts` on this branch. The identity module defines owner-approved registration, cryptographically random 128-bit binary IDs, stable agent keys, suspension, audit events, and no-reuse tracking. The integration helper checks current identity and task-lock ownership, verifies the completion report, and rotates the ID only after successful verification. `verifyCurrentBinaryAgentId` provides a registry lookup helper for Gatekeeper integration. These are code modules, not a complete production integration: the caller must atomically persist task state, agent registry, issued-ID ledger, and audit events in durable storage. The helpers are not yet wired into live API routes or a database, and no automated tests or production validation are claimed.
+Added `server/saqlainAgentIdentity.ts` and `server/saqlainTaskIdentityIntegration.ts` on this branch. The identity module defines owner-approved registration, cryptographically random 128-bit binary IDs, stable agent keys, suspension, audit events, and no-reuse tracking. The integration helper checks current identity and task-lock ownership, verifies the completion report, and rotates the ID only after successful verification. `verifyCurrentBinaryAgentId` provides a registry lookup helper for Gatekeeper integration. These are code modules, not a complete production integration: the caller must atomically persist task state, agent registry, issued-ID ledger, and audit events in durable storage. The helpers are not yet wired into live API routes or a database. Added `server/saqlainAgentIdentity.test.ts` and `server/saqlainGatekeeper.test.ts`, and updated the npm test script to run both. Tests are committed but have not been executed in this GitHub integration; passing status is not confirmed.
 
 ## Current development branch
 
