@@ -27,11 +27,15 @@ Do not point backup or recovery staging at any source directory. Do not use a so
 6. Review the latest cycle report and audit log; verify that recovery remains blocked when any backup or audit write fails.
 7. Perform a restore rehearsal into a clean staging directory and compare checksums before approving production use.
 
+## Start command
+
+After installing dependencies, configuring all six environment variables above, and passing the tests, start the service with `npm run backup:service`. The entrypoint validates that the required values exist, starts an immediate cycle, and schedules subsequent cycles every 30 minutes. Stop it with SIGINT or SIGTERM. Do not start multiple instances against the same local storage and audit paths.
+
 ## Continuous operation
 
 Run the service under a process supervisor (for example, systemd or an equivalent managed service). Configure restart-on-failure, bounded restart backoff, restricted filesystem access, log rotation, and alerting for service exit or missed cycles. The runtime's in-process 30-minute timer is not sufficient by itself to guarantee 24/7 operation across process or host restarts.
 
-The current implementation does not yet provide durable cycle state, a built-in heartbeat monitor, off-host replication, or operator notifications. Treat those as launch blockers for production critical data.
+The entrypoint is now available as `server/saqlainBackupService.ts`, with the `backup:service` package script. It is not yet production-validated and does not provide durable cycle state, a built-in heartbeat monitor, off-host replication, or operator notifications. Treat those as launch blockers for production critical data.
 
 ## Incident and recovery rules
 
