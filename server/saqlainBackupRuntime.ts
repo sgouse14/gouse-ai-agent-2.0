@@ -108,8 +108,11 @@ export function createSaqlainBackupRuntime(options: SaqlainBackupRuntimeOptions)
 
   async function executeCycle(): Promise<BackupRecoveryCycleReport> {
     cycleSequence += 1;
-    const cycleId = 'saqlain-cycle-' + String(cycleSequence).padStart(8, '0');
     const startedAt = now().toISOString();
+    // Include wall-clock time so a process restart is less likely to reuse a
+    // prior snapshot ID. This reduces collisions but is not durable cycle state.
+    const cycleStamp = startedAt.replace(/[-:.TZ]/g, '').slice(0, 14);
+    const cycleId = 'saqlain-cycle-' + cycleStamp + '-' + String(cycleSequence).padStart(8, '0');
     // Stage the cycle so integrity verification cannot race the snapshot writers,
     // and recovery never starts before the verification agent has reported.
     const sourceBackupAgents = SAQLAIN_BACKUP_TEAM.filter((agent) =>
