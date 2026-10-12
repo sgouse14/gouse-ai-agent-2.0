@@ -1,6 +1,6 @@
 # Gouse AI Agent 2.0 — Current Project Progress
 
-Updated: 2026-10-05
+Updated: 2026-10-12
 
 ## Overall status
 
@@ -43,6 +43,7 @@ Implemented security boundary principles include protected originals, no destruc
 ## Not yet implemented or production-verified
 
 - Full Saqlain Gatekeeper API integration and hardening
+- Durable database-backed Agent ID registry/ledger and atomic transaction integration (the new identity module defines the contract but does not itself provide persistence)
 - Complete 4-backup + 1-recovery runtime deployment
 - 24/7 scheduler/runtime
 - Full 30-minute end-to-end verification workflow
@@ -68,6 +69,10 @@ All internal security agents remain inside Gouse AI:
 - Saqlain Gatekeeper
 
 External-facing Gousiya agents are outside Gouse AI and must use approved, scoped API access. External agents must never receive unrestricted internal privileges.
+
+## Latest Agent ID implementation
+
+Added `server/saqlainAgentIdentity.ts` on this branch. It defines owner-approved agent registration, cryptographically random 128-bit binary IDs, rotation only after verified task completion, a stable internal agent key, suspension support, and audit events. Retired IDs remain in an issued-ID ledger and are not reused by the module. The caller must persist the registry, issued-ID ledger, and audit events durably and atomically; this is not yet wired to a database, Queue Manager, or Saqlain Gatekeeper. No automated tests or production validation are claimed for this change.
 
 ## Current development branch
 
