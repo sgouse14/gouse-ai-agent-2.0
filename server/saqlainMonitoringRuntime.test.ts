@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, open, rm } from 'node:fs/promises';
+import { mkdir, mkdtemp, open, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { readVerifiedAuditLog } from './saqlainAuditLog.ts';
@@ -75,6 +75,7 @@ test('collector failure and invalid counters fail closed to HOLD', async () => {
 test('audit failure holds monitoring report and concurrent calls share one cycle', async () => {
   const ctx = await setup();
   try {
+    await mkdir(join(ctx.root, 'audit'), { recursive: true });
     const lock = await open(ctx.auditFilePath + '.lock', 'wx');
     await lock.close();
     let calls = 0;
