@@ -52,6 +52,7 @@ process.on('SIGINT', () => {
 });
 process.on('SIGTERM', () => {
   runtime.stop();
+  monitoringRuntime.stop();
   process.exitCode = 0;
 });
 process.on('uncaughtException', (error) => {
