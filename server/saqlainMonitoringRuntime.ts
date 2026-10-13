@@ -97,8 +97,11 @@ export function createSaqlainMonitoringRuntime(options: SaqlainMonitoringRuntime
       status = 'HOLD';
       errorMessage = 'Durable monitoring audit failed: ' + (error instanceof Error ? error.message : 'unknown audit error');
     }
+    const finalAlert = status === 'HOLD' && snapshot?.status === 'HEALTHY'
+      ? 'Saqlain monitoring alert: HOLD | cycle=' + cycleId + ' | audit or monitoring integrity failure'
+      : alert;
     const report: MonitoringCycleReport = Object.freeze({
-      cycleId, startedAt, finishedAt: now().toISOString(), status, snapshot, alert,
+      cycleId, startedAt, finishedAt: now().toISOString(), status, snapshot, alert: finalAlert,
       ...(errorMessage ? { error: errorMessage } : {}),
     });
     lastReport = report;
