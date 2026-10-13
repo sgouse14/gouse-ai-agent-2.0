@@ -29,7 +29,7 @@ The continuous service reads the staging and audit paths from its protected serv
 - Staging creates a new snapshot and verifies the copied bytes.
 - The returned result fixes `originalsModified: false` and `promotionAllowed: false`.
 - The result is durably audited before it is returned.
-- Audit failure throws rather than reporting a successful recovery.
+- Audit failure throws rather than reporting a successful recovery; a regression test deliberately holds the audit lock and confirms no successful result is returned while source bytes remain unchanged.
 - Invalid backup data is held for investigation; evidence is not automatically deleted.
 
 ## Tests
