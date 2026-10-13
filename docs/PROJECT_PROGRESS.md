@@ -18,7 +18,7 @@ This is an engineering/planning estimate, not a measured code-coverage percentag
 | Task Queue Manager | ~70% |
 | Task/Agent ID verification | ~70% |
 | Task locking / ownership | ~70% |
-| Saqlain monitoring agent | ~60% |
+| Saqlain monitoring agent | ~70% |
 | Saqlain Gatekeeper policy + API boundary | ~55% |
 | 11-agent security team definitions | ~60% |
 | Security policy / India compliance definitions | ~60% |
@@ -70,6 +70,8 @@ All internal security agents remain inside Gouse AI:
 - Saqlain Gatekeeper
 
 External-facing Gousiya agents are outside Gouse AI and must use approved, scoped API access. External agents must never receive unrestricted internal privileges.
+
+- Saqlain monitoring now has an audited 30-minute runtime in `server/saqlainMonitoringRuntime.ts`, integrated into the configured backup service. It classifies health snapshots, alerts on failures/holds, serializes cycle execution, and fails closed on collector or audit errors. Tests and `docs/SAQLAIN_MONITORING_AGENT.md` were added. Current metrics are based on the latest in-process backup cycle; queue state and real worker liveness are not yet connected, and independent host-down alerting remains pending.
 
 ## Latest Agent ID implementation
 
