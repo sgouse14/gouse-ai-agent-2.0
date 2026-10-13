@@ -16,7 +16,7 @@ The backup service starts the monitor and backup/recovery runtime together and s
 ## Alert policy
 
 - `HEALTHY`: no known failures or holds.
-- `WARNING`: agents are configured but no task has completed.
+- `WARNING`: no active agents are reported, or no task has completed. A zero-agent snapshot is not treated as healthy.
 - `HOLD`: security holds exist, locked tasks exceed active-agent count, or monitoring cannot safely complete.
 - `FAILED`: one or more failed tasks are reported.
 
