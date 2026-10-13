@@ -103,6 +103,7 @@ export function createApprovedContinuousBackupRuntime(
           stagingRoot: options.recoveryStagingRoot,
           auditFilePath: options.auditFilePath,
           recoveryAgentId: agent.id,
+          stagingSnapshotId: (cycleId + '-recovery-' + sourceAgent.id).replace(/[^A-Za-z0-9._-]/g, '-').slice(0, 120),
           now: options.now?.(),
         });
         if (result.decision !== 'VERIFIED' || !result.stagingSnapshot || result.originalsModified || result.promotionAllowed) {
