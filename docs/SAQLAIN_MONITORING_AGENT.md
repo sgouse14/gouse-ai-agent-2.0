@@ -7,6 +7,8 @@ Saqlain AI's monitoring runtime provides read-only health monitoring for the Gou
 ## Integration
 
 - Core policy: `server/saqlainMonitoringAgent.ts`
+- Heartbeat freshness helper: `server/saqlainAgentHeartbeat.ts` (pure summarizer; authentication and durable heartbeat ingestion must be provided by its caller)
+- Heartbeat tests: `server/saqlainAgentHeartbeat.test.ts`
 - Scheduled/audited runtime: `server/saqlainMonitoringRuntime.ts`
 - Service integration: `server/saqlainBackupService.ts`
 - Tests: `server/saqlainMonitoringRuntime.test.ts`
@@ -20,7 +22,7 @@ The backup service starts the monitor and backup/recovery runtime together and s
 - `HOLD`: security holds exist, locked tasks exceed active-agent count, or monitoring cannot safely complete.
 - `FAILED`: one or more failed tasks are reported.
 
-The current collector summarizes the latest in-process backup/recovery cycle. It counts configured team members as active agents and sets locked tasks to zero because the queue manager is not yet connected to this service. Those values are explicitly estimates/known limitations, not evidence of remote-worker liveness or queue health.
+The current service collector still summarizes the latest in-process backup/recovery cycle and does not yet ingest authenticated heartbeats or connect the queue manager. `summarizeAgentHeartbeats` provides a tested, stale-aware primitive for a future authenticated heartbeat endpoint, but it is not wired into the collector yet. Those values are explicitly estimates/known limitations, not evidence of remote-worker liveness or queue health.
 
 ## Security boundaries
 
