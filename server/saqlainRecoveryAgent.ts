@@ -1,4 +1,4 @@
-import { lstat, readFile } from 'node:fs/promises';
+import { lstat, mkdir, readFile } from 'node:fs/promises';
 import { isAbsolute, relative, resolve, sep } from 'node:path';
 import { appendDurableAuditEvent } from './saqlainAuditLog.ts';
 import { verifyBackupCopy, verifyBackupManifest, type BackupManifest } from './saqlainBackupManifest.ts';
@@ -45,16 +45,18 @@ export async function runRecoveryRehearsal(input: {
   const sourceDir = resolve(input.sourceSnapshotDirectory);
   const stagingRoot = resolve(input.stagingRoot);
   const now = input.now ?? new Date();
+  if (!input.recoveryAgentId.trim()) throw new Error('recoveryAgentId is required.');
+  if (!input.auditFilePath.trim()) throw new Error('auditFilePath is required.');
   let sourceSnapshotId = 'unknown';
   let verifiedFiles = 0;
   let stagingSnapshot: BackupStorageResult | null = null;
   let decision: RecoveryDecision = 'HOLD';
   let reason = 'Recovery not completed.';
   try {
-    if (!input.recoveryAgentId.trim()) throw new Error('recoveryAgentId is required.');
-    if (!input.auditFilePath.trim()) throw new Error('auditFilePath is required.');
     assertDisjoint(sourceDir, stagingRoot);
     await assertRealDirectory(sourceDir);
+    await mkdir(stagingRoot, { recursive: true, mode: 0o700 });
+    await assertRealDirectory(stagingRoot);
     const manifestPath = resolve(sourceDir, 'backup-manifest.json');
     const manifestInfo = await lstat(manifestPath);
     if (!manifestInfo.isFile() || manifestInfo.isSymbolicLink()) throw new Error('Backup manifest must be a regular file.');
