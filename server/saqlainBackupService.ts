@@ -3,6 +3,7 @@ import { SAQLAIN_BACKUP_TEAM } from './saqlainBackupTeam.ts';
 import { createSaqlainMonitoringRuntime } from './saqlainMonitoringRuntime.ts';
 import { summarizeAgentHeartbeats } from './saqlainAgentHeartbeat.ts';
 import { getSaqlainHeartbeatSnapshot } from './saqlainHeartbeatRoutes.ts';
+import { parseHeartbeatCredentials } from './saqlainHeartbeatIngestion.ts';
 
 const required = (key: string): string => {
   const value = process.env[key]?.trim();
