@@ -11,7 +11,7 @@ Saqlain AI's monitoring runtime provides read-only health monitoring for the Gou
 - Service integration: `server/saqlainBackupService.ts`
 - Tests: `server/saqlainMonitoringRuntime.test.ts`
 
-The backup service starts the monitor and backup/recovery runtime together and stops both on SIGINT/SIGTERM. Monitoring requires the configured `SAQLAIN_BACKUP_AUDIT_FILE` path. An audit failure downgrades the monitoring report to `HOLD`; a collector error or invalid counters also fails closed to `HOLD`.
+The backup service starts the monitor and backup/recovery runtime together and stops both on SIGINT and SIGTERM, so graceful shutdown does not leave the monitoring timer running. Monitoring requires the configured `SAQLAIN_BACKUP_AUDIT_FILE` path. An audit failure downgrades the monitoring report to `HOLD`; a collector error or invalid counters also fails closed to `HOLD`.
 
 ## Alert policy
 
