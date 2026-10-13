@@ -19,7 +19,7 @@ This is an engineering/planning estimate, not a measured code-coverage percentag
 | Task/Agent ID verification | ~70% |
 | Task locking / ownership | ~70% |
 | Saqlain monitoring agent | ~60% |
-| Saqlain Gatekeeper basic module | ~35% |
+| Saqlain Gatekeeper policy + API boundary | ~55% |
 | 11-agent security team definitions | ~60% |
 | Security policy / India compliance definitions | ~60% |
 | Backup/recovery architecture | ~40% |
@@ -42,7 +42,7 @@ Implemented security boundary principles include protected originals, no destruc
 
 ## Not yet implemented or production-verified
 
-- Registry-aware Gatekeeper evaluator added; live API middleware integration and real credential verifier still required
+- Gatekeeper is mounted at `/api/security/gatekeeper` with `/evaluate` and a narrow `/communication` acceptance boundary. The service checks the owner-approved current binary ID from a protected registry file, binds a server-configured bearer credential to stable agent key and platform, applies scope policy, and durably audits decisions before returning them. Missing registry/credential/audit configuration fails closed. Unit tests and deployment documentation added. Still pending: secret-manager integration, atomic registry rotation/revocation, rate limiting/replay protection, off-host audit replication, and explicitly protecting every other sensitive application route.
 - Durable database-backed Agent ID registry/ledger and atomic transaction integration (the new identity module defines the contract but does not itself provide persistence)
 - Four-backup + one-recovery role definitions, cycle assignment checks, SHA-256 manifests, append-only local snapshots, read-back verification, and queue-task integration are implemented. Added a read-only approved-root source adapter that rejects symlinks/special files and enforces file/byte limits, plus a helper that maps backup agents only to explicitly approved roots and creates verified snapshots. Added `server/saqlainApprovedContinuousBackup.ts` to wire the 30-minute runtime to approved source snapshots, re-read and verify persisted manifests/copies, and rehearse recovery into a separate staging root without overwriting originals. Added `docs/SAQLAIN_BACKUP_DEPLOYMENT.md` with environment/path requirements, pre-deployment checks, process-supervisor guidance, and safe recovery rules. Added `server/saqlainBackupService.ts` and `npm run backup:service` as an explicit environment-configured entrypoint with immediate run, 30-minute scheduling, and SIGINT/SIGTERM shutdown handling. Cycle IDs now use random UUIDs to avoid reuse across process restarts; recovery additionally requires every source backup and its audit write to pass, and per-cycle snapshot references are released after each completed cycle. Approved source roots reject symlink aliases. Configuration of real source roots, durable queue state, off-host replication, process supervision, alerting, and production storage protections remain pending
 - In-process 30-minute backup/recovery runtime added in `server/saqlainBackupRuntime.ts`; it runs the three source-copying backup agents concurrently, then the verification agent, then the recovery agent; it prevents overlapping cycles, isolates failures, optionally writes hash-chained audit events, and exposes start/stop/manual-cycle APIs. It is not yet a persistent daemon: process supervision, durable cycle/task state, alerts/heartbeats, authorized source adapters, off-host storage, and restore drills remain pending.
