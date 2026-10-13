@@ -67,18 +67,15 @@ test('protected scopes are blocked and audit outcome is DENY', async () => {
 });
 
 test('wrong platform, stale ID, and suspended agent fail closed', async () => {
-  await withConfig(async () => {
+  await withConfig(async ({ registryPath }) => {
     assert.equal((await evaluateAndAuditGatekeeperRequest(request({ platformId: 'other-platform' }))).decision, 'BLOCK');
     assert.equal((await evaluateAndAuditGatekeeperRequest(request({ agentId: '0'.repeat(128) }))).decision, 'BLOCK');
     const state = await loadGatekeeperIdentityState();
     state.agents.get('partner-agent-01')!.status = 'SUSPENDED';
-    await assert.rejects(async () => {
-      const { writeFile: write } = await import('node:fs/promises');
-      await writeFile(process.env.SAQLAIN_AGENT_IDENTITY_REGISTRY_PATH!, JSON.stringify({
-        agents: [{ ...state.agents.get('partner-agent-01')! }], issuedIds: [...state.issuedIds],
-      }), { mode: 0o600 });
-      assert.equal((await evaluateAndAuditGatekeeperRequest(request())).decision, 'BLOCK');
-    });
+    await writeFile(registryPath, JSON.stringify({
+      agents: [{ ...state.agents.get('partner-agent-01')! }], issuedIds: [...state.issuedIds],
+    }), { mode: 0o600 });
+    assert.equal((await evaluateAndAuditGatekeeperRequest(request())).decision, 'BLOCK');
   });
 });
 
