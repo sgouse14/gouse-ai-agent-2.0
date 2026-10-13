@@ -83,6 +83,20 @@ test('rejects overlapping source and staging paths before issuing a grant', asyn
   } finally { await rm(ctx.root, { recursive: true, force: true }); }
 });
 
+test('rejects audit path inside the protected source snapshot', async () => {
+  const ctx = await setup();
+  try {
+    const state = createGousiyaEmergencyState(join(ctx.snapshot.directory, 'events.jsonl'));
+    await assert.rejects(issueGousiyaEmergencyGrant({
+      state, incidentId: 'incident-audit-path', recoveryAgentId: 'saq-recovery-agent',
+      sourceSnapshotDirectory: ctx.snapshot.directory, stagingRoot: ctx.stagingRoot,
+      reason: 'Audit isolation test', ...approvals,
+    }), /source and audit paths must be disjoint/i);
+    assert.equal(state.grants.size, 0);
+    assert.deepEqual(await readFile(join(ctx.snapshot.directory, 'project/source.txt')), ctx.bytes);
+  } finally { await rm(ctx.root, { recursive: true, force: true }); }
+});
+
 test('expired grant cannot execute and can be revoked only before use', async () => {
   const ctx = await setup();
   try {
