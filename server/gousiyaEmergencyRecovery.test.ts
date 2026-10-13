@@ -44,7 +44,7 @@ test('issues a short-lived single-use grant and rehearses only into separate sta
     assert.equal(result.decision, 'VERIFIED');
     assert.equal(result.originalsModified, false);
     assert.equal(result.promotionAllowed, false);
-    assert.deepEqual(await readFile(sourceFile), before);
+    assert.deepEqual(new Uint8Array(await readFile(sourceFile)), before);
     assert.deepEqual(await readFile(join(result.stagingSnapshot!.directory, 'project/source.txt')), ctx.bytes);
     await assert.rejects(executeGousiyaEmergencyRecovery({
       state: ctx.state, grantId: issued.grant.grantId, token: issued.token, incidentId: 'incident-01',
@@ -93,7 +93,7 @@ test('rejects audit path inside the protected source snapshot', async () => {
       reason: 'Audit isolation test', ...approvals,
     }), /source and audit paths must be disjoint/i);
     assert.equal(state.grants.size, 0);
-    assert.deepEqual(await readFile(join(ctx.snapshot.directory, 'project/source.txt')), ctx.bytes);
+    assert.deepEqual(new Uint8Array(await readFile(join(ctx.snapshot.directory, 'project/source.txt'))), ctx.bytes);
   } finally { await rm(ctx.root, { recursive: true, force: true }); }
 });
 
@@ -136,6 +136,8 @@ test('revocation is reserved before audit I/O and remains revoked if audit persi
       state: ctx.state, grantId: issued.grant.grantId, actorId: 'operator-2',
     }), /locked or has a stale lock/i);
     assert.equal(ctx.state.grants.get(issued.grant.grantId)?.status, 'REVOKED');
+    // Clear the deliberately injected lock so the replay-denial audit can persist.
+    await rm(ctx.auditFilePath + '.lock', { force: true });
     await assert.rejects(executeGousiyaEmergencyRecovery({
       state: ctx.state, grantId: issued.grant.grantId, token: issued.token, incidentId: 'incident-revoke-audit',
     }), /invalid, mismatched, or already used/i);
