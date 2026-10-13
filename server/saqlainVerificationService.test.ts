@@ -121,7 +121,6 @@ test('tampered audit log fails closed rather than accepting altered chain state'
     const service = new SaqlainVerificationService();
     await service.create({ chainId: 'tamper-001', reportRef: 'report-tamper' });
     const text = await readFile(auditPath, 'utf8');
-    await mkdir(join(auditPath, '..'), { recursive: true });
     await writeFile(auditPath, text.replace('tamper-001', 'changed-001'), 'utf8');
     const restored = new SaqlainVerificationService();
     await assert.rejects(restored.list(), /integrity verification failed/);
