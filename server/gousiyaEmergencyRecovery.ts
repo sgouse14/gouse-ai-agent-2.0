@@ -97,6 +97,12 @@ export async function issueGousiyaEmergencyGrant(input: {
   if (within(sourceSnapshotDirectory, stagingRoot) || within(stagingRoot, sourceSnapshotDirectory)) {
     throw new Error('Emergency recovery source and staging paths must be disjoint.');
   }
+  if (within(sourceSnapshotDirectory, input.state.auditFilePath) || within(input.state.auditFilePath, sourceSnapshotDirectory)) {
+    throw new Error('Emergency recovery source and audit paths must be disjoint.');
+  }
+  if (within(stagingRoot, input.state.auditFilePath) || within(input.state.auditFilePath, stagingRoot)) {
+    throw new Error('Emergency recovery staging and audit paths must be disjoint.');
+  }
   const grantId = randomUUID();
   const token = randomBytes(32).toString('hex');
   const grant: StoredGrant = {
