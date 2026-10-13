@@ -31,7 +31,8 @@ export function evaluateMonitoringSnapshot(input: Omit<MonitoringSnapshot, 'stat
   let status: MonitoringStatus = 'HEALTHY';
   if (input.failedTasks > 0) status = 'FAILED';
   else if (input.securityHolds > 0 || input.lockedTasks > input.activeAgents) status = 'HOLD';
-  else if (input.completedTasks === 0 && input.activeAgents > 0) status = 'WARNING';
+  // A zero-agent snapshot is not healthy: it may mean the workers are down or the collector is misconfigured.
+  else if (input.activeAgents === 0 || input.completedTasks === 0) status = 'WARNING';
   return { ...input, status };
 }
 
