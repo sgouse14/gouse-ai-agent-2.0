@@ -66,7 +66,7 @@ function parseAndVerifyLog(text: string): AuditRecord[] {
  * cooperating writers. A stale lock causes a fail-closed error and requires
  * operator review; this module is not tamper-proof against privileged OS users.
  */
-export async function appendDurableAuditEvent(
+async function appendDurableAuditEventWithLock(
   auditFilePath: string,
   input: AuditEventInput,
 ): Promise<AuditRecord> {
@@ -118,6 +118,21 @@ export async function appendDurableAuditEvent(
     // Remove only the temporary lock file created by this invocation.
     await unlink(lockPath).catch(() => undefined);
   }
+}
+
+/**
+ * Serializes appends within this Node.js process before acquiring the filesystem
+ * lock. The lock still protects cooperating processes; a stale/external lock
+ * remains a fail-closed error.
+ */
+let appendQueue: Promise<unknown> = Promise.resolve();
+export function appendDurableAuditEvent(
+  auditFilePath: string,
+  input: AuditEventInput,
+): Promise<AuditRecord> {
+  const next = appendQueue.then(() => appendDurableAuditEventWithLock(auditFilePath, input));
+  appendQueue = next.then(() => undefined, () => undefined);
+  return next;
 }
 
 export async function readVerifiedAuditLog(auditFilePath: string): Promise<readonly AuditRecord[]> {
