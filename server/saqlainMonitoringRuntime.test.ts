@@ -144,7 +144,7 @@ test('zero active agents produces WARNING rather than a false healthy state', as
   try {
     const runtime = createSaqlainMonitoringRuntime({
       auditFilePath: ctx.auditFilePath,
-      collectSnapshot: async () => ({ ...healthy, activeAgents: 0 }),
+      collectSnapshot: async () => ({ ...healthy, activeAgents: 0, lockedTasks: 0 }),
     });
     const report = await runtime.runCycle();
     assert.equal(report.status, 'WARNING');
