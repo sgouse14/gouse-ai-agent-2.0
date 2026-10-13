@@ -52,7 +52,7 @@ Implemented security boundary principles include protected originals, no destruc
 - Internal/external token ledger and exchange controls
 - Hash-chained JSONL audit log with exclusive writer lock, fsync, and tamper detection implemented; off-host/WORM storage, key-backed signatures, and integration across all security events remain pending
 - Complete external-agent communication gateway
-- Gousiya emergency component and its external agent team
+- Gousiya emergency recovery component implemented as a defensive break-glass coordinator: short-lived single-use random grants require owner and independent-reviewer approval, are audited before use, and authorize only checksum-verified staging rehearsals. Tests and operating documentation added. The grant registry is still in-memory, approval booleans require authenticated integration, and production restore/promotion remains prohibited.
 - CI workflow added for security unit tests on feature-branch pushes and pull requests to main; GitHub Actions run `38363387140` completed successfully with 55 tests passing and 0 failures, including the new verification-service persistence, credential, ordering, HOLD/resume, and tamper-detection tests
 - End-to-end security testing
 - Stress/failure testing
