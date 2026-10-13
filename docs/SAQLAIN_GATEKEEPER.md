@@ -59,7 +59,7 @@ Use HTTPS and network-level restrictions. Keep identity-registry updates owner-c
 
 ## Tests
 
-Run `npm test`. Gatekeeper service tests cover approved access, protected-scope denial, wrong platform, stale IDs, suspension, HOLD behavior, input validation, missing configuration and tampered audit history.
+Run `npm test`. Gatekeeper service tests cover approved access, protected-scope denial, wrong platform, stale IDs, suspension, HOLD behavior, input validation, missing configuration, tampered audit history, audit-lock failure, and malformed scope/identity requests.
 
 ## Production limitations
 
