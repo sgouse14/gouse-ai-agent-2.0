@@ -37,3 +37,10 @@ Run the existing configured backup service using `npm run backup:service` after 
 ## Production limitations
 
 This is an in-process monitor, not an independent watchdog. It cannot alert if the host or process is completely down, and it does not yet have external metrics, heartbeat probes, queue/database telemetry, notification delivery, or off-host audit replication. Production deployment needs a process supervisor and an independent external heartbeat/alerting service. Do not treat the configured team count as proof that all five agents are online.
+
+
+## Heartbeat HTTP endpoint
+
+The Express app mounts `POST /api/security/heartbeats`. Send JSON `{"agentId":"<registered-agent-id>"}` and the per-agent secret in the `x-saqlain-agent-token` header. Configure `SAQLAIN_HEARTBEAT_CREDENTIALS_JSON` as a JSON array of `{"agentId":"...","tokenSha256":"<64-char SHA-256 hex digest>"}` records and set `SAQLAIN_AUDIT_FILE` to the durable audit-log path. Provision secrets out of band; never store raw tokens in this JSON.
+
+The endpoint applies a per-agent in-process limit of 60 requests/minute, uses timing-safe digest comparison, and writes a durable audit event before accepting a heartbeat into the in-memory store. It returns 503 if configuration or audit persistence is unavailable and 401 for invalid credentials. Because rate-limit counters and heartbeats are process-local, this is a single-process baseline—not distributed rate limiting or durable heartbeat storage. Put the endpoint behind HTTPS and a trusted proxy, use strong unique secrets, and do not expose the in-process snapshot getter as an HTTP endpoint. Monitoring collector integration and persistent storage remain follow-up work.
