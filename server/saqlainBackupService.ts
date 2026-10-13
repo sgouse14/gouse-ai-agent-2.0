@@ -28,7 +28,8 @@ const monitoringRuntime = createSaqlainMonitoringRuntime({
   auditFilePath: required('SAQLAIN_BACKUP_AUDIT_FILE'),
   collectSnapshot: async () => {
     const report = runtime.getState().lastReport;
-    const results = report?.results ?? [];
+    if (!report) throw new Error('No completed backup/recovery cycle is available yet.');
+    const results = report.results;
     return {
       // Counts configured members, not proof that remote workers are reachable.
       activeAgents: SAQLAIN_BACKUP_TEAM.length,
