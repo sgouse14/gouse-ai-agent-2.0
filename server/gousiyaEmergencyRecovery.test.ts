@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, open, readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { createVerifiedLocalSnapshot } from './saqlainBackupStorage.ts';
@@ -117,6 +117,28 @@ test('expired grant cannot execute and can be revoked only before use', async ()
     });
     await revokeGousiyaEmergencyGrant({ state: ctx.state, grantId: second.grant.grantId, actorId: 'operator-1' });
     assert.equal(ctx.state.grants.get(second.grant.grantId)?.status, 'REVOKED');
+  } finally { await rm(ctx.root, { recursive: true, force: true }); }
+});
+
+
+test('revocation is reserved before audit I/O and remains revoked if audit persistence fails', async () => {
+  const ctx = await setup();
+  try {
+    const issued = await issueGousiyaEmergencyGrant({
+      state: ctx.state, incidentId: 'incident-revoke-audit', recoveryAgentId: 'saq-recovery-agent',
+      sourceSnapshotDirectory: ctx.snapshot.directory, stagingRoot: ctx.stagingRoot,
+      reason: 'Audit failure race test', ...approvals,
+    });
+    await mkdir(join(ctx.root, 'audit'), { recursive: true });
+    const lock = await open(ctx.auditFilePath + '.lock', 'wx');
+    await lock.close();
+    await assert.rejects(revokeGousiyaEmergencyGrant({
+      state: ctx.state, grantId: issued.grant.grantId, actorId: 'operator-2',
+    }), /locked or has a stale lock/i);
+    assert.equal(ctx.state.grants.get(issued.grant.grantId)?.status, 'REVOKED');
+    await assert.rejects(executeGousiyaEmergencyRecovery({
+      state: ctx.state, grantId: issued.grant.grantId, token: issued.token, incidentId: 'incident-revoke-audit',
+    }), /invalid, mismatched, or already used/i);
   } finally { await rm(ctx.root, { recursive: true, force: true }); }
 });
 
