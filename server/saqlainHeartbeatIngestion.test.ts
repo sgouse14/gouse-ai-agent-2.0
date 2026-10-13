@@ -30,3 +30,19 @@ test('invalid credential digest and invalid clock fail closed', () => {
   }), { accepted: false });
   assert.deepEqual(store.list(), []);
 });
+
+test('credential configuration rejects duplicate IDs and malformed entries', async () => {
+  const { parseHeartbeatCredentials } = await import('./saqlainHeartbeatIngestion.ts');
+  const digest = sha256HeartbeatToken('secret');
+  assert.deepEqual(parseHeartbeatCredentials(JSON.stringify([{ agentId: 'a', tokenSha256: digest }])), [
+    { agentId: 'a', tokenSha256: digest },
+  ]);
+  assert.equal(parseHeartbeatCredentials(undefined), null);
+  assert.equal(parseHeartbeatCredentials('not-json'), null);
+  assert.equal(parseHeartbeatCredentials('[]'), null);
+  assert.equal(parseHeartbeatCredentials(JSON.stringify([
+    { agentId: 'a', tokenSha256: digest },
+    { agentId: 'a', tokenSha256: digest },
+  ])), null);
+  assert.equal(parseHeartbeatCredentials(JSON.stringify([{ agentId: 'a', tokenSha256: 'bad' }])), null);
+});
