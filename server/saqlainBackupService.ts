@@ -1,4 +1,6 @@
 import { createApprovedContinuousBackupRuntime } from './saqlainApprovedContinuousBackup.ts';
+import { SAQLAIN_BACKUP_TEAM } from './saqlainBackupTeam.ts';
+import { createSaqlainMonitoringRuntime } from './saqlainMonitoringRuntime.ts';
 
 const required = (key: string): string => {
   const value = process.env[key]?.trim();
@@ -22,9 +24,29 @@ const runtime = createApprovedContinuousBackupRuntime({
   },
 });
 
+const monitoringRuntime = createSaqlainMonitoringRuntime({
+  auditFilePath: required('SAQLAIN_BACKUP_AUDIT_FILE'),
+  collectSnapshot: async () => {
+    const report = runtime.getState().lastReport;
+    const results = report?.results ?? [];
+    return {
+      // Counts configured members, not proof that remote workers are reachable.
+      activeAgents: SAQLAIN_BACKUP_TEAM.length,
+      lockedTasks: 0, // Queue manager is not yet connected to this service.
+      completedTasks: results.filter((item) => item.status === 'VERIFIED').length,
+      failedTasks: results.filter((item) => item.status === 'FAILED').length,
+      securityHolds: results.filter((item) => item.status === 'HOLD').length,
+      backupChecks: results.filter((item) => item.role === 'BACKUP').length,
+      recoveryChecks: results.filter((item) => item.role === 'RECOVERY').length,
+    };
+  },
+});
+
 runtime.start({ runImmediately: true });
+monitoringRuntime.start({ runImmediately: true });
 process.on('SIGINT', () => {
   runtime.stop();
+  monitoringRuntime.stop();
   process.exitCode = 0;
 });
 process.on('SIGTERM', () => {
@@ -34,6 +56,7 @@ process.on('SIGTERM', () => {
 process.on('uncaughtException', (error) => {
   console.error('Saqlain backup service uncaught exception:', error);
   runtime.stop();
+  monitoringRuntime.stop();
   process.exitCode = 1;
 });
 process.on('unhandledRejection', (reason) => {
