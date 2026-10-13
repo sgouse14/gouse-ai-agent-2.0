@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, open, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createVerifiedLocalSnapshot } from './saqlainBackupStorage.ts';
@@ -89,3 +89,25 @@ test('missing audit path cannot report successful recovery', async () => {
     }), /auditFilePath is required/);
   } finally { await rm(ctx.root, { recursive: true, force: true }); }
 });
+
+
+test('audit persistence failure rejects the recovery result and does not authorize promotion', async () => {
+  const ctx = await setup();
+  try {
+    await mkdir(join(ctx.root, 'audit'), { recursive: true });
+    const lock = await open(ctx.auditPath + '.lock', 'wx');
+    await lock.close();
+    await assert.rejects(runRecoveryRehearsal({
+      sourceSnapshotDirectory: ctx.snapshot.directory,
+      stagingRoot: ctx.stagingRoot,
+      auditFilePath: ctx.auditPath,
+      recoveryAgentId: 'saq-recovery-agent',
+    }), /locked or has a stale lock/i);
+    // The source snapshot remains readable and unchanged even when audit persistence fails.
+    assert.deepEqual(
+      new Uint8Array(await readFile(join(ctx.snapshot.directory, 'project/data.txt'))),
+      ctx.original,
+    );
+  } finally { await rm(ctx.root, { recursive: true, force: true }); }
+});
+
