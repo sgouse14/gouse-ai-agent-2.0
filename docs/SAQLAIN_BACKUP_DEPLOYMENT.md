@@ -44,3 +44,7 @@ The entrypoint is now available as `server/saqlainBackupService.ts`, with the `b
 - Restore only into a separate staging location until an authorized human approves a recovery plan.
 - Keep failed and partial snapshots for investigation; do not automatically purge evidence.
 - Test recovery after dependency upgrades, storage changes, and any backup-format changes.
+
+## Secure Backup Agent
+
+Source-copying backup roles run through `server/saqlainSecureBackupAgent.ts`. It validates approved agent/source mapping, rejects overlapping source, backup and audit paths before writes, creates a versioned snapshot, re-verifies the persisted manifest and every file, and requires a durable audit append before reporting `VERIFIED`. An audit failure leaves any created snapshot intact for investigation and prevents a successful handoff. See `docs/SAQLAIN_SECURE_BACKUP_AGENT.md` for the agent contract and test coverage.
