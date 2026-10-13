@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { chmod, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { chmod, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
@@ -109,6 +109,7 @@ test('tampered audit history prevents a later request from receiving a decision'
 
 test('audit lock failure prevents an otherwise valid request from receiving PASS', async () => {
   await withConfig(async ({ auditPath }) => {
+    await mkdir(join(auditPath, '..'), { recursive: true });
     const lock = await (await import('node:fs/promises')).open(auditPath + '.lock', 'wx');
     await lock.close();
     await assert.rejects(
