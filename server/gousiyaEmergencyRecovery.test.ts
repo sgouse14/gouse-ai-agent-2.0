@@ -44,7 +44,7 @@ test('issues a short-lived single-use grant and rehearses only into separate sta
     assert.equal(result.decision, 'VERIFIED');
     assert.equal(result.originalsModified, false);
     assert.equal(result.promotionAllowed, false);
-    assert.deepEqual(new Uint8Array(await readFile(sourceFile)), before);
+    assert.deepEqual(new Uint8Array(await readFile(sourceFile)), new Uint8Array(before));
     assert.deepEqual(await readFile(join(result.stagingSnapshot!.directory, 'project/source.txt')), ctx.bytes);
     await assert.rejects(executeGousiyaEmergencyRecovery({
       state: ctx.state, grantId: issued.grant.grantId, token: issued.token, incidentId: 'incident-01',
