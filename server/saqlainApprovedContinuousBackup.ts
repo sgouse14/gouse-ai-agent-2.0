@@ -1,7 +1,8 @@
 import { readFile } from 'node:fs/promises';
 import { relative, resolve, sep } from 'node:path';
 import { verifyBackupCopy, verifyBackupManifest, type BackupManifest } from './saqlainBackupManifest.ts';
-import { createVerifiedLocalSnapshot, type BackupStorageResult } from './saqlainBackupStorage.ts';
+import { type BackupStorageResult } from './saqlainBackupStorage.ts';
+import { runRecoveryRehearsal } from './saqlainRecoveryAgent.ts';
 import { SAQLAIN_BACKUP_TEAM, type SaqlainBackupAgent } from './saqlainBackupTeam.ts';
 import { runApprovedBackupAgentSnapshot, type ApprovedBackupAgentConfig } from './saqlainApprovedBackupCycle.ts';
 import { createSaqlainBackupRuntime, type AgentCycleOutcome, type SaqlainBackupRuntime, type SaqlainBackupRuntimeOptions } from './saqlainBackupRuntime.ts';
@@ -90,32 +91,26 @@ export function createApprovedContinuousBackupRuntime(
       if (!snapshots || snapshots.size !== sourceAgents.length) {
         return { status: 'HOLD', summary: 'Recovery rehearsal blocked: source snapshots are missing.' };
       }
-      for (const sourceAgent of sourceAgents) {
-        const snapshot = snapshots.get(sourceAgent.id);
-        if (!snapshot || !(await verifyPersistedSnapshot(snapshot))) {
-          return { status: 'HOLD', summary: 'Recovery rehearsal blocked: snapshot failed re-verification.' };
-        }
+      if (!options.auditFilePath) {
+        return { status: 'HOLD', summary: 'Recovery rehearsal blocked: durable audit path is not configured.' };
       }
       let staged = 0;
       for (const sourceAgent of sourceAgents) {
-        const snapshot = snapshots.get(sourceAgent.id)!;
-        const files = [];
-        for (const entry of snapshot.manifest.entries) {
-          files.push({
-            relativePath: entry.relativePath,
-            bytes: new Uint8Array(await readFile(resolve(snapshot.directory, entry.relativePath))),
-          });
-        }
-        await createVerifiedLocalSnapshot({
-          storageRoot: options.recoveryStagingRoot,
-          snapshotId: (cycleId + '-recovery-' + sourceAgent.id).replace(/[^A-Za-z0-9._-]/g, '-').slice(0, 120),
-          source: snapshot.manifest.source,
-          files,
+        const snapshot = snapshots.get(sourceAgent.id);
+        if (!snapshot) return { status: 'HOLD', summary: 'Recovery rehearsal blocked: snapshot missing for ' + sourceAgent.id + '.' };
+        const result = await runRecoveryRehearsal({
+          sourceSnapshotDirectory: snapshot.directory,
+          stagingRoot: options.recoveryStagingRoot,
+          auditFilePath: options.auditFilePath,
+          recoveryAgentId: agent.id,
           now: options.now?.(),
         });
-        staged += 1;
+        if (result.decision !== 'VERIFIED' || !result.stagingSnapshot || result.originalsModified || result.promotionAllowed) {
+          return { status: 'HOLD', summary: 'Recovery rehearsal held for ' + sourceAgent.id + ': ' + result.reason };
+        }
+        staged += result.verifiedFiles;
       }
-      return { status: 'VERIFIED', summary: 'Recovery rehearsal staged and checksum-verified ' + staged + ' copies in the separate recovery directory; originals were not modified.' };
+      return { status: 'VERIFIED', summary: 'Recovery Agent verified and staged ' + staged + ' files across ' + sourceAgents.length + ' isolated recovery copies; originals were not modified and no automatic promotion is allowed.' };
     }
 
     return { status: 'HOLD', summary: 'Unknown agent role; work held for review.' };
