@@ -39,7 +39,7 @@ test('verified snapshot is rehearsed into isolated staging and never promotes to
     assert.equal(result.originalsModified, false);
     assert.equal(result.promotionAllowed, false);
     assert.ok(result.stagingSnapshot);
-    assert.deepEqual(await readFile(join(result.stagingSnapshot!.directory, 'project/data.txt')), ctx.original);
+    assert.deepEqual(new Uint8Array(await readFile(join(result.stagingSnapshot!.directory, 'project/data.txt'))), ctx.original);
     assert.deepEqual(await readFile(join(ctx.snapshot.directory, 'project/data.txt')), before);
     const audit = await readVerifiedAuditLog(ctx.auditPath);
     assert.equal(audit.length, 1);
