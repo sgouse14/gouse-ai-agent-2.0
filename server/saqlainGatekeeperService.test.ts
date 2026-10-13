@@ -104,7 +104,7 @@ test('tampered audit history prevents a later request from receiving a decision'
   await withConfig(async ({ auditPath }) => {
     await evaluateAndAuditGatekeeperRequest(request());
     const content = await readFile(auditPath, 'utf8');
-    await writeFile(auditPath, content.replace('partner-agent-01', 'changed-agent-01'), 'utf8');
+    await writeFile(auditPath, content.replace('public-api', 'private-api'), 'utf8');
     await assert.rejects(evaluateAndAuditGatekeeperRequest(request()), /integrity verification failed/);
   });
 });
