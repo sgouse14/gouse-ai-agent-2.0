@@ -6,6 +6,15 @@ import { runApprovedBackupAgentSnapshot, type ApprovedBackupAgentConfig } from '
 import type { BackupStorageResult } from './saqlainBackupStorage.ts';
 import type { SaqlainBackupAgent } from './saqlainBackupTeam.ts';
 
+// Serialize same-process audit writes: source-copying agents run concurrently,
+// while the append-only audit writer deliberately uses an exclusive lock.
+let auditQueue: Promise<unknown> = Promise.resolve();
+function appendSecureAudit(path: string, event: Parameters<typeof appendDurableAuditEvent>[1]) {
+  const next = auditQueue.then(() => appendDurableAuditEvent(path, event));
+  auditQueue = next.then(() => undefined, () => undefined);
+  return next;
+}
+
 export interface SecureBackupAgentResult {
   decision: 'VERIFIED' | 'HOLD';
   agentId: string;
@@ -88,7 +97,7 @@ export async function runSecureBackupAgent(input: {
     reason = error instanceof Error ? error.message : 'Unknown secure backup failure.';
   }
   // Audit is a required part of success: failure propagates and prevents a VERIFIED result.
-  await appendDurableAuditEvent(auditFilePath, {
+  await appendSecureAudit(auditFilePath, {
     eventType: 'SAQLAIN_SECURE_BACKUP',
     actorId: agent.id,
     outcome: decision === 'VERIFIED' ? 'ALLOW' : 'HOLD',
