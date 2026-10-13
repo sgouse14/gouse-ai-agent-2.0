@@ -7,7 +7,9 @@ Saqlain AI's monitoring runtime provides read-only health monitoring for the Gou
 ## Integration
 
 - Core policy: `server/saqlainMonitoringAgent.ts`
-- Heartbeat freshness helper: `server/saqlainAgentHeartbeat.ts` (pure summarizer; authentication and durable heartbeat ingestion must be provided by its caller)
+- Heartbeat freshness helper: `server/saqlainAgentHeartbeat.ts`
+- Authenticated ingestion primitive: `server/saqlainHeartbeatIngestion.ts` (validates a registered agent ID against a SHA-256 digest of its provisioned secret using timing-safe comparison)
+- Ingestion tests: `server/saqlainHeartbeatIngestion.test.ts`
 - Heartbeat tests: `server/saqlainAgentHeartbeat.test.ts`
 - Scheduled/audited runtime: `server/saqlainMonitoringRuntime.ts`
 - Service integration: `server/saqlainBackupService.ts`
@@ -22,7 +24,7 @@ The backup service starts the monitor and backup/recovery runtime together and s
 - `HOLD`: security holds exist, locked tasks exceed active-agent count, or monitoring cannot safely complete.
 - `FAILED`: one or more failed tasks are reported.
 
-The current service collector still summarizes the latest in-process backup/recovery cycle and does not yet ingest authenticated heartbeats or connect the queue manager. `summarizeAgentHeartbeats` provides a tested, stale-aware primitive for a future authenticated heartbeat endpoint, but it is not wired into the collector yet. Those values are explicitly estimates/known limitations, not evidence of remote-worker liveness or queue health.
+The current service collector still summarizes the latest in-process backup/recovery cycle and does not yet ingest authenticated heartbeats or connect the queue manager. `summarizeAgentHeartbeats` and `acceptAuthenticatedHeartbeat` provide tested primitives for freshness and credential-checked ingestion. They are not yet wired to an HTTP endpoint or durable store; the current in-memory store is lost on process restart. Do not expose the primitive publicly until per-agent secrets are securely provisioned and the route has rate limiting, TLS, and audit integration. Those values are explicitly estimates/known limitations, not evidence of remote-worker liveness or queue health.
 
 ## Security boundaries
 
