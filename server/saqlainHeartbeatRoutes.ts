@@ -7,19 +7,6 @@ const recentRequests = new Map<string, { windowStartedAt: number; count: number 
 const WINDOW_MS = 60_000;
 const MAX_REQUESTS_PER_WINDOW = 60;
 
-function configuredCredentials(): HeartbeatCredential[] {
-  const raw = process.env.SAQLAIN_HEARTBEAT_CREDENTIALS_JSON;
-  if (!raw) return [];
-  try {
-    const parsed: unknown = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-    return parsed.filter((item): item is HeartbeatCredential =>
-      !!item && typeof item.agentId === 'string' && !!item.agentId.trim() &&
-      typeof item.tokenSha256 === 'string' && /^[a-f0-9]{64}$/i.test(item.tokenSha256));
-  } catch {
-    return [];
-  }
-}
 function allowRequest(key: string, now: number): boolean {
   const current = recentRequests.get(key);
   if (!current || now - current.windowStartedAt >= WINDOW_MS || now < current.windowStartedAt) {
