@@ -45,7 +45,8 @@ saqlainHeartbeatRouter.post('/', async (req: Request, res: Response) => {
     res.status(503).json({ accepted: false, error: 'Heartbeat service is not configured.' });
     return;
   }
-  const result = acceptAuthenticatedHeartbeat({ agentId, token, credentials, store });
+  const pendingStore = createInMemoryHeartbeatStore();
+  const result = acceptAuthenticatedHeartbeat({ agentId, token, credentials, store: pendingStore });
   try {
     await appendDurableAuditEvent(auditFilePath, {
       eventType: 'SAQLAIN_AGENT_HEARTBEAT',
@@ -64,6 +65,8 @@ saqlainHeartbeatRouter.post('/', async (req: Request, res: Response) => {
     res.status(401).json({ accepted: false });
     return;
   }
+  // Commit heartbeat to the live store only after its audit record is durable.
+  store.record({ agentId, lastSeenAt: result.receivedAt! });
   res.status(202).json({ accepted: true, receivedAt: result.receivedAt });
 });
 
