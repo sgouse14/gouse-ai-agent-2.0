@@ -1,5 +1,5 @@
 import { lstat, readFile } from 'node:fs/promises';
-import { relative, resolve, sep } from 'node:path';
+import { isAbsolute, relative, resolve, sep } from 'node:path';
 import { appendDurableAuditEvent } from './saqlainAuditLog.ts';
 import { verifyBackupCopy, verifyBackupManifest, type BackupManifest } from './saqlainBackupManifest.ts';
 import { runApprovedBackupAgentSnapshot, type ApprovedBackupAgentConfig } from './saqlainApprovedBackupCycle.ts';
@@ -16,12 +16,14 @@ export interface SecureBackupAgentResult {
   reason: string;
 }
 
-function assertDisjoint(source: string, destination: string): void {
-  const left = resolve(source), right = resolve(destination);
-  const rel = relative(left, right);
-  const reverse = relative(right, left);
-  const within = (value: string) => value === '' || (value !== '..' && !value.startsWith('..' + sep) && !resolve(value).startsWith(sep + '..'));
-  if (within(rel) || within(reverse)) throw new Error('Secure backup destination must be separate from the approved source.');
+function isWithin(parent: string, child: string): boolean {
+  const rel = relative(resolve(parent), resolve(child));
+  return rel === '' || (rel !== '..' && !rel.startsWith('..' + sep) && !isAbsolute(rel));
+}
+function assertDisjoint(a: string, b: string, label: string): void {
+  if (isWithin(a, b) || isWithin(b, a)) {
+    throw new Error(label + ' must be separate, non-overlapping paths.');
+  }
 }
 
 async function verifyStoredSnapshot(snapshot: BackupStorageResult): Promise<number> {
@@ -66,14 +68,18 @@ export async function runSecureBackupAgent(input: {
   }
   if (!source) throw new Error('Agent has no explicitly approved source mapping.');
   if (!auditFilePath.trim()) throw new Error('A durable audit path is required.');
+  const sourceRoot = config.approvedRoots[source];
+  if (!sourceRoot?.trim()) throw new Error('Approved source root is not configured.');
+  // Validate every path relationship before any audit or backup write. In
+  // particular, an invalid audit path must never cause writes into source data.
+  assertDisjoint(sourceRoot, config.storageRoot, 'Source and backup storage');
+  assertDisjoint(sourceRoot, auditFilePath, 'Source and audit log');
+  assertDisjoint(config.storageRoot, auditFilePath, 'Backup storage and audit log');
   let snapshot: BackupStorageResult | null = null;
   let decision: 'VERIFIED' | 'HOLD' = 'HOLD';
   let verifiedFiles = 0;
   let reason = 'Backup held for review.';
   try {
-    const sourceRoot = config.approvedRoots[source];
-    if (!sourceRoot?.trim()) throw new Error('Approved source root is not configured.');
-    assertDisjoint(sourceRoot, config.storageRoot);
     snapshot = await runApprovedBackupAgentSnapshot(agent, cycleId, config);
     verifiedFiles = await verifyStoredSnapshot(snapshot);
     decision = 'VERIFIED';
