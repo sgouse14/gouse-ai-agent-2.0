@@ -66,6 +66,7 @@ test('continuous runtime holds recovery if a source snapshot cannot be produced'
     const runtime = createApprovedContinuousBackupRuntime({
       storageRoot: join(base, 'backup-store'),
       recoveryStagingRoot: join(base, 'recovery-staging'),
+      auditFilePath: join(base, 'audit', 'events.jsonl'),
       approvedRoots: { 'gouse-ai': sourceGouse, 'saqlain-ai': sourceSaqlain, 'protected-files': sourceProtected },
       sourceByAgentId: { 'saq-backup-gouse': 'gouse-ai', 'saq-backup-saqlain': 'saqlain-ai' },
     });
