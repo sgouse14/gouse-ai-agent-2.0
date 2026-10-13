@@ -40,6 +40,7 @@ export async function runRecoveryRehearsal(input: {
   stagingRoot: string;
   auditFilePath: string;
   recoveryAgentId: string;
+  stagingSnapshotId?: string;
   now?: Date;
 }): Promise<RecoveryRehearsalResult> {
   const sourceDir = resolve(input.sourceSnapshotDirectory);
@@ -83,7 +84,7 @@ export async function runRecoveryRehearsal(input: {
       storageRoot: stagingRoot,
       source: manifest.source,
       files,
-      snapshotId: 'recovery-' + manifest.snapshotId + '-' + now.getTime(),
+      snapshotId: input.stagingSnapshotId ?? ('recovery-' + manifest.snapshotId + '-' + now.getTime()),
       now,
     });
     decision = 'VERIFIED';
