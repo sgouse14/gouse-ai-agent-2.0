@@ -23,6 +23,7 @@ test('continuous runtime snapshots approved sources, verifies copies, and rehear
     const runtime = createApprovedContinuousBackupRuntime({
       storageRoot: backupRoot,
       recoveryStagingRoot: recoveryRoot,
+      auditFilePath: join(base, 'audit', 'events.jsonl'),
       approvedRoots: {
         'gouse-ai': sourceGouse,
         'saqlain-ai': sourceSaqlain,
@@ -111,6 +112,7 @@ test('successive cycles use distinct snapshot identifiers even with a fixed cloc
     const runtime = createApprovedContinuousBackupRuntime({
       storageRoot: join(base, 'backup-store'),
       recoveryStagingRoot: join(base, 'recovery-staging'),
+      auditFilePath: join(base, 'audit', 'events.jsonl'),
       approvedRoots: roots,
       sourceByAgentId: {
         'saq-backup-gouse': 'gouse-ai',
