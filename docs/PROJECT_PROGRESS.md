@@ -94,3 +94,6 @@ main remains untouched. Pull Request #1 remains open/draft for review.
 7. Implement Gousiya as the final-stage emergency/external liaison component
 8. Run full integration, failure and stress testing
 9. Production hardening and validation
+
+
+Gousiya emergency recovery hardening: revocation is reserved before awaiting audit I/O; an audit failure leaves the grant revoked, preventing a concurrent execution from winning the race. Regression test and documentation added. The grant registry remains in-memory, so multi-process production use is not yet safe.
