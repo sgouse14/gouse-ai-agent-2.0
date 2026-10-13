@@ -1,6 +1,6 @@
 import { Router, type Request, type Response } from 'express';
 import { appendDurableAuditEvent } from './saqlainAuditLog.ts';
-import { acceptAuthenticatedHeartbeat, createInMemoryHeartbeatStore, type HeartbeatCredential } from './saqlainHeartbeatIngestion.ts';
+import { acceptAuthenticatedHeartbeat, createInMemoryHeartbeatStore, parseHeartbeatCredentials } from './saqlainHeartbeatIngestion.ts';
 
 const store = createInMemoryHeartbeatStore();
 const recentRequests = new Map<string, { windowStartedAt: number; count: number }>();
@@ -39,9 +39,9 @@ saqlainHeartbeatRouter.post('/', async (req: Request, res: Response) => {
     res.status(429).json({ accepted: false, error: 'Rate limit exceeded.' });
     return;
   }
-  const credentials = configuredCredentials();
+  const credentials = parseHeartbeatCredentials(process.env.SAQLAIN_HEARTBEAT_CREDENTIALS_JSON);
   const auditFilePath = process.env.SAQLAIN_AUDIT_FILE;
-  if (!credentials.length || !auditFilePath) {
+  if (!credentials || !auditFilePath) {
     res.status(503).json({ accepted: false, error: 'Heartbeat service is not configured.' });
     return;
   }
