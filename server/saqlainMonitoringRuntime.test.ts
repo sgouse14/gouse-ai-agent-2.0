@@ -119,3 +119,21 @@ test('monitoring requires a configured durable audit path', () => {
     collectSnapshot: async () => healthy,
   }), /audit file path is required/i);
 });
+
+
+test('audit failure returns HOLD with an explicit alert even when snapshot was healthy', async () => {
+  const ctx = await setup();
+  try {
+    await mkdir(join(ctx.root, 'audit'), { recursive: true });
+    const lock = await open(ctx.auditFilePath + '.lock', 'wx');
+    await lock.close();
+    const runtime = createSaqlainMonitoringRuntime({
+      auditFilePath: ctx.auditFilePath,
+      collectSnapshot: async () => healthy,
+    });
+    const report = await runtime.runCycle();
+    assert.equal(report.status, 'HOLD');
+    assert.match(report.alert ?? '', /HOLD.*audit or monitoring integrity failure/i);
+  } finally { await rm(ctx.root, { recursive: true, force: true }); }
+});
+
