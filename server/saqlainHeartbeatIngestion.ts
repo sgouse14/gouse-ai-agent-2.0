@@ -39,3 +39,29 @@ export function acceptAuthenticatedHeartbeat(
   input.store.record({ agentId: input.agentId, lastSeenAt: receivedAt });
   return { accepted: true, receivedAt };
 }
+
+/**
+ * Parse the shared heartbeat credential configuration.
+ * Null means malformed, empty, or ambiguous configuration and must fail closed.
+ */
+export function parseHeartbeatCredentials(raw: string | undefined): HeartbeatCredential[] | null {
+  if (!raw?.trim()) return null;
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed) || parsed.length === 0) return null;
+    const credentials: HeartbeatCredential[] = [];
+    const seen = new Set<string>();
+    for (const item of parsed) {
+      if (!item || typeof item !== 'object') return null;
+      const candidate = item as Record<string, unknown>;
+      if (typeof candidate.agentId !== 'string' || !candidate.agentId.trim() ||
+          typeof candidate.tokenSha256 !== 'string' || !/^[a-f0-9]{64}$/i.test(candidate.tokenSha256)) return null;
+      if (seen.has(candidate.agentId)) return null;
+      seen.add(candidate.agentId);
+      credentials.push({ agentId: candidate.agentId, tokenSha256: candidate.tokenSha256 });
+    }
+    return credentials;
+  } catch {
+    return null;
+  }
+}
