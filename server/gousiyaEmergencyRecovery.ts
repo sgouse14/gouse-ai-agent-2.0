@@ -201,13 +201,17 @@ export async function revokeGousiyaEmergencyGrant(input: {
   const grant = input.state.grants.get(input.grantId);
   if (!grant || grant.status !== 'ISSUED') throw new Error('Only an unused issued grant can be revoked.');
   const now = input.now ?? new Date();
+  const actorId = required(input.actorId, 'actorId');
+  // Reserve revocation synchronously before awaiting durable audit I/O. This
+  // prevents a concurrent execution from consuming the grant while revocation
+  // is being written. If audit persistence fails, the grant remains revoked.
+  grant.status = 'REVOKED';
   await audit(input.state, {
     eventType: 'GOUSIYA_EMERGENCY_GRANT_REVOKED',
-    actorId: required(input.actorId, 'actorId'),
+    actorId,
     outcome: 'DENY',
     resource: grant.incidentId,
     occurredAt: now.toISOString(),
     details: { grantId: grant.grantId, productionPromotionAllowed: false },
   });
-  grant.status = 'REVOKED';
 }
