@@ -1,5 +1,6 @@
 import express from 'express';
 import { saqlainVerificationRouter } from './server/saqlainVerificationRoutes.ts';
+import { saqlainGatekeeperRouter } from './server/saqlainGatekeeperRoutes.ts';
 import path from 'path';
 import fs from 'fs';
 import {
@@ -19,6 +20,9 @@ import {
 
 const app = express();
 app.use(express.json({ limit: '20mb' }));
+
+// External-agent Gatekeeper boundary. Missing identity registry, credentials, or durable audit fails closed.
+app.use('/api/security/gatekeeper', saqlainGatekeeperRouter);
 
 // Ordered 11-agent security verification API. Access is fail-closed unless credentials and durable audit storage are configured.
 app.use('/api/security/verification', saqlainVerificationRouter);
