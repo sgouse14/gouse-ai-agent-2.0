@@ -1,4 +1,4 @@
-import { randomBytes, timingSafeEqual } from 'node:crypto';
+import { createHash, timingSafeEqual } from 'node:crypto';
 import type { AgentHeartbeat } from './saqlainAgentHeartbeat.ts';
 
 export interface HeartbeatCredential {
@@ -18,25 +18,16 @@ export function createInMemoryHeartbeatStore(): HeartbeatStore {
   };
 }
 export function sha256HeartbeatToken(token: string): string {
-  return createHashHex(token);
+  return createHash('sha256').update(token, 'utf8').digest('hex');
 }
-function createHashHex(value: string): string {
-  // Avoid external crypto dependencies; use Node's built-in cryptographic primitives.
-  return createHash(value);
-}
-import { createHash } from 'node:crypto';
 export function verifyHeartbeatToken(token: string, expectedSha256: string): boolean {
   if (!token || !/^[a-f0-9]{64}$/i.test(expectedSha256)) return false;
-  const actual = Buffer.from(createHash(token), 'hex');
+  const actual = Buffer.from(sha256HeartbeatToken(token), 'hex');
   const expected = Buffer.from(expectedSha256, 'hex');
   return actual.length === expected.length && timingSafeEqual(actual, expected);
 }
-function createHash(value: string): string {
-  return createHashImpl(value);
-}
-import { createHash as createHashImpl } from 'node:crypto';
 
-/** Accept a heartbeat only after the caller has matched the agent and verified its provisioned secret. */
+/** Accept a heartbeat only after matching the registered agent and verifying its provisioned secret. */
 export function acceptAuthenticatedHeartbeat(
   input: { agentId: string; token: string; credentials: readonly HeartbeatCredential[]; store: HeartbeatStore; now?: Date },
 ): { accepted: boolean; receivedAt?: string } {
