@@ -4,7 +4,8 @@ import { verifyBackupCopy, verifyBackupManifest, type BackupManifest } from './s
 import { type BackupStorageResult } from './saqlainBackupStorage.ts';
 import { runRecoveryRehearsal } from './saqlainRecoveryAgent.ts';
 import { SAQLAIN_BACKUP_TEAM, type SaqlainBackupAgent } from './saqlainBackupTeam.ts';
-import { runApprovedBackupAgentSnapshot, type ApprovedBackupAgentConfig } from './saqlainApprovedBackupCycle.ts';
+import { type ApprovedBackupAgentConfig } from './saqlainApprovedBackupCycle.ts';
+import { runSecureBackupAgent } from './saqlainSecureBackupAgent.ts';
 import { createSaqlainBackupRuntime, type AgentCycleOutcome, type SaqlainBackupRuntime, type SaqlainBackupRuntimeOptions } from './saqlainBackupRuntime.ts';
 
 export interface ApprovedContinuousBackupOptions extends Omit<SaqlainBackupRuntimeOptions, 'runAgentCycle'>, ApprovedBackupAgentConfig {
@@ -61,11 +62,23 @@ export function createApprovedContinuousBackupRuntime(
   const snapshotsByCycle = new Map<string, Map<string, BackupStorageResult>>();
   const runAgentCycle = async (agent: SaqlainBackupAgent, cycleId: string): Promise<AgentCycleOutcome> => {
     if (agent.role === 'BACKUP' && agent.id !== 'saq-backup-verify') {
-      const snapshot = await runApprovedBackupAgentSnapshot(agent, cycleId, options);
+      if (!options.auditFilePath) {
+        return { status: 'HOLD', summary: 'Secure backup held: durable audit path is not configured.' };
+      }
+      const result = await runSecureBackupAgent({
+        agent,
+        cycleId,
+        config: options,
+        auditFilePath: options.auditFilePath,
+      });
+      if (result.decision !== 'VERIFIED' || !result.snapshot) {
+        return { status: 'HOLD', summary: 'Secure backup held: ' + result.reason };
+      }
+      const snapshot = result.snapshot;
       const snapshots = snapshotsByCycle.get(cycleId) ?? new Map<string, BackupStorageResult>();
       snapshots.set(agent.id, snapshot);
       snapshotsByCycle.set(cycleId, snapshots);
-      return { status: 'VERIFIED', summary: 'Created snapshot ' + snapshot.snapshotId + ' with ' + snapshot.verifiedFiles + ' verified files.' };
+      return { status: 'VERIFIED', summary: 'Secure audited snapshot ' + snapshot.snapshotId + ' with ' + result.verifiedFiles + ' verified files.' };
     }
 
     if (agent.id === 'saq-backup-verify') {
