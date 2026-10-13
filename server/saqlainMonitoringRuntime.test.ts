@@ -137,3 +137,18 @@ test('audit failure returns HOLD with an explicit alert even when snapshot was h
   } finally { await rm(ctx.root, { recursive: true, force: true }); }
 });
 
+
+
+test('zero active agents produces WARNING rather than a false healthy state', async () => {
+  const ctx = await setup();
+  try {
+    const runtime = createSaqlainMonitoringRuntime({
+      auditFilePath: ctx.auditFilePath,
+      collectSnapshot: async () => ({ ...healthy, activeAgents: 0 }),
+    });
+    const report = await runtime.runCycle();
+    assert.equal(report.status, 'WARNING');
+    assert.match(report.alert ?? '', /WARNING/);
+  } finally { await rm(ctx.root, { recursive: true, force: true }); }
+});
+
