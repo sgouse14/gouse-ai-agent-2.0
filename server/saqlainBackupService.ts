@@ -33,16 +33,10 @@ const monitoringRuntime = createSaqlainMonitoringRuntime({
     const report = runtime.getState().lastReport;
     if (!report) throw new Error('No completed backup/recovery cycle is available yet.');
     const results = report.results;
-    const credentialConfig = process.env.SAQLAIN_HEARTBEAT_CREDENTIALS_JSON;
-    let registeredHeartbeatAgentIds: string[] = [];
-    if (credentialConfig) {
-      try {
-        const parsed: unknown = JSON.parse(credentialConfig);
-        if (Array.isArray(parsed)) registeredHeartbeatAgentIds = parsed
-          .filter((item) => !!item && typeof item.agentId === 'string' && typeof item.tokenSha256 === 'string' && /^[a-f0-9]{64}$/i.test(item.tokenSha256))
-          .map((item) => (item as { agentId: string }).agentId);
-      } catch { /* Invalid configuration fails closed as zero registered heartbeat agents. */ }
-    }
+    const credentials = parseHeartbeatCredentials(process.env.SAQLAIN_HEARTBEAT_CREDENTIALS_JSON);
+    // Invalid or ambiguous credential configuration is a HOLD, not a misleading zero-agent snapshot.
+    if (!credentials) throw new Error('Heartbeat credential configuration is missing or invalid.');
+    const registeredHeartbeatAgentIds = credentials.map((credential) => credential.agentId);
     const heartbeatSummary = summarizeAgentHeartbeats(registeredHeartbeatAgentIds, getSaqlainHeartbeatSnapshot());
     return {
       // Counts only authenticated, recent heartbeats from configured heartbeat credentials.
