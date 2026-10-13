@@ -1,6 +1,8 @@
 import { createApprovedContinuousBackupRuntime } from './saqlainApprovedContinuousBackup.ts';
 import { SAQLAIN_BACKUP_TEAM } from './saqlainBackupTeam.ts';
 import { createSaqlainMonitoringRuntime } from './saqlainMonitoringRuntime.ts';
+import { summarizeAgentHeartbeats } from './saqlainAgentHeartbeat.ts';
+import { getSaqlainHeartbeatSnapshot } from './saqlainHeartbeatRoutes.ts';
 
 const required = (key: string): string => {
   const value = process.env[key]?.trim();
@@ -30,9 +32,20 @@ const monitoringRuntime = createSaqlainMonitoringRuntime({
     const report = runtime.getState().lastReport;
     if (!report) throw new Error('No completed backup/recovery cycle is available yet.');
     const results = report.results;
+    const credentialConfig = process.env.SAQLAIN_HEARTBEAT_CREDENTIALS_JSON;
+    let registeredHeartbeatAgentIds: string[] = [];
+    if (credentialConfig) {
+      try {
+        const parsed: unknown = JSON.parse(credentialConfig);
+        if (Array.isArray(parsed)) registeredHeartbeatAgentIds = parsed
+          .filter((item) => !!item && typeof item.agentId === 'string' && typeof item.tokenSha256 === 'string' && /^[a-f0-9]{64}$/i.test(item.tokenSha256))
+          .map((item) => (item as { agentId: string }).agentId);
+      } catch { /* Invalid configuration fails closed as zero registered heartbeat agents. */ }
+    }
+    const heartbeatSummary = summarizeAgentHeartbeats(registeredHeartbeatAgentIds, getSaqlainHeartbeatSnapshot());
     return {
-      // Counts configured members, not proof that remote workers are reachable.
-      activeAgents: SAQLAIN_BACKUP_TEAM.length,
+      // Counts only authenticated, recent heartbeats from configured heartbeat credentials.
+      activeAgents: heartbeatSummary.activeAgents,
       lockedTasks: 0, // Queue manager is not yet connected to this service.
       completedTasks: results.filter((item) => item.status === 'VERIFIED').length,
       failedTasks: results.filter((item) => item.status === 'FAILED').length,
