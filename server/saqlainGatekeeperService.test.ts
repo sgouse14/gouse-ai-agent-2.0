@@ -105,3 +105,22 @@ test('tampered audit history prevents a later request from receiving a decision'
     await assert.rejects(evaluateAndAuditGatekeeperRequest(request()), /integrity verification failed/);
   });
 });
+
+
+test('audit lock failure prevents an otherwise valid request from receiving PASS', async () => {
+  await withConfig(async ({ auditPath }) => {
+    const lock = await (await import('node:fs/promises')).open(auditPath + '.lock', 'wx');
+    await lock.close();
+    await assert.rejects(
+      evaluateAndAuditGatekeeperRequest(request()),
+      /locked or has a stale lock/i,
+    );
+  });
+});
+
+test('request validator rejects empty scopes and oversized or malformed identities', () => {
+  assert.equal(validateGatekeeperRequest(request({ requestedScope: [] })), null);
+  assert.equal(validateGatekeeperRequest(request({ agentId: '1010' })), null);
+  assert.equal(validateGatekeeperRequest(request({ platformId: ' ' })), null);
+});
+
