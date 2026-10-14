@@ -14,7 +14,6 @@ import {
   processVoiceCommandWithGemini,
   processAudioWithGemini,
   analyzeConstructionSiteVisualAudit,
-  generateFloorPlanSketch,
 } from './server/apiService';
 
 function getRequestBody(req: any): Promise<any> {
@@ -218,19 +217,6 @@ function apiMiddlewarePlugin() {
               analysis: auditResult.rawAnalysis || auditResult.summary,
               filename: auditResult.filename,
             });
-          }
-
-          if (url === '/api/architecture/generate-floorplan-sketch' && req.method === 'POST') {
-            const body = await getRequestBody(req);
-            const result = await generateFloorPlanSketch({
-              builtUpAreaSqFt: body.builtUpAreaSqFt ? Number(body.builtUpAreaSqFt) : 2400,
-              projectType: body.projectType || 'Residential Villa',
-              facing: body.facing || 'North',
-              style: body.style || 'sketch',
-              requirements: body.requirements || '',
-              sketchEdits: body.sketchEdits || '',
-            });
-            return sendJson(res, result);
           }
 
           if (url === '/api/search/professionals') {

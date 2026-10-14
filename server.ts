@@ -19,7 +19,6 @@ import {
   processVoiceCommandWithGemini,
   processAudioWithGemini,
   analyzeConstructionSiteVisualAudit,
-  generateFloorPlanSketch,
 } from './server/apiService';
 
 const app = express();
@@ -274,24 +273,6 @@ app.post('/api/architecture/analyze-image', async (req, res) => {
       analysis: `Drawing and site review for ${req.body?.filename || 'uploaded document'}: Structural grid alignment and reinforcement detailing are verified. Ensure clear dimensioning for fire egress, cover blocks, and service shafts.`,
       filename: req.body?.filename || 'drawing.png',
     });
-  }
-});
-
-// 2D Floor Plan Conceptual Sketch Generator & Sketch-to-Design Endpoint
-app.post('/api/architecture/generate-floorplan-sketch', async (req, res) => {
-  try {
-    const { builtUpAreaSqFt, projectType, facing, style, requirements, sketchEdits } = req.body;
-    const result = await generateFloorPlanSketch({
-      builtUpAreaSqFt: builtUpAreaSqFt ? Number(builtUpAreaSqFt) : 2400,
-      projectType: projectType || 'Residential Villa',
-      facing: facing || 'North',
-      style: style || 'sketch',
-      requirements: requirements || '',
-      sketchEdits: sketchEdits || '',
-    });
-    res.json(result);
-  } catch (err: any) {
-    res.status(500).json({ error: 'Failed to generate floor plan sketch', details: err?.message });
   }
 });
 

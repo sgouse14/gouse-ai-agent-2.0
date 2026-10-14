@@ -52,12 +52,255 @@ This project represents a unified design-to-build approach where architectural m
     ],
     members: [
       { id: 'mem-1', name: 'Ar. S. Gouse (Lead Architect)', email: 'sgouse14@gmail.com', role: 'owner' },
-      { id: 'mem-2', name: 'Project Engineering Team', email: 'sgouse14@gmail.com', role: 'quantity_surveyor' }
+      { id: 'mem-2', name: 'Project Engineering Team', email: 'sgouse14@gmail.com', role: 'quantity_surveyor' },
+      { id: 'mem-3', name: 'Sameer Khan (Client)', email: 'sameer.khan@prestigeheights.com', role: 'client' }
     ],
     auditLogs: [
       { id: 'log-01', projectId: 'proj-01', actor: 'Ar. S. Gouse', action: 'Project Created', details: 'Initialized Palm Crest turnkey architectural & interior project', timestamp: '2026-03-12T09:00:00Z' }
     ],
-    createdAt: '2026-03-12T09:00:00Z'
+    createdAt: '2026-03-12T09:00:00Z',
+    clientId: 'user-sameer-05',
+    clientName: 'Sameer Khan',
+    clientEmail: 'sameer.khan@prestigeheights.com',
+    clientCompany: 'Prestige Urban Ventures Pvt Ltd',
+    assignedClientIds: ['user-sameer-05'],
+    milestones: [
+      {
+        id: 'ms-01',
+        projectId: 'proj-01',
+        title: 'Architectural Concept & Statutory BBMP Sanctions',
+        description: 'Complete 2D schematic layouts, 3D volumetric massing, and municipal building plan sanction clearance.',
+        targetDate: '2026-01-15',
+        completedDate: '2026-01-14',
+        status: 'completed',
+        progressPercent: 100,
+        stageNumber: 1,
+        totalStages: 6,
+        escrowReleaseAmount: 3500000,
+        escrowStatus: 'released',
+        verifiedBy: 'Ar. S. Gouse (Lead Architect)',
+        deliverables: ['Sanctioned BBMP Drawings', '3D Photorealistic Renderings', 'Structural Grid Plan'],
+        clientSignOffRequired: true,
+        isClientSignedOff: true,
+        clientSignedOffAt: '2026-01-14T17:30:00Z'
+      },
+      {
+        id: 'ms-02',
+        projectId: 'proj-01',
+        title: 'Substructure, Earthwork & Raft RCC Footings',
+        description: 'Excavation to hard rock strata, anti-termite treatment, PCC base, and Fe550D reinforced raft foundation.',
+        targetDate: '2026-02-10',
+        completedDate: '2026-02-08',
+        status: 'completed',
+        progressPercent: 100,
+        stageNumber: 2,
+        totalStages: 6,
+        escrowReleaseAmount: 6500000,
+        escrowStatus: 'released',
+        verifiedBy: 'Er. Rajesh Kumar (Structural Lead)',
+        deliverables: ['Soil Bearing Capacity Test Report (240 kPa)', 'Cube Compressive Strength (38.5 MPa)', 'Plinth Water Table Protection'],
+        clientSignOffRequired: true,
+        isClientSignedOff: true,
+        clientSignedOffAt: '2026-02-08T15:00:00Z'
+      },
+      {
+        id: 'ms-03',
+        projectId: 'proj-01',
+        title: 'Ground & First Floor RCC Superstructure Frame',
+        description: 'Columns, shear walls, and cantilevered sunshade slabs cast with automated batch plant M30 grade concrete.',
+        targetDate: '2026-03-05',
+        completedDate: '2026-03-04',
+        status: 'completed',
+        progressPercent: 100,
+        stageNumber: 3,
+        totalStages: 6,
+        escrowReleaseAmount: 8500000,
+        escrowStatus: 'released',
+        verifiedBy: 'Er. Rajesh Kumar (Structural Lead)',
+        deliverables: ['Rebar Binding Inspection Logs', '28-Day Curing Verification Certificate', 'MEP Sleeve Penetration Audit'],
+        clientSignOffRequired: true,
+        isClientSignedOff: true,
+        clientSignedOffAt: '2026-03-04T18:20:00Z'
+      },
+      {
+        id: 'ms-04',
+        projectId: 'proj-01',
+        title: 'Second Floor Slab Pour & AAC Lightweight Masonry',
+        description: 'Second-level framed structure, perimeter envelope blockwork with polymeric thin-bed mortar, and lintel band ties.',
+        targetDate: '2026-03-25',
+        status: 'in_progress',
+        progressPercent: 82,
+        stageNumber: 4,
+        totalStages: 6,
+        escrowReleaseAmount: 7000000,
+        escrowStatus: 'pending_verification',
+        verifiedBy: 'Ar. S. Gouse & Er. Rajesh Kumar',
+        deliverables: ['Second Floor Level Survey Report', 'Thermal Blockwork Inspection', 'Conduit Chasing Alignment'],
+        clientSignOffRequired: true,
+        isClientSignedOff: false
+      },
+      {
+        id: 'ms-05',
+        projectId: 'proj-01',
+        title: 'Turnkey MEP Rough-Ins, Waterproofing & Glazing',
+        description: 'Concealed plumbing manifolds, VRV air-conditioning refrigerant copper lines, torch-applied 4mm bitumen membrane, and German Low-E double glazing.',
+        targetDate: '2026-04-20',
+        status: 'upcoming',
+        progressPercent: 15,
+        stageNumber: 5,
+        totalStages: 6,
+        escrowReleaseAmount: 6500000,
+        escrowStatus: 'escrow_locked',
+        deliverables: ['Plumbing Hydrostatic Pressure Test Report', 'Waterproofing 72-Hour Flood Test', 'Window Acoustic Test Cert'],
+        clientSignOffRequired: true,
+        isClientSignedOff: false
+      },
+      {
+        id: 'ms-06',
+        projectId: 'proj-01',
+        title: 'Italian Statuario Marble, Bespoke Millwork & Final Handover',
+        description: 'Precision book-matched Statuario marble laying, acoustic teak joinery, smart home automation commissioning, deep cleaning, and client key handover.',
+        targetDate: '2026-05-30',
+        status: 'upcoming',
+        progressPercent: 0,
+        stageNumber: 6,
+        totalStages: 6,
+        escrowReleaseAmount: 6500000,
+        escrowStatus: 'escrow_locked',
+        deliverables: ['10-Year Turnkey Warranty Dossier', 'As-Built Architectural CAD Package', 'Occupancy Certificate (OC)'],
+        clientSignOffRequired: true,
+        isClientSignedOff: false
+      }
+    ],
+    statusUpdates: [
+      {
+        id: 'su-01',
+        projectId: 'proj-01',
+        title: 'Second Floor RCC Rebar Mesh & Shear Link Audit Passed',
+        content: 'Structural inspection completed for the second-floor transfer girder (Beam B-104). Reinforcement bar spacing conforms to IS 13920 ductile detailing criteria with 50mm clear cover blocks verified. Concrete pour scheduled for 06:00 AM tomorrow with automated transit mixers.',
+        authorName: 'Er. Rajesh Kumar',
+        authorRole: 'Structural Consultant (M.Tech IIT)',
+        date: 'Today at 02:30 PM',
+        category: 'structural',
+        progressPercentage: 82,
+        isInspectionVerified: true,
+        mediaUrls: [
+          'https://images.unsplash.com/photo-1541888946425-d0fbb18615f3?auto=format&fit=crop&w=800&q=80'
+        ]
+      },
+      {
+        id: 'su-02',
+        projectId: 'proj-01',
+        title: 'Bespoke Fluted Walnut & Brass Joinery Shop Drawings Approved',
+        content: 'Detailed 1:10 scale shop drawings for the master bedroom headboard paneling and living room double-height partition have been finalized. Hafele Concealed Slide-On hinges and acoustic rockwool dampening have been incorporated.',
+        authorName: 'Ar. S. Gouse',
+        authorRole: 'Principal Architect',
+        date: 'Yesterday at 04:15 PM',
+        category: 'finishes',
+        progressPercentage: 80,
+        isInspectionVerified: true,
+        mediaUrls: [
+          'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=800&q=80'
+        ]
+      },
+      {
+        id: 'su-03',
+        projectId: 'proj-01',
+        title: 'Sanitary Core & Stormwater Manifold Pressure Testing',
+        content: 'Hydrostatic pressure testing of all vertical CPVC pipes on Ground & First floors sustained 10 kg/cm² pressure for 4 hours without leakage. Wall chasing has been sealed with polymer-modified mortar.',
+        authorName: 'Project Engineering Team',
+        authorRole: 'MEP Quality Inspector',
+        date: '3 days ago',
+        category: 'mep',
+        progressPercentage: 78,
+        isInspectionVerified: true
+      },
+      {
+        id: 'su-04',
+        projectId: 'proj-01',
+        title: 'Steel & Cement Price Lock Synchronized with Regional Rates',
+        content: 'All Fe550D TMT reinforcement steel (18.4 Metric Tonnes) and 43 Grade OPC cement for the remaining superstructure have been procurement-locked under the CPWD Delhi Schedule of Rates index, protecting the project from current steel market price spikes.',
+        authorName: 'Amit Verma (QS)',
+        authorRole: 'Senior Quantity Surveyor',
+        date: '5 days ago',
+        category: 'civil',
+        progressPercentage: 75,
+        isInspectionVerified: true
+      }
+    ],
+    sharedDocuments: [
+      {
+        id: 'doc-01',
+        projectId: 'proj-01',
+        title: 'Palm Crest Architectural Working Drawings Package (G+2)',
+        fileName: 'PalmCrest_Architectural_Working_Drawings_Rev3.pdf',
+        fileSize: '14.8 MB',
+        fileType: 'pdf',
+        category: 'architectural_drawings',
+        uploadedBy: 'Ar. S. Gouse (Lead Architect)',
+        uploadedAt: '2026-03-10',
+        version: 'v3.2 Final Approved',
+        status: 'approved',
+        notes: 'Includes dimensions, door/window schedules, and electrical layouts for BBMP compliance.'
+      },
+      {
+        id: 'doc-02',
+        projectId: 'proj-01',
+        title: 'IS 456 & IS 1893 Seismic Structural Stability Certificate',
+        fileName: 'PalmCrest_Structural_Stability_Certificate_IS456.pdf',
+        fileSize: '3.4 MB',
+        fileType: 'pdf',
+        category: 'structural_reports',
+        uploadedBy: 'Er. Rajesh Kumar (Structural Lead)',
+        uploadedAt: '2026-03-08',
+        version: 'v1.0 Signed',
+        status: 'approved',
+        notes: 'Endorsed for Zone III seismic resistance with ductile detailing verification.'
+      },
+      {
+        id: 'doc-03',
+        projectId: 'proj-01',
+        title: 'Turnkey Itemized BOQ & Milestone Payment Schedule',
+        fileName: 'PalmCrest_Turnkey_BOQ_Locked_Rates_2026.xlsx',
+        fileSize: '2.1 MB',
+        fileType: 'xlsx',
+        category: 'boq_financials',
+        uploadedBy: 'Amit Verma (Quantity Surveyor)',
+        uploadedAt: '2026-03-06',
+        version: 'v2.4 Locked',
+        status: 'approved',
+        notes: 'Full itemized quantity breakdown with CPWD rates and milestone escrow disbursement triggers.'
+      },
+      {
+        id: 'doc-04',
+        projectId: 'proj-01',
+        title: 'Site Camera Photographic Progress & Slump Audit Report',
+        fileName: 'PalmCrest_Site_Camera_Photographic_Audit_March2026.pdf',
+        fileSize: '8.6 MB',
+        fileType: 'pdf',
+        category: 'site_audit',
+        uploadedBy: 'Ar. S. Gouse',
+        uploadedAt: '2026-03-13',
+        version: 'v1.2 Live',
+        status: 'approved',
+        notes: 'Geotagged high-resolution photographs with AI snag analysis and batch cube test summaries.'
+      },
+      {
+        id: 'doc-05',
+        projectId: 'proj-01',
+        title: 'Client Approved Italian Marble & Teak Joinery Specs',
+        fileName: 'SameerKhan_Finishes_Selection_Signoff.pdf',
+        fileSize: '4.2 MB',
+        fileType: 'pdf',
+        category: 'client_uploads',
+        uploadedBy: 'Sameer Khan (Client)',
+        uploadedAt: '2026-03-02',
+        version: 'v1.0 Client Verified',
+        status: 'final',
+        isClientUpload: true,
+        notes: 'Signed specification sheet for Statuario marble and Burma teak exterior pergolas.'
+      }
+    ]
   },
   {
     id: 'proj-pg-01',
@@ -479,6 +722,146 @@ The Villa Serenity project presents a well-articulated biophilic response to the
       { id: 'log-05', projectId: 'proj-003', actor: 'Gouse AI', action: 'Project Initialized', details: 'Created Haveli Conservation project', timestamp: '2026-02-28T16:20:00Z' }
     ],
     createdAt: '2026-02-28T16:20:00Z'
+  },
+  {
+    id: 'proj-prestige-02',
+    name: 'Prestige Skyward Penthouse & Private Skydeck',
+    projectType: 'Bespoke Luxury Interior Architecture & BIM',
+    location: '100 Feet Road, Indiranagar, Bangalore',
+    description: 'A 3,400 sq.ft ultra-luxury penthouse with private rooftop pool, motorized low-E German curtain wall system, acoustic walnut fluted wall paneling, and 100% smart automation.',
+    status: 'design_development',
+    builtUpAreaSqFt: 3400,
+    clientId: 'user-sameer-05',
+    clientName: 'Sameer Khan',
+    clientEmail: 'sameer.khan@prestigeheights.com',
+    clientCompany: 'Prestige Urban Ventures Pvt Ltd',
+    assignedClientIds: ['user-sameer-05'],
+    files: [
+      {
+        id: 'file-p-01',
+        name: 'Skyward_Penthouse_BIM_Level24.dwg',
+        size: '8.4 MB',
+        type: 'drawing/dwg',
+        uploadDate: '2026-03-01'
+      }
+    ],
+    analyses: [
+      {
+        id: 'an-p-01',
+        title: 'Penthouse Acoustic & Structural Pool Load Analysis',
+        timestamp: '2026-03-02T10:00:00Z',
+        focus: 'Terrace Pool Waterproofing & Structural Load',
+        analysis: 'Structural transfer beams verified for 12,000L cantilevered glass pool water payload.'
+      }
+    ],
+    members: [
+      { id: 'mem-p1', name: 'Ar. Priya Sharma', email: 'priya.sharma@gouseai.com', role: 'architect' },
+      { id: 'mem-p2', name: 'Sameer Khan (Client)', email: 'sameer.khan@prestigeheights.com', role: 'client' }
+    ],
+    auditLogs: [
+      { id: 'log-p1', projectId: 'proj-prestige-02', actor: 'Ar. Priya Sharma', action: 'Design Approved', details: 'Client approved acoustic walnut paneling and terrace pool layout', timestamp: '2026-03-02T11:00:00Z' }
+    ],
+    milestones: [
+      {
+        id: 'ms-p-01',
+        projectId: 'proj-prestige-02',
+        title: 'Bespoke Interior Concept & Spatial 3D Walkthrough',
+        description: 'Virtual Reality walkthrough and material selection board for penthouse living spaces.',
+        targetDate: '2026-02-20',
+        completedDate: '2026-02-18',
+        status: 'completed',
+        progressPercent: 100,
+        stageNumber: 1,
+        totalStages: 4,
+        escrowReleaseAmount: 2000000,
+        escrowStatus: 'released',
+        deliverables: ['3D Photorealistic Renderings', 'Mood Board Sign-Off'],
+        clientSignOffRequired: true,
+        isClientSignedOff: true,
+        clientSignedOffAt: '2026-02-18T16:00:00Z'
+      },
+      {
+        id: 'ms-p-02',
+        projectId: 'proj-prestige-02',
+        title: 'Terrace Infinity Pool Waterproofing & Structural Retrofit',
+        description: 'Multi-layer polyurethane membrane application and high-pressure flood testing for 72 hours.',
+        targetDate: '2026-03-20',
+        status: 'in_progress',
+        progressPercent: 65,
+        stageNumber: 2,
+        totalStages: 4,
+        escrowReleaseAmount: 4000000,
+        escrowStatus: 'pending_verification',
+        deliverables: ['72-Hr Hydrostatic Test Report', 'Structural Load Safety Cert'],
+        clientSignOffRequired: true,
+        isClientSignedOff: false
+      },
+      {
+        id: 'ms-p-03',
+        projectId: 'proj-prestige-02',
+        title: 'Imported Marble, Hafele Joinery & Smart Lighting Automation',
+        description: 'Precision brass inlays, customized walk-in closets, and Lutron lighting control integration.',
+        targetDate: '2026-04-15',
+        status: 'upcoming',
+        progressPercent: 0,
+        stageNumber: 3,
+        totalStages: 4,
+        escrowReleaseAmount: 5000000,
+        escrowStatus: 'escrow_locked',
+        deliverables: ['Automation Integration Cert', 'Joinery Warranty Package'],
+        clientSignOffRequired: true,
+        isClientSignedOff: false
+      },
+      {
+        id: 'ms-p-04',
+        projectId: 'proj-prestige-02',
+        title: 'Turnkey Handover & Luxury Fitout Commissioning',
+        description: 'Final snagging audit, deep sanitization, and luxury lifestyle handover.',
+        targetDate: '2026-05-10',
+        status: 'upcoming',
+        progressPercent: 0,
+        stageNumber: 4,
+        totalStages: 4,
+        escrowReleaseAmount: 3000000,
+        escrowStatus: 'escrow_locked',
+        deliverables: ['Comprehensive Turnkey Warranty', 'Maintenance Manual'],
+        clientSignOffRequired: true,
+        isClientSignedOff: false
+      }
+    ],
+    statusUpdates: [
+      {
+        id: 'su-p-01',
+        projectId: 'proj-prestige-02',
+        title: 'Terrace Infinity Pool Polyurethane Waterproofing Commenced',
+        content: 'Specialist German chemical waterproofing applied across all corners with reinforcing fiberglass scrim. Water flood test is scheduled to commence on Monday.',
+        authorName: 'Ar. Priya Sharma',
+        authorRole: 'Senior Interior Architect',
+        date: 'Yesterday at 05:00 PM',
+        category: 'finishes',
+        progressPercentage: 65,
+        isInspectionVerified: true,
+        mediaUrls: [
+          'https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?auto=format&fit=crop&w=800&q=80'
+        ]
+      }
+    ],
+    sharedDocuments: [
+      {
+        id: 'doc-p-01',
+        projectId: 'proj-prestige-02',
+        title: 'Skyward Penthouse Interior Joinery & Lighting CAD Layout',
+        fileName: 'Skyward_Penthouse_Joinery_Lighting_Schedule.pdf',
+        fileSize: '9.2 MB',
+        fileType: 'pdf',
+        category: 'architectural_drawings',
+        uploadedBy: 'Ar. Priya Sharma',
+        uploadedAt: '2026-03-01',
+        version: 'v2.1',
+        status: 'approved'
+      }
+    ],
+    createdAt: '2026-03-01T10:00:00Z'
   }
 ];
 

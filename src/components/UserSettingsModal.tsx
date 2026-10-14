@@ -11,8 +11,14 @@ import {
   Compass,
   Cpu,
   Layers,
+  User,
+  LogIn,
+  LogOut,
+  ShieldCheck,
+  Award,
 } from 'lucide-react';
 import { useTheme, ACCENT_THEMES, GridIntensity } from '../context/ThemeContext';
+import { useAuth } from '../context/AuthContext';
 
 interface UserSettingsModalProps {
   isOpen: boolean;
@@ -27,6 +33,15 @@ export const UserSettingsModal: React.FC<UserSettingsModalProps> = ({ isOpen, on
     setGridIntensity,
     resetToDefaults,
   } = useTheme();
+
+  const {
+    user,
+    isAuthenticated,
+    openLoginModal,
+    openSignUpModal,
+    logout,
+    setIsProfileEditorOpen,
+  } = useAuth();
 
   if (!isOpen) return null;
 
@@ -272,7 +287,110 @@ export const UserSettingsModal: React.FC<UserSettingsModalProps> = ({ isOpen, on
             </div>
           </section>
 
-          {/* Section 4: Workspace Technical Specifications */}
+          {/* Section 4: Architectural Account & Authentication */}
+          <section className="space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <User className="w-4 h-4 text-amber-400" />
+                <h3 className="text-xs font-bold text-white uppercase tracking-wider font-mono">
+                  Active Account &amp; Authentication
+                </h3>
+              </div>
+              {user ? (
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+                  Signed In
+                </span>
+              ) : (
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700">
+                  Guest Mode
+                </span>
+              )}
+            </div>
+
+            {user ? (
+              <div className="p-4 rounded-xl bg-slate-950/70 border border-slate-800 space-y-3">
+                <div className="flex items-center justify-between gap-3 flex-wrap">
+                  <div className="flex items-center gap-3">
+                    <img
+                      src={user.avatarUrl}
+                      alt={user.name}
+                      className="w-10 h-10 rounded-xl object-cover border border-slate-700 shrink-0"
+                    />
+                    <div>
+                      <div className="text-sm font-bold text-white">{user.name}</div>
+                      <div className="text-xs text-slate-400">{user.email}</div>
+                      <div className="text-[10px] text-amber-400 font-mono mt-0.5 capitalize">
+                        {user.role === 'owner' ? 'Principal Architect & Studio Director' : user.role}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onClose();
+                        setIsProfileEditorOpen(true);
+                      }}
+                      className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-medium text-white transition border border-slate-700"
+                    >
+                      Edit Profile
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        logout();
+                      }}
+                      className="px-3 py-1.5 rounded-lg bg-rose-950/40 hover:bg-rose-900/50 text-rose-300 text-xs font-medium transition border border-rose-800/40"
+                    >
+                      Sign Out
+                    </button>
+                  </div>
+                </div>
+
+                {user.licenseNumber && (
+                  <div className="pt-2 border-t border-slate-800/80 flex items-center gap-2 text-xs font-mono text-slate-400">
+                    <Award className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                    <span>License / Reg: <strong className="text-slate-200">{user.licenseNumber}</strong></span>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="p-4 rounded-xl bg-slate-950/70 border border-slate-800 flex items-center justify-between gap-3 flex-wrap">
+                <div className="space-y-1">
+                  <div className="text-xs font-bold text-white">Not signed in</div>
+                  <p className="text-[11px] text-slate-400">
+                    Sign in to your professional account or create a new one to sync projects.
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onClose();
+                      openLoginModal();
+                    }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-bold text-white transition border border-slate-700"
+                  >
+                    <LogIn className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Sign In</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onClose();
+                      openSignUpModal();
+                    }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold transition shadow-sm"
+                  >
+                    <span>Sign Up</span>
+                  </button>
+                </div>
+              </div>
+            )}
+          </section>
+
+          {/* Section 5: Workspace Technical Specifications */}
           <section className="p-3.5 rounded-xl bg-slate-950/50 border border-slate-800/80 text-xs text-slate-400 font-mono space-y-1.5">
             <div className="flex items-center gap-1.5 text-slate-300 font-bold mb-1">
               <Cpu className="w-3.5 h-3.5 text-slate-400" />

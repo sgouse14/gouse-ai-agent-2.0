@@ -11,6 +11,12 @@ import { PgHousePropertyListingSection } from './components/PgHousePropertyListi
 import { SocialMediaStudio } from './components/SocialMediaStudio';
 import { GlobalVoiceCommandListener } from './components/GlobalVoiceCommandListener';
 import { SiteVisitCameraModal } from './components/SiteVisitCameraModal';
+import { AuthModal } from './components/AuthModal';
+import { ClientPortal } from './components/ClientPortal';
+import { ClientPage } from './components/ClientPage';
+import { PlatformDemo } from './components/PlatformDemo';
+import { useAuth } from './context/AuthContext';
+import { Sparkles, LogIn, UserPlus, ArrowLeft } from 'lucide-react';
 import {
   INITIAL_PROJECTS,
   INITIAL_BOQ_ITEMS,
@@ -22,6 +28,14 @@ import { CurrencyCode } from './utils/formatters';
 import { ensureItemFloorBreakdown, DEFAULT_BUILDING_FLOORS } from './utils/floorTakeoffEngine';
 
 export function App() {
+  const { user, openLoginModal, openSignUpModal } = useAuth();
+
+  // Client Page Preview toggle (when logged in as staff, allows architect or engineer to preview the landing page)
+  const [isPreviewingClientPage, setIsPreviewingClientPage] = useState<boolean>(false);
+
+  // Platform Demo View toggle (allows architects/staff to view or present the interactive platform demo)
+  const [isShowingPlatformDemo, setIsShowingPlatformDemo] = useState<boolean>(false);
+
   // Navigation
   const [activeTab, setActiveTab] = useState<TabType>('projects');
   const [isSiteCameraOpen, setIsSiteCameraOpen] = useState<boolean>(false);
@@ -251,19 +265,19 @@ export function App() {
       members: [
         {
           id: `mem-${Date.now()}`,
-          name: 'Gouse AI',
-          email: 'principal@gouseai.com',
-          role: 'owner',
-          avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=600&q=80',
-          department: 'Executive Leadership & Principal Architecture',
-          phone: '+91 80739 47241',
+          name: user?.name || 'Gouse AI',
+          email: user?.email || 'sgouse14@gmail.com',
+          role: user?.role || 'owner',
+          avatarUrl: user?.avatarUrl || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=600&q=80',
+          department: user?.department || 'Executive Leadership & Principal Architecture',
+          phone: user?.phone || '+91 80739 47241',
         },
       ],
       auditLogs: [
         {
           id: `log-${Date.now()}`,
           projectId: `proj-${Date.now()}`,
-          actor: 'Gouse AI',
+          actor: user?.name || 'Gouse AI',
           action: 'Project Created',
           details: `Initial project setup for ${newProj.name}`,
           timestamp: new Date().toISOString(),
@@ -345,6 +359,86 @@ export function App() {
     });
   };
 
+  const handleClientPageEnquiry = (enquiryData: {
+    clientName: string;
+    clientEmail: string;
+    clientPhone: string;
+    projectType: string;
+    location: string;
+    budget: string;
+    notes: string;
+  }) => {
+    const newEnquiry: MarketplaceEnquiry = {
+      id: `enq-${Date.now()}`,
+      professionalId: 'prof-01',
+      professionalName: 'Gouse AI Architecture & Turnkey Studio',
+      clientName: enquiryData.clientName,
+      clientEmail: enquiryData.clientEmail,
+      clientPhone: enquiryData.clientPhone,
+      projectTitle: `${enquiryData.projectType} (${enquiryData.location || 'Bangalore'})`,
+      message: enquiryData.notes
+        ? `Location: ${enquiryData.location}. Requirements: ${enquiryData.notes}`
+        : `Client requested consultation for ${enquiryData.projectType} in ${enquiryData.location}`,
+      budget: enquiryData.budget,
+      status: 'pending' as EnquiryStatus,
+      createdAt: new Date().toISOString(),
+    };
+    setEnquiries((prev) => [newEnquiry, ...prev]);
+  };
+
+  // 1. If user is NOT signed in: Show public Client Portal outside the main platform
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-amber-500 selection:text-slate-950">
+        {/* Public Client Portal accessible outside main platform with interactive / video demo */}
+        <ClientPortal onEnquirySubmitted={handleClientPageEnquiry} />
+        <AuthModal />
+      </div>
+    );
+  }
+
+  // 2. Access Control Gating: Clients are restricted from entering the main platform,
+  // but are granted access to the Client Portal outside the main platform with the platform demo!
+  if (user.role === 'client') {
+    return (
+      <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-amber-500 selection:text-slate-950">
+        <ClientPortal
+          isClientRestricted={true}
+          onEnquirySubmitted={handleClientPageEnquiry}
+        />
+        <AuthModal />
+      </div>
+    );
+  }
+
+  // 3. For internal studio staff (owner, architects, engineers) previewing the Client Portal:
+  if (isPreviewingClientPage) {
+    return (
+      <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-amber-500 selection:text-slate-950">
+        <ClientPortal
+          isPreviewMode={true}
+          onReturnToWorkspace={() => setIsPreviewingClientPage(false)}
+          onEnquirySubmitted={handleClientPageEnquiry}
+        />
+        <AuthModal />
+      </div>
+    );
+  }
+
+  // 4. For internal studio staff viewing/presenting the Platform Demo:
+  if (isShowingPlatformDemo) {
+    return (
+      <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-amber-500 selection:text-slate-950">
+        <PlatformDemo
+          isClientRestricted={false}
+          onCloseDemo={() => setIsShowingPlatformDemo(false)}
+        />
+        <AuthModal />
+      </div>
+    );
+  }
+
+  // 5. Main content: Only accessible after authorized studio staff has signed in
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-amber-500/30 selection:text-amber-200">
       {/* Drafting Grid Canvas Background */}
@@ -368,6 +462,8 @@ export function App() {
         onToggleVoiceListener={() => setIsGlobalVoiceListening((prev) => !prev)}
         isVoiceListening={isGlobalVoiceListening}
         onOpenSiteCamera={() => setIsSiteCameraOpen(true)}
+        onViewClientPage={() => setIsPreviewingClientPage(true)}
+        onOpenPlatformDemo={() => setIsShowingPlatformDemo(true)}
       />
 
       {/* Navigation Bar */}
@@ -518,6 +614,9 @@ export function App() {
         isExternalListening={isGlobalVoiceListening}
         onToggleExternalListening={() => setIsGlobalVoiceListening((prev) => !prev)}
       />
+
+      {/* Authentication Modal */}
+      <AuthModal />
 
       {/* Footer */}
       <footer className="border-t border-slate-800/80 bg-slate-950 px-4 py-4 text-center text-xs text-slate-400 font-mono">

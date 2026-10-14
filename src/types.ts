@@ -34,11 +34,35 @@ export interface AnalysisReport {
   actionChecklist?: Array<{ id: string; text: string; completed: boolean; priority: 'high' | 'medium' | 'low' }>;
 }
 
+export type UserRole =
+  | 'owner'
+  | 'architect'
+  | 'structural_engineer'
+  | 'mep_engineer'
+  | 'quantity_surveyor'
+  | 'contractor'
+  | 'client';
+
+export interface UserProfile {
+  id: string;
+  name: string;
+  email: string;
+  role: UserRole;
+  avatarUrl?: string;
+  company?: string;
+  department?: string;
+  phone?: string;
+  licenseNumber?: string;
+  isVerified?: boolean;
+  createdAt?: string;
+  lastLoginAt?: string;
+}
+
 export interface TeamMember {
   id: string;
   name: string;
   email: string;
-  role: 'owner' | 'architect' | 'structural_engineer' | 'mep_engineer' | 'quantity_surveyor' | 'client';
+  role: UserRole;
   avatarUrl?: string;
   department?: string;
   phone?: string;
@@ -93,41 +117,56 @@ export interface SiteAuditResult {
   imageUrl?: string;
 }
 
-export interface FloorPlanRoom {
+export interface ProjectStatusUpdate {
   id: string;
-  name: string;
-  category: 'living' | 'bedroom' | 'kitchen' | 'bathroom' | 'utility' | 'balcony' | 'circulation' | 'pooja' | 'office';
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  dimensionsFt: string;
-  areaSqFt: number;
-  vastuDirection?: string;
-  description?: string;
+  projectId: string;
+  title: string;
+  content: string;
+  authorName: string;
+  authorRole: string;
+  authorAvatar?: string;
+  date: string;
+  category: 'structural' | 'civil' | 'mep' | 'finishes' | 'regulatory' | 'site_audit';
+  progressPercentage?: number;
+  mediaUrls?: string[];
+  isInspectionVerified?: boolean;
 }
 
-export interface FloorPlanSketchResult {
-  planId: string;
-  planTitle: string;
-  projectType: string;
-  builtUpAreaSqFt: number;
-  netCarpetAreaSqFt: number;
-  efficiencyRatio: number;
-  plotDimensions: string;
-  facing: string;
-  style: 'sketch' | 'blueprint' | 'minimal' | 'watercolor';
-  rooms: FloorPlanRoom[];
-  designRationale: string[];
-  vastuNotes: string[];
-  boqEstimates: {
-    wallMasonrySqFt: number;
-    flooringSqFt: number;
-    doorCount: number;
-    windowCount: number;
-    estimatedCostINR: number;
-  };
-  generatedAt: string;
+export interface SharedDocument {
+  id: string;
+  projectId: string;
+  title: string;
+  fileName: string;
+  fileSize: string;
+  fileType: 'pdf' | 'dwg' | 'xlsx' | 'docx' | 'image';
+  category: 'architectural_drawings' | 'structural_reports' | 'boq_financials' | 'permits_sanctions' | 'client_uploads';
+  uploadedBy: string;
+  uploadedAt: string;
+  downloadUrl?: string;
+  version: string;
+  status: 'approved' | 'in_review' | 'final';
+  isClientUpload?: boolean;
+  notes?: string;
+}
+
+export interface ProjectMilestone {
+  id: string;
+  projectId: string;
+  title: string;
+  description: string;
+  targetDate: string;
+  completedDate?: string;
+  status: 'completed' | 'in_progress' | 'upcoming' | 'delayed';
+  progressPercent: number;
+  stageNumber: number;
+  totalStages: number;
+  escrowReleaseAmount?: number;
+  escrowStatus?: 'released' | 'pending_verification' | 'escrow_locked';
+  verifiedBy?: string;
+  deliverables: string[];
+  clientSignOffRequired?: boolean;
+  isClientSignedOff?: boolean;
+  clientSignedOffAt?: string;
 }
 
 export interface Project {
@@ -149,6 +188,14 @@ export interface Project {
   auditLogs: AuditEvent[];
   createdAt: string;
   updatedAt?: string;
+  clientId?: string;
+  clientName?: string;
+  clientEmail?: string;
+  clientCompany?: string;
+  assignedClientIds?: string[];
+  milestones?: ProjectMilestone[];
+  statusUpdates?: ProjectStatusUpdate[];
+  sharedDocuments?: SharedDocument[];
 }
 
 export interface BuildingFloor {

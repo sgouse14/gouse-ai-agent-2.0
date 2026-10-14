@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   Compass,
   ShieldCheck,
@@ -11,11 +11,21 @@ import {
   Mic,
   Sparkles,
   Camera,
+  LogIn,
+  LogOut,
+  User,
+  UserPlus,
+  ChevronDown,
+  Check,
+  Building,
+  Award,
 } from 'lucide-react';
-import { Project } from '../types';
+import { Project, UserRole } from '../types';
 import { CurrencyCode } from '../utils/formatters';
 import { useTheme } from '../context/ThemeContext';
+import { useAuth } from '../context/AuthContext';
 import { UserSettingsModal } from './UserSettingsModal';
+import { ProfileEditorModal } from './ProfileEditorModal';
 
 interface HeaderProps {
   projects: Project[];
@@ -28,6 +38,9 @@ interface HeaderProps {
   onToggleVoiceListener?: () => void;
   isVoiceListening?: boolean;
   onOpenSiteCamera?: () => void;
+  onViewClientPage?: () => void;
+  onOpenPlatformDemo?: () => void;
+  onViewClientView?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -41,8 +54,34 @@ export const Header: React.FC<HeaderProps> = ({
   onToggleVoiceListener,
   isVoiceListening,
   onOpenSiteCamera,
+  onViewClientPage,
+  onOpenPlatformDemo,
+  onViewClientView,
 }) => {
   const { currentTheme, isSettingsOpen, setIsSettingsOpen } = useTheme();
+  const {
+    user,
+    isAuthenticated,
+    users,
+    logout,
+    switchUser,
+    openLoginModal,
+    openSignUpModal,
+    setIsProfileEditorOpen,
+  } = useAuth();
+
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const userMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
+        setIsUserMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   return (
     <>
@@ -189,6 +228,34 @@ export const Header: React.FC<HeaderProps> = ({
             </button>
           )}
 
+          {/* Client Portal View Button */}
+          {onViewClientPage && (
+            <button
+              id="btn-view-client-portal"
+              type="button"
+              onClick={onViewClientPage}
+              className="hidden lg:flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-amber-300 text-xs font-semibold transition"
+              title="View the public Client Page / Portal landing view"
+            >
+              <Compass className="w-3.5 h-3.5 text-amber-400" />
+              <span>Client Page</span>
+            </button>
+          )}
+
+          {/* Platform Demo Presentation Button */}
+          {onOpenPlatformDemo && (
+            <button
+              id="btn-open-platform-demo"
+              type="button"
+              onClick={onOpenPlatformDemo}
+              className="hidden lg:flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 text-xs font-semibold transition"
+              title="Open the interactive Platform Demo & Client Presentation"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Platform Demo</span>
+            </button>
+          )}
+
           {/* User Settings & Accent Color Menu Button */}
           <button
             id="btn-open-user-settings"
@@ -207,6 +274,228 @@ export const Header: React.FC<HeaderProps> = ({
             <Palette className="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-200" />
             <span className="hidden sm:inline font-medium">{currentTheme.name}</span>
           </button>
+
+          {/* User Authentication Pill / Menu */}
+          {user ? (
+            <div className="relative" ref={userMenuRef}>
+              <button
+                id="btn-user-profile-menu"
+                type="button"
+                onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+                className="flex items-center gap-2 pl-1 pr-2.5 py-1 rounded-lg bg-slate-950/80 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 text-xs text-slate-200 transition group shadow-sm"
+                title={`Signed in as ${user.name} (${user.role}) - Click for Account & Persona Switcher`}
+              >
+                <div className="relative">
+                  <img
+                    src={user.avatarUrl}
+                    alt={user.name}
+                    className="w-6 h-6 rounded-full object-cover border border-slate-700 group-hover:border-amber-400/60 transition"
+                  />
+                  <span className="absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full bg-emerald-500 border border-slate-950" />
+                </div>
+                <div className="text-left hidden sm:block">
+                  <div className="font-semibold text-white leading-tight text-[11px] truncate max-w-[110px]">
+                    {user.name}
+                  </div>
+                  <div className="text-[9px] text-amber-400 font-mono capitalize leading-none">
+                    {user.role === 'owner' ? 'Principal' : user.role === 'structural_engineer' ? 'Structural' : user.role === 'quantity_surveyor' ? 'QS Lead' : user.role}
+                  </div>
+                </div>
+                <ChevronDown className="w-3 h-3 text-slate-400 group-hover:text-slate-200 transition ml-0.5" />
+              </button>
+
+              {/* User Profile Dropdown Menu */}
+              {isUserMenuOpen && (
+                <div
+                  id="dropdown-user-profile"
+                  className="absolute right-0 mt-2 w-72 sm:w-80 rounded-2xl bg-slate-900 border border-slate-700/80 shadow-2xl z-50 p-3 space-y-3 animate-in fade-in slide-in-from-top-2 duration-150"
+                >
+                  {/* Active User Card */}
+                  <div className="p-3 rounded-xl bg-slate-950/80 border border-slate-800 space-y-2">
+                    <div className="flex items-start gap-2.5">
+                      <img
+                        src={user.avatarUrl}
+                        alt={user.name}
+                        className="w-10 h-10 rounded-xl object-cover border border-slate-700 shrink-0"
+                      />
+                      <div className="min-w-0 flex-1">
+                        <div className="font-bold text-white text-xs truncate flex items-center gap-1.5">
+                          <span>{user.name}</span>
+                          <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                            Active
+                          </span>
+                        </div>
+                        <div className="text-[11px] text-slate-400 truncate">{user.email}</div>
+                        <div className="text-[10px] text-amber-400 font-mono mt-0.5 capitalize">
+                          {user.role === 'owner' ? 'Principal Architect & Studio Director' : user.role}
+                        </div>
+                      </div>
+                    </div>
+
+                    {(user.company || user.licenseNumber) && (
+                      <div className="pt-2 border-t border-slate-800/80 text-[10px] text-slate-400 space-y-0.5 font-mono">
+                        {user.company && (
+                          <div className="flex items-center gap-1 truncate text-slate-300">
+                            <Building className="w-3 h-3 text-slate-500 shrink-0" />
+                            <span className="truncate">{user.company}</span>
+                          </div>
+                        )}
+                        {user.licenseNumber && (
+                          <div className="flex items-center gap-1 truncate text-amber-300/90">
+                            <Award className="w-3 h-3 text-amber-400/80 shrink-0" />
+                            <span className="truncate">{user.licenseNumber}</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Switch Team Persona */}
+                  <div>
+                    <div className="text-[10px] font-mono uppercase tracking-wider text-slate-400 font-semibold mb-1.5 px-1 flex items-center justify-between">
+                      <span>Switch Team Persona</span>
+                      <span className="text-[9px] text-slate-500">Fast testing</span>
+                    </div>
+
+                    <div className="space-y-1 max-h-40 overflow-y-auto scrollbar-thin">
+                      {users.map((u) => {
+                        const isCurrent = u.id === user.id;
+                        return (
+                          <button
+                            key={u.id}
+                            type="button"
+                            onClick={() => {
+                              switchUser(u.id);
+                              setIsUserMenuOpen(false);
+                            }}
+                            className={`w-full text-left p-1.5 rounded-lg text-xs flex items-center gap-2 transition ${
+                              isCurrent
+                                ? 'bg-amber-500/15 text-amber-300 border border-amber-500/30'
+                                : 'hover:bg-slate-800 text-slate-300 hover:text-white'
+                            }`}
+                          >
+                            <img
+                              src={u.avatarUrl}
+                              alt={u.name}
+                              className="w-6 h-6 rounded-md object-cover border border-slate-700 shrink-0"
+                            />
+                            <div className="min-w-0 flex-1">
+                              <div className="font-medium truncate text-[11px]">{u.name}</div>
+                              <div className="text-[9px] text-slate-500 capitalize leading-none">
+                                {u.role === 'owner' ? 'Principal' : u.role}
+                              </div>
+                            </div>
+                            {isCurrent && <Check className="w-3.5 h-3.5 text-amber-400 shrink-0" />}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Dropdown Action Buttons */}
+                  <div className="pt-2 border-t border-slate-800 space-y-1 text-xs">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsProfileEditorOpen(true);
+                        setIsUserMenuOpen(false);
+                      }}
+                      className="w-full text-left px-2.5 py-1.5 rounded-lg hover:bg-slate-800 text-slate-300 hover:text-white transition flex items-center gap-2"
+                    >
+                      <User className="w-3.5 h-3.5 text-slate-400" />
+                      <span>Edit Profile Credentials</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        openLoginModal();
+                        setIsUserMenuOpen(false);
+                      }}
+                      className="w-full text-left px-2.5 py-1.5 rounded-lg hover:bg-slate-800 text-slate-300 hover:text-white transition flex items-center gap-2"
+                    >
+                      <LogIn className="w-3.5 h-3.5 text-slate-400" />
+                      <span>Sign In with Another Account</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        openSignUpModal();
+                        setIsUserMenuOpen(false);
+                      }}
+                      className="w-full text-left px-2.5 py-1.5 rounded-lg hover:bg-slate-800 text-slate-300 hover:text-white transition flex items-center gap-2"
+                    >
+                      <UserPlus className="w-3.5 h-3.5 text-slate-400" />
+                      <span>Create New Account</span>
+                    </button>
+
+                    {onViewClientPage && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onViewClientPage();
+                          setIsUserMenuOpen(false);
+                        }}
+                        className="w-full text-left px-2.5 py-1.5 rounded-lg hover:bg-slate-800 text-amber-300 hover:text-amber-200 transition flex items-center gap-2"
+                      >
+                        <Compass className="w-3.5 h-3.5 text-amber-400" />
+                        <span>View Client Portal Page</span>
+                      </button>
+                    )}
+
+                    {onOpenPlatformDemo && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onOpenPlatformDemo();
+                          setIsUserMenuOpen(false);
+                        }}
+                        className="w-full text-left px-2.5 py-1.5 rounded-lg hover:bg-slate-800 text-emerald-300 hover:text-emerald-200 transition flex items-center gap-2"
+                      >
+                        <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
+                        <span>View Platform Demo Presentation</span>
+                      </button>
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        logout();
+                        setIsUserMenuOpen(false);
+                      }}
+                      className="w-full text-left px-2.5 py-1.5 rounded-lg hover:bg-rose-950/40 text-rose-400 hover:text-rose-300 transition flex items-center gap-2"
+                    >
+                      <LogOut className="w-3.5 h-3.5" />
+                      <span>Sign Out</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="flex items-center gap-1.5">
+              <button
+                id="btn-header-login"
+                type="button"
+                onClick={openLoginModal}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-950/80 hover:bg-slate-800 border border-slate-700 text-xs font-semibold text-white transition shadow-sm"
+              >
+                <LogIn className="w-3.5 h-3.5 text-amber-400" />
+                <span>Sign In</span>
+              </button>
+
+              <button
+                id="btn-header-signup"
+                type="button"
+                onClick={openSignUpModal}
+                className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold transition shadow-sm"
+              >
+                <UserPlus className="w-3.5 h-3.5" />
+                <span>Register</span>
+              </button>
+            </div>
+          )}
 
           {/* License Status */}
           <div className="hidden lg:flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-emerald-950/40 border border-emerald-700/40 text-emerald-400 text-xs font-mono">
@@ -234,6 +523,8 @@ export const Header: React.FC<HeaderProps> = ({
       isOpen={isSettingsOpen}
       onClose={() => setIsSettingsOpen(false)}
     />
+
+    <ProfileEditorModal />
   </>
 );
 };
