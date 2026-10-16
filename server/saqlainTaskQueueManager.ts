@@ -82,3 +82,68 @@ export function scaleRecoveryAgents(currentCount: number, backlog: number, maxAd
 export function routeVerifiedReport(report: QueueReport) {
   return Object.freeze({ report, queueManager: 'verified', gouseCyberSecurityAi: 'security-review', gouseAi: 'final-review-after-security', duplicateReportCreated: false });
 }
+
+export interface QueueTaskCounts {
+  pendingTasks: number;
+  lockedTasks: number;
+  completedTasks: number;
+  failedTasks: number;
+  timeoutReviewTasks: number;
+  totalTasks: number;
+}
+
+export interface QueueTaskRegistry {
+  add(task: QueueTask): void;
+  update(task: QueueTask): void;
+  list(): QueueTask[];
+  getCounts(): QueueTaskCounts;
+}
+
+/**
+ * In-process task registry for live queue accounting.
+ * It is intentionally not presented as durable storage; use a transactional
+ * database adapter before running multiple service instances or requiring restart recovery.
+ */
+export function createQueueTaskRegistry(): QueueTaskRegistry {
+  const tasks = new Map<string, QueueTask>();
+  const allowedTransitions: Record<QueueTaskStatus, readonly QueueTaskStatus[]> = {
+    PENDING: ['LOCKED', 'FAILED'],
+    LOCKED: ['COMPLETED', 'FAILED', 'TIMEOUT_REVIEW'],
+    COMPLETED: [],
+    FAILED: [],
+    TIMEOUT_REVIEW: ['LOCKED', 'FAILED'],
+  };
+  const copy = (task: QueueTask): QueueTask => ({ ...task });
+  return {
+    add(task) {
+      if (tasks.has(task.managerTaskId)) throw new Error('Queue task managerTaskId already exists.');
+      tasks.set(task.managerTaskId, copy(task));
+    },
+    update(task) {
+      const current = tasks.get(task.managerTaskId);
+      if (!current) throw new Error('Queue task does not exist.');
+      if (current.backupTaskId !== task.backupTaskId || current.createdAt !== task.createdAt) {
+        throw new Error('Queue task identity fields cannot change.');
+      }
+      if (current.agentId !== task.agentId && !(current.status === 'PENDING' && task.status === 'LOCKED')) {
+        throw new Error('Queue task agent assignment cannot change.');
+      }
+      if (current.status !== task.status && !allowedTransitions[current.status].includes(task.status)) {
+        throw new Error('Queue task invalid status transition.');
+      }
+      tasks.set(task.managerTaskId, copy(task));
+    },
+    list() { return [...tasks.values()].map(copy); },
+    getCounts() {
+      const values = [...tasks.values()];
+      return {
+        pendingTasks: values.filter((task) => task.status === 'PENDING').length,
+        lockedTasks: values.filter((task) => task.status === 'LOCKED').length,
+        completedTasks: values.filter((task) => task.status === 'COMPLETED').length,
+        failedTasks: values.filter((task) => task.status === 'FAILED').length,
+        timeoutReviewTasks: values.filter((task) => task.status === 'TIMEOUT_REVIEW').length,
+        totalTasks: values.length,
+      };
+    },
+  };
+}
