@@ -147,3 +147,6 @@ export function createQueueTaskRegistry(): QueueTaskRegistry {
     },
   };
 }
+
+/** Shared process-local queue registry consumed by the monitoring service. */
+export const saqlainTaskQueue = createQueueTaskRegistry();
