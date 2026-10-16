@@ -1,9 +1,7 @@
 import { createApprovedContinuousBackupRuntime } from './saqlainApprovedContinuousBackup.ts';
-import { SAQLAIN_BACKUP_TEAM } from './saqlainBackupTeam.ts';
 import { createSaqlainMonitoringRuntime } from './saqlainMonitoringRuntime.ts';
-import { summarizeAgentHeartbeats } from './saqlainAgentHeartbeat.ts';
+import { collectRegisteredHeartbeatSummary } from './saqlainHeartbeatMonitoring.ts';
 import { getSaqlainHeartbeatSnapshot } from './saqlainHeartbeatRoutes.ts';
-import { parseHeartbeatCredentials } from './saqlainHeartbeatIngestion.ts';
 
 const required = (key: string): string => {
   const value = process.env[key]?.trim();
@@ -33,11 +31,10 @@ const monitoringRuntime = createSaqlainMonitoringRuntime({
     const report = runtime.getState().lastReport;
     if (!report) throw new Error('No completed backup/recovery cycle is available yet.');
     const results = report.results;
-    const credentials = parseHeartbeatCredentials(process.env.SAQLAIN_HEARTBEAT_CREDENTIALS_JSON);
-    // Invalid or ambiguous credential configuration is a HOLD, not a misleading zero-agent snapshot.
-    if (!credentials) throw new Error('Heartbeat credential configuration is missing or invalid.');
-    const registeredHeartbeatAgentIds = credentials.map((credential) => credential.agentId);
-    const heartbeatSummary = summarizeAgentHeartbeats(registeredHeartbeatAgentIds, getSaqlainHeartbeatSnapshot());
+    const heartbeatSummary = collectRegisteredHeartbeatSummary(
+      process.env.SAQLAIN_HEARTBEAT_CREDENTIALS_JSON,
+      getSaqlainHeartbeatSnapshot(),
+    );
     return {
       // Counts only authenticated, recent heartbeats from configured heartbeat credentials.
       activeAgents: heartbeatSummary.activeAgents,
@@ -72,5 +69,6 @@ process.on('uncaughtException', (error) => {
 process.on('unhandledRejection', (reason) => {
   console.error('Saqlain backup service unhandled rejection:', reason);
   runtime.stop();
+  monitoringRuntime.stop();
   process.exitCode = 1;
 });
