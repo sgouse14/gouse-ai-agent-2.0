@@ -5,6 +5,8 @@ import { getSaqlainHeartbeatSnapshot } from './saqlainHeartbeatRoutes.ts';
 import { createSaqlainTaskQueueService } from './saqlainTaskQueueService.ts';
 import { saqlainTaskQueue } from './saqlainTaskQueueManager.ts';
 
+const taskQueueService = createSaqlainTaskQueueService(saqlainTaskQueue);
+
 const required = (key: string): string => {
   const value = process.env[key]?.trim();
   if (!value) throw new Error('Missing required backup configuration: ' + key);
@@ -41,7 +43,7 @@ const monitoringRuntime = createSaqlainMonitoringRuntime({
       // Counts only authenticated, recent heartbeats from configured heartbeat credentials.
       activeAgents: heartbeatSummary.activeAgents,
       // Live counts from the shared process-local queue; restart durability is not yet implemented.
-      lockedTasks: saqlainTaskQueue.getCounts().lockedTasks,
+      lockedTasks: taskQueueService.getCounts().lockedTasks,
       completedTasks: results.filter((item) => item.status === 'VERIFIED').length,
       failedTasks: results.filter((item) => item.status === 'FAILED').length,
       securityHolds: results.filter((item) => item.status === 'HOLD').length,
