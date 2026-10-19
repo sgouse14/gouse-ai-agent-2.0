@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { createQueueTask, lockQueueTask, completeQueueTask } from './saqlainTaskQueueManager.ts';
 import { createDurableQueueTaskRegistry } from './saqlainDurableQueueStore.ts';
+import { createSaqlainTaskQueueService } from './saqlainTaskQueueService.ts';
 
 test('durable queue survives registry recreation and preserves status counts', async () => {
   const root = await mkdtemp(join(tmpdir(), 'saqlain-durable-queue-'));
@@ -56,5 +57,27 @@ test('durable queue rejects invalid transitions and does not persist them', asyn
     queue.add(pending);
     assert.throws(() => queue.update({ ...pending, status: 'COMPLETED' }), /invalid status transition/);
     assert.equal(queue.list()[0].status, 'PENDING');
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test('durable queue supports audited requeue and clears prior owner', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'saqlain-durable-review-'));
+  const queuePath = join(root, 'queue.json');
+  const auditPath = join(root, 'audit.jsonl');
+  try {
+    const queue = createSaqlainTaskQueueService(createDurableQueueTaskRegistry(queuePath), { auditFilePath: auditPath });
+    const task = queue.enqueue('backup-review');
+    queue.lockNextPending('agent-a');
+    queue.markTimeoutReview(task.managerTaskId);
+    const resolved = await queue.resolveTimeoutReview(task.managerTaskId, 'REQUEUE', {
+      operatorId: 'operator-a',
+      reason: 'Verified idempotent operation and isolated partial output',
+      retrySafe: true,
+    });
+    assert.equal(resolved.status, 'PENDING');
+    assert.equal(resolved.agentId, null);
+    const restarted = createDurableQueueTaskRegistry(queuePath);
+    assert.equal(restarted.list()[0].status, 'PENDING');
+    assert.equal(restarted.list()[0].agentId, null);
   } finally { await rm(root, { recursive: true, force: true }); }
 });
