@@ -1,6 +1,6 @@
 # Gouse AI Agent 2.0 — Current Project Progress
 
-Updated: 2026-10-13
+Updated: 2026-10-19
 
 ## Overall status
 
@@ -71,6 +71,7 @@ All internal security agents remain inside Gouse AI:
 
 External-facing Gousiya agents are outside Gouse AI and must use approved, scoped API access. External agents must never receive unrestricted internal privileges.
 
+- Task queue timeout recovery now has an authenticated operator API at `/api/security/task-queue`: review-only listing and explicit `REQUEUE`/`FAIL` decisions. The queue is read from the durable JSON registry; each decision is hash-chain audited before state mutation; requeue requires an explicit retry-safe confirmation and interrupted tasks are held for review. Monitoring now incorporates durable queue completion/failure counts and timeout-review holds. Configure `SAQLAIN_TASK_QUEUE_FILE`, `SAQLAIN_TASK_QUEUE_AUDIT_PATH`, and `SAQLAIN_TASK_QUEUE_OPERATOR_TOKENS_JSON` before use. This is a single-host starter, not a multi-instance transactional queue; CI for the latest changes is pending.
 - Saqlain monitoring now has an audited 30-minute runtime in `server/saqlainMonitoringRuntime.ts`, integrated into the configured backup service. It classifies health snapshots, alerts on failures/holds, serializes cycle execution, and fails closed on collector or audit errors. Tests and `docs/SAQLAIN_MONITORING_AGENT.md` were added. Current metrics are based on the latest in-process backup cycle; queue state and real worker liveness are not yet connected, and independent host-down alerting remains pending.
 
 ## Latest Agent ID implementation
