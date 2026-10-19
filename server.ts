@@ -2,6 +2,7 @@ import express from 'express';
 import { saqlainVerificationRouter } from './server/saqlainVerificationRoutes.ts';
 import { saqlainGatekeeperRouter } from './server/saqlainGatekeeperRoutes.ts';
 import { saqlainHeartbeatRouter } from './server/saqlainHeartbeatRoutes.ts';
+import { saqlainTaskQueueRouter } from './server/saqlainTaskQueueRoutes.ts';
 
 import path from 'path';
 import fs from 'fs';
@@ -25,6 +26,9 @@ app.use(express.json({ limit: '20mb' }));
 
 // External-agent Gatekeeper boundary. Missing identity registry, credentials, or durable audit fails closed.
 app.use('/api/security/gatekeeper', saqlainGatekeeperRouter);
+
+// Authenticated operator-only review and resolution for interrupted queue tasks.
+app.use('/api/security/task-queue', saqlainTaskQueueRouter);
 
 // Authenticated, rate-limited, audited agent heartbeat ingestion.
 app.use('/api/security/heartbeats', saqlainHeartbeatRouter);
