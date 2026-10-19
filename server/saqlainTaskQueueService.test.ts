@@ -1,5 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
+import { readVerifiedAuditLog } from './saqlainAuditLog.ts';
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -109,5 +113,71 @@ test('timeout review can be closed as failed with an auditable operator reason',
     const records = await readVerifiedAuditLog(auditFilePath);
     assert.equal(records.length, 1);
     assert.equal(records[0].outcome, 'HOLD');
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test('timeout-review requeue requires explicit safe-retry confirmation and records an audit event', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'saqlain-queue-review-'));
+  const auditFilePath = join(root, 'audit.jsonl');
+  try {
+    const queue = createSaqlainTaskQueueService(createQueueTaskRegistry());
+    const task = queue.enqueue('backup-review');
+    queue.lockNextPending('agent-a');
+    queue.markTimeoutReview(task.managerTaskId);
+
+    await assert.rejects(() => queue.resolveTimeoutReview({
+      managerTaskId: task.managerTaskId,
+      decision: 'REQUEUE',
+      actorId: 'operator-1',
+      auditFilePath,
+      reason: 'Investigated partial run',
+    }), /explicit confirmation/);
+    assert.equal(queue.getCounts().timeoutReviewTasks, 1);
+
+    const resolved = await queue.resolveTimeoutReview({
+      managerTaskId: task.managerTaskId,
+      decision: 'REQUEUE',
+      actorId: 'operator-1',
+      auditFilePath,
+      reason: 'Verified operation is idempotent and partial output was isolated',
+      idempotentRetryConfirmed: true,
+      now: new Date('2026-10-19T12:00:00.000Z'),
+    });
+    assert.equal(resolved.status, 'PENDING');
+    assert.equal(resolved.agentId, null);
+    assert.equal(queue.getCounts().pendingTasks, 1);
+    const audit = await readVerifiedAuditLog(auditFilePath);
+    assert.equal(audit.length, 1);
+    assert.equal(audit[0].eventType, 'QUEUE_TIMEOUT_REVIEW_RESOLUTION');
+    assert.equal(audit[0].actorId, 'operator-1');
+    assert.equal(audit[0].taskId, task.managerTaskId);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test('timeout-review can be explicitly failed and cannot resolve unrelated states', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'saqlain-queue-fail-review-'));
+  const auditFilePath = join(root, 'audit.jsonl');
+  try {
+    const queue = createSaqlainTaskQueueService(createQueueTaskRegistry());
+    const task = queue.enqueue('backup-review-fail');
+    await assert.rejects(() => queue.resolveTimeoutReview({
+      managerTaskId: task.managerTaskId,
+      decision: 'FAIL',
+      actorId: 'operator-1',
+      auditFilePath,
+      reason: 'not in review',
+    }), /Only timeout-review tasks/);
+    queue.lockNextPending('agent-a');
+    queue.markTimeoutReview(task.managerTaskId);
+    const failed = await queue.resolveTimeoutReview({
+      managerTaskId: task.managerTaskId,
+      decision: 'FAIL',
+      actorId: 'operator-1',
+      auditFilePath,
+      reason: 'Evidence shows task cannot safely be retried',
+    });
+    assert.equal(failed.status, 'FAILED');
+    assert.equal(queue.getCounts().failedTasks, 1);
+    assert.equal((await readVerifiedAuditLog(auditFilePath)).length, 1);
   } finally { await rm(root, { recursive: true, force: true }); }
 });
