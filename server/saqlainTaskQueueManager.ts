@@ -111,7 +111,7 @@ export function createQueueTaskRegistry(): QueueTaskRegistry {
     LOCKED: ['COMPLETED', 'FAILED', 'TIMEOUT_REVIEW'],
     COMPLETED: [],
     FAILED: [],
-    TIMEOUT_REVIEW: ['LOCKED', 'FAILED'],
+    TIMEOUT_REVIEW: ['PENDING', 'FAILED'],
   };
   const copy = (task: QueueTask): QueueTask => ({ ...task });
   return {
