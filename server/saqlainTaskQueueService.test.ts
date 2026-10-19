@@ -1,5 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
+import { readVerifiedAuditLog } from './saqlainAuditLog.ts';
 import { createQueueTaskRegistry } from './saqlainTaskQueueManager.ts';
 import { createSaqlainTaskQueueService } from './saqlainTaskQueueService.ts';
 
@@ -61,4 +65,49 @@ test('startup recovery leaves pending and terminal tasks unchanged', () => {
   const recovered = queue.recoverInterruptedTasks();
   assert.equal(recovered.length, 0);
   assert.equal(queue.getCounts().pendingTasks, 1);
+});
+
+test('timeout review requeue requires safety checks and leaves an audit trail', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'saqlain-queue-review-'));
+  const auditFilePath = join(root, 'audit.jsonl');
+  try {
+    const queue = createSaqlainTaskQueueService(createQueueTaskRegistry(), { auditFilePath, actorId: 'test-operator' });
+    const task = queue.enqueue('backup-uncertain');
+    queue.lockNextPending('agent-a');
+    queue.markTimeoutReview(task.managerTaskId);
+    await assert.rejects(
+      queue.resolveTimeoutReview(task.managerTaskId, 'REQUEUE', {
+        operatorId: 'operator-1', reason: 'Not verified', retrySafe: false, auditVerified: false,
+      }),
+      /retry-safety and audit verification/,
+    );
+    assert.equal(queue.getCounts().timeoutReviewTasks, 1);
+    const resolved = await queue.resolveTimeoutReview(task.managerTaskId, 'REQUEUE', {
+      operatorId: 'operator-1', reason: 'Verified operation is idempotent', retrySafe: true, auditVerified: true,
+    });
+    assert.equal(resolved.status, 'PENDING');
+    assert.equal(queue.getCounts().pendingTasks, 1);
+    const records = await readVerifiedAuditLog(auditFilePath);
+    assert.equal(records.length, 2);
+    assert.equal(records[0].outcome, 'DENY');
+    assert.equal(records[1].outcome, 'ALLOW');
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test('timeout review can be closed as failed with an auditable operator reason', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'saqlain-queue-review-fail-'));
+  const auditFilePath = join(root, 'audit.jsonl');
+  try {
+    const queue = createSaqlainTaskQueueService(createQueueTaskRegistry(), { auditFilePath });
+    const task = queue.enqueue('backup-uncertain');
+    queue.lockNextPending('agent-a');
+    queue.markTimeoutReview(task.managerTaskId);
+    const resolved = await queue.resolveTimeoutReview(task.managerTaskId, 'FAIL', {
+      operatorId: 'operator-2', reason: 'Unable to verify side effects', retrySafe: false, auditVerified: true,
+    });
+    assert.equal(resolved.status, 'FAILED');
+    const records = await readVerifiedAuditLog(auditFilePath);
+    assert.equal(records.length, 1);
+    assert.equal(records[0].outcome, 'HOLD');
+  } finally { await rm(root, { recursive: true, force: true }); }
 });
