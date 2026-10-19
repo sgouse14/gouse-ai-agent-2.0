@@ -5,14 +5,20 @@ import { getSaqlainHeartbeatSnapshot } from './saqlainHeartbeatRoutes.ts';
 import { createSaqlainTaskQueueService } from './saqlainTaskQueueService.ts';
 import { createDurableQueueTaskRegistry } from './saqlainDurableQueueStore.ts';
 
-const durableTaskQueue = createDurableQueueTaskRegistry(required('SAQLAIN_TASK_QUEUE_FILE'));
-const taskQueueService = createSaqlainTaskQueueService(durableTaskQueue);
-
 const required = (key: string): string => {
   const value = process.env[key]?.trim();
   if (!value) throw new Error('Missing required backup configuration: ' + key);
   return value;
 };
+
+const durableTaskQueue = createDurableQueueTaskRegistry(required('SAQLAIN_TASK_QUEUE_FILE'));
+const taskQueueService = createSaqlainTaskQueueService(durableTaskQueue);
+// A task locked before a restart has an ambiguous outcome. Hold it for review;
+// never automatically mark it completed or re-run potentially non-idempotent work.
+const recoveredTasks = taskQueueService.recoverInterruptedTasks();
+if (recoveredTasks.length > 0) {
+  console.warn('Saqlain queue recovery moved interrupted tasks to TIMEOUT_REVIEW:', recoveredTasks.map((task) => task.managerTaskId));
+}
 
 const runtime = createApprovedContinuousBackupRuntime({
   storageRoot: required('SAQLAIN_BACKUP_STORAGE_ROOT'),
@@ -43,7 +49,7 @@ const monitoringRuntime = createSaqlainMonitoringRuntime({
     return {
       // Counts only authenticated, recent heartbeats from configured heartbeat credentials.
       activeAgents: heartbeatSummary.activeAgents,
-      // Live counts from the shared process-local queue; restart durability is not yet implemented.
+      // Counts come from durable queue storage; interrupted locks are held for review on startup.
       lockedTasks: taskQueueService.getCounts().lockedTasks,
       completedTasks: results.filter((item) => item.status === 'VERIFIED').length,
       failedTasks: results.filter((item) => item.status === 'FAILED').length,
