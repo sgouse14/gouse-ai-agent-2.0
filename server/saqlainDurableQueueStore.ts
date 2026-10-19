@@ -90,7 +90,7 @@ export function createDurableQueueTaskRegistry(filePath: string): QueueTaskRegis
     LOCKED: ['COMPLETED', 'FAILED', 'TIMEOUT_REVIEW'],
     COMPLETED: [],
     FAILED: [],
-    TIMEOUT_REVIEW: ['LOCKED', 'FAILED'],
+    TIMEOUT_REVIEW: ['PENDING', 'FAILED'],
   };
   return {
     add(task) {
