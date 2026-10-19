@@ -8,28 +8,28 @@ import {
   saqlainTaskQueue,
 } from './saqlainTaskQueueManager.ts';
 import { appendDurableAuditEvent } from './saqlainAuditLog.ts';
-import { appendDurableAuditEvent } from './saqlainAuditLog.ts';
 
-/**
- * Application service that makes queue mutations visible to monitoring.
- * The default registry is process-local; inject a durable transactional adapter
- * when the queue moves to a database.
- */
+function requiredAuditPath(explicit?: string): string {
+  const path = explicit?.trim() || process.env.SAQLAIN_TASK_QUEUE_AUDIT_PATH?.trim();
+  if (!path) throw new Error('SAQLAIN_TASK_QUEUE_AUDIT_PATH is not configured.');
+  return path;
+}
+
 export function createSaqlainTaskQueueService(
   registry: QueueTaskRegistry = saqlainTaskQueue,
   options: { auditFilePath?: string; actorId?: string } = {},
 ) {
-  async function auditDecision(eventType: string, task: QueueTask, outcome: 'ALLOW' | 'DENY' | 'HOLD', details: Record<string, unknown> = {}): Promise<void> {
-    if (!options.auditFilePath) throw new Error('An audit file path is required for operator queue decisions.');
-    await appendDurableAuditEvent(options.auditFilePath, {
+  async function auditDecision(eventType: string, task: QueueTask, actorId: string, outcome: 'ALLOW' | 'DENY' | 'HOLD', details: Record<string, unknown> = {}, auditPath?: string): Promise<void> {
+    await appendDurableAuditEvent(requiredAuditPath(auditPath ?? options.auditFilePath), {
       eventType,
-      actorId: options.actorId?.trim() || 'queue-operator',
+      actorId,
       outcome,
       resource: 'saqlain-task-queue',
       taskId: task.managerTaskId,
       details: { status: task.status, backupTaskId: task.backupTaskId, ...details },
     });
   }
+
   function enqueue(backupTaskId: string, now = new Date()): QueueTask {
     const existing = registry.list();
     const maxSequence = existing.reduce((max, task) => {
@@ -58,7 +58,6 @@ export function createSaqlainTaskQueueService(
     return completed;
   }
 
-  /** Move ambiguous in-flight work to review after a process restart. */
   function recoverInterruptedTasks(): QueueTask[] {
     const recovered: QueueTask[] = [];
     for (const task of registry.list()) {
@@ -68,6 +67,14 @@ export function createSaqlainTaskQueueService(
       recovered.push(review);
     }
     return recovered;
+  }
+
+  function markTimeoutReview(managerTaskId: string): QueueTask {
+    const task = registry.list().find((candidate) => candidate.managerTaskId === managerTaskId);
+    if (!task) throw new Error('Queue task does not exist.');
+    const timedOut = markTaskTimeout(task);
+    registry.update(timedOut);
+    return timedOut;
   }
 
   async function resolveTimeoutReview(
@@ -81,64 +88,22 @@ export function createSaqlainTaskQueueService(
     if (task.status !== 'TIMEOUT_REVIEW') throw new Error('Only timeout-review tasks can be resolved.');
     if (!input.operatorId?.trim() || !input.reason?.trim()) throw new Error('Operator identity and reason are required.');
     if (decision === 'REQUEUE' && (!input.retrySafe || !input.auditVerified)) {
-      await auditDecision('QUEUE_TIMEOUT_REQUEUE_DENIED', task, 'DENY', { operatorId: input.operatorId, reason: input.reason, retrySafe: input.retrySafe, auditVerified: input.auditVerified });
+      await auditDecision('QUEUE_TIMEOUT_REQUEUE_DENIED', task, input.operatorId, 'DENY', { reason: input.reason, retrySafe: input.retrySafe, auditVerified: input.auditVerified }, options.auditFilePath);
       throw new Error('Requeue requires explicit retry-safety and audit verification.');
     }
     const next: QueueTask = decision === 'REQUEUE'
       ? { ...task, agentId: null, status: 'PENDING', lockedAt: null, completedAt: null }
-      : { ...task, status: 'FAILED' };
-    await auditDecision('QUEUE_TIMEOUT_REVIEW_RESOLVED', task, decision === 'REQUEUE' ? 'ALLOW' : 'HOLD', {
-      operatorId: input.operatorId, reason: input.reason, decision, retrySafe: input.retrySafe, auditVerified: input.auditVerified,
-    });
+      : { ...task, status: 'FAILED', completedAt: now.toISOString() };
+    // Audit first; if audit persistence fails, the task state remains unchanged.
+    await auditDecision('QUEUE_TIMEOUT_REVIEW_RESOLVED', task, input.operatorId, decision === 'REQUEUE' ? 'ALLOW' : 'HOLD', {
+      reason: input.reason, decision, retrySafe: input.retrySafe, auditVerified: input.auditVerified,
+    }, options.auditFilePath);
     registry.update(next);
     return next;
   }
 
-  async function resolveTimeoutReview(input: {
-    managerTaskId: string;
-    decision: 'REQUEUE' | 'FAIL';
-    actorId: string;
-    auditFilePath: string;
-    reason: string;
-    idempotentRetryConfirmed?: boolean;
-    now?: Date;
-  }): Promise<QueueTask> {
-    if (!input.actorId.trim() || !input.reason.trim() || !input.auditFilePath.trim()) {
-      throw new Error('actorId, reason, and auditFilePath are required.');
-    }
-    if (input.decision === 'REQUEUE' && input.idempotentRetryConfirmed !== true) {
-      throw new Error('Requeue requires explicit confirmation that retry is safe and idempotent.');
-    }
-    const task = registry.list().find((candidate) => candidate.managerTaskId === input.managerTaskId);
-    if (!task) throw new Error('Queue task does not exist.');
-    if (task.status !== 'TIMEOUT_REVIEW') throw new Error('Only timeout-review tasks can be resolved.');
-    await appendDurableAuditEvent(input.auditFilePath, {
-      eventType: 'QUEUE_TIMEOUT_REVIEW_RESOLUTION',
-      actorId: input.actorId,
-      outcome: input.decision === 'REQUEUE' ? 'HOLD' : 'INFO',
-      resource: 'task-queue',
-      taskId: task.managerTaskId,
-      details: {
-        decision: input.decision,
-        reason: input.reason,
-        idempotentRetryConfirmed: input.decision === 'REQUEUE',
-      },
-      occurredAt: (input.now ?? new Date()).toISOString(),
-    });
-    const updated: QueueTask = input.decision === 'REQUEUE'
-      ? { ...task, status: 'PENDING', agentId: null, lockedAt: null, completedAt: null }
-      : { ...task, status: 'FAILED', completedAt: (input.now ?? new Date()).toISOString() };
-    registry.update(updated);
-    return updated;
-  }
-
-  function markTimeoutReview(managerTaskId: string): QueueTask {
-    const task = registry.list().find((candidate) => candidate.managerTaskId === managerTaskId);
-    if (!task) throw new Error('Queue task does not exist.');
-    const timedOut = markTaskTimeout(task);
-    registry.update(timedOut);
-    return timedOut;
-  }
-
-  return Object.freeze({ enqueue, lockNextPending, complete, markTimeoutReview, resolveTimeoutReview, recoverInterruptedTasks, getCounts: () => registry.getCounts(), list: () => registry.list() });
+  return Object.freeze({
+    enqueue, lockNextPending, complete, markTimeoutReview, recoverInterruptedTasks,
+    resolveTimeoutReview, getCounts: () => registry.getCounts(), list: () => registry.list(),
+  });
 }
