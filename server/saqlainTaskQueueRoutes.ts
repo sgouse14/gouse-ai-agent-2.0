@@ -56,15 +56,14 @@ saqlainTaskQueueRouter.get('/review', (req, res) => {
 saqlainTaskQueueRouter.post('/:taskId/resolve', async (req: Request, res: Response) => {
   const operatorId = requireOperator(req, res);
   if (!operatorId) return;
-  const { decision, reason, retrySafe, auditVerified } = req.body ?? {};
+  const { decision, reason, retrySafe } = req.body ?? {};
   if (!['REQUEUE', 'FAIL'].includes(decision) || typeof reason !== 'string' || !reason.trim() || reason.length > 2000 ||
-      (retrySafe !== undefined && typeof retrySafe !== 'boolean') ||
-      (auditVerified !== undefined && typeof auditVerified !== 'boolean')) {
+      (retrySafe !== undefined && typeof retrySafe !== 'boolean')) {
     return res.status(400).json({ error: 'Invalid review resolution payload.' });
   }
   try {
     const task = await getService().resolveTimeoutReview(req.params.taskId, decision, {
-      operatorId, reason, retrySafe: retrySafe === true, auditVerified: auditVerified === true,
+      operatorId, reason, retrySafe: retrySafe === true,
     });
     return res.json({ task });
   } catch (error) {
