@@ -62,13 +62,13 @@ test('timeout-review requeue requires safety checks and writes denial and approv
     queue.markTimeoutReview(task.managerTaskId);
     await assert.rejects(
       queue.resolveTimeoutReview(task.managerTaskId, 'REQUEUE', {
-        operatorId: 'operator-1', reason: 'Not verified', retrySafe: false, auditVerified: false,
+        operatorId: 'operator-1', reason: 'Not verified', retrySafe: false,
       }),
-      /retry-safety and audit verification/,
+      /safe and idempotent/,
     );
     assert.equal(queue.getCounts().timeoutReviewTasks, 1);
     const resolved = await queue.resolveTimeoutReview(task.managerTaskId, 'REQUEUE', {
-      operatorId: 'operator-1', reason: 'Verified operation is idempotent', retrySafe: true, auditVerified: true,
+      operatorId: 'operator-1', reason: 'Verified operation is idempotent', retrySafe: true,
     });
     assert.equal(resolved.status, 'PENDING');
     assert.equal(resolved.agentId, null);
@@ -89,7 +89,7 @@ test('timeout review can be closed as failed with an auditable operator reason',
     queue.lockNextPending('agent-a');
     queue.markTimeoutReview(task.managerTaskId);
     const resolved = await queue.resolveTimeoutReview(task.managerTaskId, 'FAIL', {
-      operatorId: 'operator-2', reason: 'Unable to verify side effects', retrySafe: false, auditVerified: true,
+      operatorId: 'operator-2', reason: 'Unable to verify side effects', retrySafe: false,
     });
     assert.equal(resolved.status, 'FAILED');
     const records = await readVerifiedAuditLog(auditFilePath);
