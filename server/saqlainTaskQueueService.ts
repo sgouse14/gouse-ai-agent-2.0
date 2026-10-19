@@ -42,6 +42,18 @@ export function createSaqlainTaskQueueService(registry: QueueTaskRegistry = saql
     return completed;
   }
 
+  /** Move ambiguous in-flight work to review after a process restart. */
+  function recoverInterruptedTasks(): QueueTask[] {
+    const recovered: QueueTask[] = [];
+    for (const task of registry.list()) {
+      if (task.status !== 'LOCKED') continue;
+      const review = markTaskTimeout(task);
+      registry.update(review);
+      recovered.push(review);
+    }
+    return recovered;
+  }
+
   function markTimeoutReview(managerTaskId: string): QueueTask {
     const task = registry.list().find((candidate) => candidate.managerTaskId === managerTaskId);
     if (!task) throw new Error('Queue task does not exist.');
@@ -50,5 +62,5 @@ export function createSaqlainTaskQueueService(registry: QueueTaskRegistry = saql
     return timedOut;
   }
 
-  return Object.freeze({ enqueue, lockNextPending, complete, markTimeoutReview, getCounts: () => registry.getCounts(), list: () => registry.list() });
+  return Object.freeze({ enqueue, lockNextPending, complete, markTimeoutReview, recoverInterruptedTasks, getCounts: () => registry.getCounts(), list: () => registry.list() });
 }
