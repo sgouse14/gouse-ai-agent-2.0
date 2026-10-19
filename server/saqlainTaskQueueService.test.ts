@@ -39,3 +39,26 @@ test('queue service marks locked tasks for timeout review and does not relabel t
   assert.equal(queue.getCounts().timeoutReviewTasks, 1);
   assert.equal(queue.getCounts().completedTasks, 0);
 });
+
+test('startup recovery moves locked tasks to timeout review without completing them', () => {
+  const registry = createQueueTaskRegistry();
+  const queue = createSaqlainTaskQueueService(registry);
+  const task = queue.enqueue('backup-interrupted');
+  queue.lockNextPending('agent-a');
+  const recovered = queue.recoverInterruptedTasks();
+  assert.equal(recovered.length, 1);
+  assert.equal(recovered[0].managerTaskId, task.managerTaskId);
+  assert.equal(recovered[0].status, 'TIMEOUT_REVIEW');
+  assert.equal(queue.getCounts().lockedTasks, 0);
+  assert.equal(queue.getCounts().timeoutReviewTasks, 1);
+  assert.equal(queue.getCounts().completedTasks, 0);
+});
+
+test('startup recovery leaves pending and terminal tasks unchanged', () => {
+  const registry = createQueueTaskRegistry();
+  const queue = createSaqlainTaskQueueService(registry);
+  queue.enqueue('backup-pending');
+  const recovered = queue.recoverInterruptedTasks();
+  assert.equal(recovered.length, 0);
+  assert.equal(queue.getCounts().pendingTasks, 1);
+});
