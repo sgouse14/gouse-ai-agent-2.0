@@ -108,7 +108,8 @@ export function createDurableQueueTaskRegistry(filePath: string): QueueTaskRegis
         const current = queue.tasks[index];
         if (current.backupTaskId !== task.backupTaskId || current.createdAt !== task.createdAt ||
             current.workCycleMinutes !== task.workCycleMinutes) throw new Error('Queue task identity fields cannot change.');
-        if (current.agentId !== task.agentId && !(current.status === 'PENDING' && task.status === 'LOCKED')) {
+        if (current.agentId !== task.agentId && !(current.status === 'PENDING' && task.status === 'LOCKED') &&
+            !(current.status === 'TIMEOUT_REVIEW' && task.status === 'PENDING' && task.agentId === null)) {
           throw new Error('Queue task agent assignment cannot change.');
         }
         if (current.status !== task.status && !transitions[current.status].includes(task.status)) {
