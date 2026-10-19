@@ -2,6 +2,7 @@ import { createApprovedContinuousBackupRuntime } from './saqlainApprovedContinuo
 import { createSaqlainMonitoringRuntime } from './saqlainMonitoringRuntime.ts';
 import { collectRegisteredHeartbeatSummary } from './saqlainHeartbeatMonitoring.ts';
 import { getSaqlainHeartbeatSnapshot } from './saqlainHeartbeatRoutes.ts';
+import { createSaqlainTaskQueueService } from './saqlainTaskQueueService.ts';
 import { saqlainTaskQueue } from './saqlainTaskQueueManager.ts';
 
 const required = (key: string): string => {
