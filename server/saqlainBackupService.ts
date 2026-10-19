@@ -46,14 +46,16 @@ const monitoringRuntime = createSaqlainMonitoringRuntime({
       process.env.SAQLAIN_HEARTBEAT_CREDENTIALS_JSON,
       getSaqlainHeartbeatSnapshot(),
     );
+    const queueCounts = taskQueueService.getCounts();
     return {
       // Counts only authenticated, recent heartbeats from configured heartbeat credentials.
       activeAgents: heartbeatSummary.activeAgents,
       // Counts come from durable queue storage; interrupted locks are held for review on startup.
-      lockedTasks: taskQueueService.getCounts().lockedTasks,
-      completedTasks: results.filter((item) => item.status === 'VERIFIED').length,
-      failedTasks: results.filter((item) => item.status === 'FAILED').length,
-      securityHolds: results.filter((item) => item.status === 'HOLD').length,
+      lockedTasks: queueCounts.lockedTasks,
+      completedTasks: results.filter((item) => item.status === 'VERIFIED').length + queueCounts.completedTasks,
+      failedTasks: results.filter((item) => item.status === 'FAILED').length + queueCounts.failedTasks,
+      // Ambiguous interrupted tasks are security holds until an operator resolves them.
+      securityHolds: results.filter((item) => item.status === 'HOLD').length + queueCounts.timeoutReviewTasks,
       backupChecks: results.filter((item) => item.role === 'BACKUP').length,
       recoveryChecks: results.filter((item) => item.role === 'RECOVERY').length,
     };
