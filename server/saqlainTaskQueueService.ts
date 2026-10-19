@@ -80,23 +80,23 @@ export function createSaqlainTaskQueueService(
   async function resolveTimeoutReview(
     managerTaskId: string,
     decision: 'REQUEUE' | 'FAIL',
-    input: { operatorId: string; reason: string; retrySafe: boolean; auditVerified: boolean },
+    input: { operatorId: string; reason: string; retrySafe: boolean },
     now = new Date(),
   ): Promise<QueueTask> {
     const task = registry.list().find((candidate) => candidate.managerTaskId === managerTaskId);
     if (!task) throw new Error('Queue task does not exist.');
     if (task.status !== 'TIMEOUT_REVIEW') throw new Error('Only timeout-review tasks can be resolved.');
     if (!input.operatorId?.trim() || !input.reason?.trim()) throw new Error('Operator identity and reason are required.');
-    if (decision === 'REQUEUE' && (!input.retrySafe || !input.auditVerified)) {
-      await auditDecision('QUEUE_TIMEOUT_REQUEUE_DENIED', task, input.operatorId, 'DENY', { reason: input.reason, retrySafe: input.retrySafe, auditVerified: input.auditVerified }, options.auditFilePath);
-      throw new Error('Requeue requires explicit retry-safety and audit verification.');
+    if (decision === 'REQUEUE' && !input.retrySafe) {
+      await auditDecision('QUEUE_TIMEOUT_REQUEUE_DENIED', task, input.operatorId, 'DENY', { reason: input.reason, retrySafe: input.retrySafe }, options.auditFilePath);
+      throw new Error('Requeue requires explicit confirmation that retrying is safe and idempotent.');
     }
     const next: QueueTask = decision === 'REQUEUE'
       ? { ...task, agentId: null, status: 'PENDING', lockedAt: null, completedAt: null }
       : { ...task, status: 'FAILED', completedAt: now.toISOString() };
     // Audit first; if audit persistence fails, the task state remains unchanged.
     await auditDecision('QUEUE_TIMEOUT_REVIEW_RESOLVED', task, input.operatorId, decision === 'REQUEUE' ? 'ALLOW' : 'HOLD', {
-      reason: input.reason, decision, retrySafe: input.retrySafe, auditVerified: input.auditVerified,
+      reason: input.reason, decision, retrySafe: input.retrySafe,
     }, options.auditFilePath);
     registry.update(next);
     return next;
