@@ -3,9 +3,10 @@ import { createSaqlainMonitoringRuntime } from './saqlainMonitoringRuntime.ts';
 import { collectRegisteredHeartbeatSummary } from './saqlainHeartbeatMonitoring.ts';
 import { getSaqlainHeartbeatSnapshot } from './saqlainHeartbeatRoutes.ts';
 import { createSaqlainTaskQueueService } from './saqlainTaskQueueService.ts';
-import { saqlainTaskQueue } from './saqlainTaskQueueManager.ts';
+import { createDurableQueueTaskRegistry } from './saqlainDurableQueueStore.ts';
 
-const taskQueueService = createSaqlainTaskQueueService(saqlainTaskQueue);
+const durableTaskQueue = createDurableQueueTaskRegistry(required('SAQLAIN_TASK_QUEUE_FILE'));
+const taskQueueService = createSaqlainTaskQueueService(durableTaskQueue);
 
 const required = (key: string): string => {
   const value = process.env[key]?.trim();
