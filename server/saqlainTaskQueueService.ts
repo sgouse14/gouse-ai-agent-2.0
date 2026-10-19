@@ -8,6 +8,7 @@ import {
   saqlainTaskQueue,
 } from './saqlainTaskQueueManager.ts';
 import { appendDurableAuditEvent } from './saqlainAuditLog.ts';
+import { appendDurableAuditEvent } from './saqlainAuditLog.ts';
 
 /**
  * Application service that makes queue mutations visible to monitoring.
@@ -91,6 +92,44 @@ export function createSaqlainTaskQueueService(
     });
     registry.update(next);
     return next;
+  }
+
+  async function resolveTimeoutReview(input: {
+    managerTaskId: string;
+    decision: 'REQUEUE' | 'FAIL';
+    actorId: string;
+    auditFilePath: string;
+    reason: string;
+    idempotentRetryConfirmed?: boolean;
+    now?: Date;
+  }): Promise<QueueTask> {
+    if (!input.actorId.trim() || !input.reason.trim() || !input.auditFilePath.trim()) {
+      throw new Error('actorId, reason, and auditFilePath are required.');
+    }
+    if (input.decision === 'REQUEUE' && input.idempotentRetryConfirmed !== true) {
+      throw new Error('Requeue requires explicit confirmation that retry is safe and idempotent.');
+    }
+    const task = registry.list().find((candidate) => candidate.managerTaskId === input.managerTaskId);
+    if (!task) throw new Error('Queue task does not exist.');
+    if (task.status !== 'TIMEOUT_REVIEW') throw new Error('Only timeout-review tasks can be resolved.');
+    await appendDurableAuditEvent(input.auditFilePath, {
+      eventType: 'QUEUE_TIMEOUT_REVIEW_RESOLUTION',
+      actorId: input.actorId,
+      outcome: input.decision === 'REQUEUE' ? 'HOLD' : 'INFO',
+      resource: 'task-queue',
+      taskId: task.managerTaskId,
+      details: {
+        decision: input.decision,
+        reason: input.reason,
+        idempotentRetryConfirmed: input.decision === 'REQUEUE',
+      },
+      occurredAt: (input.now ?? new Date()).toISOString(),
+    });
+    const updated: QueueTask = input.decision === 'REQUEUE'
+      ? { ...task, status: 'PENDING', agentId: null, lockedAt: null, completedAt: null }
+      : { ...task, status: 'FAILED', completedAt: (input.now ?? new Date()).toISOString() };
+    registry.update(updated);
+    return updated;
   }
 
   function markTimeoutReview(managerTaskId: string): QueueTask {
