@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { chmod, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { chmod, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import {
@@ -127,7 +127,7 @@ test('rejects an approval token signed by a different secret or project', async 
 test('expired approvals and excessive approval TTLs are rejected', async () => {
   const ctx = await setup();
   try {
-    const issued = await ctx.issuer.issueApproval(approvalRequest('owner-firebase-token'), { ttlMs: 1000 } as never);
+    const issued = await ctx.issuer.issueApproval({ ...approvalRequest('owner-firebase-token'), ttlMs: 1000 });
     const expiredVerifier = createGousiyaApprovalTokenVerifier({
       projectId: PROJECT_ID, signingSecret: SIGNING_SECRET, now: () => new Date(BASE_NOW.getTime() + 2000),
     });
@@ -151,7 +151,7 @@ test('rejects a registry with overly broad filesystem permissions', async () => 
 test('does not return an approval when durable audit storage is unavailable', async () => {
   const ctx = await setup();
   try {
-    await rm(ctx.auditFilePath, { force: true });
+    await mkdir(join(ctx.root, 'audit'), { recursive: true });
     await writeFile(ctx.auditFilePath, 'tampered audit\n', { mode: 0o600 });
     await assert.rejects(ctx.issuer.issueApproval(approvalRequest('owner-firebase-token')), /Audit log integrity verification failed|Audit log is malformed/i);
   } finally {
