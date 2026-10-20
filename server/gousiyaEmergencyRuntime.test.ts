@@ -10,7 +10,7 @@ test('constructs internal recovery state from explicit server environment config
       GOUSIYA_AUDIT_FILE_PATH: '/var/lib/gouse/audit/events.jsonl',
       GOUSIYA_GRANT_STORE_FILE_PATH: '/var/lib/gouse/gousiya/grants.json',
     },
-    verifyFirebaseTokenIsActive: async () => undefined,
+    firebaseAdminAuth: { verifyIdToken: async (_token, _checkRevoked) => ({ uid: 'test-user' }) },
   });
   assert.equal(state.auditFilePath, resolve('/var/lib/gouse/audit/events.jsonl'));
   assert.equal(state.grantStoreFilePath, resolve('/var/lib/gouse/gousiya/grants.json'));
@@ -50,5 +50,5 @@ test('refuses to construct runtime without a trusted token revocation checker', 
       GOUSIYA_AUDIT_FILE_PATH: '/tmp/audit/events.jsonl',
       GOUSIYA_GRANT_STORE_FILE_PATH: '/tmp/grants.json',
     },
-  } as Parameters<typeof createConfiguredGousiyaEmergencyState>[0]), /account-status and token-revocation checker is required/i);
+  } as Parameters<typeof createConfiguredGousiyaEmergencyState>[0]), /Firebase Admin Auth instance is required/i);
 });
