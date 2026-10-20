@@ -8,7 +8,7 @@ const HIGH_IMPACT_ACTIONS = new Set([
   'publish_external','rotate_secret','change_permissions','disable_security',
 ]);
 // Read-only security assessments still require authenticated project scope.
-const PROTECTED_SCOPED_READ_ACTIONS = new Set(['run_emp_protection_assessment']);
+const PROTECTED_SCOPED_READ_ACTIONS = new Set(['run_emp_protection_assessment', 'run_agent_communication']);
 
 const MUTATING_ACTIONS = new Set([
   'add_boq_item','update_boq_item','update_contingency','update_area','run_audit',
