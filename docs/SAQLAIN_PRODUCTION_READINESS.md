@@ -29,13 +29,13 @@ Required work:
 
 ### 3. Emergency grants and approval identity
 
-**Implemented on the Saqlain feature branch; further production controls still required.** Grant issuance now requires separate owner/reviewer approval tokens validated by a required, server-injected verifier. The module validates identity distinction, role, decision, incident and path scope, token validity window, and stores grant state in a locked, atomic JSON file. Grant consumption and revocation persist before audit or filesystem recovery; malformed storage and lock conflicts fail closed. Tests now cover independent approval identities and replay rejection after a simulated restart.
+**Partially implemented on the Saqlain feature branch; not production-ready.** Grant issuance requires separate owner/reviewer tokens. A Firebase ID-token verifier checks Google signing signatures, issuer, audience, expiry, recent authentication and matching incident/recovery path scope. The `gousiyaApproval` custom claim must be minted only by a trusted server-side approval service. Approval IDs are reserved durably to prevent reuse. Grant state uses a locked, atomic single-host JSON store; consumption and revocation persist before audit-dependent or filesystem work. Tests cover token validation, approval independence, reuse and replay after a simulated restart.
 
 Remaining work:
-- Integrate the approval verifier with the real identity provider and trusted authorization policy; do not use a permissive/test verifier in production.
+- **Critical:** add Firebase Admin `verifyIdToken(token, true)` or an equivalent authoritative account-status/session-revocation check. The current verifier does not detect disabled users or revoked Firebase ID tokens.
+- Connect `gousiyaApproval` claims to a trusted approval service; never allow clients to set or submit approval claims as trusted data.
 - Replace the single-host file adapter with a transactional shared database and atomic conditional consume before multi-process or multi-host use.
-- Add parallel-process race tests, restart tests for issued/revoked/expired records, storage corruption and filesystem crash-recovery tests.
-- Define approval-token revocation and replay policy in the authoritative identity/approval service.
+- Add parallel-process race tests, restart tests for issued/revoked/expired records, store corruption and crash-recovery tests.
 - Keep the grant module internal; it is not mounted as an HTTP route.
 
 ### 4. Persist verification and audit records reliably
@@ -71,10 +71,9 @@ Required work:
 
 ## Current verified state
 
-- Security unit tests: 114 passing in the validated run.
-- TypeScript type-check: passing.
-- Frontend/server production build: passing.
-- Docker image build: passing in CI.
+- Previous validated run: 114 security tests passed, TypeScript check passed, production build passed and Docker image build passed.
+- Additional Firebase approval-verifier/runtime tests have been added to the test command in this branch.
+- Current head's new tests/type-check/build have not yet been confirmed; do not treat the changes as validated until a fresh run completes.
 - Pull request: remains a draft and is not merged to `main`.
 
 Do not interpret a passing build or unit-test suite as a penetration test or a production-security certification.
