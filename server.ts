@@ -326,7 +326,7 @@ app.post('/api/companies/ai-generate', async (req, res) => {
     res.json(company);
   } catch (err: any) {
     console.error('Error generating company with AI:', err);
-    res.status(500).json({ error: err.message || 'Failed to generate company profile' });
+    res.status(500).json({ error: 'Failed to generate company profile' });
   }
 });
 
@@ -347,7 +347,7 @@ app.post('/api/enquiries/live-quote', async (req, res) => {
     res.json(quote);
   } catch (err: any) {
     console.error('Error generating live quote:', err);
-    res.status(500).json({ error: err.message || 'Failed to generate live quote' });
+    res.status(500).json({ error: 'Failed to generate live quote' });
   }
 });
 
@@ -364,7 +364,7 @@ app.post('/api/materials/parse-pdf-specs', async (req, res) => {
     res.json(extractedStandards);
   } catch (err: any) {
     console.error('Error parsing material standards from PDF/text:', err);
-    res.status(500).json({ error: err.message || 'Failed to parse material standards' });
+    res.status(500).json({ error: 'Failed to parse material standards' });
   }
 });
 
