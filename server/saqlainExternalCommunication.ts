@@ -54,7 +54,7 @@ export async function sendCycleStatusToExternalAgent(
     ({ status: 'HOLD', reason, ...(messageId ? { messageId } : {}) });
 
   if (!request || typeof request !== 'object' ||
-      !isSafeId(request.actorId) || !isSafeId(request.projectId) ||
+      request.actorId !== 'saq-communication-agent' || !isSafeId(request.projectId) ||
       !isSafeId(request.recipientAgentId) || !isCycleId(request.cycleId) ||
       !validCount(request.counts?.verified) || !validCount(request.counts?.held) ||
       !validCount(request.counts?.failed) || !options.auditFilePath?.trim() ||
