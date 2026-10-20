@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdir, mkdtemp, open, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, open, readFile, rm, symlink, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { createVerifiedLocalSnapshot } from './saqlainBackupStorage.ts';
@@ -198,6 +198,32 @@ test('fails closed when the grant-consumption audit write fails before filesyste
       token: issued.token,
       incidentId: 'incident-consumption-audit-failure',
     }), /invalid, mismatched, or already used/i);
+  } finally {
+    await rm(ctx.root, { recursive: true, force: true });
+  }
+});
+
+
+test('rejects source/staging overlap hidden behind a symlinked parent', async () => {
+  const ctx = await setup();
+  const alias = join(ctx.root, 'source-alias');
+  try {
+    await symlink(ctx.snapshot.directory, alias, 'dir');
+    await assert.rejects(issueGousiyaEmergencyGrant({
+      state: ctx.state,
+      incidentId: 'incident-symlink-overlap',
+      recoveryAgentId: 'saq-recovery-agent',
+      sourceSnapshotDirectory: ctx.snapshot.directory,
+      // Lexically this looks like a separate path, but it resolves into source.
+      stagingRoot: join(alias, 'staging'),
+      reason: 'Symlink path isolation test',
+      ...approvals,
+    }), /source and staging paths must be disjoint/i);
+    assert.equal(ctx.state.grants.size, 0);
+    assert.deepEqual(
+      new Uint8Array(await readFile(join(ctx.snapshot.directory, 'project/source.txt'))),
+      ctx.bytes,
+    );
   } finally {
     await rm(ctx.root, { recursive: true, force: true });
   }
