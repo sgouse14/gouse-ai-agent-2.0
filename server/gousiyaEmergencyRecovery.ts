@@ -1,4 +1,5 @@
 import { createHash, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
+import { canonicalizePathForSafety, pathsOverlapByResolvedLocation } from './saqlainPathSafety.ts';
 import { appendDurableAuditEvent } from './saqlainAuditLog.ts';
 import { runRecoveryRehearsal, type RecoveryRehearsalResult } from './saqlainRecoveryAgent.ts';
 
@@ -87,20 +88,19 @@ export async function issueGousiyaEmergencyGrant(input: {
   if (!Number.isSafeInteger(ttlMs) || ttlMs < 1 || ttlMs > GOUSIYA_MAX_GRANT_TTL_MS) {
     throw new Error('Emergency grant TTL must be between 1 ms and 5 minutes.');
   }
-  // Do not permit overlapping source/staging paths. Recovery agent repeats this
-  // check before filesystem work; this early check also prevents issuing a grant.
-  const { resolve, relative, sep, isAbsolute } = await import('node:path');
-  const within = (parent: string, child: string) => {
-    const rel = relative(resolve(parent), resolve(child));
-    return rel === '' || (rel !== '..' && !rel.startsWith('..' + sep) && !isAbsolute(rel));
-  };
-  if (within(sourceSnapshotDirectory, stagingRoot) || within(stagingRoot, sourceSnapshotDirectory)) {
+  // Resolve existing path prefixes through realpath before overlap checks. This
+  // detects aliases introduced by symlinked parent directories, including when
+  // the staging or audit destination does not exist yet.
+  const canonicalSource = await canonicalizePathForSafety(sourceSnapshotDirectory);
+  const canonicalStaging = await canonicalizePathForSafety(stagingRoot);
+  const canonicalAudit = await canonicalizePathForSafety(input.state.auditFilePath);
+  if (pathsOverlapByResolvedLocation(canonicalSource, canonicalStaging)) {
     throw new Error('Emergency recovery source and staging paths must be disjoint.');
   }
-  if (within(sourceSnapshotDirectory, input.state.auditFilePath) || within(input.state.auditFilePath, sourceSnapshotDirectory)) {
+  if (pathsOverlapByResolvedLocation(canonicalSource, canonicalAudit)) {
     throw new Error('Emergency recovery source and audit paths must be disjoint.');
   }
-  if (within(stagingRoot, input.state.auditFilePath) || within(input.state.auditFilePath, stagingRoot)) {
+  if (pathsOverlapByResolvedLocation(canonicalStaging, canonicalAudit)) {
     throw new Error('Emergency recovery staging and audit paths must be disjoint.');
   }
   const grantId = randomUUID();
