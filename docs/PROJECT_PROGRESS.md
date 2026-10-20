@@ -11,13 +11,13 @@ This document separates features that are implemented and tested from integratio
 - **Overall project completion (planning estimate): approximately 60%.**
 - **Core feature implementation (planning estimate): approximately 74%.**
 - **Production readiness (planning estimate): approximately 43%.**
-- **EMP Attack Protector:** software readiness assessment, scoped security policy, durable audit, and regression tests added; CI verification and production monitoring integration remain pending.
+- **EMP Attack Protector:** software readiness assessment, scoped security policy, durable audit, and regression tests added; CI verification passed on commit `1e8fbbe57189a17d533e63e6f85104f2c44f225d`; production monitoring integration remains pending.
 
 - **Feature branch:** `feature/saqlain-cyber-agent`
 - **Pull request:** [#1 — remains draft/open](https://github.com/sgouse14/gouse-ai-agent-2.0/pull/1)
 - **Main branch:** unchanged by this work; no merge performed.
-- **Latest full successful code-validation run:** [GitHub Actions #39387764332](https://github.com/sgouse14/gouse-ai-agent-2.0/actions/runs/39387764332) — 150 tests passed; TypeScript check, production build, and Docker image build succeeded on code commit `bd91280aa5972e2ba2f8804cf420694e73311e00`.
-- A later documentation-only commit updates this progress/runbook information. Its workflow steps for tests, type-check, production build, and Docker completed successfully, but GitHub marked the overall run cancelled; use the successful full code-validation run above as the definitive green run.
+- **Latest fully successful validation of the EMP protector implementation:** [GitHub Actions #39391070770](https://github.com/sgouse14/gouse-ai-agent-2.0/actions/runs/39391070770) — 159 tests passed (0 failed); TypeScript check, production build, and Docker image build succeeded on code commit `1e8fbbe57189a17d533e63e6f85104f2c44f225d`.
+- Some superseded runs were cancelled as newer commits triggered the workflow's cancel-in-progress policy; run #39391070770 is the successful validation for the EMP feature implementation.
 
 ## Completed implementation
 
