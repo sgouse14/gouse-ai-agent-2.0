@@ -81,3 +81,18 @@ test('unauthenticated external activity is isolated rather than permitted', () =
   assert.equal(result.decision, 'block');
   assert.equal(result.threatAction, 'isolate');
 });
+
+test('EMP readiness assessment requires authenticated project scope', () => {
+  assert.equal(
+    evaluateSaqlainAction({ actionType: 'run_emp_protection_assessment', actorAuthenticated: false, projectId: 'project-1' }).decision,
+    'block',
+  );
+  assert.equal(
+    evaluateSaqlainAction({ actionType: 'run_emp_protection_assessment', actorAuthenticated: true }).decision,
+    'block',
+  );
+  assert.equal(
+    evaluateSaqlainAction({ actionType: 'run_emp_protection_assessment', actorAuthenticated: true, projectId: 'project-1' }).decision,
+    'allow',
+  );
+});
