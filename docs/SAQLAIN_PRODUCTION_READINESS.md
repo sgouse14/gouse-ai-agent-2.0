@@ -27,15 +27,16 @@ Required work:
 
 ## P1 — Before enabling operational security workflows
 
-### 3. Persist emergency grants and approval identity durably
+### 3. Emergency grants and approval identity
 
-The emergency-recovery grant state is explicitly in-memory. The grant-issuance function accepts owner/reviewer approval booleans; it does not itself establish who approved them. The grant module is not mounted as an HTTP route in `server.ts`, so keep it as an internal/testable workflow until an authenticated approval API and transactional store exist.
+**Implemented on the Saqlain feature branch; further production controls still required.** Grant issuance now requires separate owner/reviewer approval tokens validated by a required, server-injected verifier. The module validates identity distinction, role, decision, incident and path scope, token validity window, and stores grant state in a locked, atomic JSON file. Grant consumption and revocation persist before audit or filesystem recovery; malformed storage and lock conflicts fail closed. Tests now cover independent approval identities and replay rejection after a simulated restart.
 
-Required work:
-- Bind owner and independent-reviewer approvals to authenticated identities and durable, immutable approval records.
-- Use transactional, concurrency-safe single-use grant consumption.
-- Persist grant/revocation state across process restarts and multiple replicas.
-- Test concurrent replay, restart recovery, revocation races, and audit-store failure.
+Remaining work:
+- Integrate the approval verifier with the real identity provider and trusted authorization policy; do not use a permissive/test verifier in production.
+- Replace the single-host file adapter with a transactional shared database and atomic conditional consume before multi-process or multi-host use.
+- Add parallel-process race tests, restart tests for issued/revoked/expired records, storage corruption and filesystem crash-recovery tests.
+- Define approval-token revocation and replay policy in the authoritative identity/approval service.
+- Keep the grant module internal; it is not mounted as an HTTP route.
 
 ### 4. Persist verification and audit records reliably
 
