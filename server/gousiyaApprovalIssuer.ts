@@ -114,8 +114,8 @@ function parseSegment(segment: string): JsonObject {
   return value;
 }
 function validateSecret(secret: string): string {
-  if (typeof secret !== 'string' || Buffer.byteLength(secret, 'utf8') < 32) {
-    throw new Error('GOUSIYA_APPROVAL_SIGNING_SECRET must contain at least 32 bytes of high-entropy secret material.');
+  if (typeof secret !== 'string' || !/^[a-fA-F0-9]{64}$/.test(secret)) {
+    throw new Error('GOUSIYA_APPROVAL_SIGNING_SECRET must be a 64-character hexadecimal key generated from 32 random bytes.');
   }
   return secret;
 }
