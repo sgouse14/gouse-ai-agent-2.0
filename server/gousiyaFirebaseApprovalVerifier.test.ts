@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { generateKeyPairSync, sign as signRs256 } from 'node:crypto';
 import {
   createFirebaseGousiyaApprovalVerifier,
+  createFirebaseIdentityTokenAuthenticator,
   createFirebaseRestTokenActivityChecker,
 } from './gousiyaFirebaseApprovalVerifier.ts';
 import type { GousiyaApprovalScope } from './gousiyaEmergencyRecovery.ts';
@@ -233,4 +234,51 @@ test('Firebase REST checker fails closed when Identity Toolkit lookup fails', as
 
 test('Firebase REST checker requires an API key', () => {
   assert.throws(() => createFirebaseRestTokenActivityChecker({ apiKey: '' }), /Web API key is required/i);
+});
+
+
+test('authenticates a Firebase identity independently of approval-role claims', async () => {
+  let statusChecked = 0;
+  const authenticate = createFirebaseIdentityTokenAuthenticator({
+    projectId: 'test-firebase-project',
+    now: () => new Date(TEST_NOW),
+    fetchCertificates: async () => ({
+      certificates: { 'test-key-1': publicKeyPem },
+      cacheMaxAgeSeconds: 3600,
+    }),
+    verifyFirebaseTokenIsActive: async () => { statusChecked += 1; },
+  });
+  const identity = await authenticate(makeToken());
+  assert.equal(identity.uid, 'owner-user-123');
+  assert.equal(identity.authTime, NOW_SECONDS - 10);
+  assert.equal(statusChecked, 1);
+});
+
+test('rejects invalid Firebase identity signatures and failed account-status checks', async () => {
+  const signatureVerifier = createFirebaseIdentityTokenAuthenticator({
+    projectId: 'test-firebase-project',
+    now: () => new Date(TEST_NOW),
+    fetchCertificates: async () => ({
+      certificates: { 'test-key-1': publicKeyPem },
+      cacheMaxAgeSeconds: 3600,
+    }),
+    verifyFirebaseTokenIsActive: async () => undefined,
+  });
+  const valid = makeToken();
+  const parts = valid.split('.');
+  await assert.rejects(
+    signatureVerifier(parts[0] + '.' + parts[1] + '.' + Buffer.from('forged').toString('base64url'),),
+    /signature verification failed/i,
+  );
+
+  const revokedVerifier = createFirebaseIdentityTokenAuthenticator({
+    projectId: 'test-firebase-project',
+    now: () => new Date(TEST_NOW),
+    fetchCertificates: async () => ({
+      certificates: { 'test-key-1': publicKeyPem },
+      cacheMaxAgeSeconds: 3600,
+    }),
+    verifyFirebaseTokenIsActive: async () => { throw new Error('account disabled'); },
+  });
+  await assert.rejects(revokedVerifier(valid), /account disabled/i);
 });
