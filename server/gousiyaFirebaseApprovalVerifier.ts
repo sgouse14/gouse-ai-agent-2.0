@@ -157,6 +157,104 @@ async function fetchGoogleCertificates(): Promise<CertificateResponse> {
   return { certificates: body as Record<string, string>, cacheMaxAgeSeconds };
 }
 
+export interface FirebaseVerifiedIdentity {
+  uid: string;
+  authTime: number;
+  tokenIssuedAt: number;
+  tokenExpiresAt: number;
+}
+
+export interface FirebaseIdentityTokenAuthenticatorOptions {
+  projectId: string;
+  verifyFirebaseTokenIsActive: FirebaseTokenActivityVerifier;
+  fetchCertificates?: () => Promise<CertificateResponse>;
+  now?: () => Date;
+  maxAuthAgeSeconds?: number;
+}
+
+/**
+ * Verifies an ordinary Firebase ID token (no custom approval claim required),
+ * including cryptographic signature, project audience/issuer, expiration, recent
+ * authentication, and a trusted current-account/revocation check.
+ */
+export function createFirebaseIdentityTokenAuthenticator(
+  options: FirebaseIdentityTokenAuthenticatorOptions,
+): (token: string) => Promise<FirebaseVerifiedIdentity> {
+  const projectId = options.projectId?.trim();
+  if (!projectId || !/^[A-Za-z0-9:._-]+$/.test(projectId)) {
+    throw new Error('A valid Firebase project ID is required.');
+  }
+  if (typeof options.verifyFirebaseTokenIsActive !== 'function') {
+    throw new Error('A Firebase account-status and token-revocation checker is required.');
+  }
+  const maxAuthAgeSeconds = options.maxAuthAgeSeconds ?? 5 * 60;
+  if (!Number.isSafeInteger(maxAuthAgeSeconds) || maxAuthAgeSeconds < 1 || maxAuthAgeSeconds > 15 * 60) {
+    throw new Error('maxAuthAgeSeconds must be between 1 and 900 seconds.');
+  }
+  const fetchCertificates = options.fetchCertificates ?? fetchGoogleCertificates;
+  const now = options.now ?? (() => new Date());
+  let certificateCache: { certificates: Record<string, string>; expiresAt: number } | undefined;
+
+  async function getCertificates(): Promise<Record<string, string>> {
+    const currentTime = now().getTime();
+    if (certificateCache && currentTime < certificateCache.expiresAt) return certificateCache.certificates;
+    const result = await fetchCertificates();
+    if (!result || !isObject(result.certificates) || Object.keys(result.certificates).length === 0 ||
+        !Number.isSafeInteger(result.cacheMaxAgeSeconds) ||
+        result.cacheMaxAgeSeconds < 1 || result.cacheMaxAgeSeconds > MAX_CERTIFICATE_CACHE_SECONDS ||
+        Object.values(result.certificates).some(value => typeof value !== 'string' || !value.includes('BEGIN '))) {
+      throw new Error('Firebase signing certificate response is invalid.');
+    }
+    certificateCache = {
+      certificates: result.certificates,
+      expiresAt: currentTime + result.cacheMaxAgeSeconds * 1000,
+    };
+    return certificateCache.certificates;
+  }
+
+  return async (token: string): Promise<FirebaseVerifiedIdentity> => {
+    if (typeof token !== 'string' || token.length < 20 || token.length > MAX_TOKEN_LENGTH) {
+      throw new Error('A valid Firebase ID token is required.');
+    }
+    const parts = token.split('.');
+    if (parts.length !== 3) throw new Error('Malformed Firebase ID token.');
+    const header = parseSegment(parts[0]);
+    const claims = parseSegment(parts[1]);
+    if (header.alg !== 'RS256' || header.typ !== 'JWT' || typeof header.kid !== 'string' ||
+        !/^[A-Za-z0-9_-]{1,256}$/.test(header.kid)) {
+      throw new Error('Firebase ID token header is not accepted.');
+    }
+    const certificates = await getCertificates();
+    const certificate = certificates[header.kid];
+    if (!certificate) throw new Error('Firebase ID token signing key is unknown.');
+    try {
+      const signature = Buffer.from(parts[2], 'base64url');
+      if (!signature.length || !verifyRs256('RSA-SHA256', Buffer.from(parts[0] + '.' + parts[1]), createPublicKey(certificate), signature)) {
+        throw new Error('bad signature');
+      }
+    } catch {
+      throw new Error('Firebase ID token signature verification failed.');
+    }
+
+    const nowSeconds = Math.floor(now().getTime() / 1000);
+    const authTime = claims.auth_time;
+    const issuedAt = claims.iat;
+    const expiresAt = claims.exp;
+    if (claims.aud !== projectId ||
+        claims.iss !== 'https://securetoken.google.com/' + projectId ||
+        typeof claims.sub !== 'string' || !claims.sub.trim() || claims.sub.length > 128 ||
+        typeof expiresAt !== 'number' || !Number.isSafeInteger(expiresAt) || expiresAt <= nowSeconds ||
+        typeof issuedAt !== 'number' || !Number.isSafeInteger(issuedAt) || issuedAt > nowSeconds + CLOCK_SKEW_SECONDS ||
+        typeof authTime !== 'number' || !Number.isSafeInteger(authTime) ||
+        authTime > nowSeconds + CLOCK_SKEW_SECONDS || authTime > issuedAt ||
+        nowSeconds - authTime > maxAuthAgeSeconds) {
+      throw new Error('Firebase identity token is invalid, expired, or not recently authenticated.');
+    }
+    await options.verifyFirebaseTokenIsActive(token);
+    return { uid: claims.sub, authTime, tokenIssuedAt: issuedAt, tokenExpiresAt: expiresAt };
+  };
+}
+
 /**
  * Verifies Firebase Authentication ID tokens against Google's rotating Secure
  * Token signing certificates and Firebase issuer/audience/time claims. The
