@@ -222,20 +222,20 @@ export default defineConfig(({ mode }) => {
     .map((host) => host.trim())
     .filter(Boolean);
   return {
-  plugins: [
-    tailwindcss(),
-    react(),
-    apiMiddlewarePlugin(),
-  ],
-  server: {
-    host: '0.0.0.0',
-    port: 3000,
-    allowedHosts: allowedHosts.length > 0 ? allowedHosts : undefined,
-  },
-  preview: {
-    host: '0.0.0.0',
-    port: 3000,
-    allowedHosts: allowedHosts.length > 0 ? allowedHosts : undefined,
-  },
+    plugins: [
+      tailwindcss(),
+      react(),
+      apiMiddlewarePlugin(),
+    ],
+    server: {
+      host: '0.0.0.0',
+      port: 3000,
+      allowedHosts: allowedHosts.length > 0 ? allowedHosts : undefined,
+    },
+    preview: {
+      host: '0.0.0.0',
+      port: 3000,
+      allowedHosts: allowedHosts.length > 0 ? allowedHosts : undefined,
+    },
   };
 });
