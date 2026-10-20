@@ -92,11 +92,11 @@ Run `npm test` (or the repository's configured package-manager test command) to 
 
 ## Production blockers — do not treat as production-ready
 
-1. **Identity revocation check:** the new token verifier validates signatures and claims but does not call Firebase Admin Auth to check disabled users or revoked tokens. Add this server-side check before any production use.
-2. **Approval identity:** owner/reviewer booleans are caller supplied and are not cryptographic identity proof. Enforce authenticated role checks server-side and owner/reviewer separation.
-3. **Grant durability and concurrency:** grant state is in-memory, so restart loses grants and multiple replicas do not share state. Replace it with a transactional durable store and atomic compare-and-swap consumption before multi-process use.
+1. **Identity revocation check:** the token verifier checks Firebase token signatures and claims but does not call Firebase Admin Auth to check disabled accounts or revoked ID tokens. Add this server-side check before any production use.
+2. **Trusted approval issuance:** approval claims must be issued only by a trusted server-side service after authenticating the person, checking the authoritative owner/reviewer role, enforcing two-person separation, and binding approval to the exact incident and paths. Do not let client input set these custom claims.
+3. **Multi-host durability and concurrency:** grant status now survives restarts in a locked, atomic single-host file store. Replace it with a transactional shared database and atomic conditional consumption before deploying multiple hosts/replicas. Add parallel-process race and crash-recovery tests.
 4. **Audit durability/replication:** configure protected shared storage, off-host/WORM replication, alerting, retention, and key/incident procedures. Keep audit storage separately permissioned from source and staging.
 5. **Endpoint exposure:** no public emergency-recovery HTTP route is exposed. Keep it that way until the above controls, authentication, rate limits, and security tests have been implemented and reviewed.
-6. **Operational validation:** test concurrent replay, restart recovery, revocation races, audit-store unavailability/corruption, permissions, and staging isolation in a disposable environment.
+6. **Operational validation:** run the new approval-verifier/runtime tests along with the complete security test suite, type-check, build, concurrent replay, restart recovery, revocation races, audit-store unavailability/corruption, permissions and staging-isolation checks in a disposable environment.
 
 Until these blockers are closed and the complete CI/staging validation passes, use Gousiya for isolated rehearsals only, not as an operational production break-glass service.
