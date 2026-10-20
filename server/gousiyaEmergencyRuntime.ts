@@ -4,8 +4,7 @@ import {
 } from './gousiyaEmergencyRecovery.ts';
 import {
   createFirebaseGousiyaApprovalVerifier,
-  createFirebaseAdminTokenActivityChecker,
-  type FirebaseAdminAuthLike,
+  createFirebaseRestTokenActivityChecker,
 } from './gousiyaFirebaseApprovalVerifier.ts';
 
 function requiredEnv(env: NodeJS.ProcessEnv, key: string): string {
@@ -14,27 +13,18 @@ function requiredEnv(env: NodeJS.ProcessEnv, key: string): string {
   return value;
 }
 
-export interface ConfiguredGousiyaEmergencyRuntimeOptions {
-  env?: NodeJS.ProcessEnv;
-  /** A real Firebase Admin Auth instance. Its verifyIdToken method is called with checkRevoked=true. */
-  firebaseAdminAuth: FirebaseAdminAuthLike;
-}
-
 /**
- * Builds internal emergency-recovery state from explicit server configuration.
- * This deliberately does not mount or start an HTTP endpoint. There is no
- * default for the account-status checker: callers must wire the authoritative
- * server-side Firebase revocation check before this runtime can be constructed.
- * A shared transactional database is still required for multi-host deployments.
+ * Builds internal emergency-recovery state using a real Firebase account lookup
+ * for disabled-account and token-revocation checks. It does not mount an HTTP
+ * endpoint. The API key must be restricted to the Identity Toolkit API, and the
+ * approval custom claim must still be minted only by a trusted server service.
+ * A shared transactional database is required for multi-host deployments.
  */
 export function createConfiguredGousiyaEmergencyState(
-  options: ConfiguredGousiyaEmergencyRuntimeOptions,
+  env: NodeJS.ProcessEnv = process.env,
 ): GousiyaEmergencyState {
-  if (!options?.firebaseAdminAuth || typeof options.firebaseAdminAuth.verifyIdToken !== 'function') {
-    throw new Error('A Firebase Admin Auth instance is required for account-status and token-revocation checks.');
-  }
-  const env = options.env ?? process.env;
   const projectId = requiredEnv(env, 'FIREBASE_PROJECT_ID');
+  const firebaseApiKey = requiredEnv(env, 'FIREBASE_WEB_API_KEY');
   const auditFilePath = requiredEnv(env, 'GOUSIYA_AUDIT_FILE_PATH');
   const grantStoreFilePath = requiredEnv(env, 'GOUSIYA_GRANT_STORE_FILE_PATH');
   return createGousiyaEmergencyState({
@@ -42,7 +32,7 @@ export function createConfiguredGousiyaEmergencyState(
     grantStoreFilePath,
     verifyApprovalToken: createFirebaseGousiyaApprovalVerifier({
       projectId,
-      verifyFirebaseTokenIsActive: createFirebaseAdminTokenActivityChecker(options.firebaseAdminAuth),
+      verifyFirebaseTokenIsActive: createFirebaseRestTokenActivityChecker({ apiKey: firebaseApiKey }),
     }),
   });
 }
