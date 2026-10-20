@@ -22,6 +22,8 @@ export interface GousiyaEmergencyGrant {
 }
 interface StoredGrant extends GousiyaEmergencyGrant {
   tokenDigest: string;
+  ownerApprovalId: string;
+  reviewerApprovalId: string;
 }
 
 export interface GousiyaApprovalScope {
@@ -38,6 +40,8 @@ export interface GousiyaApprovalScope {
  * Never implement this verifier by trusting request-body fields.
  */
 export interface VerifiedGousiyaApproval {
+  /** Unique, signed approval ID (for example JWT jti) supplied by the trusted verifier. */
+  approvalId: string;
   subject: string;
   role: GousiyaApproverRole;
   decision: 'APPROVE' | 'DENY';
@@ -120,7 +124,9 @@ function validStoredGrant(value: unknown): value is StoredGrant {
     typeof item.issuedAt === 'string' && Number.isFinite(Date.parse(item.issuedAt)) &&
     typeof item.expiresAt === 'string' && Number.isFinite(Date.parse(item.expiresAt)) &&
     ['ISSUED', 'CONSUMED', 'REVOKED', 'EXPIRED'].includes(String(item.status)) &&
-    typeof item.tokenDigest === 'string' && /^[a-f0-9]{64}$/.test(item.tokenDigest);
+    typeof item.tokenDigest === 'string' && /^[a-f0-9]{64}$/.test(item.tokenDigest) &&
+    typeof item.ownerApprovalId === 'string' && item.ownerApprovalId.length > 0 &&
+    typeof item.reviewerApprovalId === 'string' && item.reviewerApprovalId.length > 0;
 }
 
 async function readGrantStore(path: string): Promise<Map<string, StoredGrant>> {
@@ -226,7 +232,8 @@ function validateApproval(
 ): void {
   const issuedAt = Date.parse(approval.issuedAt);
   const expiresAt = Date.parse(approval.expiresAt);
-  if (!approval.subject?.trim() || approval.role !== expectedRole || approval.decision !== 'APPROVE' ||
+  if (!approval.approvalId?.trim() || !approval.subject?.trim() ||
+      approval.role !== expectedRole || approval.decision !== 'APPROVE' ||
       approval.incidentId !== scope.incidentId ||
       approval.recoveryAgentId !== scope.recoveryAgentId ||
       approval.sourceSnapshotDirectory !== scope.sourceSnapshotDirectory ||
@@ -324,12 +331,37 @@ export async function issueGousiyaEmergencyGrant(input: {
     grantId, incidentId, recoveryAgentId, sourceSnapshotDirectory, stagingRoot,
     issuedAt: now.toISOString(), expiresAt: new Date(now.getTime() + ttlMs).toISOString(),
     status: 'ISSUED', tokenDigest: digest(token),
+    ownerApprovalId: ownerApproval.approvalId,
+    reviewerApprovalId: reviewerApproval.approvalId,
   };
 
-  await withGrantTransaction(input.state, async (grants) => {
+  const approvalReplay = await withGrantTransaction(input.state, async (grants) => {
+    const approvalAlreadyUsed = [...grants.values()].some(existing =>
+      existing.ownerApprovalId === ownerApproval.approvalId ||
+      existing.reviewerApprovalId === ownerApproval.approvalId ||
+      existing.ownerApprovalId === reviewerApproval.approvalId ||
+      existing.reviewerApprovalId === reviewerApproval.approvalId,
+    );
+    if (approvalAlreadyUsed) return { value: true, persist: false };
     grants.set(grantId, grant);
-    return { value: undefined, persist: true };
+    return { value: false, persist: true };
   });
+  if (approvalReplay) {
+    await audit(input.state, {
+      eventType: 'GOUSIYA_EMERGENCY_GRANT_DENIED',
+      actorId: ownerApproval.subject,
+      outcome: 'DENY',
+      resource: incidentId,
+      occurredAt: now.toISOString(),
+      details: {
+        reason: 'Approval identifier was already used and cannot authorize another grant.',
+        ownerApprovalId: ownerApproval.approvalId,
+        independentReviewerApprovalId: reviewerApproval.approvalId,
+        productionPromotionAllowed: false,
+      },
+    });
+    throw new Error('Approval token has already been used.');
+  }
   // Persist grant state first. If audit persistence fails, the token is not
   // returned to the caller; the stored short-lived grant is therefore unusable.
   await audit(input.state, {
@@ -348,7 +380,12 @@ export async function issueGousiyaEmergencyGrant(input: {
     },
   });
 
-  const { tokenDigest: _secret, ...publicGrant } = grant;
+  const {
+    tokenDigest: _secret,
+    ownerApprovalId: _ownerApprovalId,
+    reviewerApprovalId: _reviewerApprovalId,
+    ...publicGrant
+  } = grant;
   return { grant: Object.freeze({ ...publicGrant }), token };
 }
 
