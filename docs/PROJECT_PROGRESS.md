@@ -2,89 +2,102 @@
 
 Updated: 2026-10-20
 
-## Current status
+## Status summary
 
-**Implementation status: active development; not production-ready.**
+**Active development — not production-ready.** Today's completed implementation and validation are recorded separately from work planned for tomorrow. Items under tomorrow's plan are not marked complete until implemented, tested, and reviewed.
 
-This document separates features that are implemented and tested from integration and deployment work that remains. The percentages below are rough planning estimates, not measured code coverage or a CI metric; the repository has no single metric that can accurately express whole-project completion.
-
-- **Overall project completion (planning estimate): approximately 60%.**
-- **Core feature implementation (planning estimate): approximately 74%.**
-- **Production readiness (planning estimate): approximately 43%.**
-- **EMP Attack Protector:** software readiness assessment, scoped security policy, durable audit, and regression tests added; CI verification passed on commit `1e8fbbe57189a17d533e63e6f85104f2c44f225d`; production monitoring integration remains pending.
-
+- **Overall project completion:** approximately 60% (planning estimate)
+- **Core feature implementation:** approximately 74% (planning estimate)
+- **Production readiness:** approximately 43% (planning estimate)
+- These are estimates, not measured code coverage or a precise issue-count calculation.
 - **Feature branch:** `feature/saqlain-cyber-agent`
-- **Pull request:** [#1 — remains draft/open](https://github.com/sgouse14/gouse-ai-agent-2.0/pull/1)
-- **Main branch:** unchanged by this work; no merge performed.
-- **Latest fully successful validation of the EMP protector implementation:** [GitHub Actions #39391070770](https://github.com/sgouse14/gouse-ai-agent-2.0/actions/runs/39391070770) — 159 tests passed (0 failed); TypeScript check, production build, and Docker image build succeeded on code commit `1e8fbbe57189a17d533e63e6f85104f2c44f225d`.
-- Some superseded runs were cancelled as newer commits triggered the workflow's cancel-in-progress policy; run #39391070770 is the successful validation for the EMP feature implementation.
+- **Pull request:** [#1 — open and draft](https://github.com/sgouse14/gouse-ai-agent-2.0/pull/1)
+- **Main branch:** unchanged; no merge performed.
 
-## Completed implementation
+## Completed today — 20 October 2026
 
-The items below are implemented in the feature branch and covered by the repository test/build pipeline where noted. “Implemented” does not by itself mean production deployment or external-service validation is complete.
+### Security and governance
+- [x] Saqlain defensive security policy, protected-source/export boundaries, and blocks for destructive actions and external retaliation.
+- [x] Gatekeeper policy checks for identity, credentials, platform binding, and allowed scopes, with fail-closed behavior.
+- [x] Agent identity primitives: cryptographically random 128-bit binary IDs, stable agent keys, registration helpers, suspension/rotation helpers, current-ID checks, and no-reuse ledger contract.
+- [x] Verification chain with ordered 11-step review, evidence-backed checks, HOLD/re-review, rejection handling, and audit reconstruction.
+- [x] Scoped security policy for protected EMP-readiness assessments.
 
-| Area | Completed implementation |
-|---|---|
-| Saqlain security policy | Defensive security decision flows; protected-source/export boundaries; destructive deletion/overwrite and external retaliation are denied by policy. |
-| Task Queue Manager | Task ownership/locking, durable queue-store components, timeout review controls, retry-safe requeue/fail decisions, and audit-before-mutation behavior. |
-| Agent identity primitives | Owner-approved registration helpers, cryptographically random 128-bit binary IDs, stable agent keys, suspension/rotation helpers, current-ID validation, and no-reuse ledger contract. |
-| Gatekeeper | API boundary and credential/scope policy evaluation; registered current binary ID and platform-bound credentials; durable audit before returning a decision; fail-closed configuration. |
-| Verification chain | Ordered, evidence-backed 11-step verification flow, HOLD/re-review behavior, rejection handling, protected route controls, and audit-log reconstruction. |
-| Backup manifests/storage | SHA-256 manifest verification, traversal/symlink and duplicate-path checks, exclusive local snapshots, read-back verification, tamper detection, and retention of incomplete snapshots for investigation. |
-| Approved backup source adapter | Explicit allowlisted source roots, read-only snapshot handling, symlink/special-file rejection, and bounded file/byte processing. |
-| Five-agent backup/recovery cycle | Four backup roles plus one Recovery Agent, task/snapshot integration, non-overlapping cycle protection, audit-aware failure handling, and recovery rehearsal into separate staging without overwriting originals. |
-| Continuous runtime | In-process 30-minute backup/recovery scheduling, start/stop/manual cycle APIs, cycle IDs that avoid reuse across restarts, and a configured backup-service entry point with shutdown handling. |
-| Saqlain monitoring | Audited 30-minute monitoring runtime, health/hold/failure classification, serialized cycles, and fail-closed behavior on collector/audit failures. |
-| Audit log | Hash-chained JSONL audit records, exclusive writer locking, fsync, history-integrity verification, and tamper detection. The log is not immutable against privileged OS users and is not yet replicated off-host. |
-| Gousiya emergency recovery | Short-lived single-use grants; owner and independent-reviewer approval requirements; checksum-verified, isolated staging-only rehearsal; audit and recovery safety checks; durable single-host grant state with locking and atomic file replacement. No production promotion or public recovery endpoint. |
-| Firebase identity validation | Firebase ID-token signature/issuer/audience/expiry/recent-authentication validation plus Identity Toolkit account status checks, UID match, disabled-account rejection, and `validSince` revocation-boundary checks. |
-| Trusted approval issuer | Internal issuer validates Firebase identity, checks a protected owner-managed role registry, and issues short-lived HMAC-SHA256 approval attestations bound to the incident, recovery agent, source snapshot, and staging root. Client-supplied roles/custom claims are not trusted as approval authority. Issuance is durably audited before the token is returned. |
-| Approver registry hardening | Registry must be a regular non-symlink file with owner-only permissions, inside a regular non-symlink parent directory with owner-only permissions. Regression tests cover insecure permissions. |
-| Regression testing / CI | Saqlain and Gousiya security unit/integration tests run through the standard `bun run test` workflow; latest fully successful code validation ran 150 tests with zero failures, and passed TypeScript, production build, and Docker build. |
-| EMP Attack Protector | Three-layer software-only EMP readiness and incident-triage module: resilience/readiness checks, reported-symptom assessment, and recovery readiness; protected project-scoped Saqlain policy integration; server-side authorization callback; durable hash-chained audit; fail-closed HOLD on audit errors. Regression tests added; CI for this change is pending. It does not physically detect EMP events or operate hardware. |
-| Documentation/configuration | Backup, monitoring, emergency recovery, EMP protection, production-readiness, environment-template, and project-progress documentation are present and updated on the feature branch. |
+### Task queue, backup, and recovery
+- [x] Task Queue Manager ownership/locking, timeout review, retry-safe requeue/fail decisions, and audit-before-mutation behavior.
+- [x] Single-host durable queue-store components and operator review controls.
+- [x] Four backup roles plus the Recovery Agent in a five-agent backup/recovery cycle.
+- [x] SHA-256 backup manifests, traversal/symlink/special-file/duplicate-path checks, exclusive local snapshots, read-back verification, and tamper detection.
+- [x] Allowlisted read-only backup source adapter with bounded processing.
+- [x] In-process 30-minute backup/recovery scheduling, manual/start/stop controls, non-overlapping cycles, cycle IDs, and shutdown handling.
+- [x] Recovery rehearsal into separate staging; no overwriting originals and no automatic production promotion.
+- [x] Saqlain 30-minute monitoring runtime with health/hold/failure classification and fail-closed behavior on critical collector/audit failures.
 
-## Partially implemented — integration or operations required
+### Audit, identity, and emergency approval
+- [x] Hash-chained JSONL audit log, exclusive writer lock, fsync, history-integrity verification, and tamper detection.
+- [x] Firebase ID-token validation for signature, issuer, audience, expiry, recent authentication, account status, UID match, disabled users, and revocation boundary.
+- [x] Internal Gousiya approval issuer backed by a protected owner-managed role registry, signed short-lived scoped attestations, and audit-before-token-return.
+- [x] Approver registry file and parent-directory permission checks; no public approval or emergency-recovery HTTP endpoint.
+- [x] Gousiya short-lived single-use grants with durable locked/atomic single-host store and staging-only recovery rehearsal.
 
-| Area | Current state | Remaining work |
-|---|---|---|
-| Agent identity registry | Identity and ID rotation logic exists; registry contract is defined. | Atomic durable persistence of agent records, issued-ID ledger, task state, and audit in a transactional store; wire fully into live task/API mutation paths. |
-| Gatekeeper deployment | Gatekeeper router and protected registry/credential checks exist. | Secret-manager integration, atomic credential/registry rotation and revocation, request rate limits/replay controls, off-host audit, and review of every sensitive application route. |
-| Task queue | Durable single-host store and operator review API exist. | Shared transactional storage for multiple instances, end-to-end worker liveness, crash/restart reconciliation, concurrency tests, and operational alerts. |
-| Backup/recovery service | In-process 30-minute scheduler and service entry point exist. | Run under a production supervisor; durable cycle/task state; configure trusted source roots and off-host/versioned storage; health monitoring/alerts; test restore drills with an operator. |
-| Verification chain | API and ordered review logic exist. | Transactional shared state, secret-manager-backed token lifecycle, re-review scheduling, off-host/WORM audit, limits/monitoring, and staging validation. |
-| Emergency approver governance | Issuer and protected role registry are implemented. | Establish a reviewed process to validate the real people/roles, provision/deprovision UIDs, rotate and recover the signing key, and protect/restore registry backups. Test revocation behavior against the actual Firebase project. |
-| Emergency grants | Durable locked/atomic single-host grant file. | Replace with a transactional shared database and atomic conditional consume before multi-process/multi-host deployment; add concurrent replay, crash, restart, corruption, and revocation-race tests. |
-| Audit durability | Local hash chain, writer lock, fsync and integrity checks. | Off-host/WORM replication, independent permissions, retention, alerting, recovery procedures, and controls for privileged OS-level tampering. |
-| External API/credential gateway | Policy/credential verification building blocks exist; not a complete production external-integration layer. | Define and test issuance, rotation, revocation, quota/permission enforcement, token ledger/exchange, and end-to-end external platform bindings. |
-| EMP protection operations | The software-only readiness/triage advisor is implemented in the feature branch. | Wire trusted sensor/operations inputs into the monitoring runtime; define signal freshness; complete site-level shielding/EMC, surge, power continuity, off-line backup, spare hardware, and alternate-communications validation with qualified operators; test escalation and recovery drills. |
+### EMP Attack Protector
+- [x] Layer 1 — resilience/readiness checklist for documented shielding/EMC assessment, surge protection, and offline backups.
+- [x] Layer 2 — reported-symptom triage for power loss, unexpected restarts, communications loss, unusual electrical damage, and multiple systems unavailable.
+- [x] Layer 3 — recovery readiness for runbook drills, spare hardware, and alternative communications.
+- [x] Server-side project-authorization callback and existing Saqlain policy check.
+- [x] Durable hash-chained audit; assessment output is withheld if audit persistence fails.
+- [x] Regression tests for ready/degraded states, reported observations, authorization denial/errors, malformed input, and audit failure.
+- [x] Documented safety boundary: EMP protector is a software readiness/triage advisor, not a physical EMP detector and does not control hardware.
 
-## Not completed — do not describe as production-ready
+### Testing, build, and documentation
+- [x] Regression tests are included in the normal test command.
+- [x] GitHub Actions [run #39391310749](https://github.com/sgouse14/gouse-ai-agent-2.0/actions/runs/39391310749) passed for the current feature-branch head: 159 tests passed, 0 failed; TypeScript check, frontend/server production build, and Docker image build all succeeded.
+- [x] Updated environment template and backup, monitoring, emergency recovery, EMP protection, production-readiness, and project-progress documentation.
 
-- Application-wide authentication and server-side tenant/project authorization for all private Express routes. Existing Saqlain-specific security modules do not automatically secure every application route.
-- Production deployment and supervised 24/7 operation, including durable job state, heartbeats, monitoring from an independent host, and paging/alerting.
-- Shared transactional database for multi-instance queue, identity, and emergency grant state.
-- Off-host immutable/WORM audit replication and tested incident-response/retention procedures.
-- Global and per-user/IP rate limiting, bounded concurrency, quotas, provider/network timeouts, and abuse controls across provider-backed endpoints.
-- Production secret-manager integration and reviewed signing-key/approver-registry lifecycle.
-- Live Firebase integration tests for disabled accounts and revoked tokens in the configured project.
-- End-to-end staging deployment, penetration testing, load/stress testing, disk-full/audit-lock/concurrent-cycle fault injection, and operator-run recovery drills.
-- Physical EMP detection, confirmed EMP attribution, and hardware-control automation; the EMP module only assesses readiness and operator/monitor-reported symptoms.
-- Operational approval for any production restore. Gousiya remains staging-only and must not auto-promote recovery output.
-- Final production security review and sign-off.
+> Passing CI validates the tested code paths and build, not real-world physical EMP protection, production deployment, a penetration test, or security certification.
 
-## Safety and branch boundary
+## Planned for tomorrow — 21 October 2026
 
-The security agents, Gatekeeper, verification chain, backup agents, Recovery Agent, and Gousiya are intended to remain inside the Gouse AI security boundary. External agents may only receive approved, scoped access; they must not receive unrestricted internal privileges.
+These are the remaining tasks to pick up tomorrow. They are **not yet complete**. Work should be implemented in small changes and revalidated after each meaningful step.
 
-The latest approval issuer remains an internal code module. **No public approval or emergency-recovery HTTP endpoint has been added.** The grant store is currently single-host and is not safe to treat as a distributed transactional database.
+### Priority 1 — identity, authorization, and approval configuration
+- [ ] Validate Firebase disabled-account and revoked-token behavior against the actual configured project.
+- [ ] Confirm real approver UID/role assignments and document the approval registry's add/remove/recovery process.
+- [ ] Set up production secret-manager integration and signing-key rotation/recovery procedures.
+- [ ] Review all private Express routes for application-wide authentication and server-side tenant/project authorization.
 
-Pull request #1 remains open and draft for review. **Do not merge to `main` until the outstanding security and deployment blockers are reviewed and validated.**
+### Priority 2 — shared durable state and reliability
+- [ ] Design and integrate transactional shared storage for agent identity records, issued-ID ledger, task queue, and emergency grants.
+- [ ] Add atomic grant consumption suitable for multi-instance deployments; retain single-host constraints until then.
+- [ ] Test concurrency, parallel replay, crashes, restarts, corruption, and reconciliation.
+- [ ] Add worker liveness checks and durable job/cycle state.
 
-## Recommended remaining order
+### Priority 3 — backup, monitoring, and EMP operations
+- [ ] Run backup and monitoring services under a production supervisor.
+- [ ] Configure trusted source roots and off-host/versioned backup storage.
+- [ ] Add independent health checks, alerts, paging, and operational ownership.
+- [ ] Wire the EMP protector to trusted monitoring/operations inputs; define signal freshness and escalation criteria.
+- [ ] Validate shielding/EMC, surge protection, power continuity, offline backups, spare hardware, and alternate communications with qualified site operators.
+- [ ] Conduct supervised recovery and restore drills; no automatic production promotion.
 
-1. Configure real Firebase identity/account-status checks and verify approver UID/role assignments; document and review the registry/signing-key lifecycle.
-2. Replace single-host identity, queue, and grant persistence with transactional storage; add concurrency, restart, crash, and corruption tests.
-3. Deploy backup/monitoring runtimes under supervision with durable state, off-host versioned backups, independent alerts, and a controlled restore drill.
-4. Add application-wide authentication, tenant/project authorization, rate limiting, quotas, concurrency bounds, and timeouts.
-5. Configure off-host/WORM audit replication and alerting; wire the EMP protector to trusted operational signals and validate physical resilience with qualified operators; then run staging integration, failure/load testing, and a formal security review.
+### Priority 4 — audit and application-wide abuse controls
+- [ ] Replicate audit records off-host, preferably to immutable/WORM storage, with independent permissions, retention, alerts, and recovery procedures.
+- [ ] Add global/per-user/IP rate limits, request/replay controls, bounded concurrency, quotas, payload ceilings, and provider/network timeouts.
+- [ ] Complete external API/credential gateway behavior for issuance, rotation, revocation, scoped authorization, quota enforcement, and end-to-end integrations.
+
+### Priority 5 — production validation and sign-off
+- [ ] Deploy to a staging environment and run end-to-end integration tests.
+- [ ] Perform penetration testing, load/stress testing, and failure-injection tests (including disk-full, audit-lock, concurrent-cycle, and external-provider failures).
+- [ ] Review incident response, retention, alerting, and operator playbooks.
+- [ ] Complete a formal security review and production-readiness sign-off.
+
+**Planning note:** This is a prioritized next-day work queue, not a promise that every large integration or independent security review can be completed in one day. Anything not completed tomorrow stays open and is rescheduled honestly.
+
+## Release boundary
+
+- PR #1 remains open and draft.
+- `main` remains unchanged.
+- Gousiya remains staging-only; no recovery output should be automatically promoted to production.
+- The EMP protector does not confirm that an EMP occurred and does not control physical equipment.
+- The local hash-chained audit log is not immutable against privileged OS users and is not replicated off-host yet.
+- Do not describe the whole project as production-ready until the application-wide security, deployment, reliability, staging, and review work above is completed and validated.
