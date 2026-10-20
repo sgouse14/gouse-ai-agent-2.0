@@ -27,7 +27,9 @@ Updated: 2026-10-20
 - [x] Task Queue Manager ownership/locking, timeout review, retry-safe requeue/fail decisions, and audit-before-mutation behavior.
 - [x] Single-host durable queue-store components and operator review controls.
 - [x] Four backup roles plus the Recovery Agent in a five-agent backup/recovery cycle.
-- [x] Dedicated Communication Agent added as a separate role in the six-role cycle; prepares a sanitized internal status report only, follows fixed internal review routing, requires scoped Saqlain policy authorization, and never sends unconfigured external messages.
+- [x] Dedicated Communication Agent added as a separate role in the six-role cycle; prepares sanitized cycle summaries and supports optional outbound status messages to operator-allowlisted remote-agent IDs.
+- [x] External messages are fixed-schema status envelopes only; sending requires trusted actor/project authorization, explicit approval, a configured transport adapter, and a successful pre-send audit record.
+- [x] Remote agents are not imported, invited, registered, provisioned, or granted Gouse AI access; no inbound remote-command path is added.
 - [x] SHA-256 backup manifests, traversal/symlink/special-file/duplicate-path checks, exclusive local snapshots, read-back verification, and tamper detection.
 - [x] Allowlisted read-only backup source adapter with bounded processing.
 - [x] In-process 30-minute backup/recovery scheduling, manual/start/stop controls, non-overlapping cycles, cycle IDs, and shutdown handling.
@@ -51,9 +53,10 @@ Updated: 2026-10-20
 - [x] Documented safety boundary: EMP protector is a software readiness/triage advisor, not a physical EMP detector and does not control hardware.
 
 ### Testing, build, and documentation
-- [x] Regression tests for the Communication Agent are included in the normal test command.
+- [x] Regression tests for the Communication Agent and outbound communication boundary are included in the normal test command.
 - [x] GitHub Actions [run #39391310749](https://github.com/sgouse14/gouse-ai-agent-2.0/actions/runs/39391310749) passed on the pre-Communication-Agent code: 159 tests passed, 0 failed; TypeScript check, frontend/server production build, and Docker image build all succeeded.
-- [ ] Run full CI again after Communication Agent integration; the new tests and full build must pass before treating this addition as validated.
+- [ ] Confirm the latest CI run passes tests, TypeScript, production build, and Docker build after external-message/runtime integration.
+- [ ] Configure and stage-test actual approved recipient IDs and a trusted transport adapter before enabling external delivery; no real endpoint or credential is configured in this repository.
 - [x] Updated environment template and backup, monitoring, emergency recovery, EMP protection, production-readiness, and project-progress documentation.
 
 > Passing CI validates the tested code paths and build, not real-world physical EMP protection, production deployment, a penetration test, or security certification.
@@ -86,6 +89,7 @@ These are the remaining tasks to pick up tomorrow. They are **not yet complete**
 - [ ] Replicate audit records off-host, preferably to immutable/WORM storage, with independent permissions, retention, alerts, and recovery procedures.
 - [ ] Add global/per-user/IP rate limits, request/replay controls, bounded concurrency, quotas, payload ceilings, and provider/network timeouts.
 - [ ] Complete external API/credential gateway behavior for issuance, rotation, revocation, scoped authorization, quota enforcement, and end-to-end integrations.
+- [ ] Configure the Communication Agent's remote-agent allowlist and vetted transport adapter, with endpoint-specific authentication, delivery receipts, rate limits, timeout/retry rules, and staging tests.
 
 ### Priority 5 — production validation and sign-off
 - [ ] Deploy to a staging environment and run end-to-end integration tests.
