@@ -47,15 +47,17 @@ Updated: 2026-10-20
 - [x] Layer 1 — resilience/readiness checklist for documented shielding/EMC assessment, surge protection, and offline backups.
 - [x] Layer 2 — reported-symptom triage for power loss, unexpected restarts, communications loss, unusual electrical damage, and multiple systems unavailable.
 - [x] Layer 3 — recovery readiness for runbook drills, spare hardware, and alternative communications.
+- [x] Defensive EMP incident-response plan for trusted reported attack/tampering indicators: preserve evidence, alert authorized operators, recommend approved local containment, use independent communications, verify offline backups, and recover only after approval.
+- [x] Explicit non-retaliation boundary: no reverse attack, external targeting, destructive response, or automatic containment; the module recommends defensive steps only.
 - [x] Server-side project-authorization callback and existing Saqlain policy check.
 - [x] Durable hash-chained audit; assessment output is withheld if audit persistence fails.
-- [x] Regression tests for ready/degraded states, reported observations, authorization denial/errors, malformed input, and audit failure.
+- [x] Regression tests for ready/degraded states, reported observations, defensive response recommendations, non-retaliation constants, unknown threat indicators, authorization denial/errors, malformed input, and audit failure.
 - [x] Documented safety boundary: EMP protector is a software readiness/triage advisor, not a physical EMP detector and does not control hardware.
 
 ### Testing, build, and documentation
 - [x] Regression tests for the Communication Agent and outbound communication boundary are included in the normal test command.
 - [x] GitHub Actions [run #39391310749](https://github.com/sgouse14/gouse-ai-agent-2.0/actions/runs/39391310749) passed on the pre-Communication-Agent code: 159 tests passed, 0 failed; TypeScript check, frontend/server production build, and Docker image build all succeeded.
-- [ ] Confirm the latest CI run passes tests, TypeScript, production build, and Docker build after external-message/runtime integration.
+- [ ] Confirm the latest CI run passes tests, TypeScript, production build, and Docker build after external-message/runtime and EMP incident-response updates.
 - [ ] Configure and stage-test actual approved recipient IDs and a trusted transport adapter before enabling external delivery; no real endpoint or credential is configured in this repository.
 - [x] Updated environment template and backup, monitoring, emergency recovery, EMP protection, production-readiness, and project-progress documentation.
 
