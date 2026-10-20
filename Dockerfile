@@ -1,8 +1,24 @@
-FROM python:3.12-slim
+FROM node:22-bookworm-slim AS build
 WORKDIR /app
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+
+COPY package.json bun.lock ./
+RUN npm install --global bun && bun install --frozen-lockfile
+
 COPY . .
-RUN mkdir -p data/uploads
-EXPOSE 8000
-CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000"]
+RUN bun run build
+
+FROM node:22-bookworm-slim AS runtime
+ENV NODE_ENV=production
+ENV PORT=3000
+WORKDIR /app
+
+RUN npm install --global bun
+COPY package.json bun.lock ./
+RUN bun install --frozen-lockfile --production && npm cache clean --force
+
+COPY --from=build --chown=node:node /app/dist ./dist
+RUN chown -R node:node /app
+
+USER node
+EXPOSE 3000
+CMD ["node", "dist/server.cjs"]
