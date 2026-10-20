@@ -1,80 +1,98 @@
-# Gouse AI Agent 2.0
+# Gouse AI Agent 2.0 — Saqlain Cyber Agent
 
-Gouse AI is a clean, extensible AI business assistant with a Python agent core, persistent local memory, REST API, and browser chat interface.
+An architecture and construction intelligence workspace with a defensive cybersecurity layer. The active application uses React, TypeScript, Vite, Express, and Gemini integrations.
 
-## Features
+## Core application
 
-- AI business assistant core
-- Conversation history
-- Persistent JSON memory
-- OpenAI provider adapter
-- FastAPI backend
-- Browser chat interface
-- Health and memory API endpoints
-- Automated core tests
+- Architecture and construction specialist chat
+- Project intelligence and bill-of-quantities (BOQ) workflows
+- Construction material and professional-search integrations
+- Voice processing and translation endpoints
+- Construction-site visual review
+- Browser workspace with an Express API
 
-## Project structure
+## Saqlain AI security layer
 
-```text
-gouse-ai-agent-2.0/
-├── gouse_ai/
-│   ├── core.py
-   ├── memory.py
-   ├── openai_client.py
-   └── prompts.py
-├── server/
-│   ├── saqlainSecurity.ts
-│   ├── saqlainSecurityPolicy.ts
-│   └── saqlainTeam.ts
-├── docs/
-│   └── SAQLAIN_SECURITY_TEAM.md
-├── static/
-├── tests/
-├── app.py
-├── main.py
-└── requirements.txt
-```
+The Saqlain feature branch adds security-domain types, defensive agent coordination, a security dashboard, verification/audit workflows, backup integrity checks, and task-queue monitoring.
 
-## Setup
+Security behavior is designed to detect, explain, recommend, and audit—not to silently perform destructive mutations. Protected source programs and backup evidence must remain intact. Recovery rehearsals stage verified copies separately and do not authorize automatic promotion to production.
+
+Key references:
+- [Saqlain Security Team](docs/SAQLAIN_SECURITY_TEAM.md)
+- [Security policies](docs/SAQLAIN_SECURITY.md)
+- [Gatekeeper](docs/SAQLAIN_GATEKEEPER.md)
+- [Recovery Agent](docs/SAQLAIN_RECOVERY_AGENT.md)
+- [Secure Backup Agent](docs/SAQLAIN_SECURE_BACKUP_AGENT.md)
+- [Gousiya Emergency Recovery](docs/GOUSIYA_EMERGENCY_RECOVERY.md)
+- [Project progress](docs/PROJECT_PROGRESS.md)
+
+## Requirements
+
+- Node.js 22 or newer supported LTS
+- Bun (lockfile-based installation)
+- Gemini API key for AI-backed features
+
+## Quick start
 
 ```bash
-python -m venv .venv
+bun install --frozen-lockfile
+cp .env.example .env
 ```
 
-Windows:
+On Windows PowerShell, use `Copy-Item .env.example .env` instead of `cp`.
+
+Set `GEMINI_API_KEY` in `.env`. Configure optional provider keys only when you use those integrations. Never commit `.env` or API credentials.
+
+Start development:
 
 ```bash
-.venv\Scripts\activate
-pip install -r requirements.txt
-copy .env.example .env
+bun run dev
 ```
 
-Add your `OPENAI_API_KEY` to `.env`.
+Open http://localhost:3000.
 
-## Run the web application
+## Verification commands
 
 ```bash
-uvicorn app:app --reload
+bun run test
+bun run lint
+bun run build
 ```
 
-Open `http://127.0.0.1:8000` in your browser.
+The security test suite covers task ownership and transitions, audit records, gatekeeper workflows, agent identity and heartbeat, verification chains, backup integrity, and isolated recovery staging.
 
-## Run the command-line agent
+## Production
 
 ```bash
-python main.py
+bun run build
+bun start
 ```
 
-## Test
+The build creates static frontend assets and bundles the Express server to `dist/server.cjs`. The server uses the deployment-provided `PORT` when set and falls back to port 3000 locally.
+
+For Vite development or preview behind a custom hostname, set `VITE_ALLOWED_HOSTS` to a comma-separated list of explicitly trusted hosts. Do not disable host validation globally.
+
+## Docker
 
 ```bash
-pytest
+docker build -t gouse-ai-agent .
+docker run --rm -p 3000:3000 --env-file .env gouse-ai-agent
 ```
 
-## Saqlain AI Security Team
+The multi-stage image builds with development dependencies but installs only production dependencies in the runtime stage. Secrets are supplied at runtime, not baked into the image.
 
-The `feature/saqlain-cyber-agent` branch contains the Saqlain security architecture: 10 internal defensive agents plus an External Intelligence & Communication agent. Protected programs/data have no delete or destructive permission at the Saqlain policy layer. External agents do not receive direct Gouse AI access; messages are sanitized and passed to Saqlain for a security decision. See `docs/SAQLAIN_SECURITY_TEAM.md` and `server/saqlainSecurityPolicy.ts`.
+## Health checks
 
-## Next development
+- `GET /healthz`
+- `GET /ping`
+- `GET /api/health`
 
-Future extensions can add authentication, multi-user memory, business tools, document processing, scheduling, database storage, and deployment.
+Health checks confirm process availability; they do not verify all external providers or security integrations.
+
+## Security and professional review
+
+- Keep API keys in environment variables or a deployment secret manager.
+- Do not expose emergency recovery routes until authorization flags are derived from authenticated identities and a durable approval record.
+- Use durable, transactional storage and off-host audit replication before relying on task queues or grants across processes/restarts.
+- Treat AI-generated code interpretations, quantity estimates, material pricing, and site observations as advisory until reviewed by a qualified professional.
+- Verify statutory requirements with current official authorities for the project's jurisdiction.
