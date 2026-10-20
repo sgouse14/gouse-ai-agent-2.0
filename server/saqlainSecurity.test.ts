@@ -82,6 +82,21 @@ test('unauthenticated external activity is isolated rather than permitted', () =
   assert.equal(result.threatAction, 'isolate');
 });
 
+test('communication agent requires authenticated project scope', () => {
+  assert.equal(
+    evaluateSaqlainAction({ actionType: 'run_agent_communication', actorAuthenticated: false, projectId: 'gouse-ai-agent-2.0' }).decision,
+    'block',
+  );
+  assert.equal(
+    evaluateSaqlainAction({ actionType: 'run_agent_communication', actorAuthenticated: true }).decision,
+    'block',
+  );
+  assert.equal(
+    evaluateSaqlainAction({ actionType: 'run_agent_communication', actorAuthenticated: true, projectId: 'gouse-ai-agent-2.0' }).decision,
+    'allow',
+  );
+});
+
 test('EMP readiness assessment requires authenticated project scope', () => {
   assert.equal(
     evaluateSaqlainAction({ actionType: 'run_emp_protection_assessment', actorAuthenticated: false, projectId: 'project-1' }).decision,
