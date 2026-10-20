@@ -3,9 +3,15 @@ import {
   type GousiyaEmergencyState,
 } from './gousiyaEmergencyRecovery.ts';
 import {
-  createFirebaseGousiyaApprovalVerifier,
+  createFirebaseIdentityTokenAuthenticator,
   createFirebaseRestTokenActivityChecker,
 } from './gousiyaFirebaseApprovalVerifier.ts';
+import {
+  createGousiyaApprovalIssuer,
+  createGousiyaApprovalTokenVerifier,
+  type GousiyaApprovalIssuerOptions,
+  type IssueGousiyaApprovalInput,
+} from './gousiyaApprovalIssuer.ts';
 
 function requiredEnv(env: NodeJS.ProcessEnv, key: string): string {
   const value = env[key]?.trim();
@@ -13,26 +19,65 @@ function requiredEnv(env: NodeJS.ProcessEnv, key: string): string {
   return value;
 }
 
-/**
- * Builds internal emergency-recovery state using a real Firebase account lookup
- * for disabled-account and token-revocation checks. It does not mount an HTTP
- * endpoint. The API key must be restricted to the Identity Toolkit API, and the
- * approval custom claim must still be minted only by a trusted server service.
- * A shared transactional database is required for multi-host deployments.
- */
+interface SharedGousiyaConfig {
+  projectId: string;
+  signingSecret: string;
+  auditFilePath: string;
+}
+function sharedConfig(env: NodeJS.ProcessEnv): SharedGousiyaConfig {
+  return {
+    projectId: requiredEnv(env, 'FIREBASE_PROJECT_ID'),
+    signingSecret: requiredEnv(env, 'GOUSIYA_APPROVAL_SIGNING_SECRET'),
+    auditFilePath: requiredEnv(env, 'GOUSIYA_AUDIT_FILE_PATH'),
+  };
+}
+
+/** Creates the verifier used by emergency recovery; only server-signed approval attestations are accepted. */
 export function createConfiguredGousiyaEmergencyState(
   env: NodeJS.ProcessEnv = process.env,
 ): GousiyaEmergencyState {
-  const projectId = requiredEnv(env, 'FIREBASE_PROJECT_ID');
-  const firebaseApiKey = requiredEnv(env, 'FIREBASE_WEB_API_KEY');
-  const auditFilePath = requiredEnv(env, 'GOUSIYA_AUDIT_FILE_PATH');
+  const config = sharedConfig(env);
   const grantStoreFilePath = requiredEnv(env, 'GOUSIYA_GRANT_STORE_FILE_PATH');
   return createGousiyaEmergencyState({
-    auditFilePath,
+    auditFilePath: config.auditFilePath,
     grantStoreFilePath,
-    verifyApprovalToken: createFirebaseGousiyaApprovalVerifier({
-      projectId,
-      verifyFirebaseTokenIsActive: createFirebaseRestTokenActivityChecker({ apiKey: firebaseApiKey }),
+    verifyApprovalToken: createGousiyaApprovalTokenVerifier({
+      projectId: config.projectId,
+      signingSecret: config.signingSecret,
     }),
   });
+}
+
+/**
+ * Creates an internal approval issuer. Identity is verified from a Firebase
+ * ID token, but approval roles are read only from a protected server-side
+ * registry. No HTTP route is registered by this module.
+ */
+export function createConfiguredGousiyaApprovalIssuer(
+  env: NodeJS.ProcessEnv = process.env,
+): { issueApproval(input: IssueGousiyaApprovalInput): ReturnType<GousiyaApprovalIssuerOptions['authenticateFirebaseIdentity']> extends never ? never : Promise<import('./gousiyaApprovalIssuer.ts').IssuedGousiyaApproval> } {
+  const config = sharedConfig(env);
+  const firebaseApiKey = requiredEnv(env, 'FIREBASE_WEB_API_KEY');
+  const registryFilePath = requiredEnv(env, 'GOUSIYA_APPROVER_REGISTRY_PATH');
+  const authenticateFirebaseIdentity = createFirebaseIdentityTokenAuthenticator({
+    projectId: config.projectId,
+    verifyFirebaseTokenIsActive: createFirebaseRestTokenActivityChecker({ apiKey: firebaseApiKey }),
+  });
+  return createGousiyaApprovalIssuer({
+    projectId: config.projectId,
+    signingSecret: config.signingSecret,
+    registryFilePath,
+    auditFilePath: config.auditFilePath,
+    authenticateFirebaseIdentity,
+  });
+}
+
+export function createConfiguredGousiyaApprovalRuntime(env: NodeJS.ProcessEnv = process.env): {
+  emergencyState: GousiyaEmergencyState;
+  approvalIssuer: ReturnType<typeof createConfiguredGousiyaApprovalIssuer>;
+} {
+  return {
+    emergencyState: createConfiguredGousiyaEmergencyState(env),
+    approvalIssuer: createConfiguredGousiyaApprovalIssuer(env),
+  };
 }
