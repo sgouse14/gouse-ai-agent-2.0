@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { sendCycleStatusToExternalAgent } from './saqlainExternalCommunication.ts';
 
-const request = { actorId: 'service-agent', projectId: 'project-a', recipientAgentId: 'approved-agent', cycleId: 'saqlain-cycle-12345678-1234-4234-8234-123456789abc', counts: { verified: 1, held: 0, failed: 0 } };
+const request = { actorId: 'saq-communication-agent', projectId: 'project-a', recipientAgentId: 'approved-agent', cycleId: 'saqlain-cycle-12345678-1234-4234-8234-123456789abc', counts: { verified: 1, held: 0, failed: 0 } };
 
 function setup(override = {}) {
  const events = [];
@@ -26,6 +26,12 @@ test('sends a fixed status envelope only after intent audit', async () => {
  assert.equal(x.events[0], 'SAQLAIN_EXTERNAL_AGENT_MESSAGE_INTENT');
  assert.equal(x.events[1], 'SAQLAIN_EXTERNAL_AGENT_MESSAGE_RESULT');
  assert.equal(x.delivered[0].msg.type, 'SAQLAIN_CYCLE_STATUS');
+});
+
+test('only the Communication Agent may use outbound delivery', async () => {
+ const x = setup();
+ assert.equal((await sendCycleStatusToExternalAgent({ ...request, actorId: 'saq-backup-gouse' }, x.config)).status, 'HOLD');
+ assert.equal(x.delivered.length, 0);
 });
 
 test('rejects remote agents that are not operator-allowlisted', async () => {
