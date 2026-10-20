@@ -1,6 +1,6 @@
 export type SaqlainSeverity = 'critical' | 'high' | 'medium' | 'low' | 'info';
 export type SaqlainFindingStatus = 'open' | 'acknowledged' | 'resolved' | 'accepted';
-export type SaqlainFindingCategory = 'authentication' | 'authorization' | 'secrets' | 'api' | 'dependencies' | 'files' | 'ai-actions' | 'privacy' | 'configuration';
+export type SaqlainFindingCategory = 'authentication' | 'authorization' | 'secrets' | 'api' | 'dependencies' | 'files' | 'ai-actions' | 'privacy' | 'configuration' | 'data-protection';
 
 export interface SaqlainFinding {
   id: string;
