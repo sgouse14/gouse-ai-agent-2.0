@@ -58,6 +58,7 @@ function makeVerifier() {
   let fetchCount = 0;
   const verifier = createFirebaseGousiyaApprovalVerifier({
     projectId: 'test-firebase-project',
+    verifyFirebaseTokenIsActive: async () => undefined,
     now: () => new Date(TEST_NOW),
     fetchCertificates: async () => {
       fetchCount += 1;
@@ -148,4 +149,26 @@ test('caches Google signing certificates until their cache lifetime expires', as
     expiresAt: new Date(TEST_NOW.getTime() + 120_000).toISOString(),
   } } }), scope);
   assert.equal(fetchCount(), 1);
+});
+
+
+test('rejects approval if the server-side account/revocation check fails', async () => {
+  const verifier = createFirebaseGousiyaApprovalVerifier({
+    projectId: 'test-firebase-project',
+    now: () => new Date(TEST_NOW),
+    fetchCertificates: async () => ({
+      certificates: { 'test-key-1': publicKeyPem },
+      cacheMaxAgeSeconds: 3600,
+    }),
+    verifyFirebaseTokenIsActive: async () => {
+      throw new Error('simulated revoked or disabled account');
+    },
+  });
+  await assert.rejects(verifier(makeToken(), scope), /revoked or disabled account/i);
+});
+
+test('requires a server-side account/revocation checker when constructing verifier', () => {
+  assert.throws(() => createFirebaseGousiyaApprovalVerifier({
+    projectId: 'test-firebase-project',
+  } as Parameters<typeof createFirebaseGousiyaApprovalVerifier>[0]), /account-status and token-revocation checker is required/i);
 });
