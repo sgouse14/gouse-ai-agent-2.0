@@ -10,7 +10,7 @@ The Communication Agent is a dedicated sixth role in the Saqlain operations cycl
 - Mark the cycle report `ALL_CHECKS_VERIFIED` only when no prior agent is held or failed; otherwise mark it `ATTENTION_REQUIRED`.
 - Use a fixed internal review route: Task Queue Manager → Saqlain security review → Gouse AI final review.
 - Avoid copying raw exception messages, file paths, credentials, or other agent-provided free text into its summary.
-- Return an internal report only; it does not send email, SMS, webhooks, or other external messages.
+- Prepare an internal report and optionally send a fixed status envelope to operator-allowlisted remote agent IDs through a configured server-side transport. External dispatch is off by default.
 
 ## Security and audit integration
 
@@ -22,7 +22,7 @@ The Communication Agent is a dedicated sixth role in the Saqlain operations cycl
 
 ## Explicit limitations
 
-The Communication Agent does not deliver external notifications, establish new recipient identities, or make authorization decisions for other agents. Its routing is a report workflow label, not proof that the listed reviewers received or acknowledged a message. Production delivery integrations require separate approval, secret management, delivery receipts, rate limiting, and end-to-end tests.
+The Communication Agent may communicate outward with explicitly approved remote agents, but it cannot register, import, invite, provision, or grant platform access to them. It has no inbound remote-command handler. Dispatch requires an operator-managed recipient allowlist, server-side actor/project authorization, explicit approval, a fixed structured payload, pre-send audit persistence, and a transport adapter that maps stable IDs to configured endpoints. It never accepts an arbitrary destination URL or forwards source files/secrets. Delivery integration must be staged and tested with real endpoints, credentials, timeouts, receipts, rate limits, and operational monitoring.
 
 ## Validation
 
