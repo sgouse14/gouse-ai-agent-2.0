@@ -32,8 +32,8 @@ Required work:
 **Partially implemented on the Saqlain feature branch; not production-ready.** Grant issuance requires separate owner/reviewer tokens. A Firebase ID-token verifier checks Google signing signatures, issuer, audience, expiry, recent authentication and matching incident/recovery path scope. The trusted issuer now mints a separate HMAC-signed scoped approval token after Firebase identity validation and a role lookup in the owner-only registry; Firebase ID tokens/client custom claims are not themselves approval attestations. Approval IDs are reserved durably to prevent reuse. Grant state uses a locked, atomic single-host JSON store; consumption and revocation persist before audit-dependent or filesystem work. Tests cover token validation, approval independence, reuse and replay after a simulated restart.
 
 Remaining work:
-- Firebase ID-token signatures/claims are checked first, then Identity Toolkit `accounts:lookup` validates UID, rejects disabled accounts, and compares `auth_time` against `validSince`. Configure `FIREBASE_PROJECT_ID` and `FIREBASE_WEB_API_KEY` (restrict the API key to Identity Toolkit) with durable audit/grant paths. This status check does not replace a trusted server-side issuer for `gousiyaApproval` approval claims.
-- Establish reviewed registry provisioning/deprovisioning, signing-key rotation, and secure recovery procedures. No public role-administration endpoint exists.
+- Firebase ID-token signatures/claims are checked first, then Identity Toolkit `accounts:lookup` validates UID, rejects disabled accounts, and compares `auth_time` against `validSince`. Configure `FIREBASE_PROJECT_ID` and `FIREBASE_WEB_API_KEY` (restrict the API key to Identity Toolkit) with durable audit/grant paths. The separate HMAC-signed approval token is produced only after the authenticated UID matches the protected role registry.
+- Establish reviewed registry provisioning/deprovisioning, signing-key rotation, and secure recovery procedures. Protect both the registry file (`0600`) and its parent directory (`0700`). No public role-administration endpoint exists.
 - Run account-disablement and revocation tests against a configured test Firebase project.
 - Replace the single-host file adapter with a transactional shared database and atomic conditional consume before multi-process or multi-host use.
 - Add parallel-process race tests, restart tests for issued/revoked/expired records, store corruption and crash-recovery tests.
@@ -72,9 +72,9 @@ Required work:
 
 ## Current verified state
 
-- Previous validated run: 114 security tests passed, TypeScript check passed, production build passed and Docker image build passed.
-- Additional Firebase approval-verifier/runtime tests have been added to the test command in this branch.
-- Current head's new tests/type-check/build have not yet been confirmed; do not treat the changes as validated until a fresh run completes.
+- Latest full CI run [39387764332](https://github.com/sgouse14/gouse-ai-agent-2.0/actions/runs/39387764332): 150 tests passed; TypeScript check, frontend/server production build, and Docker image build passed for commit `bd91280aa5972e2ba2f8804cf420694e73311e00`.
+- This validates the repository tests and build pipeline only; it is not a penetration test or a security certification.
+- Real Firebase-project disabled-account/revocation behavior and a production staging rehearsal still need environment-specific validation.
 - Pull request: remains a draft and is not merged to `main`.
 
 Do not interpret a passing build or unit-test suite as a penetration test or a production-security certification.
