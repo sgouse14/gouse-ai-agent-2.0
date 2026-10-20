@@ -1,4 +1,5 @@
 import { lstat, mkdir, readFile } from 'node:fs/promises';
+import { canonicalizePathForSafety } from './saqlainPathSafety.ts';
 import { isAbsolute, relative, resolve, sep } from 'node:path';
 import { appendDurableAuditEvent } from './saqlainAuditLog.ts';
 import { verifyBackupCopy, verifyBackupManifest, type BackupManifest } from './saqlainBackupManifest.ts';
@@ -54,7 +55,11 @@ export async function runRecoveryRehearsal(input: {
   let decision: RecoveryDecision = 'HOLD';
   let reason = 'Recovery not completed.';
   try {
-    assertDisjoint(sourceDir, stagingRoot);
+    const canonicalSourceDir = await canonicalizePathForSafety(sourceDir);
+    const canonicalStagingRoot = await canonicalizePathForSafety(stagingRoot);
+    assertDisjoint(canonicalSourceDir, canonicalStagingRoot);
+    // Keep checking the caller-provided final path component with lstat so a
+    // symlink at the source root is rejected rather than silently followed.
     await assertRealDirectory(sourceDir);
     await mkdir(stagingRoot, { recursive: true, mode: 0o700 });
     await assertRealDirectory(stagingRoot);
