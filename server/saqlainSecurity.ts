@@ -91,7 +91,10 @@ export function evaluateSaqlainExternalActivity(input: {
 
 export function buildSaqlainSecuritySummary(req: Request) {
   const now = new Date().toISOString();
-  const target = req.body?.target || 'Gouse AI workspace';
+  const requestedTarget = req.body?.target;
+  const target = typeof requestedTarget === 'string' && requestedTarget.trim()
+    ? requestedTarget.trim().slice(0, 200)
+    : 'Gouse AI workspace';
   const findings = [
     { id:'saq-local-storage', title:'Authoritative project state is browser-persisted', description:'Client-side persistence should not be treated as an authoritative or protected system of record.', category:'privacy', severity:'medium', status:'open', recommendation:'Move authoritative records to authenticated server-side storage with project-level authorization and audit logging.', evidence:'gouse_ai_projects / gouse_ai_boq_items', createdAt:now, updatedAt:now },
     { id:'saq-ai-mutation-gateway', title:'AI-driven state mutations need a server-side authorization gateway', description:'AI-generated actions that modify project or BOQ data should be schema-validated, authorized, logged and optionally approved.', category:'ai-actions', severity:'high', status:'open', recommendation:'Validate action type, actor permissions, project membership and approval requirements before mutation.', createdAt:now, updatedAt:now },
