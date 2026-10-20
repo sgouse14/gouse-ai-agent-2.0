@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import { SAQLAIN_BACKUP_TEAM, SAQLAIN_BACKUP_INTERVAL_MINUTES } from './saqlainBackupTeam.ts';
 import { createSaqlainBackupRuntime, SAQLAIN_RUNTIME_INTERVAL_MS } from './saqlainBackupRuntime.ts';
 
-test('runtime runs four backup agents and one recovery agent in a cycle', async () => {
+test('runtime runs four backup agents, one recovery agent, and one communication agent in a cycle', async () => {
   const calls: string[] = [];
   const runtime = createSaqlainBackupRuntime({
     runAgentCycle: async (agent) => {
@@ -16,12 +16,14 @@ test('runtime runs four backup agents and one recovery agent in a cycle', async 
     now: () => new Date('2026-10-12T00:00:00.000Z'),
   });
   const report = await runtime.runCycle();
-  assert.equal(SAQLAIN_BACKUP_TEAM.length, 5);
+  assert.equal(SAQLAIN_BACKUP_TEAM.length, 6);
   assert.equal(SAQLAIN_BACKUP_TEAM.filter((agent) => agent.role === 'BACKUP').length, 4);
   assert.equal(SAQLAIN_BACKUP_TEAM.filter((agent) => agent.role === 'RECOVERY').length, 1);
+  assert.equal(SAQLAIN_BACKUP_TEAM.filter((agent) => agent.role === 'COMMUNICATION').length, 1);
   assert.deepEqual(calls.sort(), SAQLAIN_BACKUP_TEAM.map((agent) => agent.id).sort());
   assert.equal(report.status, 'VERIFIED');
-  assert.equal(report.results.length, 5);
+  assert.equal(report.results.length, 6);
+  assert.equal(report.results.find((result) => result.role === 'COMMUNICATION')?.status, 'VERIFIED');
   assert.equal(runtime.getState().lastReport?.cycleId, report.cycleId);
 });
 
