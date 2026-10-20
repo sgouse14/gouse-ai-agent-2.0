@@ -1,7 +1,7 @@
-/** Saqlain Backup & Recovery Team: four backup agents and one recovery agent. */
+/** Saqlain operations team: four backup agents, one recovery agent, and one communication agent. */
 export type BackupTaskStatus = 'UNASSIGNED' | 'LOCKED' | 'COMPLETED' | 'FAILED';
 export type ReportHandoffStatus = 'QUEUED' | 'SAQLAIN_REVIEW' | 'GOUSE_REVIEW' | 'ACCEPTED' | 'REJECTED';
-export type SaqlainBackupAgentRole = 'BACKUP' | 'RECOVERY';
+export type SaqlainBackupAgentRole = 'BACKUP' | 'RECOVERY' | 'COMMUNICATION';
 
 export interface SaqlainBackupAgent {
   id: string;
@@ -39,6 +39,7 @@ export const SAQLAIN_BACKUP_TEAM: readonly SaqlainBackupAgent[] = Object.freeze(
   { id: 'saq-backup-files', name: 'Protected Files Backup Agent', role: 'BACKUP', mission: 'Copy protected project files to authorized backup storage.', intervalMinutes: 30, canDeleteSourceFiles: false, canOverwriteSourceFiles: false },
   { id: 'saq-backup-verify', name: 'Backup Verification Agent', role: 'BACKUP', mission: 'Verify backup integrity and readability.', intervalMinutes: 30, canDeleteSourceFiles: false, canOverwriteSourceFiles: false },
   { id: 'saq-recovery-primary', name: 'Saqlain Recovery Agent', role: 'RECOVERY', mission: 'Coordinate safe recovery from verified snapshots without modifying protected originals.', intervalMinutes: 30, canDeleteSourceFiles: false, canOverwriteSourceFiles: false },
+  { id: 'saq-communication-agent', name: 'Saqlain Communication Agent', role: 'COMMUNICATION', mission: 'Prepare sanitized internal cycle-status reports for the queue manager, Saqlain security review, and Gouse AI final review; do not send external messages.', intervalMinutes: 30, canDeleteSourceFiles: false, canOverwriteSourceFiles: false },
 ]);
 
 export const SAQLAIN_BACKUP_INTERVAL_MINUTES = 30;
