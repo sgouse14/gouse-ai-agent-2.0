@@ -8,10 +8,13 @@ import { type ApprovedBackupAgentConfig } from './saqlainApprovedBackupCycle.ts'
 import { runSecureBackupAgent } from './saqlainSecureBackupAgent.ts';
 import { createSaqlainBackupRuntime, type AgentCycleOutcome, type AgentCycleResult, type SaqlainBackupRuntime, type SaqlainBackupRuntimeOptions } from './saqlainBackupRuntime.ts';
 import { prepareSaqlainCommunication } from './saqlainCommunicationAgent.ts';
+import { sendCycleStatusToExternalAgent, type ExternalCommunicationOptions } from './saqlainExternalCommunication.ts';
 
 export interface ApprovedContinuousBackupOptions extends Omit<SaqlainBackupRuntimeOptions, 'runAgentCycle'>, ApprovedBackupAgentConfig {
   /** Separate destination for recovery rehearsals. Never point this at an original source. */
   recoveryStagingRoot: string;
+  /** Optional outbound transport; absent by default. Only operator-approved recipient IDs may be contacted. */
+  externalCommunication?: Omit<ExternalCommunicationOptions, 'auditFilePath'>;
 }
 
 function isWithin(parent: string, child: string): boolean {
@@ -76,7 +79,30 @@ export function createApprovedContinuousBackupRuntime(
         cycleId,
         priorResults: context.priorResults,
       });
-      return { status: communication.status, summary: communication.summary };
+      if (communication.status !== 'VERIFIED' || !communication.report) {
+        return { status: 'HOLD', summary: communication.summary };
+      }
+      if (!options.externalCommunication) {
+        return { status: 'VERIFIED', summary: communication.summary };
+      }
+      if (!options.auditFilePath || options.externalCommunication.approvedRecipientIds.size === 0) {
+        return { status: 'HOLD', summary: 'External communication held: audit path and operator-approved recipients are required.' };
+      }
+      let sent = 0;
+      for (const recipientAgentId of options.externalCommunication.approvedRecipientIds) {
+        const dispatch = await sendCycleStatusToExternalAgent({
+          actorId: agent.id,
+          projectId: 'gouse-ai-agent-2.0',
+          recipientAgentId,
+          cycleId,
+          counts: communication.report.counts,
+        }, { ...options.externalCommunication, auditFilePath: options.auditFilePath });
+        if (dispatch.status !== 'SENT') {
+          return { status: 'HOLD', summary: 'External communication held after ' + sent + ' successful remote delivery(s); reconcile before retrying.' };
+        }
+        sent += 1;
+      }
+      return { status: 'VERIFIED', summary: 'Sanitized status report sent to ' + sent + ' operator-approved external agent(s); no agents were imported or granted platform access.' };
     }
 
     if (agent.role === 'BACKUP' && agent.id !== 'saq-backup-verify') {
