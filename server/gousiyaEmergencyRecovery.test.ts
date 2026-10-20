@@ -7,7 +7,7 @@ import { createVerifiedLocalSnapshot } from './saqlainBackupStorage.ts';
 import { readVerifiedAuditLog } from './saqlainAuditLog.ts';
 import {
   createGousiyaEmergencyState, issueGousiyaEmergencyGrant, executeGousiyaEmergencyRecovery,
-  revokeGousiyaEmergencyGrant, GOUSIYA_DEFAULT_GRANT_TTL_MS,
+  revokeGousiyaEmergencyGrant, GOUSIYA_DEFAULT_GRANT_TTL_MS, GOUSIYA_MAX_GRANT_TTL_MS,
 } from './gousiyaEmergencyRecovery.ts';
 
 async function setup() {
@@ -15,15 +15,37 @@ async function setup() {
   const backupRoot = join(root, 'backups');
   const stagingRoot = join(root, 'staging');
   const auditFilePath = join(root, 'audit', 'events.jsonl');
+  const grantStoreFilePath = join(root, 'grant-store', 'grants.json');
   const bytes = new TextEncoder().encode('protected source content');
   const snapshot = await createVerifiedLocalSnapshot({
     storageRoot: backupRoot, snapshotId: 'approved-source', source: 'gouse-ai',
     files: [{ relativePath: 'project/source.txt', bytes }], now: new Date('2026-10-13T00:00:00Z'),
   });
-  const state = createGousiyaEmergencyState(auditFilePath);
-  return { root, backupRoot, stagingRoot, auditFilePath, bytes, snapshot, state };
+  const state = createTestState(auditFilePath, grantStoreFilePath);
+  return { root, backupRoot, stagingRoot, auditFilePath, grantStoreFilePath, bytes, snapshot, state };
 }
-const approvals = { ownerApproved: true, independentReviewerApproved: true };
+const approvals = { ownerApprovalToken: 'owner-token', independentReviewerApprovalToken: 'reviewer-token' };
+
+function createTestState(auditFilePath: string, grantStoreFilePath: string) {
+  return createGousiyaEmergencyState({
+    auditFilePath,
+    grantStoreFilePath,
+    verifyApprovalToken: async (token, scope) => {
+      if (token !== 'owner-token' && token !== 'reviewer-token') throw new Error('Invalid test approval token');
+      return {
+        subject: token === 'owner-token' ? 'owner-user-1' : 'reviewer-user-2',
+        role: token === 'owner-token' ? 'system-owner' : 'independent-reviewer',
+        decision: 'APPROVE',
+        incidentId: scope.incidentId,
+        recoveryAgentId: scope.recoveryAgentId,
+        sourceSnapshotDirectory: scope.sourceSnapshotDirectory,
+        stagingRoot: scope.stagingRoot,
+        issuedAt: scope.requestedAt,
+        expiresAt: new Date(Date.parse(scope.requestedAt) + GOUSIYA_MAX_GRANT_TTL_MS).toISOString(),
+      };
+    },
+  });
+}
 
 test('issues a short-lived single-use grant and rehearses only into separate staging', async () => {
   const ctx = await setup();
@@ -63,7 +85,7 @@ test('requires owner and independent reviewer approval before grant issuance', a
     await assert.rejects(issueGousiyaEmergencyGrant({
       state: ctx.state, incidentId: 'incident-02', recoveryAgentId: 'saq-recovery-agent',
       sourceSnapshotDirectory: ctx.snapshot.directory, stagingRoot: ctx.stagingRoot,
-      reason: 'Emergency', ownerApproved: true, independentReviewerApproved: false,
+      reason: 'Emergency', ownerApprovalToken: 'owner-token', independentReviewerApprovalToken: 'invalid-token',
     }), /owner approval and independent reviewer approval/i);
     assert.equal(ctx.state.grants.size, 0);
     const events = await readVerifiedAuditLog(ctx.auditFilePath);
@@ -86,7 +108,7 @@ test('rejects overlapping source and staging paths before issuing a grant', asyn
 test('rejects audit path inside the protected source snapshot', async () => {
   const ctx = await setup();
   try {
-    const state = createGousiyaEmergencyState(join(ctx.snapshot.directory, 'events.jsonl'));
+    const state = createTestState(join(ctx.snapshot.directory, 'events.jsonl'), join(ctx.root, 'separate-grants.json'));
     await assert.rejects(issueGousiyaEmergencyGrant({
       state, incidentId: 'incident-audit-path', recoveryAgentId: 'saq-recovery-agent',
       sourceSnapshotDirectory: ctx.snapshot.directory, stagingRoot: ctx.stagingRoot,
@@ -224,6 +246,56 @@ test('rejects source/staging overlap hidden behind a symlinked parent', async ()
       new Uint8Array(await readFile(join(ctx.snapshot.directory, 'project/source.txt'))),
       ctx.bytes,
     );
+  } finally {
+    await rm(ctx.root, { recursive: true, force: true });
+  }
+});
+
+
+test('durable grants survive state recreation and reject replay after restart', async () => {
+  const ctx = await setup();
+  try {
+    const issued = await issueGousiyaEmergencyGrant({
+      state: ctx.state, incidentId: 'incident-restart', recoveryAgentId: 'saq-recovery-agent',
+      sourceSnapshotDirectory: ctx.snapshot.directory, stagingRoot: ctx.stagingRoot,
+      reason: 'Restart persistence test', ...approvals,
+    });
+    const restartedState = createTestState(ctx.auditFilePath, ctx.grantStoreFilePath);
+    // Recreating the state simulates a server restart; the grant is reloaded from disk.
+    await assert.rejects(executeGousiyaEmergencyRecovery({
+      state: restartedState, grantId: issued.grant.grantId, token: issued.token,
+      incidentId: 'incident-restart',
+    }), /already used/i);
+    assert.equal(restartedState.grants.get(issued.grant.grantId)?.status, 'CONSUMED');
+  } finally {
+    await rm(ctx.root, { recursive: true, force: true });
+  }
+});
+
+test('requires two distinct approval identities, not merely two tokens', async () => {
+  const ctx = await setup();
+  try {
+    const sameIdentityState = createGousiyaEmergencyState({
+      auditFilePath: ctx.auditFilePath,
+      grantStoreFilePath: ctx.grantStoreFilePath,
+      verifyApprovalToken: async (_token, scope) => ({
+        subject: 'same-person',
+        role: _token === 'owner-token' ? 'system-owner' : 'independent-reviewer',
+        decision: 'APPROVE',
+        incidentId: scope.incidentId,
+        recoveryAgentId: scope.recoveryAgentId,
+        sourceSnapshotDirectory: scope.sourceSnapshotDirectory,
+        stagingRoot: scope.stagingRoot,
+        issuedAt: scope.requestedAt,
+        expiresAt: new Date(Date.parse(scope.requestedAt) + GOUSIYA_MAX_GRANT_TTL_MS).toISOString(),
+      }),
+    });
+    await assert.rejects(issueGousiyaEmergencyGrant({
+      state: sameIdentityState, incidentId: 'incident-same-identity', recoveryAgentId: 'saq-recovery-agent',
+      sourceSnapshotDirectory: ctx.snapshot.directory, stagingRoot: ctx.stagingRoot,
+      reason: 'Independence test', ...approvals,
+    }), /distinct owner and independent-reviewer identities/i);
+    assert.equal(sameIdentityState.grants.size, 0);
   } finally {
     await rm(ctx.root, { recursive: true, force: true });
   }
