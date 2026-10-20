@@ -17,6 +17,7 @@ import { ClientPortal } from './components/ClientPortal';
 import { ClientPage } from './components/ClientPage';
 import { ClientView } from './components/ClientView';
 import { PlatformDemo } from './components/PlatformDemo';
+import { UnifiedMasterPageView } from './components/UnifiedMasterPageView';
 import { useAuth } from './context/AuthContext';
 import { Sparkles, LogIn, UserPlus, ArrowLeft } from 'lucide-react';
 import {
@@ -394,8 +395,8 @@ export function App() {
     setEnquiries((prev) => [newEnquiry, ...prev]);
   };
 
-  // 1. If user is NOT signed in: Show outside Gouse AI Agent Platform directly!
-  // Client Portal & Dashboard are removed from outside - the outside platform is exclusively Gouse AI Agent Platform.
+  // 1. If user is NOT signed in: Show the ALL-IN-ONE Unified Master Page!
+  // Combines: Client Login, Client Feedback, Gouse AI Agent Broker Command Center, and Gouse AI Agent all on one page!
   if (!user) {
     if (unauthView === 'platform_demo') {
       return (
@@ -409,23 +410,38 @@ export function App() {
       );
     }
 
-    // Default outside-platform: Gouse AI Agent Platform
+    // Default outside-platform: Unified Master Page with Main Platform, Gouse AI Agent, Broker Command Center, Feedback & Client Login all together!
     return (
-      <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-amber-500 selection:text-slate-950">
-        <GouseAiAgentBrokerView
-          project={activeProject}
-          onUpdateProject={handleUpdateProject}
-          currency={currency}
-          isOutsidePlatform={true}
-          onOpenPlatformDemo={() => setUnauthView('platform_demo')}
-        />
-        <AuthModal />
-      </div>
+      <UnifiedMasterPageView
+        activeProject={activeProject}
+        projects={projects}
+        activeProjectId={activeProjectId}
+        onSelectProject={setActiveProjectId}
+        currency={currency}
+        onChangeCurrency={setCurrency}
+        onUpdateProject={handleUpdateProject}
+        onCreateProject={handleCreateProject}
+        onOpenClientDashboard={() => setClientActiveView('dashboard')}
+        boqItems={boqItems}
+        onUpdateBOQItems={setBoqItems}
+        contingencyPercent={contingencyPercent}
+        onChangeContingency={setContingencyPercent}
+        professionals={professionals}
+        enquiries={enquiries}
+        onAddEnquiry={handleAddEnquiry}
+        onUpdateEnquiryStatus={handleUpdateEnquiryStatus}
+        onUpdateEnquiry={handleUpdateEnquiry}
+        onSaveProfile={handleSaveProfile}
+        onDeleteProfile={handleDeleteProfile}
+        onToggleMyPractice={handleToggleMyPractice}
+        onOpenWorkflowEngine={() => setIsWorkflowEngineOpen(true)}
+        onOpenSiteCamera={() => setIsSiteCameraOpen(true)}
+      />
     );
   }
 
   // 1.5. Dedicated Gouse AI Agent Broker Platform Gating:
-  // Tenants, Property Owners/Landlords, and Certified Broker Agents have dedicated access to the Broker Platform
+  // Tenants, Property Owners/Landlords, and Certified Broker Agents have full access to the Unified Master Platform
   if (user.role === 'tenant' || user.role === 'property_owner' || user.role === 'broker_agent') {
     if (isShowingPlatformDemo) {
       return (
@@ -439,15 +455,31 @@ export function App() {
     }
 
     return (
-      <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-amber-500 selection:text-slate-950">
-        <GouseAiAgentBrokerView
-          project={activeProject}
-          onUpdateProject={handleUpdateProject}
-          currency={currency}
-          isOutsidePlatform={true}
-          onOpenPlatformDemo={() => setIsShowingPlatformDemo(true)}
-        />
-      </div>
+      <UnifiedMasterPageView
+        activeProject={activeProject}
+        projects={projects}
+        activeProjectId={activeProjectId}
+        onSelectProject={setActiveProjectId}
+        currency={currency}
+        onChangeCurrency={setCurrency}
+        onUpdateProject={handleUpdateProject}
+        onCreateProject={handleCreateProject}
+        onOpenClientDashboard={() => setClientActiveView('dashboard')}
+        boqItems={boqItems}
+        onUpdateBOQItems={setBoqItems}
+        contingencyPercent={contingencyPercent}
+        onChangeContingency={setContingencyPercent}
+        professionals={professionals}
+        enquiries={enquiries}
+        onAddEnquiry={handleAddEnquiry}
+        onUpdateEnquiryStatus={handleUpdateEnquiryStatus}
+        onUpdateEnquiry={handleUpdateEnquiry}
+        onSaveProfile={handleSaveProfile}
+        onDeleteProfile={handleDeleteProfile}
+        onToggleMyPractice={handleToggleMyPractice}
+        onOpenWorkflowEngine={() => setIsWorkflowEngineOpen(true)}
+        onOpenSiteCamera={() => setIsSiteCameraOpen(true)}
+      />
     );
   }
 
@@ -468,16 +500,31 @@ export function App() {
 
     if (clientActiveView === 'broker') {
       return (
-        <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-amber-500 selection:text-slate-950">
-          <GouseAiAgentBrokerView
-            project={activeProject}
-            onUpdateProject={handleUpdateProject}
-            currency={currency}
-            isOutsidePlatform={true}
-            onOpenPlatformDemo={() => setIsShowingPlatformDemo(true)}
-          />
-          <AuthModal />
-        </div>
+        <UnifiedMasterPageView
+          activeProject={activeProject}
+          projects={projects}
+          activeProjectId={activeProjectId}
+          onSelectProject={setActiveProjectId}
+          currency={currency}
+          onChangeCurrency={setCurrency}
+          onUpdateProject={handleUpdateProject}
+          onCreateProject={handleCreateProject}
+          onOpenClientDashboard={() => setClientActiveView('dashboard')}
+          boqItems={boqItems}
+          onUpdateBOQItems={setBoqItems}
+          contingencyPercent={contingencyPercent}
+          onChangeContingency={setContingencyPercent}
+          professionals={professionals}
+          enquiries={enquiries}
+          onAddEnquiry={handleAddEnquiry}
+          onUpdateEnquiryStatus={handleUpdateEnquiryStatus}
+          onUpdateEnquiry={handleUpdateEnquiry}
+          onSaveProfile={handleSaveProfile}
+          onDeleteProfile={handleDeleteProfile}
+          onToggleMyPractice={handleToggleMyPractice}
+          onOpenWorkflowEngine={() => setIsWorkflowEngineOpen(true)}
+          onOpenSiteCamera={() => setIsSiteCameraOpen(true)}
+        />
       );
     }
 
@@ -528,19 +575,31 @@ export function App() {
 
   if (isPreviewingBroker) {
     return (
-      <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-amber-500 selection:text-slate-950">
-        <GouseAiAgentBrokerView
-          project={activeProject}
-          onUpdateProject={handleUpdateProject}
-          currency={currency}
-          isOutsidePlatform={true}
-          onOpenPlatformDemo={() => {
-            setIsPreviewingBroker(false);
-            setIsShowingPlatformDemo(true);
-          }}
-        />
-        <AuthModal />
-      </div>
+      <UnifiedMasterPageView
+        activeProject={activeProject}
+        projects={projects}
+        activeProjectId={activeProjectId}
+        onSelectProject={setActiveProjectId}
+        currency={currency}
+        onChangeCurrency={setCurrency}
+        onUpdateProject={handleUpdateProject}
+        onCreateProject={handleCreateProject}
+        onOpenClientDashboard={() => setClientActiveView('dashboard')}
+        boqItems={boqItems}
+        onUpdateBOQItems={setBoqItems}
+        contingencyPercent={contingencyPercent}
+        onChangeContingency={setContingencyPercent}
+        professionals={professionals}
+        enquiries={enquiries}
+        onAddEnquiry={handleAddEnquiry}
+        onUpdateEnquiryStatus={handleUpdateEnquiryStatus}
+        onUpdateEnquiry={handleUpdateEnquiry}
+        onSaveProfile={handleSaveProfile}
+        onDeleteProfile={handleDeleteProfile}
+        onToggleMyPractice={handleToggleMyPractice}
+        onOpenWorkflowEngine={() => setIsWorkflowEngineOpen(true)}
+        onOpenSiteCamera={() => setIsSiteCameraOpen(true)}
+      />
     );
   }
 
