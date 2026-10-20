@@ -120,8 +120,9 @@ test('all EMP assessments pass the protected scoped-read policy', async () => {
       auditFilePath,
       authorizeActor: async ({ projectId }) => projectId === 'project-1',
     });
-    const missingScope = await protector.assess({ actorId: 'owner-1', projectId: '', signals: readySignals });
-    assert.equal(missingScope.status, 'HOLD');
-    assert.equal(missingScope.audited, false);
+    await assert.rejects(
+      () => protector.assess({ actorId: 'owner-1', projectId: '', signals: readySignals }),
+      /projectId must be a non-empty string/,
+    );
   });
 });
