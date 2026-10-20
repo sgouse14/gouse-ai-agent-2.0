@@ -22,7 +22,33 @@ import {
 } from './server/apiService';
 
 const app = express();
+app.disable('x-powered-by');
+
+// Baseline security headers. API responses are not cacheable by default.
+app.use((_req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('Permissions-Policy', 'camera=(self), microphone=(self), geolocation=()');
+  if (_req.path.startsWith('/api/')) {
+    res.setHeader('Cache-Control', 'no-store');
+  }
+  next();
+});
+
 app.use(express.json({ limit: '20mb' }));
+app.use(express.urlencoded({ extended: false, limit: '1mb' }));
+
+// Convert body-parser failures into clear client errors without exposing internals.
+app.use((err: any, _req: express.Request, res: express.Response, next: express.NextFunction) => {
+  if (err?.type === 'entity.too.large') {
+    return res.status(413).json({ error: 'Request body is too large' });
+  }
+  if (err instanceof SyntaxError && 'body' in err) {
+    return res.status(400).json({ error: 'Invalid JSON request body' });
+  }
+  return next(err);
+});
 
 // Health endpoints for Cloud Run container probes and load balancers
 app.get('/healthz', (_req, res) => {
@@ -146,7 +172,8 @@ app.post('/api/voice/process-command', async (req, res) => {
     const result = await processVoiceCommandWithGemini(req.body);
     res.json(result);
   } catch (err: any) {
-    res.status(500).json({ error: 'Failed to process voice command', details: err?.message });
+    console.error('[API] Voice command processing failed:', err);
+    res.status(500).json({ error: 'Failed to process voice command' });
   }
 });
 
@@ -156,7 +183,8 @@ app.post('/api/voice/gemini-audio', async (req, res) => {
     const result = await processAudioWithGemini(req.body);
     res.json(result);
   } catch (err: any) {
-    res.status(500).json({ error: 'Failed to process voice audio', details: err?.message });
+    console.error('[API] Voice audio processing failed:', err);
+    res.status(500).json({ error: 'Failed to process voice audio' });
   }
 });
 
@@ -424,41 +452,30 @@ app.get('*', (_req, res) => {
   }
 });
 
-// Configure ports: bind to port 3000 (standard container proxy port) AND Cloud Run's PORT if specified
-const primaryPort = 3000;
-const envPort = process.env.PORT ? parseInt(process.env.PORT, 10) : null;
-
-const portsToListen = new Set<number>();
-portsToListen.add(primaryPort);
-if (envPort && !isNaN(envPort) && envPort > 0) {
-  portsToListen.add(envPort);
+// Bind to the platform-provided port when deployed; use 3000 for local development.
+const port = Number(process.env.PORT ?? 3000);
+if (!Number.isInteger(port) || port < 1 || port > 65535) {
+  throw new Error('PORT must be an integer between 1 and 65535');
 }
 
-const activeServers: any[] = [];
-
-for (const port of portsToListen) {
-  try {
-    const s = app.listen(port, '0.0.0.0', () => {
-      console.log(`Gouse AI Server running on http://0.0.0.0:${port}`);
-    });
-    s.on('error', (err: any) => {
-      console.warn(`[Server] Non-fatal listener notice on port ${port}: ${err.message}`);
-    });
-    activeServers.push(s);
-  } catch (err: any) {
-    console.warn(`[Server] Failed to initialize listener on port ${port}:`, err);
-  }
-}
-
-// Graceful container shutdown on Cloud Run revision rotation
-process.on('SIGTERM', () => {
-  console.log('[Server] SIGTERM received, closing active connections.');
-  activeServers.forEach((s) => s.close?.());
-  process.exit(0);
+const server = app.listen(port, '0.0.0.0', () => {
+  console.log(`Gouse AI Server running on http://0.0.0.0:${port}`);
 });
 
-process.on('SIGINT', () => {
-  console.log('[Server] SIGINT received, terminating gracefully.');
-  activeServers.forEach((s) => s.close?.());
-  process.exit(0);
+server.on('error', (err: NodeJS.ErrnoException) => {
+  console.error(`[Server] Failed to listen on port ${port}:`, err.message);
+  process.exitCode = 1;
 });
+
+const shutdown = (signal: string) => {
+  console.log(`[Server] ${signal} received, closing active connections.`);
+  server.close((err) => {
+    if (err) {
+      console.error('[Server] Error while closing server:', err);
+      process.exitCode = 1;
+    }
+  });
+};
+
+process.once('SIGTERM', () => shutdown('SIGTERM'));
+process.once('SIGINT', () => shutdown('SIGINT'));
