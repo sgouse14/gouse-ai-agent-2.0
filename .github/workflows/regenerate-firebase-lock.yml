@@ -1,0 +1,41 @@
+name: Temporary Firebase Lockfile Regeneration
+
+on:
+  push:
+    branches: [feature/saqlain-cyber-agent]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: firebase-lock-regeneration-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  regenerate-lockfile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out feature branch
+        uses: actions/checkout@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Set up Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+      - name: Regenerate lockfile from manifest
+        run: bun install
+      - name: Commit normalized lockfile if changed
+        run: |
+          if git diff --quiet -- bun.lock; then
+            echo 'bun.lock is already normalized.'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add bun.lock
+          git commit -m 'build: regenerate Bun lockfile for Firebase'
+          git push origin "HEAD:${GITHUB_REF_NAME}"
