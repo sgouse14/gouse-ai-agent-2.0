@@ -289,6 +289,9 @@ export async function issueGousiyaEmergencyGrant(input: {
     if (ownerApproval.subject === reviewerApproval.subject) {
       throw new Error('Owner and reviewer must be different authenticated identities.');
     }
+    if (ownerApproval.approvalId === reviewerApproval.approvalId) {
+      throw new Error('Owner and reviewer approvals must have distinct approval identifiers.');
+    }
   } catch {
     await audit(input.state, {
       eventType: 'GOUSIYA_EMERGENCY_GRANT_DENIED',
