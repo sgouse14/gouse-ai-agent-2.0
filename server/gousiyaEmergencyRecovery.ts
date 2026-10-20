@@ -328,22 +328,24 @@ export async function issueGousiyaEmergencyGrant(input: {
 
   await withGrantTransaction(input.state, async (grants) => {
     grants.set(grantId, grant);
-    await audit(input.state, {
-      eventType: 'GOUSIYA_EMERGENCY_GRANT_ISSUED',
-      actorId: ownerApproval.subject,
-      outcome: 'ALLOW',
-      resource: incidentId,
-      occurredAt: now.toISOString(),
-      details: {
-        grantId, recoveryAgentId, reason: reason.slice(0, 1000),
-        ownerApproverId: ownerApproval.subject,
-        independentReviewerId: reviewerApproval.subject,
-        ownerRole: ownerApproval.role, reviewerRole: reviewerApproval.role,
-        expiresAt: grant.expiresAt, tokenLogged: false, singleUse: true,
-        productionPromotionAllowed: false, protectedOriginalsModifiable: false, auditBypassAllowed: false,
-      },
-    });
     return { value: undefined, persist: true };
+  });
+  // Persist grant state first. If audit persistence fails, the token is not
+  // returned to the caller; the stored short-lived grant is therefore unusable.
+  await audit(input.state, {
+    eventType: 'GOUSIYA_EMERGENCY_GRANT_ISSUED',
+    actorId: ownerApproval.subject,
+    outcome: 'ALLOW',
+    resource: incidentId,
+    occurredAt: now.toISOString(),
+    details: {
+      grantId, recoveryAgentId, reason: reason.slice(0, 1000),
+      ownerApproverId: ownerApproval.subject,
+      independentReviewerId: reviewerApproval.subject,
+      ownerRole: ownerApproval.role, reviewerRole: reviewerApproval.role,
+      expiresAt: grant.expiresAt, tokenLogged: false, singleUse: true,
+      productionPromotionAllowed: false, protectedOriginalsModifiable: false, auditBypassAllowed: false,
+    },
   });
 
   const { tokenDigest: _secret, ...publicGrant } = grant;
