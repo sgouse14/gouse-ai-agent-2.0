@@ -162,3 +162,43 @@ test('tampered source snapshot is held and never promoted', async () => {
     assert.equal(ctx.state.grants.get(issued.grant.grantId)?.status, 'CONSUMED');
   } finally { await rm(ctx.root, { recursive: true, force: true }); }
 });
+
+
+test('fails closed when the grant-consumption audit write fails before filesystem recovery', async () => {
+  const ctx = await setup();
+  try {
+    const issued = await issueGousiyaEmergencyGrant({
+      state: ctx.state, incidentId: 'incident-consumption-audit-failure', recoveryAgentId: 'saq-recovery-agent',
+      sourceSnapshotDirectory: ctx.snapshot.directory, stagingRoot: ctx.stagingRoot,
+      reason: 'Consumption audit failure must prevent recovery', ...approvals,
+    });
+
+    const auditTextBefore = await readFile(ctx.auditFilePath, 'utf8');
+    assert.equal(auditTextBefore.includes(issued.token), false, 'raw grant token must never appear in the audit log');
+
+    // Simulate unavailable audit append by holding the audit writer lock.
+    const lock = await open(ctx.auditFilePath + '.lock', 'wx');
+    await lock.close();
+    await assert.rejects(executeGousiyaEmergencyRecovery({
+      state: ctx.state,
+      grantId: issued.grant.grantId,
+      token: issued.token,
+      incidentId: 'incident-consumption-audit-failure',
+    }), /locked or has a stale lock/i);
+
+    // Consumption is reserved before audit I/O; fail closed and never start filesystem work.
+    assert.equal(ctx.state.grants.get(issued.grant.grantId)?.status, 'CONSUMED');
+    const { stat } = await import('node:fs/promises');
+    await assert.rejects(stat(ctx.stagingRoot), { code: 'ENOENT' });
+
+    await rm(ctx.auditFilePath + '.lock', { force: true });
+    await assert.rejects(executeGousiyaEmergencyRecovery({
+      state: ctx.state,
+      grantId: issued.grant.grantId,
+      token: issued.token,
+      incidentId: 'incident-consumption-audit-failure',
+    }), /invalid, mismatched, or already used/i);
+  } finally {
+    await rm(ctx.root, { recursive: true, force: true });
+  }
+});
