@@ -6,7 +6,7 @@ Gousiya is a defensive break-glass coordinator for rehearsing recovery from a ve
 
 Implementation:
 - `server/gousiyaEmergencyRecovery.ts` — grant lifecycle, durable state and staging-only execution.
-- `server/gousiyaFirebaseApprovalVerifier.ts` — Firebase ID-token signature/claim verification plus an adapter that calls Firebase Admin `verifyIdToken(token, true)` on a supplied Auth instance.
+- `server/gousiyaFirebaseApprovalVerifier.ts` — Firebase ID-token signature/claim verification plus a fail-closed Identity Toolkit account-status checker.
 - `server/gousiyaEmergencyRuntime.ts` — fail-closed configuration factory. It is not mounted as an HTTP route.
 
 ## Operational procedure
@@ -25,9 +25,9 @@ Both approvals are required: the system owner and an independent reviewer. They 
 
 The returned `VerifiedGousiyaApproval` claims are only as trustworthy as the configured verifier. Do not configure a fake or permissive verifier in production. Approval records and approver identities are written to the hash-chained audit log. Never accept approval booleans directly from an untrusted client.
 
-The verifier cryptographically checks Firebase ID-token signatures against Google's published signing certificates and validates Firebase issuer, audience, expiry, issue time, recent authentication, and the scoped `gousiyaApproval` claim. It also requires an account-status checker. The `createFirebaseAdminTokenActivityChecker` adapter specifically invokes `verifyIdToken(token, true)` on a supplied Firebase Admin Auth instance, so disabled accounts and revoked ID tokens are checked when a real Admin instance is provided. The `gousiyaApproval` claim must be minted only by a trusted server-side approval service; ordinary client input must never be translated into these claims. Approval IDs are then reserved in the durable grant store to prevent a signed approval from issuing a second grant.
+The verifier cryptographically checks Firebase ID-token signatures against Google's published signing certificates and validates Firebase issuer, audience, expiry, issue time, recent authentication, and the scoped `gousiyaApproval` claim. It also requires an account-status checker. The `createFirebaseRestTokenActivityChecker` checker calls Firebase Identity Toolkit `accounts:lookup` after signature verification, checks that the returned user ID matches the token subject, rejects disabled accounts, and compares `auth_time` with the `validSince` revocation boundary. Lookup/network/malformed responses fail closed. The `gousiyaApproval` claim must be minted only by a trusted server-side approval service; ordinary client input must never be translated into these claims. Approval IDs are then reserved in the durable grant store to prevent a signed approval from issuing a second grant.
 
-**Known blocker:** the repository does not yet include the `firebase-admin` dependency or wire a Firebase Admin app/credential into the runtime factory. Add the SDK to the dependency manifest and lockfile, configure workload identity/Application Default Credentials (or another approved server credential), then pass its real `getAuth(app)` instance as `firebaseAdminAuth`. The runtime deliberately refuses to initialize without it. Test disabled-account and revoked-token rejection before production use. Until then, treat this feature as a staging/test implementation only.
+**Configuration requirement:** set `FIREBASE_PROJECT_ID` and `FIREBASE_WEB_API_KEY` for the internal runtime, plus the audit and grant-store paths. Restrict the API key to the Identity Toolkit API. The account lookup confirms account disablement and the Firebase `validSince` revocation boundary but is not a server-side role/approval source; the `gousiyaApproval` claim still must be issued only by a trusted server-side approval service. Keep this feature staging/test-only until that issuer and all operational controls are in place.
 
 ### 3. Preflight checks
 
@@ -44,7 +44,7 @@ If any check cannot be established, stop and escalate to the incident commander.
 
 ### 4. Issue and execute a one-time grant
 
-The API remains an internal server-side module, not an HTTP endpoint. The runtime factory requires `FIREBASE_PROJECT_ID`, `GOUSIYA_AUDIT_FILE_PATH`, and `GOUSIYA_GRANT_STORE_FILE_PATH` plus a real Firebase Admin Auth instance passed as `firebaseAdminAuth`. It is not currently invoked by `server.ts`. The grant registry is now stored in a durable JSON file with restrictive file permissions, an exclusive sibling lock, schema validation, fsync, and atomic rename. Mutations reload the store while holding the lock; a malformed store or lock conflict fails closed. This is a **single-host file-store adapter**, not a substitute for a transactional database on multi-host/network deployments. When used in a controlled test/rehearsal environment:
+The API remains an internal server-side module, not an HTTP endpoint. The runtime factory requires `FIREBASE_PROJECT_ID`, `FIREBASE_WEB_API_KEY`, `GOUSIYA_AUDIT_FILE_PATH`, and `GOUSIYA_GRANT_STORE_FILE_PATH`. It is not currently invoked by `server.ts`. The grant registry is now stored in a durable JSON file with restrictive file permissions, an exclusive sibling lock, schema validation, fsync, and atomic rename. Mutations reload the store while holding the lock; a malformed store or lock conflict fails closed. This is a **single-host file-store adapter**, not a substitute for a transactional database on multi-host/network deployments. When used in a controlled test/rehearsal environment:
 
 1. Issue a grant only after the two approval decisions and path preflight have been recorded.
 2. Provide a unique incident ID, approved Recovery Agent ID, source snapshot directory, staging root, and concise reason.
@@ -94,7 +94,7 @@ Run `npm test` (or the repository's configured package-manager test command) to 
 
 ## Production blockers — do not treat as production-ready
 
-1. **Identity revocation check:** the structural adapter calls `verifyIdToken(token, true)`, but the `firebase-admin` package is not yet added to the manifest/lockfile and no trusted Admin app is wired to the runtime. Add/configure the SDK and prove disabled/revoked token rejection.
+1. **Identity status and approval issuer:** account lookup now checks disabled status and `validSince` after the JWT signature/claims are verified, but the privileged `gousiyaApproval` claim issuer and role source must still be implemented as a trusted server-side approval service.
 2. **Trusted approval issuance:** approval claims must be issued only by a trusted server-side service after authenticating the person, checking the authoritative owner/reviewer role, enforcing two-person separation, and binding approval to the exact incident and paths. Do not let client input set these custom claims.
 3. **Multi-host durability and concurrency:** grant status now survives restarts in a locked, atomic single-host file store. Replace it with a transactional shared database and atomic conditional consumption before deploying multiple hosts/replicas. Add parallel-process race and crash-recovery tests.
 4. **Audit durability/replication:** configure protected shared storage, off-host/WORM replication, alerting, retention, and key/incident procedures. Keep audit storage separately permissioned from source and staging.
