@@ -1,40 +1,92 @@
 # Gousiya Emergency Recovery System
 
-## Purpose and boundary
+## Purpose and safety boundary
 
-Gousiya is a defensive break-glass coordinator for emergency recovery rehearsals. It authorizes the existing Recovery Agent to verify a backup and copy it into a separate staging directory. It does not restore over live files, delete protected originals, disable security checks, escalate privileges, attack external systems, or bypass audit.
+Gousiya is a defensive break-glass coordinator for rehearsing recovery from a verified backup into a separate staging directory. It does **not** restore over live files, delete protected originals, disable security controls, escalate privileges, attack external systems, bypass audit, or promote staged content into production.
 
-Implementation: server/gousiyaEmergencyRecovery.ts
+Implementation: `server/gousiyaEmergencyRecovery.ts`
 
-## Authorization flow
+## Operational procedure
 
-1. An operator records an incident ID, reason, Recovery Agent ID, source snapshot, and separate staging root.
-2. Both the system owner and an independent reviewer must approve the request. Approval booleans are a caller-supplied boundary in this module; production must bind them to authenticated, separately authorized identities and a durable approval record.
-3. Gousiya creates a cryptographically random 256-bit bearer token. Only its SHA-256 digest is stored in the in-memory grant state; the raw token is returned once to the caller and is never written to the audit log.
-4. The token is short-lived (two minutes by default; maximum five minutes) and single-use. Gousiya consumes it and durably audits that consumption before starting recovery, so a failed rehearsal requires a fresh authorization.
-5. The existing Recovery Agent validates the manifest and file checksums and writes verified bytes to separate staging.
-6. The result and outcome are audited. A VERIFIED result means staging passed integrity checks only; it is not permission to promote staged data to production.
+### 1. Declare and scope the incident
 
-Grants can be revoked before use. Expired, mismatched, revoked, consumed, or reused grants cannot execute.
+- Assign a unique incident ID and record the incident commander/operator.
+- Record the failure and business impact, the affected service/project, recovery objective, and why normal recovery is insufficient.
+- Identify the exact backup snapshot ID and its trusted source. Do not use a client-uploaded or otherwise untrusted directory as a recovery source.
+- Choose a new, separate staging directory. Do not point staging at the source snapshot, a live application directory, or an audit directory.
+- Confirm the Recovery Agent ID is an approved agent identity. Do not create or elevate identities as part of emergency recovery.
 
-## Safety rules
+### 2. Obtain and verify two-person approval
 
-- Source snapshot and staging roots must not overlap.
-- Existing Recovery Agent path, manifest, checksum, and symlink checks still apply.
-- Protected originals and source backup evidence are not intentionally modified by this workflow.
-- promotionAllowed remains false in the Recovery Agent result.
-- A grant is consumed before filesystem work and cannot be replayed.
-- Every issue, approval-denial, consumption, revocation, expiry, and recovery outcome is written to the hash-chained audit log. If the audit write before recovery fails, recovery does not start.
-- The emergency component cannot change Gatekeeper policy, agent identities, file permissions, or security holds.
+Both approvals are required: the system owner and an independent reviewer. They must be two distinct, authenticated people with the appropriate roles. Record each approver's identity, role, timestamp, decision, incident ID, scope, source snapshot ID, staging destination, and reason in the organization's approved incident record.
+
+**Important implementation limit:** the current module accepts `ownerApproved` and `independentReviewerApproved` booleans from its caller; it does not verify who supplied them. Therefore these values are not, by themselves, proof of approval. Do not expose this module through an HTTP endpoint or rely on it for production break-glass authorization until approvals are bound server-side to authenticated identities and durably recorded. Never accept approval booleans directly from an untrusted client.
+
+### 3. Preflight checks
+
+Before issuing a grant, the incident commander and reviewer must confirm:
+
+- The backup snapshot and manifest come from the trusted backup process.
+- The source and staging paths are separate and non-overlapping; neither path resolves through an unexpected symlink.
+- The audit destination is durable, writable, protected, and separate from source and staging.
+- The Recovery Agent is available and its manifest, checksum, path traversal, and symlink validation remain enabled.
+- The storage location has sufficient space and least-privilege permissions.
+- No operator is asking to suppress a security hold, skip integrity verification, change Gatekeeper policy, or promote staged files directly to live service.
+
+If any check cannot be established, stop and escalate to the incident commander. Do not lower the controls to make the rehearsal proceed.
+
+### 4. Issue and execute a one-time grant
+
+The current API is an internal server-side module, not an HTTP endpoint. When used in a controlled test/rehearsal environment:
+
+1. Issue a grant only after the two approval decisions and path preflight have been recorded.
+2. Provide a unique incident ID, approved Recovery Agent ID, source snapshot directory, staging root, and concise reason.
+3. Deliver the returned random bearer token through an approved secret channel. It is returned once; never put it in tickets, console output, chat, URLs, or logs.
+4. Execute the grant with the matching grant ID, token, and incident ID. Tokens expire after two minutes by default (maximum five minutes) and are single-use.
+5. If the token expires, is revoked, mismatches, is consumed, or execution fails, do not reuse it. Investigate and, if still approved, issue a fresh grant.
+
+The coordinator marks a grant consumed before filesystem work and audits consumption before recovery starts. A failed audit write must stop recovery. Do not remove an audit lock or modify an audit record just to get past an error; follow the audit recovery procedure and preserve evidence.
+
+### 5. Review the result
+
+- `VERIFIED` means the staged snapshot passed the configured integrity checks. It is not authorization to replace live data.
+- `HOLD` means integrity or policy checks did not pass. Preserve the source and staging evidence, record the reason, and investigate.
+- `FAILED` or an unexpected exception requires incident-owner review; never retry with the same grant.
+- Verify the audit chain and confirm issue, denial (if any), consumption, and final outcome events are present.
+- Confirm source snapshot bytes remain unchanged, staging contains only the expected verified files, and `originalsModified` is `false` and `promotionAllowed` is `false`.
+- Record the staged snapshot identifier, verified file count, checks performed, timestamps, operators, approvals, and follow-up actions in the incident record. Do not copy raw bearer tokens into evidence.
+
+### 6. Stop, rollback, and escalation
+
+Stop immediately if the audit chain is malformed or unavailable, source/staging paths overlap, a symlink or checksum discrepancy is detected, approval independence is unclear, the identity/agent registry is unavailable, or any action would write to live data.
+
+Rollback for this workflow means **abandoning or quarantining the staging result under the approved evidence-retention policy**. This module intentionally does not perform live promotion or overwrite restoration. A real production restoration requires a separate change/recovery plan, explicit approval, tested rollback, and independent verification; it must not be improvised through Gousiya.
+
+## Security rules enforced by the current implementation
+
+- A 256-bit random bearer token is created; only its SHA-256 digest is stored in the current in-memory grant registry.
+- Grants are short-lived and single-use; unused grants can be revoked.
+- The recovery agent validates the backup manifest and file checksums and writes into separate staging.
+- The source, staging, and audit paths must not overlap.
+- The raw token is not written to the audit log.
+- Grant consumption is audited before filesystem recovery. If that audit write fails, recovery does not start.
+- The Recovery Agent reports `promotionAllowed: false`; Gousiya does not promote staged files into production.
+- The audit log is hash-chained. A hash chain helps detect edits but does not, by itself, prevent a privileged host administrator from rewriting the log.
 
 ## Files and tests
 
-- server/gousiyaEmergencyRecovery.ts — grant lifecycle and Recovery Agent integration.
-- server/gousiyaEmergencyRecovery.test.ts — tests approval requirements, staging isolation, token replay, expiry, revocation, tampered backup handling, audit records, and preservation of source bytes.
-- docs/GOUSIYA_EMERGENCY_RECOVERY.md — this guide.
+- `server/gousiyaEmergencyRecovery.ts` — grant lifecycle and Recovery Agent integration.
+- `server/gousiyaEmergencyRecovery.test.ts` — covers approval requirements, staging isolation, token replay, expiry, revocation, audit failures, tampered backup handling, audit events, and source preservation.
+- `docs/GOUSIYA_EMERGENCY_RECOVERY.md` — this runbook.
 
-Run npm test to execute the security suite.
+Run `npm test` (or the repository's configured package-manager test command) to execute the security test suite.
 
-## Production requirements and limitations
+## Production blockers — do not treat as production-ready
 
-The current grant registry is in-memory. It is not safe for multi-process deployment or process restarts. The coordinator is integrated with the Recovery Agent as a server-side module; no public emergency-recovery HTTP route is exposed, because the current approval flags are not yet bound to authenticated roles. Before exposing an endpoint or relying on this in production, use a transactional durable store with atomic compare-and-swap consumption, authenticated role checks, owner/reviewer separation, secret management, rate limits, and off-host/WORM audit replication. Approval flags must not be accepted directly from an untrusted client. Keep source, staging, and audit storage under separate least-privilege OS ownership where practical. Do not use this module to automatically promote staged files into a live system; live restoration requires a separately reviewed, explicitly authorized procedure and a tested rollback plan.
+1. **Approval identity:** owner/reviewer booleans are caller supplied and are not cryptographic identity proof. Enforce authenticated role checks server-side and owner/reviewer separation.
+2. **Grant durability and concurrency:** grant state is in-memory, so restart loses grants and multiple replicas do not share state. Replace it with a transactional durable store and atomic compare-and-swap consumption before multi-process use.
+3. **Audit durability/replication:** configure protected shared storage, off-host/WORM replication, alerting, retention, and key/incident procedures. Keep audit storage separately permissioned from source and staging.
+4. **Endpoint exposure:** no public emergency-recovery HTTP route is exposed. Keep it that way until the above controls, authentication, rate limits, and security tests have been implemented and reviewed.
+5. **Operational validation:** test concurrent replay, restart recovery, revocation races, audit-store unavailability/corruption, permissions, and staging isolation in a disposable environment.
+
+Until these blockers are closed and the complete CI/staging validation passes, use Gousiya for isolated rehearsals only, not as an operational production break-glass service.
