@@ -27,7 +27,7 @@ The returned `VerifiedGousiyaApproval` claims are only as trustworthy as the con
 
 The current verifier cryptographically checks Firebase ID-token signatures against Google's published signing certificates and validates Firebase issuer, audience, expiry, issue time, recent authentication, and the scoped `gousiyaApproval` claim. That claim must be minted only by a trusted server-side approval service; ordinary client input must never be translated into these claims. Approval IDs are then reserved in the durable grant store to prevent a signed approval from issuing a second grant.
 
-**Known blocker:** this verifier does not call Firebase Admin Auth to check disabled accounts or revoked ID tokens. Before production use, add an authoritative account/revocation check (for example, Firebase Admin `verifyIdToken(token, true)` with correctly provisioned server credentials) or an equivalent trusted identity-status service. Until then, treat this feature as a staging/test implementation only.
+**Known blocker:** this repository requires an injected account-status callback but does not ship a production Firebase Admin adapter. The runtime deliberately refuses to initialize without that callback. Wire it to Firebase Admin `verifyIdToken(token, true)` with correctly provisioned server credentials, or an equivalent trusted identity-status service, and test disabled-account and revoked-token rejection before production use. Until that is done, treat this feature as a staging/test implementation only.
 
 ### 3. Preflight checks
 
@@ -44,7 +44,7 @@ If any check cannot be established, stop and escalate to the incident commander.
 
 ### 4. Issue and execute a one-time grant
 
-The API remains an internal server-side module, not an HTTP endpoint. The runtime factory requires these server environment variables: `FIREBASE_PROJECT_ID`, `GOUSIYA_AUDIT_FILE_PATH`, and `GOUSIYA_GRANT_STORE_FILE_PATH`. The grant registry is now stored in a durable JSON file with restrictive file permissions, an exclusive sibling lock, schema validation, fsync, and atomic rename. Mutations reload the store while holding the lock; a malformed store or lock conflict fails closed. This is a **single-host file-store adapter**, not a substitute for a transactional database on multi-host/network deployments. When used in a controlled test/rehearsal environment:
+The API remains an internal server-side module, not an HTTP endpoint. The runtime factory requires these server environment variables: `FIREBASE_PROJECT_ID`, `GOUSIYA_AUDIT_FILE_PATH`, and `GOUSIYA_GRANT_STORE_FILE_PATH`, and a code-supplied `verifyFirebaseTokenIsActive` callback that performs the real Firebase Admin revocation check. The grant registry is now stored in a durable JSON file with restrictive file permissions, an exclusive sibling lock, schema validation, fsync, and atomic rename. Mutations reload the store while holding the lock; a malformed store or lock conflict fails closed. This is a **single-host file-store adapter**, not a substitute for a transactional database on multi-host/network deployments. When used in a controlled test/rehearsal environment:
 
 1. Issue a grant only after the two approval decisions and path preflight have been recorded.
 2. Provide a unique incident ID, approved Recovery Agent ID, source snapshot directory, staging root, and concise reason.
@@ -94,7 +94,7 @@ Run `npm test` (or the repository's configured package-manager test command) to 
 
 ## Production blockers — do not treat as production-ready
 
-1. **Identity revocation check:** the token verifier checks Firebase token signatures and claims but does not call Firebase Admin Auth to check disabled accounts or revoked ID tokens. Add this server-side check before any production use.
+1. **Identity revocation check:** the runtime requires an injected token-status callback, but a production Firebase Admin adapter is not shipped/configured yet. Wire and test it using `verifyIdToken(token, true)` (or an equivalent authoritative account-status/revocation service).
 2. **Trusted approval issuance:** approval claims must be issued only by a trusted server-side service after authenticating the person, checking the authoritative owner/reviewer role, enforcing two-person separation, and binding approval to the exact incident and paths. Do not let client input set these custom claims.
 3. **Multi-host durability and concurrency:** grant status now survives restarts in a locked, atomic single-host file store. Replace it with a transactional shared database and atomic conditional consumption before deploying multiple hosts/replicas. Add parallel-process race and crash-recovery tests.
 4. **Audit durability/replication:** configure protected shared storage, off-host/WORM replication, alerting, retention, and key/incident procedures. Keep audit storage separately permissioned from source and staging.
