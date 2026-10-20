@@ -144,7 +144,7 @@ async function readGrantStore(path: string): Promise<Map<string, StoredGrant>> {
     throw new Error('Emergency grant store is malformed; refusing to continue.');
   }
   if (!parsed || typeof parsed !== 'object' ||
-      (parsed as { schemaVersion?: unknown }).schemaVersion !== 1 ||
+      (parsed as { schemaVersion?: unknown }).schemaVersion !== 2 ||
       !Array.isArray((parsed as { grants?: unknown }).grants)) {
     throw new Error('Emergency grant store has an unsupported schema; refusing to continue.');
   }
@@ -164,7 +164,7 @@ async function writeGrantStoreAtomically(path: string, grants: Map<string, Store
   const temporaryPath = path + '.' + randomUUID() + '.tmp';
   const handle = await open(temporaryPath, 'wx', 0o600);
   try {
-    await handle.writeFile(JSON.stringify({ schemaVersion: 1, grants: [...grants.values()] }) + '\n', 'utf8');
+    await handle.writeFile(JSON.stringify({ schemaVersion: 2, grants: [...grants.values()] }) + '\n', 'utf8');
     await handle.sync();
   } finally {
     await handle.close();
