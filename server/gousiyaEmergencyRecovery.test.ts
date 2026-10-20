@@ -33,6 +33,7 @@ function createTestState(auditFilePath: string, grantStoreFilePath: string) {
     verifyApprovalToken: async (token, scope) => {
       if (token !== 'owner-token' && token !== 'reviewer-token') throw new Error('Invalid test approval token');
       return {
+        approvalId: token + '-approval-v1',
         subject: token === 'owner-token' ? 'owner-user-1' : 'reviewer-user-2',
         role: token === 'owner-token' ? 'system-owner' : 'independent-reviewer',
         decision: 'APPROVE',
@@ -284,6 +285,7 @@ test('requires two distinct approval identities, not merely two tokens', async (
       auditFilePath: ctx.auditFilePath,
       grantStoreFilePath: ctx.grantStoreFilePath,
       verifyApprovalToken: async (_token, scope) => ({
+        approvalId: _token + '-same-identity-approval',
         subject: 'same-person',
         role: _token === 'owner-token' ? 'system-owner' : 'independent-reviewer',
         decision: 'APPROVE',
@@ -301,6 +303,25 @@ test('requires two distinct approval identities, not merely two tokens', async (
       reason: 'Independence test', ...approvals,
     }), /distinct owner and independent-reviewer identities/i);
     assert.equal(sameIdentityState.grants.size, 0);
+  } finally {
+    await rm(ctx.root, { recursive: true, force: true });
+  }
+});
+
+
+test('approval credentials cannot be replayed to issue a second grant', async () => {
+  const ctx = await setup();
+  try {
+    const request = {
+      state: ctx.state, incidentId: 'incident-approval-replay', recoveryAgentId: 'saq-recovery-agent',
+      sourceSnapshotDirectory: ctx.snapshot.directory, stagingRoot: ctx.stagingRoot,
+      reason: 'Approval token replay test', ...approvals,
+    };
+    await issueGousiyaEmergencyGrant(request);
+    await assert.rejects(issueGousiyaEmergencyGrant(request), /Approval token has already been used/i);
+    assert.equal(ctx.state.grants.size, 1);
+    const events = await readVerifiedAuditLog(ctx.auditFilePath);
+    assert.ok(events.some(e => e.eventType === 'GOUSIYA_EMERGENCY_GRANT_DENIED'));
   } finally {
     await rm(ctx.root, { recursive: true, force: true });
   }
