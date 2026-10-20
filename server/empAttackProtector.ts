@@ -10,6 +10,22 @@ export type EmpObservation =
   | 'unusual_electrical_damage'
   | 'multiple_systems_unavailable';
 
+/** Trusted/operator-reported indicators; none independently proves an EMP or attack. */
+export type EmpThreatIndicator =
+  | 'suspected_targeted_emp_activity'
+  | 'unauthorized_emp_protector_access'
+  | 'suspicious_configuration_change'
+  | 'repeated_authentication_failures';
+
+export interface EmpIncidentResponsePlan {
+  status: 'NO_INCIDENT_REPORTED' | 'DEFENSIVE_RESPONSE_RECOMMENDED' | 'ASSESSMENT_HELD';
+  actions: readonly string[];
+  /** Retaliatory actions against suspected external systems are deliberately prohibited. */
+  retaliationPermitted: false;
+  externalSystemsMayBeTargeted: false;
+  automatedContainmentExecuted: false;
+}
+
 export interface EmpProtectionSignals {
   /** A qualified assessment of shielding/EMC protections has been recorded. */
   shieldingAssessed: boolean | null;
@@ -29,6 +45,8 @@ export interface EmpProtectionSignals {
    * untrusted client as sensor truth.
    */
   reportedObservations: readonly EmpObservation[];
+  /** Optional indicators from trusted monitoring or an authorized operator, never raw client sensor claims. */
+  reportedThreatIndicators?: readonly EmpThreatIndicator[];
 }
 
 export interface EmpProtectionLayer {
@@ -44,6 +62,7 @@ export interface EmpProtectionReport {
   readiness: EmpProtectionLayer;
   impactAssessment: EmpProtectionLayer;
   recovery: EmpProtectionLayer;
+  incidentResponse: EmpIncidentResponsePlan;
   recommendations: readonly string[];
   reason?: string;
 }
@@ -67,6 +86,13 @@ export interface EmpAttackProtectorOptions {
   /** Injection point for failure tests; production should use the durable audit writer. */
   appendAudit?: typeof appendDurableAuditEvent;
 }
+
+const ALLOWED_THREAT_INDICATORS = new Set<EmpThreatIndicator>([
+  'suspected_targeted_emp_activity',
+  'unauthorized_emp_protector_access',
+  'suspicious_configuration_change',
+  'repeated_authentication_failures',
+]);
 
 const ALLOWED_OBSERVATIONS = new Set<EmpObservation>([
   'unexpected_power_loss',
@@ -98,8 +124,13 @@ export function assessEmpProtection(signals: EmpProtectionSignals): Omit<EmpProt
   if (signals.alternateCommunicationAvailable !== true) recoveryFindings.push(signals.alternateCommunicationAvailable === false ? 'ALTERNATE_COMMUNICATION_UNAVAILABLE' : 'ALTERNATE_COMMUNICATION_STATUS_UNKNOWN');
 
   const uniqueObservations = [...new Set(signals.reportedObservations)];
-  const impactFindings = uniqueObservations.map((observation) => 'REPORTED_' + observation.toUpperCase());
-  const impactNeedsReview = uniqueObservations.length > 0;
+  const uniqueThreatIndicators = [...new Set(signals.reportedThreatIndicators ?? [])];
+  const impactFindings = [
+    ...uniqueObservations.map((observation) => 'REPORTED_' + observation.toUpperCase()),
+    ...uniqueThreatIndicators.map((indicator) => 'REPORTED_THREAT_' + indicator.toUpperCase()),
+  ];
+  const impactNeedsReview = uniqueObservations.length > 0 || uniqueThreatIndicators.length > 0;
+  const incidentResponse = buildEmpIncidentResponsePlan(impactNeedsReview);
   const readinessStatus = readinessFindings.length === 0 ? 'READY' : 'DEGRADED';
   const recoveryStatus = recoveryFindings.length === 0 ? 'READY' : 'DEGRADED';
   const impactStatus = impactNeedsReview ? 'INVESTIGATE' : 'CLEAR';
@@ -112,6 +143,7 @@ export function assessEmpProtection(signals: EmpProtectionSignals): Omit<EmpProt
   const recommendations = [
     ...(readinessFindings.length ? ['Complete and document shielding/EMC review, surge protection, and verified offline backups.'] : []),
     ...uniqueObservations.map((observation) => OBSERVATION_ADVICE[observation]),
+    ...(uniqueThreatIndicators.length ? ['Preserve logs and configuration snapshots, notify authorized incident responders, isolate affected Gouse-controlled equipment only through approved local procedures, use independent communications, and verify recovery copies. Do not retaliate or target external systems.'] : []),
     ...(recoveryFindings.length ? ['Validate the recovery runbook, compatible spare equipment, and independent communications through a supervised drill.'] : []),
     'Treat reported symptoms as indicators requiring investigation, not as confirmation that an EMP occurred.',
   ];
@@ -120,6 +152,7 @@ export function assessEmpProtection(signals: EmpProtectionSignals): Omit<EmpProt
     readiness: Object.freeze({ status: readinessStatus, findingCodes: Object.freeze(readinessFindings) }),
     impactAssessment: Object.freeze({ status: impactStatus, findingCodes: Object.freeze(impactFindings) }),
     recovery: Object.freeze({ status: recoveryStatus, findingCodes: Object.freeze(recoveryFindings) }),
+    incidentResponse,
     recommendations: Object.freeze(recommendations),
   });
 }
@@ -145,6 +178,33 @@ function validateSignals(signals: EmpProtectionSignals): void {
   for (const observation of signals.reportedObservations) {
     if (!ALLOWED_OBSERVATIONS.has(observation)) throw new Error('Unknown EMP observation code.');
   }
+  if (signals.reportedThreatIndicators !== undefined) {
+    if (!Array.isArray(signals.reportedThreatIndicators) || signals.reportedThreatIndicators.length > 20) {
+      throw new Error('reportedThreatIndicators must be an array with at most 20 items.');
+    }
+    for (const indicator of signals.reportedThreatIndicators) {
+      if (!ALLOWED_THREAT_INDICATORS.has(indicator)) throw new Error('Unknown EMP threat indicator code.');
+    }
+  }
+}
+
+/** Produces recommended defensive steps only; it never executes containment or affects external systems. */
+export function buildEmpIncidentResponsePlan(incidentReported: boolean): EmpIncidentResponsePlan {
+  return Object.freeze({
+    status: incidentReported ? 'DEFENSIVE_RESPONSE_RECOMMENDED' : 'NO_INCIDENT_REPORTED',
+    actions: Object.freeze(incidentReported ? [
+      'PRESERVE_EVIDENCE',
+      'ALERT_AUTHORIZED_OPERATORS',
+      'ISOLATE_AFFECTED_LOCAL_SYSTEMS_THROUGH_APPROVED_PROCEDURES',
+      'SWITCH_TO_TESTED_ALTERNATE_COMMUNICATIONS',
+      'VERIFY_OFFLINE_BACKUPS',
+      'RECOVER_FROM_VERIFIED_BACKUPS_ONLY_AFTER_APPROVAL',
+      'DO_NOT_RETALIATE_OR_TARGET_EXTERNAL_SYSTEMS',
+    ] : []),
+    retaliationPermitted: false as const,
+    externalSystemsMayBeTargeted: false as const,
+    automatedContainmentExecuted: false as const,
+  });
 }
 
 function boundedLabel(value: string, fieldName: string): string {
@@ -222,7 +282,11 @@ export function createEmpAttackProtector(options: EmpAttackProtectorOptions) {
             ...assessment.recovery.findingCodes,
           ],
           reportedObservations: [...new Set(request.signals.reportedObservations)],
+          reportedThreatIndicators: [...new Set(request.signals.reportedThreatIndicators ?? [])],
+          incidentResponse: assessment.incidentResponse,
           mutatesSystems: false,
+          retaliationPermitted: false,
+          externalSystemsMayBeTargeted: false,
           confirmedEmpEvent: false,
         },
       });
@@ -245,6 +309,7 @@ function holdReport(assessmentId: string, assessedAt: string, reason: string, au
     readiness: holdLayer,
     impactAssessment: Object.freeze({ status: 'INVESTIGATE', findingCodes: Object.freeze(['ASSESSMENT_HELD']) }),
     recovery: holdLayer,
+    incidentResponse: Object.freeze({ status: 'ASSESSMENT_HELD', actions: Object.freeze(['ALERT_AUTHORIZED_OPERATORS', 'DO_NOT_RETALIATE_OR_TARGET_EXTERNAL_SYSTEMS']), retaliationPermitted: false, externalSystemsMayBeTargeted: false, automatedContainmentExecuted: false }),
     recommendations: Object.freeze(['Resolve authorization and audit availability before relying on this assessment.']),
     reason,
   });
