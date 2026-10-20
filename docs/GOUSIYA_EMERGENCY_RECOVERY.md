@@ -5,9 +5,10 @@
 Gousiya is a defensive break-glass coordinator for rehearsing recovery from a verified backup into a separate staging directory. It does **not** restore over live files, delete protected originals, disable security controls, escalate privileges, attack external systems, bypass audit, or promote staged content into production.
 
 Implementation:
+- `server/gousiyaApprovalIssuer.ts` — checks trusted registry roles, issues short-lived HMAC-signed approval attestations, and verifies those attestations for recovery grants.
 - `server/gousiyaEmergencyRecovery.ts` — grant lifecycle, durable state and staging-only execution.
-- `server/gousiyaFirebaseApprovalVerifier.ts` — Firebase ID-token signature/claim verification plus a fail-closed Identity Toolkit account-status checker.
-- `server/gousiyaEmergencyRuntime.ts` — fail-closed configuration factory. It is not mounted as an HTTP route.
+- `server/gousiyaFirebaseApprovalVerifier.ts` — verifies Firebase ID tokens and checks account status/revocation through Identity Toolkit.
+- `server/gousiyaEmergencyRuntime.ts` — fail-closed internal factory wiring issuer and grant verifier. No public route is mounted.
 
 ## Operational procedure
 
@@ -21,13 +22,13 @@ Implementation:
 
 ### 2. Obtain and verify two-person approval
 
-Both approvals are required: the system owner and an independent reviewer. They must be two distinct authenticated people with the appropriate roles. The module now requires separate approval tokens and a trusted, server-injected `verifyApprovalToken` function. That verifier must validate the token issuer, signature, audience, expiry, and authoritative approval claims; it must not derive identity or role from request-body fields. The module independently checks the returned decision, role, distinct subject IDs, incident, recovery agent, source path, staging path, and approval validity window.
+Both approvals are required: the system owner and an independent reviewer. They must be two distinct authenticated people with the appropriate roles. The recovery module requires two short-lived server-signed approval attestations and a trusted verifier. The internal issuer first authenticates an ordinary Firebase ID token, then looks up that UID in an owner-only approver registry; it never accepts a role or approval claim from the client's ID token. It signs a scoped attestation only when the server registry grants the requested role. The recovery module checks the signature, issuer, audience, expiry, approval ID, decision, distinct subject IDs, incident, recovery agent, source path, staging path, and approval validity window.
 
 The returned `VerifiedGousiyaApproval` claims are only as trustworthy as the configured verifier. Do not configure a fake or permissive verifier in production. Approval records and approver identities are written to the hash-chained audit log. Never accept approval booleans directly from an untrusted client.
 
-The verifier cryptographically checks Firebase ID-token signatures against Google's published signing certificates and validates Firebase issuer, audience, expiry, issue time, recent authentication, and the scoped `gousiyaApproval` claim. It also requires an account-status checker. The `createFirebaseRestTokenActivityChecker` checker calls Firebase Identity Toolkit `accounts:lookup` after signature verification, checks that the returned user ID matches the token subject, rejects disabled accounts, and compares `auth_time` with the `validSince` revocation boundary. Lookup/network/malformed responses fail closed. The `gousiyaApproval` claim must be minted only by a trusted server-side approval service; ordinary client input must never be translated into these claims. Approval IDs are then reserved in the durable grant store to prevent a signed approval from issuing a second grant.
+The identity verifier cryptographically checks Firebase ID-token signatures against Google's published signing certificates and validates Firebase issuer, audience, expiry, issue time, recent authentication, and current account status. Identity Toolkit `accounts:lookup` must confirm the UID, reject disabled accounts, and compare `auth_time` with the `validSince` revocation boundary. Lookup/network/malformed responses fail closed. The approval issuer then checks the UID against the protected registry and signs a separate HMAC-SHA256 attestation using `GOUSIYA_APPROVAL_SIGNING_SECRET`. Firebase ID tokens and client-provided custom claims are not themselves recovery approvals. Approval IDs are reserved in the durable grant store to prevent reuse.
 
-**Configuration requirement:** set `FIREBASE_PROJECT_ID` and `FIREBASE_WEB_API_KEY` for the internal runtime, plus the audit and grant-store paths. Restrict the API key to the Identity Toolkit API. The account lookup confirms account disablement and the Firebase `validSince` revocation boundary but is not a server-side role/approval source; the `gousiyaApproval` claim still must be issued only by a trusted server-side approval service. Keep this feature staging/test-only until that issuer and all operational controls are in place.
+**Configuration requirement:** set `FIREBASE_PROJECT_ID`, `FIREBASE_WEB_API_KEY` restricted to Identity Toolkit, `GOUSIYA_APPROVAL_SIGNING_SECRET` as 64 hex characters generated from 32 random bytes, `GOUSIYA_APPROVER_REGISTRY_PATH`, `GOUSIYA_AUDIT_FILE_PATH`, and `GOUSIYA_GRANT_STORE_FILE_PATH`. The approver registry must be a regular non-symlink JSON file with owner-only permissions (`chmod 600`) and schema `{ "schemaVersion": 1, "users": [{ "uid": "firebase-uid", "active": true, "roles": ["system-owner"] }] }`; the reviewer should have `independent-reviewer` as the role. Keep the signing secret in a deployment secret manager and outside source control. The registry is currently operator-managed; there is no public role-administration endpoint. Keep this feature staging/test-only until the role registry, secret management, and all other controls are operational.
 
 ### 3. Preflight checks
 
@@ -44,7 +45,7 @@ If any check cannot be established, stop and escalate to the incident commander.
 
 ### 4. Issue and execute a one-time grant
 
-The API remains an internal server-side module, not an HTTP endpoint. The runtime factory requires `FIREBASE_PROJECT_ID`, `FIREBASE_WEB_API_KEY`, `GOUSIYA_AUDIT_FILE_PATH`, and `GOUSIYA_GRANT_STORE_FILE_PATH`. It is not currently invoked by `server.ts`. The grant registry is now stored in a durable JSON file with restrictive file permissions, an exclusive sibling lock, schema validation, fsync, and atomic rename. Mutations reload the store while holding the lock; a malformed store or lock conflict fails closed. This is a **single-host file-store adapter**, not a substitute for a transactional database on multi-host/network deployments. When used in a controlled test/rehearsal environment:
+The API remains an internal server-side module, not an HTTP endpoint. The emergency-state factory requires `FIREBASE_PROJECT_ID`, `GOUSIYA_APPROVAL_SIGNING_SECRET`, `GOUSIYA_AUDIT_FILE_PATH`, and `GOUSIYA_GRANT_STORE_FILE_PATH`. The separate approval-issuer factory also requires `FIREBASE_WEB_API_KEY` and `GOUSIYA_APPROVER_REGISTRY_PATH`. These internal factories are not invoked by `server.ts`. The grant registry is now stored in a durable JSON file with restrictive file permissions, an exclusive sibling lock, schema validation, fsync, and atomic rename. Mutations reload the store while holding the lock; a malformed store or lock conflict fails closed. This is a **single-host file-store adapter**, not a substitute for a transactional database on multi-host/network deployments. When used in a controlled test/rehearsal environment:
 
 1. Issue a grant only after the two approval decisions and path preflight have been recorded.
 2. Provide a unique incident ID, approved Recovery Agent ID, source snapshot directory, staging root, and concise reason.
@@ -86,7 +87,8 @@ Rollback for this workflow means **abandoning or quarantining the staging result
 - `server/gousiyaFirebaseApprovalVerifier.ts` — Firebase ID-token signature/claim verification plus Identity Toolkit account status and `validSince` revocation checks.
 - `server/gousiyaEmergencyRuntime.ts` — fail-closed runtime configuration factory (no HTTP endpoint).
 - `server/gousiyaEmergencyRecovery.test.ts` — independent approvals, approval-ID reuse, durable restart/replay, staging isolation, expiry, revocation, audit failures, tampered backup handling, and source preservation.
-- `server/gousiyaFirebaseApprovalVerifier.test.ts` — covers token signature, issuer/audience, expiry/recent authentication, scope matching, algorithm/key rejection, certificate caching, disabled accounts, revocation boundaries, malformed lookup data, and lookup outages.
+- `server/gousiyaFirebaseApprovalVerifier.test.ts` — covers Firebase identity token signatures/claims, account-status/revocation boundaries, malformed lookup data, and lookup outages.
+- `server/gousiyaApprovalIssuer.test.ts` — covers protected role-registry authorization, signed-token integrity/scope/expiry, and durable approval audit.
 - `server/gousiyaEmergencyRuntime.test.ts` — covers configured runtime construction and required environment variables.
 - `docs/GOUSIYA_EMERGENCY_RECOVERY.md` — this runbook.
 
