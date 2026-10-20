@@ -248,7 +248,7 @@ test('authenticates a Firebase identity independently of approval-role claims', 
     }),
     verifyFirebaseTokenIsActive: async () => { statusChecked += 1; },
   });
-  const identity = await authenticate(makeToken());
+  const identity = await authenticate(makeToken({ claims: { gousiyaApproval: undefined } }));
   assert.equal(identity.uid, 'owner-user-123');
   assert.equal(identity.authTime, NOW_SECONDS - 10);
   assert.equal(statusChecked, 1);
