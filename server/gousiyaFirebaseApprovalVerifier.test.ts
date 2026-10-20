@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { generateKeyPairSync, sign as signRs256 } from 'node:crypto';
 import {
   createFirebaseGousiyaApprovalVerifier,
-  createFirebaseAdminTokenActivityChecker,
+  createFirebaseRestTokenActivityChecker,
 } from './gousiyaFirebaseApprovalVerifier.ts';
 import type { GousiyaApprovalScope } from './gousiyaEmergencyRecovery.ts';
 
@@ -177,24 +177,60 @@ test('requires a server-side account/revocation checker when constructing verifi
 });
 
 
-test('Firebase Admin adapter always enables revocation checks', async () => {
-  let observed: boolean | undefined;
-  const check = createFirebaseAdminTokenActivityChecker({
-    verifyIdToken: async (_token, checkRevoked) => {
-      observed = checkRevoked;
-      return { uid: 'owner-user-123' };
-    },
+test('Firebase REST checker accepts an active account with matching UID and validSince', async () => {
+  const checker = createFirebaseRestTokenActivityChecker({
+    apiKey: 'restricted-test-api-key',
+    fetchAccountInfo: async () => ({
+      users: [{ localId: 'owner-user-123', disabled: false, validSince: String(NOW_SECONDS - 20) }],
+    }),
   });
-  await check('sample-id-token');
-  assert.equal(observed, true);
+  await checker(makeToken());
 });
 
-test('Firebase Admin adapter fails closed when Admin rejects a revoked token', async () => {
-  const check = createFirebaseAdminTokenActivityChecker({
-    verifyIdToken: async (_token, checkRevoked) => {
-      assert.equal(checkRevoked, true);
-      throw new Error('auth/id-token-revoked');
-    },
+test('Firebase REST checker rejects disabled accounts', async () => {
+  const checker = createFirebaseRestTokenActivityChecker({
+    apiKey: 'restricted-test-api-key',
+    fetchAccountInfo: async () => ({
+      users: [{ localId: 'owner-user-123', disabled: true, validSince: String(NOW_SECONDS - 20) }],
+    }),
   });
-  await assert.rejects(check('revoked-id-token'), /auth\/id-token-revoked/i);
+  await assert.rejects(checker(makeToken()), /disabled, missing, or not verifiable/i);
+});
+
+test('Firebase REST checker rejects tokens issued before the revocation boundary', async () => {
+  const checker = createFirebaseRestTokenActivityChecker({
+    apiKey: 'restricted-test-api-key',
+    fetchAccountInfo: async () => ({
+      users: [{ localId: 'owner-user-123', disabled: false, validSince: String(NOW_SECONDS) }],
+    }),
+  });
+  await assert.rejects(checker(makeToken()), /revoked or account-status data is invalid/i);
+});
+
+test('Firebase REST checker rejects a different UID and malformed account responses', async () => {
+  const mismatch = createFirebaseRestTokenActivityChecker({
+    apiKey: 'restricted-test-api-key',
+    fetchAccountInfo: async () => ({
+      users: [{ localId: 'other-user', disabled: false, validSince: String(NOW_SECONDS - 20) }],
+    }),
+  });
+  await assert.rejects(mismatch(makeToken()), /disabled, missing, or not verifiable/i);
+
+  const malformed = createFirebaseRestTokenActivityChecker({
+    apiKey: 'restricted-test-api-key',
+    fetchAccountInfo: async () => ({ users: [] }),
+  });
+  await assert.rejects(malformed(makeToken()), /response is invalid/i);
+});
+
+test('Firebase REST checker fails closed when Identity Toolkit lookup fails', async () => {
+  const checker = createFirebaseRestTokenActivityChecker({
+    apiKey: 'restricted-test-api-key',
+    fetchAccountInfo: async () => { throw new Error('simulated lookup outage'); },
+  });
+  await assert.rejects(checker(makeToken()), /simulated lookup outage/i);
+});
+
+test('Firebase REST checker requires an API key', () => {
+  assert.throws(() => createFirebaseRestTokenActivityChecker({ apiKey: '' }), /Web API key is required/i);
 });
