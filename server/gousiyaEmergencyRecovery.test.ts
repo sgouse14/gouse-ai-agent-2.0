@@ -31,11 +31,13 @@ function createTestState(auditFilePath: string, grantStoreFilePath: string) {
     auditFilePath,
     grantStoreFilePath,
     verifyApprovalToken: async (token, scope) => {
-      if (token !== 'owner-token' && token !== 'reviewer-token') throw new Error('Invalid test approval token');
+      const isOwner = /^owner-token(?:-\d+)?$/.test(token);
+      const isReviewer = /^reviewer-token(?:-\d+)?$/.test(token);
+      if (!isOwner && !isReviewer) throw new Error('Invalid test approval token');
       return {
         approvalId: token + '-approval-v1',
-        subject: token === 'owner-token' ? 'owner-user-1' : 'reviewer-user-2',
-        role: token === 'owner-token' ? 'system-owner' : 'independent-reviewer',
+        subject: isOwner ? 'owner-user-1' : 'reviewer-user-2',
+        role: isOwner ? 'system-owner' : 'independent-reviewer',
         decision: 'APPROVE',
         incidentId: scope.incidentId,
         recoveryAgentId: scope.recoveryAgentId,
@@ -136,7 +138,9 @@ test('expired grant cannot execute and can be revoked only before use', async ()
     const second = await issueGousiyaEmergencyGrant({
       state: ctx.state, incidentId: 'incident-05', recoveryAgentId: 'saq-recovery-agent',
       sourceSnapshotDirectory: ctx.snapshot.directory, stagingRoot: join(ctx.root, 'staging-2'),
-      reason: 'Emergency', ...approvals,
+      reason: 'Emergency',
+      ownerApprovalToken: 'owner-token-2',
+      independentReviewerApprovalToken: 'reviewer-token-2',
     });
     await revokeGousiyaEmergencyGrant({ state: ctx.state, grantId: second.grant.grantId, actorId: 'operator-1' });
     assert.equal(ctx.state.grants.get(second.grant.grantId)?.status, 'REVOKED');
