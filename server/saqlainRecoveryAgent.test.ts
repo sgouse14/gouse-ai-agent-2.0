@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { mkdir, mkdtemp, open, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, open, readFile, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createVerifiedLocalSnapshot } from './saqlainBackupStorage.ts';
@@ -111,3 +111,32 @@ test('audit persistence failure rejects the recovery result and does not authori
   } finally { await rm(ctx.root, { recursive: true, force: true }); }
 });
 
+
+
+test('rejects staging alias that resolves back inside the source snapshot', async () => {
+  const ctx = await setup();
+  const alias = join(ctx.root, 'snapshot-alias');
+  try {
+    await symlink(ctx.snapshot.directory, alias, 'dir');
+    const result = await runRecoveryRehearsal({
+      sourceSnapshotDirectory: ctx.snapshot.directory,
+      stagingRoot: join(alias, 'recovered'),
+      auditFilePath: ctx.auditPath,
+      recoveryAgentId: 'saq-recovery-agent',
+    });
+    assert.equal(result.decision, 'HOLD');
+    assert.equal(result.stagingSnapshot, null);
+    assert.equal(result.originalsModified, false);
+    assert.equal(result.promotionAllowed, false);
+    await assert.rejects(
+      readFile(join(ctx.snapshot.directory, 'recovered', 'backup-manifest.json')),
+      { code: 'ENOENT' },
+    );
+    assert.deepEqual(
+      new Uint8Array(await readFile(join(ctx.snapshot.directory, 'project/data.txt'))),
+      ctx.original,
+    );
+  } finally {
+    await rm(ctx.root, { recursive: true, force: true });
+  }
+});
