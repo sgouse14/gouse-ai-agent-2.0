@@ -38,16 +38,18 @@ test('continuous runtime snapshots approved sources, verifies copies, and rehear
     });
     const report = await runtime.runCycle();
     assert.equal(report.status, 'VERIFIED');
-    assert.equal(report.results.length, 5);
+    assert.equal(report.results.length, 6);
     assert.equal(report.results.find((r) => r.agentId === 'saq-backup-verify')?.status, 'VERIFIED');
     assert.equal(report.results.find((r) => r.role === 'RECOVERY')?.status, 'VERIFIED');
+    assert.equal(report.results.find((r) => r.role === 'COMMUNICATION')?.status, 'VERIFIED');
+    assert.match(report.results.find((r) => r.role === 'COMMUNICATION')?.summary ?? '', /INTERNAL_REPORT_ONLY/);
     assert.equal(await readFile(join(sourceGouse, 'app.txt'), 'utf8'), 'gouse source');
     assert.equal(await readFile(join(sourceSaqlain, 'agent.txt'), 'utf8'), 'saqlain source');
     assert.equal(await readFile(join(sourceProtected, 'policy.txt'), 'utf8'), 'protected policy');
     assert.equal(await readFile(join(recoveryRoot, report.cycleId + '-recovery-saq-backup-gouse', 'app.txt'), 'utf8'), 'gouse source');
     assert.equal(await readFile(join(recoveryRoot, report.cycleId + '-recovery-saq-backup-saqlain', 'agent.txt'), 'utf8'), 'saqlain source');
     assert.equal(await readFile(join(recoveryRoot, report.cycleId + '-recovery-saq-backup-files', 'policy.txt'), 'utf8'), 'protected policy');
-    assert.equal(SAQLAIN_BACKUP_TEAM.length, 5);
+    assert.equal(SAQLAIN_BACKUP_TEAM.length, 6);
   } finally {
     await rm(base, { recursive: true, force: true });
   }
