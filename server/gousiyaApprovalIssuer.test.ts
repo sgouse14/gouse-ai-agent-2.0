@@ -14,7 +14,7 @@ import type { GousiyaApprovalScope } from './gousiyaEmergencyRecovery.ts';
 
 const BASE_NOW = new Date('2026-10-20T12:00:00.000Z');
 const PROJECT_ID = 'gousiya-issuer-test-project';
-const SIGNING_SECRET = 'test-secret-material-at-least-32-bytes-long';
+const SIGNING_SECRET = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
 const SCOPE: Omit<GousiyaApprovalScope, 'requestedAt'> = {
   incidentId: 'incident-issuer-test',
   recoveryAgentId: 'saq-recovery-agent',
@@ -112,7 +112,7 @@ test('rejects an approval token signed by a different secret or project', async 
   try {
     const issued = await ctx.issuer.issueApproval(approvalRequest('owner-firebase-token'));
     const wrongSecret = createGousiyaApprovalTokenVerifier({
-      projectId: PROJECT_ID, signingSecret: 'different-secret-material-at-least-32-bytes', now: () => new Date(BASE_NOW),
+      projectId: PROJECT_ID, signingSecret: 'fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210', now: () => new Date(BASE_NOW),
     });
     const wrongProject = createGousiyaApprovalTokenVerifier({
       projectId: 'different-project', signingSecret: SIGNING_SECRET, now: () => new Date(BASE_NOW),
