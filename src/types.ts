@@ -41,7 +41,10 @@ export type UserRole =
   | 'mep_engineer'
   | 'quantity_surveyor'
   | 'contractor'
-  | 'client';
+  | 'client'
+  | 'broker_agent'
+  | 'property_owner'
+  | 'tenant';
 
 export interface UserProfile {
   id: string;
@@ -139,7 +142,7 @@ export interface SharedDocument {
   fileName: string;
   fileSize: string;
   fileType: 'pdf' | 'dwg' | 'xlsx' | 'docx' | 'image';
-  category: 'architectural_drawings' | 'structural_reports' | 'boq_financials' | 'permits_sanctions' | 'client_uploads';
+  category: 'architectural_drawings' | 'structural_reports' | 'boq_financials' | 'permits_sanctions' | 'client_uploads' | 'site_audit';
   uploadedBy: string;
   uploadedAt: string;
   downloadUrl?: string;
@@ -153,6 +156,7 @@ export interface ProjectMilestone {
   id: string;
   projectId: string;
   title: string;
+  name?: string;
   description: string;
   targetDate: string;
   completedDate?: string;
@@ -161,11 +165,13 @@ export interface ProjectMilestone {
   stageNumber: number;
   totalStages: number;
   escrowReleaseAmount?: number;
+  amount?: number;
   escrowStatus?: 'released' | 'pending_verification' | 'escrow_locked';
   verifiedBy?: string;
   deliverables: string[];
   clientSignOffRequired?: boolean;
   isClientSignedOff?: boolean;
+  isClientApproved?: boolean;
   clientSignedOffAt?: string;
 }
 

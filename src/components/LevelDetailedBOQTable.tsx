@@ -312,9 +312,17 @@ export const LevelDetailedBOQTable: React.FC<LevelDetailedBOQTableProps> = ({
               </tr>
               <tr className="bg-amber-500/10 font-bold text-slate-100">
                 <td colSpan={6} className="py-3.5 px-4 text-right text-amber-400 uppercase tracking-wider text-xs">
-                  {floor.name} Total with Contingency:
+                  <div className="flex items-center justify-end gap-2 flex-wrap">
+                    <span>{floor.name} Total (COST EXCLUDING GST):</span>
+                    <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-amber-500 text-slate-950 font-black">
+                      EXCL. GST
+                    </span>
+                  </div>
+                  <div className="text-[10px] text-slate-400 font-normal normal-case font-sans mt-0.5">
+                    * 18% statutory GST extra (+{formatCurrency(Math.round(levelGrandTotal * 0.18), currency)})
+                  </div>
                 </td>
-                <td className="py-3.5 px-4 text-right text-amber-400 text-base font-extrabold">
+                <td className="py-3.5 px-4 text-right text-amber-400 text-base font-extrabold font-mono">
                   {formatCurrency(levelGrandTotal, currency)}
                 </td>
                 <td colSpan={2}></td>

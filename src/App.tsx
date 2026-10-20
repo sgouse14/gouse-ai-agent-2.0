@@ -8,12 +8,14 @@ import { MaterialsView } from './components/MaterialsView';
 import { SpecialistChatView } from './components/SpecialistChatView';
 import { SequentialWorkflowEngineModal } from './components/SequentialWorkflowEngineModal';
 import { PgHousePropertyListingSection } from './components/PgHousePropertyListingSection';
+import { GouseAiAgentBrokerView } from './components/GouseAiAgentBrokerView';
 import { SocialMediaStudio } from './components/SocialMediaStudio';
 import { GlobalVoiceCommandListener } from './components/GlobalVoiceCommandListener';
 import { SiteVisitCameraModal } from './components/SiteVisitCameraModal';
 import { AuthModal } from './components/AuthModal';
 import { ClientPortal } from './components/ClientPortal';
 import { ClientPage } from './components/ClientPage';
+import { ClientView } from './components/ClientView';
 import { PlatformDemo } from './components/PlatformDemo';
 import { useAuth } from './context/AuthContext';
 import { Sparkles, LogIn, UserPlus, ArrowLeft } from 'lucide-react';
@@ -30,11 +32,17 @@ import { ensureItemFloorBreakdown, DEFAULT_BUILDING_FLOORS } from './utils/floor
 export function App() {
   const { user, openLoginModal, openSignUpModal } = useAuth();
 
-  // Client Page Preview toggle (when logged in as staff, allows architect or engineer to preview the landing page)
-  const [isPreviewingClientPage, setIsPreviewingClientPage] = useState<boolean>(false);
+  // Client Portal active view for authenticated client ('dashboard' | 'portal' | 'broker')
+  const [clientActiveView, setClientActiveView] = useState<'dashboard' | 'portal' | 'broker'>('dashboard');
 
   // Platform Demo View toggle (allows architects/staff to view or present the interactive platform demo)
   const [isShowingPlatformDemo, setIsShowingPlatformDemo] = useState<boolean>(false);
+
+  // Broker preview toggle for staff
+  const [isPreviewingBroker, setIsPreviewingBroker] = useState<boolean>(false);
+
+  // Outside platform view mode: Gouse AI Agent Platform is brought outside by default!
+  const [unauthView, setUnauthView] = useState<'broker' | 'platform_demo'>('broker');
 
   // Navigation
   const [activeTab, setActiveTab] = useState<TabType>('projects');
@@ -386,46 +394,126 @@ export function App() {
     setEnquiries((prev) => [newEnquiry, ...prev]);
   };
 
-  // 1. If user is NOT signed in: Show public Client Portal outside the main platform
+  // 1. If user is NOT signed in: Show outside Gouse AI Agent Platform directly!
+  // Client Portal & Dashboard are removed from outside - the outside platform is exclusively Gouse AI Agent Platform.
   if (!user) {
+    if (unauthView === 'platform_demo') {
+      return (
+        <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-amber-500 selection:text-slate-950">
+          <PlatformDemo
+            isClientRestricted={true}
+            onCloseDemo={() => setUnauthView('broker')}
+          />
+          <AuthModal />
+        </div>
+      );
+    }
+
+    // Default outside-platform: Gouse AI Agent Platform
     return (
       <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-amber-500 selection:text-slate-950">
-        {/* Public Client Portal accessible outside main platform with interactive / video demo */}
-        <ClientPortal onEnquirySubmitted={handleClientPageEnquiry} />
+        <GouseAiAgentBrokerView
+          project={activeProject}
+          onUpdateProject={handleUpdateProject}
+          currency={currency}
+          isOutsidePlatform={true}
+          onOpenPlatformDemo={() => setUnauthView('platform_demo')}
+        />
         <AuthModal />
       </div>
     );
   }
 
-  // 2. Access Control Gating: Clients are restricted from entering the main platform,
-  // but are granted access to the Client Portal outside the main platform with the platform demo!
+  // 1.5. Dedicated Gouse AI Agent Broker Platform Gating:
+  // Tenants, Property Owners/Landlords, and Certified Broker Agents have dedicated access to the Broker Platform
+  if (user.role === 'tenant' || user.role === 'property_owner' || user.role === 'broker_agent') {
+    if (isShowingPlatformDemo) {
+      return (
+        <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-amber-500 selection:text-slate-950">
+          <PlatformDemo
+            isClientRestricted={true}
+            onCloseDemo={() => setIsShowingPlatformDemo(false)}
+          />
+        </div>
+      );
+    }
+
+    return (
+      <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-amber-500 selection:text-slate-950">
+        <GouseAiAgentBrokerView
+          project={activeProject}
+          onUpdateProject={handleUpdateProject}
+          currency={currency}
+          isOutsidePlatform={true}
+          onOpenPlatformDemo={() => setIsShowingPlatformDemo(true)}
+        />
+      </div>
+    );
+  }
+
+  // 2. Access Control Gating: Clients are restricted from entering the main studio platform,
+  // but have full access to their dedicated Client Portal, Dashboard & Gouse AI Agent Broker outside!
   if (user.role === 'client') {
+    if (isShowingPlatformDemo) {
+      return (
+        <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-amber-500 selection:text-slate-950">
+          <PlatformDemo
+            isClientRestricted={true}
+            onCloseDemo={() => setIsShowingPlatformDemo(false)}
+          />
+          <AuthModal />
+        </div>
+      );
+    }
+
+    if (clientActiveView === 'broker') {
+      return (
+        <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-amber-500 selection:text-slate-950">
+          <GouseAiAgentBrokerView
+            project={activeProject}
+            onUpdateProject={handleUpdateProject}
+            currency={currency}
+            isOutsidePlatform={true}
+            onOpenPlatformDemo={() => setIsShowingPlatformDemo(true)}
+          />
+          <AuthModal />
+        </div>
+      );
+    }
+
+    if (clientActiveView === 'portal') {
+      return (
+        <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-amber-500 selection:text-slate-950">
+          <ClientPortal
+            isClientRestricted={true}
+            onOpenClientDashboard={() => setClientActiveView('dashboard')}
+            onOpenPlatformDemo={() => setIsShowingPlatformDemo(true)}
+            onEnquirySubmitted={handleClientPageEnquiry}
+          />
+          <AuthModal />
+        </div>
+      );
+    }
+
+    // Default for signed-in client: Dashboard!
     return (
       <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-amber-500 selection:text-slate-950">
-        <ClientPortal
-          isClientRestricted={true}
-          onEnquirySubmitted={handleClientPageEnquiry}
+        <ClientView
+          projects={projects}
+          activeProjectId={activeProjectId}
+          onSelectProject={setActiveProjectId}
+          onUpdateProject={handleUpdateProject}
+          onOpenPlatformDemo={() => setIsShowingPlatformDemo(true)}
+          onViewPublicPortal={() => setClientActiveView('portal')}
+          currency={currency}
+          isStaffPreview={false}
         />
         <AuthModal />
       </div>
     );
   }
 
-  // 3. For internal studio staff (owner, architects, engineers) previewing the Client Portal:
-  if (isPreviewingClientPage) {
-    return (
-      <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-amber-500 selection:text-slate-950">
-        <ClientPortal
-          isPreviewMode={true}
-          onReturnToWorkspace={() => setIsPreviewingClientPage(false)}
-          onEnquirySubmitted={handleClientPageEnquiry}
-        />
-        <AuthModal />
-      </div>
-    );
-  }
-
-  // 4. For internal studio staff viewing/presenting the Platform Demo:
+  // 3. For internal studio staff viewing/presenting the Platform Demo or Broker Portal Preview:
   if (isShowingPlatformDemo) {
     return (
       <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-amber-500 selection:text-slate-950">
@@ -438,7 +526,25 @@ export function App() {
     );
   }
 
-  // 5. Main content: Only accessible after authorized studio staff has signed in
+  if (isPreviewingBroker) {
+    return (
+      <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-amber-500 selection:text-slate-950">
+        <GouseAiAgentBrokerView
+          project={activeProject}
+          onUpdateProject={handleUpdateProject}
+          currency={currency}
+          isOutsidePlatform={true}
+          onOpenPlatformDemo={() => {
+            setIsPreviewingBroker(false);
+            setIsShowingPlatformDemo(true);
+          }}
+        />
+        <AuthModal />
+      </div>
+    );
+  }
+
+  // 4. Main Gouse AI Agent Studio content: Only accessible after authorized studio staff has signed in
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-amber-500/30 selection:text-amber-200">
       {/* Drafting Grid Canvas Background */}
@@ -462,8 +568,8 @@ export function App() {
         onToggleVoiceListener={() => setIsGlobalVoiceListening((prev) => !prev)}
         isVoiceListening={isGlobalVoiceListening}
         onOpenSiteCamera={() => setIsSiteCameraOpen(true)}
-        onViewClientPage={() => setIsPreviewingClientPage(true)}
         onOpenPlatformDemo={() => setIsShowingPlatformDemo(true)}
+        onOpenAgentBroker={() => setIsPreviewingBroker(true)}
       />
 
       {/* Navigation Bar */}
@@ -493,26 +599,13 @@ export function App() {
           </div>
         )}
 
-        {activeTab === 'pg_coliving' && (
-          <div className="max-w-7xl mx-auto px-4 lg:px-8 py-6 space-y-6">
-            <PgHousePropertyListingSection
-              project={activeProject}
-              onUpdateProject={handleUpdateProject}
-              currency={currency}
-              mode="pg"
-            />
-          </div>
-        )}
-
-        {activeTab === 'rent_house' && (
-          <div className="max-w-7xl mx-auto px-4 lg:px-8 py-6 space-y-6">
-            <PgHousePropertyListingSection
-              project={activeProject}
-              onUpdateProject={handleUpdateProject}
-              currency={currency}
-              mode="rent_house"
-            />
-          </div>
+        {(activeTab === 'broker' || activeTab === 'pg_coliving' || activeTab === 'rent_house') && (
+          <GouseAiAgentBrokerView
+            project={activeProject}
+            onUpdateProject={handleUpdateProject}
+            currency={currency}
+            initialSubTab={activeTab === 'rent_house' ? 'rent_house' : activeTab === 'pg_coliving' ? 'pg' : 'all'}
+          />
         )}
 
         {activeTab === 'boq' && (

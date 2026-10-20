@@ -556,7 +556,7 @@ export const FloorWiseBOQMatrix: React.FC<FloorWiseBOQMatrixProps> = ({
               </th>
               <th colSpan={3} className="py-2.5 px-3 text-right bg-slate-950">
                 <span className="text-slate-300 font-semibold uppercase tracking-wider">
-                  Total Schedule of Quantities
+                  Total Schedule of Quantities (Cost Excl. GST)
                 </span>
               </th>
             </tr>
@@ -566,7 +566,7 @@ export const FloorWiseBOQMatrix: React.FC<FloorWiseBOQMatrixProps> = ({
               <th className="py-3 px-3 w-10 text-center font-bold">#</th>
               <th className="py-3 px-3 min-w-[260px] font-bold">Item Description & Work Stage</th>
               <th className="py-3 px-2 w-20 text-center font-bold">Unit</th>
-              <th className="py-3 px-2 w-24 text-right font-bold border-r border-slate-800/80">Unit Rate</th>
+              <th className="py-3 px-2 w-24 text-right font-bold border-r border-slate-800/80">Unit Rate (Excl. GST)</th>
 
               {/* Individual Floor Columns with Area Concept Metrics */}
               {floors.map((floor) => {
@@ -857,10 +857,18 @@ export const FloorWiseBOQMatrix: React.FC<FloorWiseBOQMatrixProps> = ({
               <td></td>
             </tr>
 
-            {/* 5. Grand Total */}
+            {/* 5. Grand Total - COST EXCLUDING GST */}
             <tr className="bg-amber-500/10 text-slate-100 font-bold text-sm">
               <td colSpan={4} className="py-3.5 px-3 text-left border-r border-slate-800 uppercase tracking-wider text-amber-400">
-                Grand Total with Contingency
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span>Grand Total Estimate</span>
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-amber-500 text-slate-950 font-black">
+                    COST EXCLUDING GST
+                  </span>
+                </div>
+                <div className="text-[10px] text-slate-400 font-normal normal-case mt-0.5 font-sans">
+                  * Statutory GST (18%) extra on milestone invoicing (+{formatCurrency(Math.round(grandTotal * 0.18), currency)})
+                </div>
               </td>
               {floors.map((floor) => {
                 const ft = floorTotals.find((t) => t.floorId === floor.id);
@@ -872,9 +880,9 @@ export const FloorWiseBOQMatrix: React.FC<FloorWiseBOQMatrixProps> = ({
                 );
               })}
               <td className="py-3.5 px-3 text-right text-slate-300 bg-amber-500/10 font-mono text-xs">
-                All Levels
+                All Levels (Excl. GST)
               </td>
-              <td className="py-3.5 px-3 text-right text-amber-400 text-base font-extrabold">
+              <td className="py-3.5 px-3 text-right text-amber-400 text-base font-extrabold font-mono">
                 {formatCurrency(grandTotal, currency)}
               </td>
               <td></td>

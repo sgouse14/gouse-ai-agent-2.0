@@ -86,6 +86,48 @@ export const INITIAL_USERS: UserProfile[] = [
     createdAt: '2024-04-05T11:00:00Z',
     lastLoginAt: '2024-10-10T08:30:00Z',
   },
+  {
+    id: 'user-aarav-07',
+    name: 'Aarav Sharma',
+    email: 'aarav.sharma@techblr.com',
+    role: 'tenant',
+    avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=600&q=80',
+    company: 'Fintech Solutions Bangalore',
+    department: 'Software Engineer • Prospective PG / Rental Tenant',
+    phone: '+91 98860 41239',
+    licenseNumber: 'KYC-BLR-AADHAAR-8902',
+    isVerified: true,
+    createdAt: '2024-05-10T09:00:00Z',
+    lastLoginAt: new Date().toISOString(),
+  },
+  {
+    id: 'user-vikram-08',
+    name: 'Vikramaditya Reddy',
+    email: 'vikram.reddy@blrproperties.in',
+    role: 'property_owner',
+    avatarUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=600&q=80',
+    company: 'Reddy Living & Estates',
+    department: 'Property Owner / Landlord (Indiranagar & HSR Layout)',
+    phone: '+91 98440 22319',
+    licenseNumber: 'BBMP/PROP/OWNER-4412',
+    isVerified: true,
+    createdAt: '2024-05-12T14:30:00Z',
+    lastLoginAt: new Date().toISOString(),
+  },
+  {
+    id: 'user-sneha-09',
+    name: 'Sneha Kulkarni',
+    email: 'sneha.kulkarni@gousebroker.com',
+    role: 'broker_agent',
+    avatarUrl: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?auto=format&fit=crop&w=600&q=80',
+    company: 'Gouse AI Broker Network',
+    department: 'Certified Real Estate Broker • East Bangalore Cluster',
+    phone: '+91 99801 77654',
+    licenseNumber: 'RERA-KA-AGENT-PRM-2023-081',
+    isVerified: true,
+    createdAt: '2024-05-15T11:20:00Z',
+    lastLoginAt: new Date().toISOString(),
+  },
 ];
 
 interface AuthContextType {
@@ -253,6 +295,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       quantity_surveyor: 'https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?auto=format&fit=crop&w=600&q=80',
       contractor: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=600&q=80',
       client: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?auto=format&fit=crop&w=600&q=80',
+      broker_agent: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?auto=format&fit=crop&w=600&q=80',
+      property_owner: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=600&q=80',
+      tenant: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=600&q=80',
     };
 
     const newUser: UserProfile = {

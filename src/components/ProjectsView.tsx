@@ -58,6 +58,7 @@ import {
 import { Project, TeamMember, AuditEvent } from '../types';
 import { formatDate, CurrencyCode } from '../utils/formatters';
 import { PgHousePropertyListingSection } from './PgHousePropertyListingSection';
+import { GouseAiAgentBrokerView } from './GouseAiAgentBrokerView';
 import { SocialMediaStudio } from './SocialMediaStudio';
 
 export const PRESET_PORTRAITS = [
@@ -144,7 +145,7 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
   onOpenSiteCamera,
   currency = 'INR',
 }) => {
-  const [activeTab, setActiveTab] = useState<'team' | 'site_audits' | 'social' | 'pg_listing' | 'rent_house_listing'>('team');
+  const [activeTab, setActiveTab] = useState<'team' | 'site_audits' | 'social' | 'agent_broker' | 'pg_listing' | 'rent_house_listing'>('team');
   const [isCreatingProject, setIsCreatingProject] = useState(false);
   const [newProjectName, setNewProjectName] = useState('');
   const [newProjectType, setNewProjectType] = useState('Residential Architecture');
@@ -452,34 +453,18 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
           </button>
 
           <button
-            id="tab-btn-pg-listing"
-            onClick={() => setActiveTab('pg_listing')}
+            id="tab-btn-agent-broker"
+            onClick={() => setActiveTab('agent_broker')}
             className={`flex items-center gap-2 px-4 py-2.5 text-xs font-medium border-b-2 transition ${
-              activeTab === 'pg_listing'
-                ? 'border-amber-400 text-amber-400 bg-amber-500/5'
+              activeTab === 'agent_broker' || activeTab === 'pg_listing' || activeTab === 'rent_house_listing'
+                ? 'border-amber-400 text-amber-400 bg-amber-500/5 font-semibold'
                 : 'border-transparent text-slate-400 hover:text-slate-200'
             }`}
           >
             <Building className="w-3.5 h-3.5 text-amber-400" />
-            <span>PG &amp; Co-Living</span>
-            <span className="rounded bg-gradient-to-r from-rose-500/20 to-amber-500/20 text-rose-300 border border-rose-500/30 text-[10px] px-2 py-0.2 font-mono font-bold">
-              BEDS • MESS
-            </span>
-          </button>
-
-          <button
-            id="tab-btn-rent-house"
-            onClick={() => setActiveTab('rent_house_listing')}
-            className={`flex items-center gap-2 px-4 py-2.5 text-xs font-medium border-b-2 transition ${
-              activeTab === 'rent_house_listing'
-                ? 'border-emerald-400 text-emerald-400 bg-emerald-500/5'
-                : 'border-transparent text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            <Home className="w-3.5 h-3.5 text-emerald-400" />
-            <span>Rent House &amp; Flats</span>
-            <span className="rounded bg-gradient-to-r from-emerald-500/20 to-teal-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] px-2 py-0.2 font-mono font-bold">
-              1-4 BHK • VASTU
+            <span>Gouse AI Agent Broker</span>
+            <span className="rounded bg-gradient-to-r from-amber-500/20 to-emerald-500/20 text-amber-300 border border-amber-500/30 text-[10px] px-2 py-0.2 font-mono font-bold">
+              PG &amp; RENT
             </span>
           </button>
         </div>
@@ -1248,26 +1233,14 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
         />
       )}
 
-      {/* Tab: PG & Co-Living Section */}
-      {activeTab === 'pg_listing' && (
+      {/* Tab: Gouse AI Agent Broker (PG & Rent House) */}
+      {(activeTab === 'agent_broker' || activeTab === 'pg_listing' || activeTab === 'rent_house_listing') && (
         <div className="space-y-4">
-          <PgHousePropertyListingSection
+          <GouseAiAgentBrokerView
             project={activeProject}
             onUpdateProject={onUpdateProject}
             currency={currency || activeProject.currency || 'INR'}
-            mode="pg"
-          />
-        </div>
-      )}
-
-      {/* Tab: Rent House & Flats Section */}
-      {activeTab === 'rent_house_listing' && (
-        <div className="space-y-4">
-          <PgHousePropertyListingSection
-            project={activeProject}
-            onUpdateProject={onUpdateProject}
-            currency={currency || activeProject.currency || 'INR'}
-            mode="rent_house"
+            initialSubTab={activeTab === 'rent_house_listing' ? 'rent_house' : activeTab === 'pg_listing' ? 'pg' : 'all'}
           />
         </div>
       )}

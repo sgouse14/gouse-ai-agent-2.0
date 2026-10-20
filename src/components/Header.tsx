@@ -19,6 +19,8 @@ import {
   Check,
   Building,
   Award,
+  Users,
+  Key,
 } from 'lucide-react';
 import { Project, UserRole } from '../types';
 import { CurrencyCode } from '../utils/formatters';
@@ -38,9 +40,8 @@ interface HeaderProps {
   onToggleVoiceListener?: () => void;
   isVoiceListening?: boolean;
   onOpenSiteCamera?: () => void;
-  onViewClientPage?: () => void;
   onOpenPlatformDemo?: () => void;
-  onViewClientView?: () => void;
+  onOpenAgentBroker?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -54,9 +55,8 @@ export const Header: React.FC<HeaderProps> = ({
   onToggleVoiceListener,
   isVoiceListening,
   onOpenSiteCamera,
-  onViewClientPage,
   onOpenPlatformDemo,
-  onViewClientView,
+  onOpenAgentBroker,
 }) => {
   const { currentTheme, isSettingsOpen, setIsSettingsOpen } = useTheme();
   const {
@@ -228,20 +228,6 @@ export const Header: React.FC<HeaderProps> = ({
             </button>
           )}
 
-          {/* Client Portal View Button */}
-          {onViewClientPage && (
-            <button
-              id="btn-view-client-portal"
-              type="button"
-              onClick={onViewClientPage}
-              className="hidden lg:flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-amber-300 text-xs font-semibold transition"
-              title="View the public Client Page / Portal landing view"
-            >
-              <Compass className="w-3.5 h-3.5 text-amber-400" />
-              <span>Client Page</span>
-            </button>
-          )}
-
           {/* Platform Demo Presentation Button */}
           {onOpenPlatformDemo && (
             <button
@@ -298,7 +284,19 @@ export const Header: React.FC<HeaderProps> = ({
                     {user.name}
                   </div>
                   <div className="text-[9px] text-amber-400 font-mono capitalize leading-none">
-                    {user.role === 'owner' ? 'Principal' : user.role === 'structural_engineer' ? 'Structural' : user.role === 'quantity_surveyor' ? 'QS Lead' : user.role}
+                    {user.role === 'owner'
+                      ? 'Principal'
+                      : user.role === 'structural_engineer'
+                      ? 'Structural'
+                      : user.role === 'quantity_surveyor'
+                      ? 'QS Lead'
+                      : user.role === 'tenant'
+                      ? 'Tenant'
+                      : user.role === 'property_owner'
+                      ? 'Landlord'
+                      : user.role === 'broker_agent'
+                      ? 'Broker'
+                      : user.role}
                   </div>
                 </div>
                 <ChevronDown className="w-3 h-3 text-slate-400 group-hover:text-slate-200 transition ml-0.5" />
@@ -430,17 +428,19 @@ export const Header: React.FC<HeaderProps> = ({
                       <span>Create New Account</span>
                     </button>
 
-                    {onViewClientPage && (
+
+
+                    {onOpenAgentBroker && (
                       <button
                         type="button"
                         onClick={() => {
-                          onViewClientPage();
+                          onOpenAgentBroker();
                           setIsUserMenuOpen(false);
                         }}
                         className="w-full text-left px-2.5 py-1.5 rounded-lg hover:bg-slate-800 text-amber-300 hover:text-amber-200 transition flex items-center gap-2"
                       >
-                        <Compass className="w-3.5 h-3.5 text-amber-400" />
-                        <span>View Client Portal Page</span>
+                        <Key className="w-3.5 h-3.5 text-amber-400" />
+                        <span>Gouse AI Agent Broker (Outside)</span>
                       </button>
                     )}
 

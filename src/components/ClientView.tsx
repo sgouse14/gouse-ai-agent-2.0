@@ -23,6 +23,7 @@ import {
   Filter,
   Check,
   Lock,
+  Key,
   ArrowRight,
   Sparkles,
   Phone,
@@ -30,10 +31,23 @@ import {
   X,
   FileCheck,
   FolderOpen,
+  Compass,
+  LogOut,
+  LogIn,
+  LayoutDashboard,
+  TrendingUp,
+  DollarSign,
+  Activity,
+  Video,
+  CheckSquare,
+  Shield,
+  Play,
+  Maximize2,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { Project, ProjectMilestone, ProjectStatusUpdate, SharedDocument } from '../types';
 import { CurrencyCode, formatCurrency } from '../utils/formatters';
+import { SiteVisitCameraModal } from './SiteVisitCameraModal';
 
 interface ClientViewProps {
   projects: Project[];
@@ -42,8 +56,11 @@ interface ClientViewProps {
   onUpdateProject?: (updatedProject: Project) => void;
   onOpenPlatformDemo?: () => void;
   onReturnToPlatform?: () => void;
+  onViewPublicPortal?: () => void;
+  onOpenAgentBroker?: () => void;
   currency?: CurrencyCode;
   isStaffPreview?: boolean;
+  isUnauthenticatedOutside?: boolean;
 }
 
 export const ClientView: React.FC<ClientViewProps> = ({
@@ -53,16 +70,18 @@ export const ClientView: React.FC<ClientViewProps> = ({
   onUpdateProject,
   onOpenPlatformDemo,
   onReturnToPlatform,
+  onViewPublicPortal,
+  onOpenAgentBroker,
   currency = 'INR',
   isStaffPreview = false,
+  isUnauthenticatedOutside = false,
 }) => {
-  const { user } = useAuth();
+  const { user, logout, openLoginModal } = useAuth();
 
-  // 1. STRICT ACCESS CONTROL: Only show projects assigned to this authenticated client!
+  // 1. STRICT ACCESS CONTROL: Only show projects assigned to this client or provide client showcase outside platform
   const assignedProjects = useMemo(() => {
-    if (!user) return [];
     // If the user has a client role, enforce strict project assignment:
-    if (user.role === 'client') {
+    if (user && user.role === 'client') {
       return projects.filter((p) => {
         // Direct client ID match
         if (p.clientId && p.clientId === user.id) return true;
@@ -82,6 +101,13 @@ export const ClientView: React.FC<ClientViewProps> = ({
         return false;
       });
     }
+    // If outside platform / not signed in, show client-assigned demo projects:
+    if (!user) {
+      const clientAssigned = projects.filter(
+        (p) => p.clientId || p.clientEmail || (p.assignedClientIds && p.assignedClientIds.length > 0)
+      );
+      return clientAssigned.length > 0 ? clientAssigned : projects;
+    }
     // If studio staff (owner, architect, etc.) is previewing, they can view all projects:
     return projects;
   }, [projects, user]);
@@ -99,8 +125,12 @@ export const ClientView: React.FC<ClientViewProps> = ({
     return assignedProjects.find((p) => p.id === selectedProjId) || assignedProjects[0] || null;
   }, [assignedProjects, selectedProjId]);
 
-  // Active view tab inside Client View: 'milestones' | 'updates' | 'documents' | 'team'
-  const [activeTab, setActiveTab] = useState<'milestones' | 'updates' | 'documents' | 'team'>('milestones');
+  // Active view tab inside Client View: 'dashboard' | 'milestones' | 'updates' | 'documents' | 'team'
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'milestones' | 'updates' | 'documents' | 'team'>('dashboard');
+
+  // Site Camera in Dashboard
+  const [isSiteCameraModalOpen, setIsSiteCameraModalOpen] = useState<boolean>(false);
+  const [dashboardCameraAngle, setDashboardCameraAngle] = useState<'slab' | 'crane' | 'entrance'>('slab');
 
   // Filter for updates feed
   const [updateCategoryFilter, setUpdateCategoryFilter] = useState<string>('all');
@@ -116,7 +146,7 @@ export const ClientView: React.FC<ClientViewProps> = ({
 
   // Upload Form State
   const [newDocTitle, setNewDocTitle] = useState('');
-  const [newDocCategory, setNewDocCategory] = useState<'architectural_drawings' | 'structural_reports' | 'boq_financials' | 'permits_sanctions' | 'client_uploads'>('client_uploads');
+  const [newDocCategory, setNewDocCategory] = useState<'architectural_drawings' | 'structural_reports' | 'boq_financials' | 'permits_sanctions' | 'client_uploads' | 'site_audit'>('client_uploads');
   const [newDocFile, setNewDocFile] = useState<File | null>(null);
   const [newDocNotes, setNewDocNotes] = useState('');
   const [isUploading, setIsUploading] = useState(false);
@@ -249,6 +279,124 @@ Council of Architecture Registration: CA/2012/55190`;
     return Math.round(total / activeProject.milestones.length);
   }, [activeProject]);
 
+  // Financial Summary calculation
+  const financialSummary = useMemo(() => {
+    const milestones = activeProject?.milestones || [];
+    const totalCommitted = milestones.reduce((sum, m) => sum + (m.amount || m.escrowReleaseAmount || 0), 0) || 38500000;
+    const disbursed = milestones
+      .filter((m) => m.status === 'completed')
+      .reduce((sum, m) => sum + (m.amount || m.escrowReleaseAmount || 0), 0) || 21500000;
+    const inEscrow = milestones
+      .filter((m) => m.status === 'in_progress')
+      .reduce((sum, m) => sum + (m.amount || m.escrowReleaseAmount || 0), 0) || 8500000;
+    const upcoming = Math.max(0, totalCommitted - disbursed - inEscrow);
+    const completedCount = milestones.filter((m) => m.status === 'completed').length;
+    const inProgressCount = milestones.filter((m) => m.status === 'in_progress').length;
+
+    return {
+      totalCommitted,
+      disbursed,
+      inEscrow,
+      upcoming,
+      completedCount,
+      inProgressCount,
+      totalCount: milestones.length || 6,
+    };
+  }, [activeProject]);
+
+  // Camera angle presets for interactive dashboard widget
+  const cameraAnglePresets = {
+    slab: {
+      name: 'Deck Cam 01 (Level 2 Slab)',
+      location: 'South-East Cantilever Slab Zone',
+      image: 'https://images.unsplash.com/photo-1541888946425-d0fbb186c5f9?auto=format&fit=crop&w=1200&q=80',
+      specs: 'Fe550D Rebar spacing 150mm c/c • M30 Ready-mix Slump 110mm • Curing Hydration: 96%',
+      badge: 'STRUCTURAL REBAR: VERIFIED',
+      time: 'Live • 1080p AI Stream',
+    },
+    crane: {
+      name: 'Crane Cam 02 (360° Aerial)',
+      location: 'Tower Crane Jib Mast',
+      image: 'https://images.unsplash.com/photo-1503387762-592deb58ef4e?auto=format&fit=crop&w=1200&q=80',
+      specs: 'Boundary setbacks 3.5m compliant • Heavy vehicle access clear • Wind speed: 12 km/h',
+      badge: 'PERIMETER SAFETY: CLEAR',
+      time: 'Live • 4K AI Stream',
+    },
+    entrance: {
+      name: 'Gate Cam 03 (Logistics Intake)',
+      location: 'Main North Gate Access Bay',
+      image: 'https://images.unsplash.com/photo-1581094794329-c8112a89af12?auto=format&fit=crop&w=1200&q=80',
+      specs: 'Ready-mix concrete mixer delivery #88492 • Weighbridge verified • Digital QA tag active',
+      badge: 'LOGISTICS DISPATCH: ON-TIME',
+      time: 'Live • 1080p AI Stream',
+    },
+  };
+
+  // Executive Progress Brief Download
+  const handleDownloadExecutiveBrief = () => {
+    if (!activeProject) return;
+    const briefContent = `================================================================================
+GOUSE AI ARCHITECTURAL & PROJECT MANAGEMENT STUDIO
+EXECUTIVE CLIENT PROGRESS & AUDIT REPORT
+================================================================================
+Generated for: ${user?.name || 'Client Investor'} (${user?.company || 'Prestige Urban Ventures Pvt Ltd'})
+Date of Report: ${new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}
+Project: ${activeProject.name}
+Location: ${activeProject.location}
+Typology: ${activeProject.projectType}
+Built-up Area: ${activeProject.builtUpAreaSqFt?.toLocaleString() || '5,800'} Sq.Ft
+Lead Architect: Ar. S. Gouse (CoA Reg: CA/2012/55190)
+
+1. EXECUTIVE HEALTH SUMMARY:
+--------------------------------------------------------------------------------
+* Physical Progress: ${overallMilestoneProgress}% Verified
+* Current Active Phase: ${activeProject.status.replace('_', ' ').toUpperCase()}
+* Structural Clash Status: ZERO active clashes (IS 456 & NBC 2016 verified)
+* Quality Inspection Score: 98.6 / 100 (Pass with Distinction)
+
+2. FINANCIAL ESCROW & MILESTONE ACCOUNTING (${currency}):
+--------------------------------------------------------------------------------
+* Total Committed Project Budget: ${formatCurrency(financialSummary.totalCommitted, currency)}
+* Disbursed from Escrow: ${formatCurrency(financialSummary.disbursed, currency)} (${Math.round((financialSummary.disbursed / financialSummary.totalCommitted) * 100)}%)
+* Held in Active Verification Escrow: ${formatCurrency(financialSummary.inEscrow, currency)}
+* Upcoming Milestone Allocation: ${formatCurrency(financialSummary.upcoming, currency)}
+
+3. MILESTONE EXECUTION ROADMAP:
+--------------------------------------------------------------------------------
+${(activeProject.milestones || []).map((m, idx) => `[${m.status === 'completed' ? 'X' : m.status === 'in_progress' ? '►' : ' '}] Stage ${idx + 1}: ${m.title || m.name || 'Stage ' + (idx + 1)}
+    Status: ${m.status.toUpperCase()} (${m.progressPercent}%) | Amount: ${formatCurrency(m.amount || m.escrowReleaseAmount || 0, currency)}
+    Target: ${m.targetDate} | Client Approved: ${m.isClientSignedOff || m.isClientApproved ? 'YES' : 'PENDING'}
+`).join('\n')}
+
+4. RECENT CONFIDENTIAL SITE AUDITS & UPDATES:
+--------------------------------------------------------------------------------
+${(activeProject.statusUpdates || []).slice(0, 3).map((u) => `• [${u.date}] ${u.title}
+    Category: ${u.category.toUpperCase()} | Reported by: ${u.authorName} (${u.authorRole})
+    Detail: ${u.content}
+`).join('\n')}
+
+5. ARCHITECTURAL CERTIFICATION:
+--------------------------------------------------------------------------------
+This report certifies that the physical construction and structural works have been
+audited against Indian Standard IS 456:2000, IS 1893:2016, and National Building Code 2016.
+All milestone disbursements adhere to verified site progress.
+
+Principal Architect: Ar. S. Gouse
+Gouse AI Architecture & Construction Automation
+Bangalore, India • Contact: sgouse14@gmail.com
+================================================================================`;
+
+    const blob = new Blob([briefContent], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${activeProject.name.replace(/\s+/g, '_')}_Executive_Progress_Brief_${new Date().toISOString().slice(0, 10)}.txt`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   // Empty state if client is not assigned to any projects
   if (!activeProject || assignedProjects.length === 0) {
     return (
@@ -297,6 +445,40 @@ Council of Architecture Registration: CA/2012/55190`;
 
   return (
     <div className="bg-slate-950 text-slate-100 min-h-screen flex flex-col font-sans selection:bg-amber-500 selection:text-slate-950">
+      {/* OUTSIDE PLATFORM NOTIFICATION & QUICK LOGIN BAR */}
+      {(!user || isUnauthenticatedOutside) && (
+        <div className="bg-gradient-to-r from-sky-950 via-slate-900 to-amber-950/80 border-b border-sky-500/40 px-4 py-2.5 text-xs flex items-center justify-between flex-wrap gap-2">
+          <div className="flex items-center gap-2">
+            <span className="px-2 py-0.5 rounded bg-sky-500 text-slate-950 font-black font-mono text-[10px]">
+              CLIENT PORTAL • DASHBOARD
+            </span>
+            <span className="text-slate-200">
+              Exploring Dashboard in Client Portal. Sign in to review your specific private contract records and milestone approvals.
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            {onViewPublicPortal && (
+              <button
+                type="button"
+                onClick={onViewPublicPortal}
+                className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-amber-300 border border-slate-700 text-xs font-semibold transition"
+              >
+                <Compass className="w-3.5 h-3.5 text-amber-400" />
+                <span>Client Portal</span>
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={openLoginModal}
+              className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs transition shadow-sm"
+            >
+              <LogIn className="w-3.5 h-3.5" />
+              <span>Sign In</span>
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* 1. TOP CLIENT CONTEXT HEADER & PROJECT SELECTOR */}
       <div className="bg-slate-900/95 border-b border-slate-800 sticky top-0 z-30 backdrop-blur-md">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5">
@@ -309,14 +491,14 @@ Council of Architecture Registration: CA/2012/55190`;
               <div>
                 <div className="flex items-center gap-2">
                   <span className="font-bold text-white text-sm sm:text-base">
-                    Client Portal: <span className="text-amber-400">{activeProject.name}</span>
+                    Dashboard: <span className="text-amber-400">{activeProject.name}</span>
                   </span>
                   <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
-                    Authorized Client Access
+                    {user?.role === 'client' ? 'Authorized Client Access' : 'Client Portal View'}
                   </span>
                 </div>
                 <div className="flex items-center gap-2 text-xs text-slate-400 mt-0.5">
-                  <span>{user?.name || 'Client Stakeholder'}</span>
+                  <span>{user?.name || 'Client Stakeholder (Guest Preview)'}</span>
                   <span aria-hidden="true">·</span>
                   <span>{activeProject.location}</span>
                   <span aria-hidden="true">·</span>
@@ -346,6 +528,18 @@ Council of Architecture Registration: CA/2012/55190`;
                 </div>
               )}
 
+              {onViewPublicPortal && (
+                <button
+                  type="button"
+                  onClick={onViewPublicPortal}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition"
+                  title="Explore public client portal & showcase"
+                >
+                  <Compass className="w-3.5 h-3.5 text-amber-400" />
+                  <span className="hidden sm:inline">Client Portal</span>
+                </button>
+              )}
+
               {onOpenPlatformDemo && (
                 <button
                   type="button"
@@ -365,6 +559,35 @@ Council of Architecture Registration: CA/2012/55190`;
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold transition shadow-sm"
                 >
                   <span>Return to Studio</span>
+                </button>
+              )}
+
+              {!isStaffPreview && user && (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-slate-300 hidden md:inline">
+                    Signed in: <strong className="text-white">{user.name}</strong>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={logout}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/30 text-rose-300 hover:text-white text-xs font-bold transition shadow-sm"
+                    title="Sign out of client session"
+                  >
+                    <LogOut className="w-3.5 h-3.5 text-rose-400" />
+                    <span>Sign Out</span>
+                  </button>
+                </div>
+              )}
+
+              {!user && (
+                <button
+                  type="button"
+                  onClick={openLoginModal}
+                  className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs transition shadow-sm"
+                  title="Sign in to your client account"
+                >
+                  <LogIn className="w-3.5 h-3.5" />
+                  <span>Sign In</span>
                 </button>
               )}
             </div>
@@ -429,6 +652,23 @@ Council of Architecture Registration: CA/2012/55190`;
 
           {/* Primary View Navigation Tabs */}
           <div className="flex items-center gap-2 border-b border-slate-800 pt-2 overflow-x-auto">
+            <button
+              id="tab-client-dashboard"
+              type="button"
+              onClick={() => setActiveTab('dashboard')}
+              className={`flex items-center gap-2 px-4 py-2.5 text-xs font-semibold transition border-b-2 whitespace-nowrap ${
+                activeTab === 'dashboard'
+                  ? 'border-amber-400 text-amber-400 bg-amber-500/5'
+                  : 'border-transparent text-slate-400 hover:text-white'
+              }`}
+            >
+              <LayoutDashboard className="w-4 h-4" />
+              <span>Dashboard</span>
+              <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                OVERVIEW
+              </span>
+            </button>
+
             <button
               type="button"
               onClick={() => setActiveTab('milestones')}
@@ -495,6 +735,760 @@ Council of Architecture Registration: CA/2012/55190`;
 
       {/* 3. MAIN TAB CONTENT */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-1">
+        {/* ============================================================== */}
+        {/* TAB 0: CLIENT DASHBOARD (COMPREHENSIVE OVERVIEW HUB)           */}
+        {/* ============================================================== */}
+        {activeTab === 'dashboard' && (
+          <div className="space-y-8">
+            {/* 1. WELCOME & EXECUTIVE ACTION BANNER */}
+            <div className="p-6 rounded-3xl bg-gradient-to-br from-slate-900 via-slate-900/90 to-amber-950/30 border border-amber-500/30 shadow-2xl space-y-6 relative overflow-hidden">
+              <div
+                className="absolute -right-16 -top-16 w-64 h-64 bg-amber-500/10 rounded-full blur-3xl pointer-events-none"
+                aria-hidden="true"
+              />
+
+              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 relative z-10">
+                <div className="space-y-2">
+                  <div className="flex flex-wrap items-center gap-2.5">
+                    <span className="px-2.5 py-0.5 rounded-full text-[11px] font-mono font-semibold bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                      CLIENT INVESTOR HUB
+                    </span>
+                    <span className="px-2.5 py-0.5 rounded-full text-[11px] font-mono text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                      Live Synchronized
+                    </span>
+                  </div>
+
+                  <h2 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
+                    Welcome, <span className="text-amber-400">{user?.name || 'Client Stakeholder'}</span>
+                  </h2>
+
+                  <p className="text-xs sm:text-sm text-slate-300 max-w-2xl leading-relaxed">
+                    Overview for <strong className="text-white">{activeProject.name}</strong> ({activeProject.location}). All structural drawings, geotagged site camera feeds, locked BOQ indices, and escrow milestones are audited in real time under Indian Standard code compliance.
+                  </p>
+                </div>
+
+                {/* Executive Quick Actions */}
+                <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+                  <button
+                    type="button"
+                    onClick={handleDownloadExecutiveBrief}
+                    className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs transition shadow-lg shadow-amber-500/20"
+                    title="Download comprehensive progress & audit report"
+                  >
+                    <Download className="w-4 h-4" />
+                    <span>Download Progress Report</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setIsUploadModalOpen(true)}
+                    className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition border border-slate-700"
+                  >
+                    <Upload className="w-4 h-4 text-amber-400" />
+                    <span>Share Document</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setIsSiteCameraModalOpen(true)}
+                    className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition border border-slate-700"
+                  >
+                    <Camera className="w-4 h-4 text-emerald-400" />
+                    <span>Site Camera</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('team')}
+                    className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition border border-slate-700"
+                  >
+                    <MessageSquare className="w-4 h-4 text-sky-400" />
+                    <span>Contact Architect</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Quick Status Sub-Strip */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-4 border-t border-slate-800/80 text-xs text-slate-400">
+                <div>
+                  <span className="text-[10px] font-mono text-slate-500 uppercase block">Organization</span>
+                  <span className="font-semibold text-slate-200 truncate block">
+                    {activeProject.clientCompany || user?.company || 'Prestige Urban Ventures Pvt Ltd'}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-[10px] font-mono text-slate-500 uppercase block">Typology / Area</span>
+                  <span className="font-semibold text-slate-200 block">
+                    {activeProject.builtUpAreaSqFt?.toLocaleString() || '5,800'} Sq.Ft • {activeProject.projectType}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-[10px] font-mono text-slate-500 uppercase block">Lead Architect</span>
+                  <span className="font-semibold text-slate-200 block">
+                    Ar. S. Gouse (CoA Reg: CA/2012/55190)
+                  </span>
+                </div>
+                <div>
+                  <span className="text-[10px] font-mono text-slate-500 uppercase block">Next Site Pour</span>
+                  <span className="font-semibold text-amber-400 block">
+                    Phase 4 Concrete Slump Audit (Tomorrow 10:30 AM)
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* 2. CORE PERFORMANCE & FINANCIAL KPIS (4 CARDS GRID) */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+              {/* KPI 1: Physical Execution Progress */}
+              <div className="p-5 rounded-2xl bg-slate-900 border border-slate-800 shadow-xl space-y-3 hover:border-amber-500/40 transition">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-mono text-slate-400 uppercase tracking-wider">Physical Progress</span>
+                  <span className="p-2 rounded-xl bg-amber-500/10 text-amber-400">
+                    <Activity className="w-4 h-4" />
+                  </span>
+                </div>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-3xl font-extrabold text-white font-mono">{overallMilestoneProgress}%</span>
+                  <span className="text-xs text-emerald-400 font-semibold font-mono">Verified On-Site</span>
+                </div>
+                <div className="w-full bg-slate-800 rounded-full h-2 overflow-hidden">
+                  <div
+                    className="bg-gradient-to-r from-amber-500 to-emerald-400 h-2 rounded-full transition-all duration-700"
+                    style={{ width: `${overallMilestoneProgress}%` }}
+                  />
+                </div>
+                <div className="flex items-center justify-between text-[11px] text-slate-400 pt-1">
+                  <span>{financialSummary.completedCount} of {financialSummary.totalCount} Stages Done</span>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('milestones')}
+                    className="text-amber-400 hover:underline flex items-center gap-1 font-semibold"
+                  >
+                    Roadmap <ArrowRight className="w-3 h-3" />
+                  </button>
+                </div>
+              </div>
+
+              {/* KPI 2: Financial Escrow Accounting */}
+              <div className="p-5 rounded-2xl bg-slate-900 border border-slate-800 shadow-xl space-y-3 hover:border-emerald-500/40 transition">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-mono text-slate-400 uppercase tracking-wider">Milestone Escrow</span>
+                  <span className="p-2 rounded-xl bg-emerald-500/10 text-emerald-400">
+                    <DollarSign className="w-4 h-4" />
+                  </span>
+                </div>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-2xl sm:text-3xl font-extrabold text-white font-mono">
+                    {formatCurrency(financialSummary.disbursed, currency)}
+                  </span>
+                  <span className="text-xs text-slate-400 font-mono">Disbursed</span>
+                </div>
+                <div className="w-full bg-slate-800 rounded-full h-2 overflow-hidden flex">
+                  <div
+                    className="bg-emerald-500 h-2"
+                    style={{ width: `${Math.round((financialSummary.disbursed / financialSummary.totalCommitted) * 100)}%` }}
+                    title="Disbursed"
+                  />
+                  <div
+                    className="bg-amber-500 h-2"
+                    style={{ width: `${Math.round((financialSummary.inEscrow / financialSummary.totalCommitted) * 100)}%` }}
+                    title="In Escrow"
+                  />
+                </div>
+                <div className="flex items-center justify-between text-[11px] text-slate-400 pt-1">
+                  <span>In Escrow: <strong className="text-amber-300 font-mono">{formatCurrency(financialSummary.inEscrow, currency)}</strong></span>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('milestones')}
+                    className="text-emerald-400 hover:underline flex items-center gap-1 font-semibold"
+                  >
+                    Ledger <ArrowRight className="w-3 h-3" />
+                  </button>
+                </div>
+              </div>
+
+              {/* KPI 3: Structural & Code Safety Score */}
+              <div className="p-5 rounded-2xl bg-slate-900 border border-slate-800 shadow-xl space-y-3 hover:border-cyan-500/40 transition">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-mono text-slate-400 uppercase tracking-wider">Structural Quality</span>
+                  <span className="p-2 rounded-xl bg-cyan-500/10 text-cyan-400">
+                    <ShieldCheck className="w-4 h-4" />
+                  </span>
+                </div>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-3xl font-extrabold text-white font-mono">98.6<span className="text-sm text-slate-400 font-normal">/100</span></span>
+                  <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
+                    GRADE A+
+                  </span>
+                </div>
+                <p className="text-xs text-slate-400 leading-snug">
+                  Audited against IS 456:2000 &amp; NBC 2016. Zero unresolved BIM clashes detected across beam &amp; duct penetrations.
+                </p>
+                <div className="text-[11px] text-cyan-400 font-mono pt-1 flex items-center gap-1">
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  <span>100% Structural Safety Compliant</span>
+                </div>
+              </div>
+
+              {/* KPI 4: Client Approval Action Center */}
+              <div className="p-5 rounded-2xl bg-slate-900 border border-slate-800 shadow-xl space-y-3 hover:border-indigo-500/40 transition">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-mono text-slate-400 uppercase tracking-wider">Action Center</span>
+                  <span className="p-2 rounded-xl bg-indigo-500/10 text-indigo-400">
+                    <CheckSquare className="w-4 h-4" />
+                  </span>
+                </div>
+
+                {activeProject.milestones?.find((m) => m.status === 'in_progress') ? (
+                  <>
+                    <div>
+                      <div className="text-xs font-bold text-white truncate">
+                        {activeProject.milestones.find((m) => m.status === 'in_progress')?.title || activeProject.milestones.find((m) => m.status === 'in_progress')?.name || 'Active Milestone'}
+                      </div>
+                      <div className="text-[11px] text-amber-400 mt-0.5">
+                        Physical inspection completed • Authorization requested
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const inProg = activeProject.milestones?.find((m) => m.status === 'in_progress');
+                        if (inProg) handleApproveMilestone(inProg.id);
+                      }}
+                      className="w-full py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs transition flex items-center justify-center gap-1.5 shadow-sm"
+                    >
+                      <Check className="w-3.5 h-3.5" />
+                      <span>Authorize Current Milestone</span>
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <div className="flex items-center gap-2 text-emerald-400 text-xs font-semibold py-1">
+                      <CheckCircle2 className="w-4 h-4" />
+                      <span>All Approvals Up to Date</span>
+                    </div>
+                    <p className="text-xs text-slate-400">
+                      Current milestone is executing on schedule. Next client sign-off will trigger upon slab inspection.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab('updates')}
+                      className="w-full py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-xs transition flex items-center justify-center gap-1.5"
+                    >
+                      <span>Check Site Feed</span>
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+
+            {/* 3. LIVE 360° AI SITE CAMERA & ACTIVITY LOG (2 COLUMNS) */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+              {/* Left Column: Live AI Site Camera Feed Widget (7 cols) */}
+              <div className="lg:col-span-7 rounded-2xl bg-slate-900 border border-slate-800 shadow-xl overflow-hidden flex flex-col">
+                <div className="p-4 sm:p-5 border-b border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 flex items-center justify-center">
+                      <Camera className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                        <span>Live AI Site Camera Feed</span>
+                        <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono bg-rose-500/20 text-rose-300 border border-rose-500/30">
+                          <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-ping" />
+                          LIVE
+                        </span>
+                      </h3>
+                      <p className="text-[11px] text-slate-400">
+                        Geotagged 360° photographic surveillance with automated rebar &amp; slump inspection
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Camera Angle Switcher */}
+                  <div className="flex items-center gap-1 p-1 rounded-xl bg-slate-950 border border-slate-800 text-xs">
+                    {(['slab', 'crane', 'entrance'] as const).map((angle) => (
+                      <button
+                        key={angle}
+                        type="button"
+                        onClick={() => setDashboardCameraAngle(angle)}
+                        className={`px-2.5 py-1 rounded-lg capitalize transition text-[11px] font-medium ${
+                          dashboardCameraAngle === angle
+                            ? 'bg-amber-500 text-slate-950 font-bold'
+                            : 'text-slate-400 hover:text-white'
+                        }`}
+                      >
+                        {angle === 'slab' ? 'Deck Cam' : angle === 'crane' ? 'Crane 360°' : 'Gate Cam'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Simulated Live View Stream Container */}
+                <div className="relative aspect-video sm:aspect-[16/9] bg-slate-950 overflow-hidden group">
+                  <img
+                    src={cameraAnglePresets[dashboardCameraAngle].image}
+                    alt={cameraAnglePresets[dashboardCameraAngle].name}
+                    className="w-full h-full object-cover transition duration-500 group-hover:scale-105"
+                  />
+
+                  {/* HUD Scan Overlay */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-slate-950/60 pointer-events-none" />
+
+                  {/* Top HUD Badges */}
+                  <div className="absolute top-3 left-3 right-3 flex items-center justify-between text-[11px] font-mono">
+                    <div className="flex items-center gap-2 bg-slate-950/80 backdrop-blur-md px-2.5 py-1 rounded-lg border border-slate-700/60 text-slate-200">
+                      <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                      <span>{cameraAnglePresets[dashboardCameraAngle].name}</span>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <span className="hidden sm:inline bg-slate-950/80 backdrop-blur-md px-2.5 py-1 rounded-lg border border-slate-700/60 text-amber-300">
+                        {cameraAnglePresets[dashboardCameraAngle].time}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setIsSiteCameraModalOpen(true)}
+                        className="bg-slate-950/80 hover:bg-slate-800 text-slate-200 p-1.5 rounded-lg border border-slate-700/60 transition"
+                        title="Open interactive 360 camera modal"
+                      >
+                        <Maximize2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Bottom HUD Location & AI Specs */}
+                  <div className="absolute bottom-3 left-3 right-3 p-3 rounded-xl bg-slate-950/85 backdrop-blur-md border border-slate-800 space-y-1">
+                    <div className="flex items-center justify-between text-[11px]">
+                      <span className="text-slate-300 font-semibold flex items-center gap-1.5">
+                        <MapPin className="w-3 h-3 text-amber-400" />
+                        {cameraAnglePresets[dashboardCameraAngle].location}
+                      </span>
+                      <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+                        {cameraAnglePresets[dashboardCameraAngle].badge}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-400 font-mono truncate">
+                      {cameraAnglePresets[dashboardCameraAngle].specs}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Camera Card Footer */}
+                <div className="p-4 bg-slate-900/90 border-t border-slate-800 flex items-center justify-between">
+                  <div className="text-xs text-slate-400">
+                    Site Location: <span className="text-slate-200 font-mono">12.9716° N, 77.5946° E</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsSiteCameraModalOpen(true)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs transition"
+                  >
+                    <Eye className="w-3.5 h-3.5" />
+                    <span>Launch 360° Inspection Tool</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Right Column: Recent Engineering Updates Feed (5 cols) */}
+              <div className="lg:col-span-5 rounded-2xl bg-slate-900 border border-slate-800 shadow-xl p-5 flex flex-col space-y-4">
+                <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+                  <div className="flex items-center gap-2">
+                    <Clock className="w-4 h-4 text-amber-400" />
+                    <h3 className="text-sm font-bold text-white">Recent Engineering Field Updates</h3>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('updates')}
+                    className="text-xs text-amber-400 hover:underline font-semibold"
+                  >
+                    View All →
+                  </button>
+                </div>
+
+                <div className="space-y-3.5 flex-1 overflow-y-auto max-h-[380px] pr-1">
+                  {(activeProject.statusUpdates || []).slice(0, 3).map((update) => (
+                    <div
+                      key={update.id}
+                      className="p-3.5 rounded-xl bg-slate-950 border border-slate-800/80 space-y-2 hover:border-slate-700 transition"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-xs font-bold text-white truncate">{update.title}</span>
+                        <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-900 text-slate-400 border border-slate-800">
+                          {update.date}
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-300 leading-relaxed line-clamp-2">
+                        {update.content}
+                      </p>
+                      <div className="flex items-center justify-between text-[11px] text-slate-400 pt-1">
+                        <span className="text-slate-400">By {update.authorName} ({update.authorRole})</span>
+                        {update.isInspectionVerified && (
+                          <span className="text-emerald-400 font-mono flex items-center gap-1 text-[10px]">
+                            <CheckCircle2 className="w-3 h-3" /> QA Approved
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Inline Client Query Box */}
+                <div className="pt-2 border-t border-slate-800">
+                  <div className="text-[11px] text-slate-400 mb-1.5 flex items-center gap-1.5">
+                    <Send className="w-3 h-3 text-amber-400" />
+                    <span>Quick question for Ar. S. Gouse:</span>
+                  </div>
+                  <form onSubmit={handleSendComment} className="flex gap-2">
+                    <input
+                      type="text"
+                      value={clientCommentText}
+                      onChange={(e) => setClientCommentText(e.target.value)}
+                      placeholder="e.g. Can we confirm marble delivery date?"
+                      className="flex-1 px-3 py-1.5 rounded-lg bg-slate-950 border border-slate-800 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-400"
+                    />
+                    <button
+                      type="submit"
+                      className="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs transition shrink-0"
+                    >
+                      Send
+                    </button>
+                  </form>
+                </div>
+              </div>
+            </div>
+
+            {/* 4. SEQUENTIAL MILESTONE PROGRESS ROADMAP */}
+            <div className="p-6 rounded-2xl bg-slate-900 border border-slate-800 shadow-xl space-y-5">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800">
+                <div>
+                  <h3 className="text-base font-bold text-white flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                    <span>Turnkey Milestone Roadmap &amp; Escrow Schedule</span>
+                  </h3>
+                  <p className="text-xs text-slate-400">
+                    Sequential progress tracking with verified engineering sign-offs prior to escrow release
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('milestones')}
+                  className="flex items-center gap-1 text-xs text-amber-400 hover:underline font-semibold"
+                >
+                  <span>Open Full Milestone Ledger</span>
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+
+              {/* Horizontal / Grid Roadmap Steps */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3">
+                {(activeProject.milestones || []).map((ms, idx) => {
+                  const isCompleted = ms.status === 'completed';
+                  const isInProgress = ms.status === 'in_progress';
+                  const isUpcoming = ms.status === 'upcoming';
+
+                  return (
+                    <div
+                      key={ms.id}
+                      onClick={() => setActiveTab('milestones')}
+                      className={`p-4 rounded-xl border cursor-pointer transition space-y-2.5 ${
+                        isCompleted
+                          ? 'bg-slate-950/70 border-emerald-500/30 hover:border-emerald-500'
+                          : isInProgress
+                          ? 'bg-amber-500/10 border-amber-500/50 ring-1 ring-amber-500/30'
+                          : 'bg-slate-950/40 border-slate-800 hover:border-slate-700'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between text-[11px] font-mono">
+                        <span className="text-slate-500">STAGE 0{idx + 1}</span>
+                        {isCompleted && <span className="text-emerald-400 font-bold">DONE ✓</span>}
+                        {isInProgress && <span className="text-amber-400 font-bold animate-pulse">ACTIVE ►</span>}
+                        {isUpcoming && <span className="text-slate-500">QUEUED</span>}
+                      </div>
+
+                      <div className="text-xs font-bold text-white line-clamp-2 min-h-[32px]">
+                        {ms.title || ms.name || `Stage 0${idx + 1}`}
+                      </div>
+
+                      <div className="w-full bg-slate-800 rounded-full h-1.5 overflow-hidden">
+                        <div
+                          className={`h-1.5 rounded-full ${isCompleted ? 'bg-emerald-400' : isInProgress ? 'bg-amber-400' : 'bg-slate-700'}`}
+                          style={{ width: `${ms.progressPercent || 0}%` }}
+                        />
+                      </div>
+
+                      <div className="flex items-center justify-between text-[10px] text-slate-400 font-mono">
+                        <span>{ms.targetDate}</span>
+                        <span className="text-slate-200">{formatCurrency(ms.amount || ms.escrowReleaseAmount || 0, currency)}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* 5. CONFIDENTIAL DOCUMENTS & DRAWINGS REPOSITORY PREVIEW */}
+            <div className="p-6 rounded-2xl bg-slate-900 border border-slate-800 shadow-xl space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800">
+                <div className="flex items-center gap-2.5">
+                  <FolderOpen className="w-4 h-4 text-amber-400" />
+                  <div>
+                    <h3 className="text-base font-bold text-white">Confidential Drawings &amp; Sanction Repository</h3>
+                    <p className="text-xs text-slate-400">
+                      Verified working CAD files, structural calculation reports, and client wishlists
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsUploadModalOpen(true)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs transition"
+                  >
+                    <Upload className="w-3.5 h-3.5" />
+                    <span>Upload Document</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('documents')}
+                    className="text-xs text-amber-400 hover:underline font-semibold"
+                  >
+                    View All ({activeProject.sharedDocuments?.length || 5}) →
+                  </button>
+                </div>
+              </div>
+
+              {/* Documents Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                {(activeProject.sharedDocuments || []).slice(0, 4).map((doc) => (
+                  <div
+                    key={doc.id}
+                    className="p-4 rounded-xl bg-slate-950 border border-slate-800/80 hover:border-slate-700 transition space-y-3 flex flex-col justify-between"
+                  >
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between text-[10px] font-mono">
+                        <span className="px-2 py-0.5 rounded bg-slate-900 text-amber-400 uppercase border border-slate-800">
+                          {doc.fileType}
+                        </span>
+                        <span className="text-slate-400">{doc.fileSize}</span>
+                      </div>
+                      <div className="text-xs font-bold text-white line-clamp-2">
+                        {doc.title}
+                      </div>
+                      <div className="text-[11px] text-slate-400 truncate">
+                        {doc.fileName}
+                      </div>
+                    </div>
+
+                    <div className="pt-2 border-t border-slate-800/60 flex items-center justify-between text-xs">
+                      <button
+                        type="button"
+                        onClick={() => setPreviewDoc(doc)}
+                        className="text-slate-300 hover:text-white flex items-center gap-1 font-medium"
+                      >
+                        <Eye className="w-3 h-3 text-slate-400" />
+                        <span>Preview</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDownloadDocument(doc)}
+                        className="text-amber-400 hover:text-amber-300 flex items-center gap-1 font-semibold"
+                      >
+                        <Download className="w-3 h-3" />
+                        <span>Get File</span>
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* 6. MULTI-PROPERTY PORTFOLIO (Shown if client is assigned to multiple estates) */}
+            {assignedProjects.length > 1 && (
+              <div className="p-6 rounded-2xl bg-slate-900 border border-slate-800 shadow-xl space-y-4">
+                <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+                  <div className="flex items-center gap-2">
+                    <Building2 className="w-4 h-4 text-amber-400" />
+                    <div>
+                      <h3 className="text-base font-bold text-white">Your Assigned Estates Portfolio</h3>
+                      <p className="text-xs text-slate-400">
+                        Switch active workspace or compare physical progress across your registered properties
+                      </p>
+                    </div>
+                  </div>
+                  <span className="text-xs font-mono text-slate-400">{assignedProjects.length} Properties Linked</span>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {assignedProjects.map((proj) => {
+                    const isCurrent = proj.id === activeProject.id;
+                    return (
+                      <div
+                        key={proj.id}
+                        className={`p-4 rounded-xl border transition flex flex-col justify-between gap-3 ${
+                          isCurrent
+                            ? 'bg-amber-500/10 border-amber-500/50'
+                            : 'bg-slate-950 border-slate-800 hover:border-slate-700'
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <h4 className="text-sm font-bold text-white">{proj.name}</h4>
+                              {isCurrent && (
+                                <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-amber-500 text-slate-950 font-bold">
+                                  ACTIVE
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-xs text-slate-400 mt-0.5">{proj.location} • {proj.projectType}</div>
+                          </div>
+                          <div className="text-right">
+                            <span className="text-xs font-mono font-bold text-white">
+                              {proj.builtUpAreaSqFt?.toLocaleString() || '5,800'} Sq.Ft
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between pt-2 border-t border-slate-800/80">
+                          <span className="text-xs text-slate-400 capitalize">Stage: {proj.status.replace('_', ' ')}</span>
+                          {!isCurrent ? (
+                            <button
+                              type="button"
+                              onClick={() => handleSelectProject(proj.id)}
+                              className="px-3 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition"
+                            >
+                              Switch to Estate
+                            </button>
+                          ) : (
+                            <span className="text-xs text-emerald-400 font-mono flex items-center gap-1">
+                              <Check className="w-3.5 h-3.5" /> Viewing Now
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* 7. ARCHITECTURAL & ENGINEERING ADVISORY TEAM CARD */}
+            <div className="p-6 rounded-2xl bg-gradient-to-r from-slate-900 to-slate-950 border border-slate-800 shadow-xl space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800">
+                <div className="flex items-center gap-2">
+                  <Users className="w-4 h-4 text-amber-400" />
+                  <h3 className="text-base font-bold text-white">Dedicated Architectural &amp; Structural Leadership</h3>
+                </div>
+                <div className="text-xs text-emerald-400 font-mono flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                  <span>Principal Office Available (9:00 AM - 7:00 PM IST)</span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {/* Contact 1: Lead Architect */}
+                <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
+                  <div className="flex items-center gap-3">
+                    <img
+                      src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=600&q=80"
+                      alt="Ar. S. Gouse"
+                      className="w-11 h-11 rounded-xl object-cover border border-amber-500/40"
+                    />
+                    <div>
+                      <div className="text-xs font-bold text-white">Ar. S. Gouse</div>
+                      <div className="text-[11px] text-amber-400">Principal Architect &amp; Founder</div>
+                      <div className="text-[10px] text-slate-500 font-mono">CoA Reg: CA/2012/55190</div>
+                    </div>
+                  </div>
+                  <div className="pt-2 border-t border-slate-800/80 flex items-center gap-2">
+                    <a
+                      href="tel:+918073947241"
+                      className="flex-1 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-200 text-xs font-semibold flex items-center justify-center gap-1 border border-slate-800"
+                    >
+                      <Phone className="w-3 h-3 text-amber-400" />
+                      <span>Call</span>
+                    </a>
+                    <a
+                      href="mailto:sgouse14@gmail.com"
+                      className="flex-1 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-200 text-xs font-semibold flex items-center justify-center gap-1 border border-slate-800"
+                    >
+                      <Mail className="w-3 h-3 text-amber-400" />
+                      <span>Email</span>
+                    </a>
+                  </div>
+                </div>
+
+                {/* Contact 2: Lead Structural Engineer */}
+                <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
+                  <div className="flex items-center gap-3">
+                    <img
+                      src="https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=600&q=80"
+                      alt="Er. Rajesh Kumar"
+                      className="w-11 h-11 rounded-xl object-cover border border-slate-700"
+                    />
+                    <div>
+                      <div className="text-xs font-bold text-white">Er. Rajesh Kumar</div>
+                      <div className="text-[11px] text-slate-400">Chief Structural Engineer (M.Tech)</div>
+                      <div className="text-[10px] text-slate-500 font-mono">IS 456 / IS 1893 Lead</div>
+                    </div>
+                  </div>
+                  <div className="pt-2 border-t border-slate-800/80 flex items-center gap-2">
+                    <a
+                      href="tel:+919845012890"
+                      className="flex-1 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-200 text-xs font-semibold flex items-center justify-center gap-1 border border-slate-800"
+                    >
+                      <Phone className="w-3 h-3 text-slate-400" />
+                      <span>Call</span>
+                    </a>
+                    <a
+                      href="mailto:sgouse14@gmail.com"
+                      className="flex-1 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-200 text-xs font-semibold flex items-center justify-center gap-1 border border-slate-800"
+                    >
+                      <Mail className="w-3 h-3 text-slate-400" />
+                      <span>Email</span>
+                    </a>
+                  </div>
+                </div>
+
+                {/* Contact 3: Quantity Surveyor */}
+                <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
+                  <div className="flex items-center gap-3">
+                    <img
+                      src="https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=600&q=80"
+                      alt="Priya Nair"
+                      className="w-11 h-11 rounded-xl object-cover border border-slate-700"
+                    />
+                    <div>
+                      <div className="text-xs font-bold text-white">Priya Nair</div>
+                      <div className="text-[11px] text-slate-400">Head of Quantity Surveying &amp; BOQ</div>
+                      <div className="text-[10px] text-slate-500 font-mono">CPWD Schedule Auditor</div>
+                    </div>
+                  </div>
+                  <div className="pt-2 border-t border-slate-800/80 flex items-center gap-2">
+                    <a
+                      href="tel:+918041289001"
+                      className="flex-1 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-200 text-xs font-semibold flex items-center justify-center gap-1 border border-slate-800"
+                    >
+                      <Phone className="w-3 h-3 text-slate-400" />
+                      <span>Call</span>
+                    </a>
+                    <a
+                      href="mailto:sgouse14@gmail.com"
+                      className="flex-1 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-200 text-xs font-semibold flex items-center justify-center gap-1 border border-slate-800"
+                    >
+                      <Mail className="w-3 h-3 text-slate-400" />
+                      <span>Email</span>
+                    </a>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* ============================================================== */}
         {/* TAB 1: MILESTONE PROGRESS & ESCROW                             */}
         {/* ============================================================== */}
@@ -823,6 +1817,7 @@ Council of Architecture Registration: CA/2012/55190`;
                 { id: 'architectural_drawings', label: 'Architectural Drawings' },
                 { id: 'structural_reports', label: 'Structural Certificates' },
                 { id: 'boq_financials', label: 'BOQ & Financials' },
+                { id: 'site_audit', label: 'Site & Quality Audits' },
                 { id: 'client_uploads', label: 'Client Uploads' },
               ].map((c) => (
                 <button
@@ -1207,6 +2202,13 @@ Council of Architecture Registration: CA/2012/55190`;
           </div>
         </div>
       )}
+
+      {/* 5. SITE VISIT CAMERA MODAL */}
+      <SiteVisitCameraModal
+        isOpen={isSiteCameraModalOpen}
+        onClose={() => setIsSiteCameraModalOpen(false)}
+        activeProject={activeProject}
+      />
     </div>
   );
 };

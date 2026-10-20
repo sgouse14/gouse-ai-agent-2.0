@@ -33,14 +33,17 @@ export const FloorWiseSummaryCards: React.FC<FloorWiseSummaryCardsProps> = ({
             <Layers className="w-4 h-4" />
           </div>
           <div>
-            <h3 className="text-sm font-semibold text-slate-100 flex items-center gap-2">
-              Building Levels & Floor Breakdown
+            <h3 className="text-sm font-semibold text-slate-100 flex items-center gap-2 flex-wrap">
+              <span>Building Levels & Floor Breakdown</span>
+              <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-300 border border-emerald-500/30 font-bold">
+                COST EXCLUDING GST
+              </span>
               <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700">
                 {floors.length} Levels
               </span>
             </h3>
             <p className="text-xs text-slate-400">
-              Quantities and rates individually itemized by vertical building elevation
+              Quantities and rates itemized by building elevation • Quoted as Cost Excluding GST (18% GST extra)
             </p>
           </div>
         </div>

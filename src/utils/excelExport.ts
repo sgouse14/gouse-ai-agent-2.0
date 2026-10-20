@@ -159,9 +159,11 @@ export function exportBOQToExcel({
   ratePerSqFtRow.push(`Cost efficiency per level`);
   matrixData.push(ratePerSqFtRow);
 
-  // Contingency & Grand Total Rows
-  matrixData.push(['', `Contingency Reserve (${contingencyPercent}%)`, '', '', '', ...Array(floors.length * 2).fill(''), '-', contingencyAmount, `${contingencyPercent}%`, 'Project risk allowance']);
-  matrixData.push(['', 'GRAND TOTAL ESTIMATE (WITH CONTINGENCY)', '', '', '', ...Array(floors.length * 2).fill(''), '-', grandTotal, '', 'Complete turnkey tender estimate']);
+  // Contingency & Grand Total Rows (Cost Excluding GST)
+  matrixData.push(['', `Contingency Reserve (${contingencyPercent}% - Excl. GST)`, '', '', '', ...Array(floors.length * 2).fill(''), '-', contingencyAmount, `${contingencyPercent}%`, 'Project risk allowance']);
+  matrixData.push(['', 'GRAND TOTAL ESTIMATE (COST EXCLUDING GST)', '', '', '', ...Array(floors.length * 2).fill(''), '-', grandTotal, '', 'Complete turnkey tender estimate (Cost Excluding GST)']);
+  matrixData.push(['', 'Statutory GST @ 18% (Applicable Extra on Billing)', '', '', '', ...Array(floors.length * 2).fill(''), '-', Math.round(grandTotal * 0.18), '18.0%', 'Statutory Indian GST']);
+  matrixData.push(['', 'INDICATIVE TOTAL ESTIMATE (INCL. 18% GST)', '', '', '', ...Array(floors.length * 2).fill(''), '-', grandTotal + Math.round(grandTotal * 0.18), '', 'Grand Total with 18% GST']);
 
   const wsMatrix = XLSX.utils.aoa_to_sheet(matrixData);
 

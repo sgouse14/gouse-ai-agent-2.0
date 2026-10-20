@@ -53,7 +53,7 @@ import apartmentTowerImg from '../assets/images/mantri_premero_tower_17901709720
 import floorVillaImg from '../assets/images/bangalore_builder_proj2_1790170907606.jpg';
 
 export interface PgHousePropertyListingSectionProps {
-  project: Project;
+  project?: Project;
   onUpdateProject?: (updated: Project) => void;
   currency?: CurrencyCode;
   mode?: 'pg' | 'rent_house' | 'all';
@@ -839,7 +839,7 @@ export const PgHousePropertyListingSection: React.FC<PgHousePropertyListingSecti
 
   // Listings State
   const [listings, setListings] = useState<CompletePropertyListing[]>(() => {
-    if (project.pgPropertyDetails && project.pgPropertyDetails.propertyName) {
+    if (project && project.pgPropertyDetails && project.pgPropertyDetails.propertyName) {
       const isProjHouse = project.pgPropertyDetails.propertyType?.includes('House') || project.pgPropertyDetails.propertyType?.includes('Villa');
       return [
         {
@@ -997,7 +997,7 @@ export const PgHousePropertyListingSection: React.FC<PgHousePropertyListingSecti
 
   // Save current active listing to project
   const persistListingToProject = (updatedListing: CompletePropertyListing) => {
-    if (onUpdateProject) {
+    if (onUpdateProject && project) {
       onUpdateProject({
         ...project,
         pgPropertyDetails: {

@@ -377,18 +377,29 @@ export const FloorWisePrintReportModal: React.FC<FloorWisePrintReportModalProps>
 
           {/* Grand Total Breakdown Block */}
           <div className="flex justify-end pt-2">
-            <div className="w-72 border border-slate-300 rounded-lg p-3 bg-slate-50 font-mono text-xs space-y-1.5">
+            <div className="w-80 border border-slate-300 rounded-lg p-3 bg-slate-50 font-mono text-xs space-y-1.5">
               <div className="flex justify-between text-slate-700">
-                <span>Building Works Subtotal:</span>
+                <span>Building Works Subtotal (Excl. GST):</span>
                 <span className="font-bold">₹{buildingSubtotal.toLocaleString()}</span>
               </div>
               <div className="flex justify-between text-slate-700">
-                <span>Contingency ({contingencyPercent}%):</span>
+                <span>Contingency ({contingencyPercent}% - Excl. GST):</span>
                 <span>₹{contingencyAmount.toLocaleString()}</span>
               </div>
               <div className="border-t border-slate-300 pt-1.5 flex justify-between text-sm font-bold text-slate-950">
-                <span>Grand Total:</span>
+                <span>Grand Total (COST EXCL. GST):</span>
                 <span className="text-amber-800">₹{grandTotal.toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between text-[11px] text-slate-600 border-t border-slate-200 pt-1">
+                <span>Statutory GST @ 18% (Extra):</span>
+                <span className="font-medium">+₹{Math.round(grandTotal * 0.18).toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between text-[11px] font-bold text-emerald-800">
+                <span>Indicative Total (Incl. 18% GST):</span>
+                <span>₹{(grandTotal + Math.round(grandTotal * 0.18)).toLocaleString()}</span>
+              </div>
+              <div className="text-[10px] text-slate-500 pt-1 border-t border-slate-200 italic font-sans leading-tight">
+                * Note: All scheduled unit rates and totals are quoted as Cost Excluding GST. Statutory GST (18%) extra as applicable on milestone billing.
               </div>
             </div>
           </div>

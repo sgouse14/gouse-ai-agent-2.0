@@ -4,6 +4,7 @@ import {
   Shield,
   Lock,
   LogIn,
+  Key,
   UserPlus,
   Sparkles,
   ArrowRight,
@@ -64,6 +65,9 @@ interface ClientPortalProps {
     notes: string;
   }) => void;
   onReturnToWorkspace?: () => void;
+  onOpenClientDashboard?: () => void;
+  onOpenAgentBroker?: () => void;
+  onOpenPlatformDemo?: () => void;
   isPreviewMode?: boolean;
 }
 
@@ -71,6 +75,9 @@ export const ClientPortal: React.FC<ClientPortalProps> = ({
   isClientRestricted = false,
   onEnquirySubmitted,
   onReturnToWorkspace,
+  onOpenClientDashboard,
+  onOpenAgentBroker,
+  onOpenPlatformDemo,
   isPreviewMode = false,
 }) => {
   const { user, openLoginModal, openSignUpModal, login, logout, loginAsDemo } = useAuth();
@@ -442,7 +449,7 @@ For inquiries or project bookings, contact Principal Architect Ar. S. Gouse at s
               <Lock className="w-3.5 h-3.5" />
             </span>
             <span>
-              <strong className="text-white">Client Portal Gateway:</strong> Accessible outside the main platform.{' '}
+              <strong className="text-white">Outside Platform Login Area:</strong> Client Portal, Dashboard &amp; Gouse AI Agent Broker are accessible outside the main studio.{' '}
               <span className="hidden md:inline text-slate-400">
                 Internal architectural drafting studio &amp; CAD workspace is restricted to certified staff.
               </span>
@@ -450,6 +457,19 @@ For inquiries or project bookings, contact Principal Architect Ar. S. Gouse at s
           </div>
 
           <div className="flex items-center gap-2">
+            {onOpenClientDashboard && (
+              <button
+                type="button"
+                id="btn-banner-client-dashboard"
+                onClick={onOpenClientDashboard}
+                className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-sky-500/20 hover:bg-sky-500/30 text-sky-300 border border-sky-500/40 font-bold text-xs transition shadow-sm"
+                title="Open Dashboard outside the platform"
+              >
+                <Users className="w-3.5 h-3.5 text-sky-400" />
+                <span>Dashboard</span>
+              </button>
+            )}
+
             {isPreviewMode && onReturnToWorkspace && (
               <button
                 type="button"
@@ -464,14 +484,14 @@ For inquiries or project bookings, contact Principal Architect Ar. S. Gouse at s
             {user?.role === 'client' && (
               <div className="flex items-center gap-2">
                 <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-mono text-[11px]">
-                  Logged in as {user.name} (Client)
+                  Logged in: {user.name} (Client)
                 </span>
                 <button
                   type="button"
                   onClick={logout}
-                  className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs transition"
+                  className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/30 text-rose-300 hover:text-white text-xs font-semibold transition"
                 >
-                  <LogOut className="w-3 h-3" />
+                  <LogOut className="w-3 h-3 text-rose-400" />
                   <span>Sign Out</span>
                 </button>
               </div>
@@ -485,7 +505,7 @@ For inquiries or project bookings, contact Principal Architect Ar. S. Gouse at s
                   className="flex items-center gap-1 px-3 py-1 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs transition shadow-sm"
                 >
                   <LogIn className="w-3 h-3" />
-                  <span>Client Sign In</span>
+                  <span>Sign In</span>
                 </button>
                 <button
                   type="button"
@@ -526,6 +546,17 @@ For inquiries or project bookings, contact Principal Architect Ar. S. Gouse at s
 
           {/* Quick Anchor Navigation */}
           <nav className="hidden lg:flex items-center gap-6 text-xs font-medium text-slate-400">
+            {onOpenClientDashboard && (
+              <button
+                type="button"
+                id="nav-link-client-dashboard"
+                onClick={onOpenClientDashboard}
+                className="hover:text-sky-300 transition flex items-center gap-1.5 text-sky-400 font-bold"
+              >
+                <Users className="w-3.5 h-3.5" />
+                <span>Dashboard</span>
+              </button>
+            )}
             <a href="#platform-demo" className="hover:text-amber-400 transition flex items-center gap-1.5 text-amber-300">
               <Sparkles className="w-3.5 h-3.5 text-amber-400" />
               <span>Platform Demo</span>
@@ -538,6 +569,16 @@ For inquiries or project bookings, contact Principal Architect Ar. S. Gouse at s
 
           {/* Right Header Actions */}
           <div className="flex items-center gap-2 sm:gap-3">
+            {onOpenClientDashboard && (
+              <button
+                type="button"
+                onClick={onOpenClientDashboard}
+                className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-sky-500/15 hover:bg-sky-500/25 border border-sky-500/40 text-sky-300 font-bold text-xs transition"
+              >
+                <Users className="w-3.5 h-3.5 text-sky-400" />
+                <span>Dashboard</span>
+              </button>
+            )}
             <a
               href="#platform-demo"
               className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/40 text-amber-300 font-semibold text-xs transition"
@@ -556,15 +597,26 @@ For inquiries or project bookings, contact Principal Architect Ar. S. Gouse at s
                 <span>Sign In</span>
               </button>
             ) : (
-              <button
-                type="button"
-                onClick={handleDownloadDemoBrief}
-                className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs transition"
-                title="Download Platform Brief"
-              >
-                <Download className="w-3.5 h-3.5 text-amber-400" />
-                <span>Deck Brief</span>
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleDownloadDemoBrief}
+                  className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs transition"
+                  title="Download Platform Brief"
+                >
+                  <Download className="w-3.5 h-3.5 text-amber-400" />
+                  <span>Deck Brief</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={logout}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/30 text-rose-300 hover:text-white font-bold text-xs transition"
+                  title="Sign out of client session"
+                >
+                  <LogOut className="w-3.5 h-3.5 text-rose-400" />
+                  <span>Sign Out</span>
+                </button>
+              </div>
             )}
           </div>
         </div>
@@ -592,6 +644,16 @@ For inquiries or project bookings, contact Principal Architect Ar. S. Gouse at s
                 </div>
 
                 <div className="flex items-center gap-2">
+                  {onOpenAgentBroker && (
+                    <button
+                      type="button"
+                      onClick={onOpenAgentBroker}
+                      className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 text-xs font-semibold transition"
+                    >
+                      <Key className="w-3 h-3 text-amber-400" />
+                      <span>Gouse AI Agent Broker</span>
+                    </button>
+                  )}
                   <a
                     href="#platform-demo"
                     className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs transition shadow-sm"
@@ -672,7 +734,19 @@ For inquiries or project bookings, contact Principal Architect Ar. S. Gouse at s
             </p>
 
             {/* Hero CTAs */}
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2 flex-wrap">
+              {onOpenAgentBroker && (
+                <button
+                  type="button"
+                  id="btn-hero-agent-broker"
+                  onClick={onOpenAgentBroker}
+                  className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-3.5 rounded-xl bg-gradient-to-r from-amber-500/25 to-indigo-500/25 hover:from-amber-500/35 hover:to-indigo-500/35 text-amber-300 border border-amber-500/50 font-bold text-sm transition shadow-lg shadow-amber-500/10"
+                >
+                  <Key className="w-4 h-4 text-amber-400" />
+                  <span>Gouse AI Agent Broker (PG &amp; Rent House)</span>
+                </button>
+              )}
+
               <a
                 href="#platform-demo"
                 className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-sm transition shadow-lg shadow-amber-500/20 group"

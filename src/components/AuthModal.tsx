@@ -17,12 +17,18 @@ import {
   CheckCircle2,
   AlertCircle,
   KeyRound,
+  Users,
+  LogIn,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { UserRole } from '../types';
 
-export const AuthModal: React.FC = () => {
+export interface AuthModalProps {
+  onSelectUnauthView?: (view: 'client_page' | 'client_dashboard' | 'platform_demo' | 'broker') => void;
+}
+
+export const AuthModal: React.FC<AuthModalProps> = ({ onSelectUnauthView }) => {
   const {
     user,
     users,
@@ -167,6 +173,9 @@ export const AuthModal: React.FC = () => {
     contractor: { label: 'Turnkey Contractor', desc: 'Site execution, material procurement & scheduling' },
     client: { label: 'Client / Property Owner', desc: 'Project oversight, approvals & progress tracking' },
     mep_engineer: { label: 'MEP Engineer', desc: 'Mechanical, Electrical & Plumbing systems' },
+    broker_agent: { label: 'Certified Broker Agent', desc: 'Real estate listings, inspections & leasing' },
+    property_owner: { label: 'PG / Property Landlord', desc: 'Property owner, unit manager & rent collection' },
+    tenant: { label: 'Verified Tenant / Resident', desc: 'Executive co-living, PG & rental occupant' },
   };
 
   return (
@@ -214,8 +223,56 @@ export const AuthModal: React.FC = () => {
                 </span>
               </div>
               <p className="text-xs text-slate-400 mt-0.5">
-                Sign in to your architecture &amp; engineering workspace
+                Sign in to your architecture workspace or access the outside client portal
               </p>
+              {onSelectUnauthView && (
+                <div className="flex items-center gap-2 pt-1.5 text-[11px]">
+                  <span className="text-slate-500">Outside Platform:</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsAuthModalOpen(false);
+                      onSelectUnauthView('broker');
+                    }}
+                    className="text-amber-400 hover:text-amber-300 hover:underline font-bold flex items-center gap-1"
+                  >
+                    <span>Gouse AI Agent Broker</span>
+                  </button>
+                  <span className="text-slate-700">·</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsAuthModalOpen(false);
+                      onSelectUnauthView('client_dashboard');
+                    }}
+                    className="text-sky-400 hover:text-sky-300 hover:underline font-semibold flex items-center gap-1"
+                  >
+                    <span>Dashboard</span>
+                  </button>
+                  <span className="text-slate-700">·</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsAuthModalOpen(false);
+                      onSelectUnauthView('client_page');
+                    }}
+                    className="text-amber-300 hover:text-amber-200 hover:underline font-semibold flex items-center gap-1"
+                  >
+                    <span>Client Portal</span>
+                  </button>
+                  <span className="text-slate-700">·</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsAuthModalOpen(false);
+                      onSelectUnauthView('platform_demo');
+                    }}
+                    className="text-slate-300 hover:text-white hover:underline font-medium flex items-center gap-1"
+                  >
+                    <span>Platform Demo</span>
+                  </button>
+                </div>
+              )}
             </div>
           </div>
 
@@ -449,8 +506,9 @@ export const AuthModal: React.FC = () => {
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  {users.slice(0, 4).map((p) => {
+                  {users.slice(0, 6).map((p) => {
                     const isSelected = user?.email.toLowerCase() === p.email.toLowerCase();
+                    const isClient = p.role === 'client';
                     return (
                       <button
                         key={p.id}
@@ -459,19 +517,28 @@ export const AuthModal: React.FC = () => {
                         className={`text-left p-2.5 rounded-xl border transition flex items-center gap-2.5 group ${
                           isSelected
                             ? 'bg-amber-500/10 border-amber-500/40 text-amber-200'
+                            : isClient
+                            ? 'bg-sky-950/40 border-sky-500/30 hover:border-sky-500/60 text-slate-300 hover:text-white'
                             : 'bg-slate-950/60 border-slate-800 hover:border-slate-700 text-slate-300 hover:text-white'
                         }`}
                       >
                         <img
                           src={p.avatarUrl}
                           alt={p.name}
-                          className="w-8 h-8 rounded-lg object-cover border border-slate-700 shrink-0"
+                          className={`w-8 h-8 rounded-lg object-cover border shrink-0 ${
+                            isClient ? 'border-sky-500/50 ring-1 ring-sky-500/30' : 'border-slate-700'
+                          }`}
                         />
                         <div className="min-w-0 flex-1">
                           <div className="text-xs font-semibold truncate flex items-center gap-1">
                             <span>{p.name}</span>
                             {isSelected && (
                               <CheckCircle2 className="w-3 h-3 text-amber-400 shrink-0" />
+                            )}
+                            {isClient && (
+                              <span className="text-[9px] font-mono px-1 rounded bg-sky-500/20 text-sky-300 font-bold">
+                                CLIENT
+                              </span>
                             )}
                           </div>
                           <div className="text-[10px] text-slate-400 truncate capitalize">

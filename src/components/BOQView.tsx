@@ -1062,7 +1062,8 @@ export const BOQView: React.FC<BOQViewProps> = ({
       budget: formatCurrency(totalEstimate, currency),
       message: `Formal Contractor & Tender Quotation Enquiry for ${activeProject.name} in ${activeProject.location}.
 Built-Up Area: ${areaSqFt.toLocaleString()} sq.ft (${Math.round(areaSqFt / 10.764).toLocaleString()} m²)
-Estimated BOQ Value: ${formatCurrency(totalEstimate, currency)} (${formatCurrency(currentRatePerSqFt, currency)} / sq.ft)
+Estimated BOQ Value: ${formatCurrency(totalEstimate, currency)} (COST EXCLUDING GST • ${formatCurrency(currentRatePerSqFt, currency)} / sq.ft)
+Tax Terms: Quoted Cost Excludes GST. Statutory GST (18%) extra as applicable on milestone billing.
 Specification Tier: ${currentMarketTier.tier}
 Scope Summary: ${items.length} line items across categories including ${topCategories}.
 Contingency Reserve: ${contingencyPercent}%.
@@ -1083,7 +1084,7 @@ Contact: ${enquiryClientPhone}`,
 
   // CSV Export
   const handleExportCSV = () => {
-    const headers = ['Item Name', 'Category', 'Unit', 'Quantity', 'Rate (INR)', 'Amount (INR)', 'Notes'];
+    const headers = ['Item Name', 'Category', 'Unit', 'Quantity', 'Rate (INR - Excl. GST)', 'Amount (INR - Excl. GST)', 'Notes'];
     const rows = items.map((i) => [
       `"${i.name.replace(/"/g, '""')}"`,
       `"${i.category}"`,
@@ -1097,10 +1098,12 @@ Contact: ${enquiryClientPhone}`,
     // Add metadata summary at bottom of CSV
     rows.push([]);
     rows.push(['Built-Up Area (sq.ft)', '', '', areaSqFt.toString(), '', '', '']);
-    rows.push(['Subtotal Cost', '', '', '', '', subtotal.toString(), '']);
-    rows.push([`Contingency Reserve (${contingencyPercent}%)`, '', '', '', '', contingencyAmount.toString(), '']);
-    rows.push(['Grand Estimated Total', '', '', '', '', totalEstimate.toString(), '']);
-    rows.push(['Calculated Unit Rate per sq.ft', '', '', '', '', currentRatePerSqFt.toString(), '']);
+    rows.push(['Subtotal Cost (Cost Excluding GST)', '', '', '', '', subtotal.toString(), '']);
+    rows.push([`Contingency Reserve (${contingencyPercent}% - Excl. GST)`, '', '', '', '', contingencyAmount.toString(), '']);
+    rows.push(['Grand Estimated Total (COST EXCLUDING GST)', '', '', '', '', totalEstimate.toString(), '']);
+    rows.push(['Calculated Unit Rate per sq.ft (Excl. GST)', '', '', '', '', currentRatePerSqFt.toString(), '']);
+    rows.push(['Applicable Statutory GST @ 18% (Extra)', '', '', '', '', Math.round(totalEstimate * 0.18).toString(), '']);
+    rows.push(['Indicative Grand Total with 18% GST', '', '', '', '', (totalEstimate + Math.round(totalEstimate * 0.18)).toString(), '']);
 
     const csvContent = [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -1122,6 +1125,12 @@ Contact: ${enquiryClientPhone}`,
             <span className="text-xs uppercase tracking-wider font-mono text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
               Quantity Surveying & Cost Engineering
             </span>
+            <span className="text-xs uppercase tracking-wider font-mono text-emerald-400 bg-emerald-500/10 px-2.5 py-0.5 rounded border border-emerald-500/30 font-bold">
+              COST EXCLUDING GST
+            </span>
+            <span className="text-xs uppercase tracking-wider font-mono text-slate-300 bg-slate-800 px-2 py-0.5 rounded border border-slate-700">
+              18% GST Extra as Applicable
+            </span>
             <span className="text-xs text-slate-400">
               {activeProject.name} • {activeProject.location}
             </span>
@@ -1130,7 +1139,7 @@ Contact: ${enquiryClientPhone}`,
             Bill of Quantities & Live Market Cost Estimation
           </h2>
           <p className="text-xs text-slate-400">
-            Set exact square footage, calibrate item rates against live market benchmarks, and dispatch tender enquiries.
+            Set exact square footage, calibrate item rates against live market benchmarks (quoted as <span className="text-amber-300 font-semibold">Cost Excluding GST</span>), and dispatch tender enquiries.
           </p>
         </div>
 
@@ -1471,9 +1480,14 @@ Contact: ${enquiryClientPhone}`,
 
       {/* METRIC SUMMARY CARDS (With live Unit Rate per sq.ft) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Subtotal Civil & Finishes */}
+        {/* Subtotal Civil & Finishes (Cost Excl. GST) */}
         <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-1">
-          <span className="text-xs text-slate-400 font-medium">Subtotal Works (Base Cost)</span>
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-slate-400 font-medium">Subtotal Works (Base Cost)</span>
+            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700">
+              Excl. GST
+            </span>
+          </div>
           <p className="text-xl font-bold font-mono text-white">
             {formatCurrency(subtotal, currency)}
           </p>
@@ -1483,11 +1497,16 @@ Contact: ${enquiryClientPhone}`,
           </div>
         </div>
 
-        {/* Contingency Reserve */}
+        {/* Contingency Reserve (Excl. GST) */}
         <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-1">
           <div className="flex items-center justify-between">
             <span className="text-xs text-slate-400 font-medium">Design & Site Contingency</span>
-            <span className="text-xs font-mono font-bold text-amber-400">{contingencyPercent}%</span>
+            <div className="flex items-center gap-1.5">
+              <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700">
+                Excl. GST
+              </span>
+              <span className="text-xs font-mono font-bold text-amber-400">{contingencyPercent}%</span>
+            </div>
           </div>
           <p className="text-xl font-bold font-mono text-amber-400">
             {formatCurrency(contingencyAmount, currency)}
@@ -1506,21 +1525,33 @@ Contact: ${enquiryClientPhone}`,
           </div>
         </div>
 
-        {/* Estimated Grand Total */}
-        <div className="p-4 rounded-xl bg-slate-900 border border-amber-500/30 bg-amber-500/5 space-y-1">
-          <span className="text-xs text-amber-300 font-medium">Estimated Grand Total</span>
-          <p className="text-2xl font-bold font-mono text-amber-400">
+        {/* Estimated Grand Total - COST EXCLUDING GST */}
+        <div className="p-4 rounded-xl bg-slate-900 border border-amber-500/40 bg-amber-500/10 space-y-1.5 relative overflow-hidden">
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-amber-300 font-black uppercase tracking-wider">
+              COST EXCLUDING GST
+            </span>
+            <span className="text-[10px] font-mono font-black px-1.5 py-0.5 rounded bg-amber-500 text-slate-950">
+              EXCL. GST
+            </span>
+          </div>
+          <p className="text-2xl font-black font-mono text-amber-400">
             {formatCurrency(totalEstimate, currency)}
           </p>
-          <p className="text-[11px] text-slate-400">
-            All structural, finishes, MEP + {contingencyPercent}% reserve
-          </p>
+          <div className="flex items-center justify-between text-[11px] text-slate-300 font-mono">
+            <span>Grand Total Estimate</span>
+            <span className="text-emerald-400 font-bold">{formatCurrency(currentRatePerSqFt, currency)}/sq.ft</span>
+          </div>
+          <div className="pt-1 text-[10px] font-mono text-slate-400 border-t border-slate-800/80 flex items-center justify-between">
+            <span>* Statutory GST @ 18% extra:</span>
+            <span className="text-slate-300 font-medium">+{formatCurrency(Math.round(totalEstimate * 0.18), currency)}</span>
+          </div>
         </div>
 
-        {/* Unit Rate per sq.ft based on Live Market Price */}
+        {/* Unit Rate per sq.ft (Excl. GST) */}
         <div className="p-4 rounded-xl bg-slate-900 border border-emerald-500/30 bg-emerald-500/5 space-y-1">
           <div className="flex items-center justify-between">
-            <span className="text-xs text-emerald-300 font-medium">Unit Rate per sq.ft</span>
+            <span className="text-xs text-emerald-300 font-medium">Unit Rate per sq.ft (Excl. GST)</span>
             <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded border ${currentMarketTier.badgeBg} ${currentMarketTier.badgeBorder} ${currentMarketTier.accentColor}`}>
               {currentMarketTier.tag}
             </span>
@@ -1529,8 +1560,59 @@ Contact: ${enquiryClientPhone}`,
             {formatCurrency(currentRatePerSqFt, currency)} <span className="text-xs font-normal text-slate-400">/ sq.ft</span>
           </p>
           <p className="text-[11px] text-slate-400 font-mono">
-            Based on {areaSqFt.toLocaleString()} sq.ft plinth ({currentMarketTier.tier.split('/')[0].trim()})
+            Based on {areaSqFt.toLocaleString()} sq.ft plinth ({currentMarketTier.tier.split('/')[0].trim()}) • Excl. GST
           </p>
+        </div>
+      </div>
+
+      {/* COST EXCLUDING GST SUMMARY & STATUTORY TAX NOTICE */}
+      <div className="p-4 rounded-xl bg-gradient-to-r from-slate-900 via-slate-900 to-slate-950 border border-amber-500/30 flex flex-col md:flex-row md:items-center md:justify-between gap-4 shadow-sm">
+        <div className="flex items-center gap-3">
+          <div className="p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 shrink-0">
+            <ShieldCheck className="w-5 h-5" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-sm font-bold text-white font-mono">
+                BOQ & ESTIMATION: COST EXCLUDING GST
+              </span>
+              <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                18% GST Extra as Applicable
+              </span>
+            </div>
+            <p className="text-xs text-slate-400 mt-0.5">
+              Standard Indian architectural, civil construction, and QS contract practice: all item quantities, level rates, and contract estimates are quoted as <span className="text-amber-300 font-semibold">COST EXCLUDING GST</span>. Statutory GST (18%) is chargeable on actual payment milestone invoices.
+            </p>
+          </div>
+        </div>
+
+        {/* Live Tax Breakdown Figures */}
+        <div className="flex items-center gap-3 sm:gap-6 border-t md:border-t-0 md:border-l border-slate-800 pt-3 md:pt-0 md:pl-6 shrink-0 font-mono">
+          <div>
+            <div className="text-[10px] text-slate-400 uppercase tracking-wider">Cost Excl. GST</div>
+            <div className="text-base font-bold text-amber-400">
+              {formatCurrency(totalEstimate, currency)}
+            </div>
+            <div className="text-[10px] text-slate-500">{formatCurrency(currentRatePerSqFt, currency)}/sq.ft</div>
+          </div>
+          <div className="text-slate-600 font-sans text-lg">+</div>
+          <div>
+            <div className="text-[10px] text-slate-400 uppercase tracking-wider">GST @ 18%</div>
+            <div className="text-sm font-semibold text-slate-300">
+              {formatCurrency(Math.round(totalEstimate * 0.18), currency)}
+            </div>
+            <div className="text-[10px] text-slate-500">CGST 9% + SGST 9%</div>
+          </div>
+          <div className="text-slate-600 font-sans text-lg">=</div>
+          <div>
+            <div className="text-[10px] text-emerald-400 uppercase tracking-wider font-semibold">Total Incl. GST</div>
+            <div className="text-base font-extrabold text-emerald-400">
+              {formatCurrency(totalEstimate + Math.round(totalEstimate * 0.18), currency)}
+            </div>
+            <div className="text-[10px] text-emerald-500/80">
+              {areaSqFt > 0 ? `${formatCurrency(Math.round((totalEstimate + Math.round(totalEstimate * 0.18)) / areaSqFt), currency)}/sq.ft` : ''}
+            </div>
+          </div>
         </div>
       </div>
 
