@@ -1,7 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { generateKeyPairSync, sign as signRs256 } from 'node:crypto';
-import { createFirebaseGousiyaApprovalVerifier } from './gousiyaFirebaseApprovalVerifier.ts';
+import {
+  createFirebaseGousiyaApprovalVerifier,
+  createFirebaseAdminTokenActivityChecker,
+} from './gousiyaFirebaseApprovalVerifier.ts';
 import type { GousiyaApprovalScope } from './gousiyaEmergencyRecovery.ts';
 
 const TEST_NOW = new Date('2026-10-20T12:00:00.000Z');
@@ -171,4 +174,27 @@ test('requires a server-side account/revocation checker when constructing verifi
   assert.throws(() => createFirebaseGousiyaApprovalVerifier({
     projectId: 'test-firebase-project',
   } as Parameters<typeof createFirebaseGousiyaApprovalVerifier>[0]), /account-status and token-revocation checker is required/i);
+});
+
+
+test('Firebase Admin adapter always enables revocation checks', async () => {
+  let observed: boolean | undefined;
+  const check = createFirebaseAdminTokenActivityChecker({
+    verifyIdToken: async (_token, checkRevoked) => {
+      observed = checkRevoked;
+      return { uid: 'owner-user-123' };
+    },
+  });
+  await check('sample-id-token');
+  assert.equal(observed, true);
+});
+
+test('Firebase Admin adapter fails closed when Admin rejects a revoked token', async () => {
+  const check = createFirebaseAdminTokenActivityChecker({
+    verifyIdToken: async (_token, checkRevoked) => {
+      assert.equal(checkRevoked, true);
+      throw new Error('auth/id-token-revoked');
+    },
+  });
+  await assert.rejects(check('revoked-id-token'), /auth\/id-token-revoked/i);
 });
