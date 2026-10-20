@@ -71,7 +71,7 @@ Rollback for this workflow means **abandoning or quarantining the staging result
 
 ## Security rules enforced by the current implementation
 
-- A 256-bit random bearer token is created; only its SHA-256 digest is stored in the current in-memory grant registry.
+- A 256-bit random bearer token is created; only its SHA-256 digest is stored in the locked, durable single-host grant store.
 - Grants are short-lived and single-use; unused grants can be revoked.
 - The recovery agent validates the backup manifest and file checksums and writes into separate staging.
 - The source, staging, and audit paths must not overlap.
@@ -82,8 +82,10 @@ Rollback for this workflow means **abandoning or quarantining the staging result
 
 ## Files and tests
 
-- `server/gousiyaEmergencyRecovery.ts` — grant lifecycle and Recovery Agent integration.
-- `server/gousiyaEmergencyRecovery.test.ts` — covers verified independent approvals, durable restart/replay behavior, staging isolation, token replay, expiry, revocation, audit failures, tampered backup handling, audit events, and source preservation.
+- `server/gousiyaEmergencyRecovery.ts` — approval enforcement, durable grant lifecycle and Recovery Agent integration.
+- `server/gousiyaFirebaseApprovalVerifier.ts` — Firebase ID-token signature, claim and scoped approval verification; see the revocation-check blocker below.
+- `server/gousiyaEmergencyRuntime.ts` — fail-closed runtime configuration factory (no HTTP endpoint).
+- `server/gousiyaEmergencyRecovery.test.ts` — independent approvals, approval-ID reuse, durable restart/replay, staging isolation, expiry, revocation, audit failures, tampered backup handling, and source preservation.
 - `server/gousiyaFirebaseApprovalVerifier.test.ts` — covers token signature, issuer/audience, expiry/recent authentication, scope matching, algorithm/key rejection, and certificate caching.
 - `server/gousiyaEmergencyRuntime.test.ts` — covers configured runtime construction and required environment variables.
 - `docs/GOUSIYA_EMERGENCY_RECOVERY.md` — this runbook.
