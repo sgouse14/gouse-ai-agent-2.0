@@ -19,6 +19,23 @@ interface CertificateResponse {
 
 export type FirebaseTokenActivityVerifier = (token: string) => Promise<void>;
 
+/** Minimal structural contract implemented by Firebase Admin's Auth instance. */
+export interface FirebaseAdminAuthLike {
+  verifyIdToken(idToken: string, checkRevoked?: boolean): Promise<unknown>;
+}
+
+/** Adapter that always asks Firebase Admin to reject disabled users and revoked tokens. */
+export function createFirebaseAdminTokenActivityChecker(
+  auth: FirebaseAdminAuthLike,
+): FirebaseTokenActivityVerifier {
+  if (!auth || typeof auth.verifyIdToken !== 'function') {
+    throw new Error('A Firebase Admin Auth instance is required for revocation checks.');
+  }
+  return async (token: string): Promise<void> => {
+    await auth.verifyIdToken(token, true);
+  };
+}
+
 export interface FirebaseGousiyaVerifierOptions {
   projectId: string;
   /**
