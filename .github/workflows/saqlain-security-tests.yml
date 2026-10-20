@@ -2,29 +2,43 @@ name: Saqlain Security Tests
 
 on:
   push:
-    branches:
-      - feature/saqlain-cyber-agent
+    branches: [main, feature/saqlain-cyber-agent]
   pull_request:
-    branches:
-      - main
+    branches: [main]
   workflow_dispatch:
 
 permissions:
   contents: read
 
+concurrency:
+  group: saqlain-security-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   security-unit-tests:
-    name: Security unit tests
+    name: Security tests, type-check, and production build
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
     steps:
       - name: Check out repository
         uses: actions/checkout@v5
+
       - name: Set up Node.js
         uses: actions/setup-node@v5
         with:
           node-version: 22
-      - name: Install dependencies
-        run: npm install --no-package-lock
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Install locked dependencies
+        run: bun install --frozen-lockfile
+
       - name: Run security unit tests
-        run: npm test
+        run: bun run test
+
+      - name: Type-check
+        run: bun run lint
+
+      - name: Build frontend and server
+        run: bun run build
