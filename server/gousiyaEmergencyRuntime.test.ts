@@ -9,7 +9,7 @@ import {
 const testEnv = {
   FIREBASE_PROJECT_ID: 'trusted-project-123',
   FIREBASE_WEB_API_KEY: 'restricted-test-web-key',
-  GOUSIYA_APPROVAL_SIGNING_SECRET: '0123456789abcdef0123456789abcdef',
+  GOUSIYA_APPROVAL_SIGNING_SECRET: '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
   GOUSIYA_APPROVER_REGISTRY_PATH: '/var/lib/gouse/gousiya/approvers.json',
   GOUSIYA_AUDIT_FILE_PATH: '/var/lib/gouse/audit/events.jsonl',
   GOUSIYA_GRANT_STORE_FILE_PATH: '/var/lib/gouse/gousiya/grants.json',
