@@ -13,7 +13,7 @@ An architecture and construction intelligence workspace with a defensive cyberse
 
 ## Saqlain AI security layer
 
-The Saqlain feature branch adds security-domain types, defensive agent coordination, a security dashboard, verification/audit workflows, backup integrity checks, task-queue monitoring, and a Communication Agent that prepares sanitized internal cycle-status reports (without external delivery).
+The Saqlain feature branch adds security-domain types, defensive agent coordination, a security dashboard, verification/audit workflows, backup integrity checks, task-queue monitoring, and a Communication Agent that prepares sanitized reports and can send scoped status messages to operator-approved remote agents through an explicitly configured transport (no remote-agent onboarding or access grants).
 
 Security behavior is designed to detect, explain, recommend, and audit—not to silently perform destructive mutations. Protected source programs and backup evidence must remain intact. Recovery rehearsals stage verified copies separately and do not authorize automatic promotion to production.
 
