@@ -125,7 +125,18 @@ export function createQueueTaskRegistry(): QueueTaskRegistry {
       if (current.backupTaskId !== task.backupTaskId || current.createdAt !== task.createdAt) {
         throw new Error('Queue task identity fields cannot change.');
       }
-      if (current.agentId !== task.agentId && !(current.status === 'PENDING' && task.status === 'LOCKED')) {
+      const safeTimeoutRequeue =
+        current.status === 'TIMEOUT_REVIEW' &&
+        task.status === 'PENDING' &&
+        current.agentId !== null &&
+        task.agentId === null &&
+        task.lockedAt === null &&
+        task.completedAt === null;
+      if (
+        current.agentId !== task.agentId &&
+        !(current.status === 'PENDING' && task.status === 'LOCKED') &&
+        !safeTimeoutRequeue
+      ) {
         throw new Error('Queue task agent assignment cannot change.');
       }
       if (current.status !== task.status && !allowedTransitions[current.status].includes(task.status)) {
