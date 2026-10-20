@@ -86,7 +86,7 @@ test('requires owner and independent reviewer approval before grant issuance', a
       state: ctx.state, incidentId: 'incident-02', recoveryAgentId: 'saq-recovery-agent',
       sourceSnapshotDirectory: ctx.snapshot.directory, stagingRoot: ctx.stagingRoot,
       reason: 'Emergency', ownerApprovalToken: 'owner-token', independentReviewerApprovalToken: 'invalid-token',
-    }), /owner approval and independent reviewer approval/i);
+    }), /valid, scoped approvals from distinct owner and independent-reviewer identities/i);
     assert.equal(ctx.state.grants.size, 0);
     const events = await readVerifiedAuditLog(ctx.auditFilePath);
     assert.equal(events[0].outcome, 'DENY');
