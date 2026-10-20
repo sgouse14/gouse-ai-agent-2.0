@@ -66,6 +66,30 @@ test('reported symptoms trigger investigation without claiming an EMP was detect
   assert.ok(report.recommendations.some((item) => item.includes('not as confirmation')));
 });
 
+test('reported EMP attack indicators produce defensive steps and explicitly forbid retaliation', () => {
+  const report = assessEmpProtection({
+    ...readySignals,
+    reportedThreatIndicators: ['suspected_targeted_emp_activity', 'unauthorized_emp_protector_access'],
+  });
+  assert.equal(report.status, 'ALERT');
+  assert.equal(report.impactAssessment.status, 'INVESTIGATE');
+  assert.equal(report.incidentResponse.status, 'DEFENSIVE_RESPONSE_RECOMMENDED');
+  assert.equal(report.incidentResponse.retaliationPermitted, false);
+  assert.equal(report.incidentResponse.externalSystemsMayBeTargeted, false);
+  assert.equal(report.incidentResponse.automatedContainmentExecuted, false);
+  assert.ok(report.incidentResponse.actions.includes('PRESERVE_EVIDENCE'));
+  assert.ok(report.incidentResponse.actions.includes('ISOLATE_AFFECTED_LOCAL_SYSTEMS_THROUGH_APPROVED_PROCEDURES'));
+  assert.ok(report.incidentResponse.actions.includes('DO_NOT_RETALIATE_OR_TARGET_EXTERNAL_SYSTEMS'));
+  assert.ok(report.recommendations.some((item) => item.includes('Do not retaliate')));
+});
+
+test('unknown EMP attack indicators are rejected rather than treated as trusted telemetry', () => {
+  assert.throws(() => assessEmpProtection({
+    ...readySignals,
+    reportedThreatIndicators: ['reverse_attack_now' as never],
+  }), /Unknown EMP threat indicator code/);
+});
+
 test('unauthorized project assessment is denied and the denial is audited', async () => {
   await withAudit(async (auditFilePath) => {
     const protector = createEmpAttackProtector({ auditFilePath, authorizeActor: async () => false });
