@@ -24,26 +24,26 @@ test('fails closed when any required server configuration is missing', () => {
       GOUSIYA_AUDIT_FILE_PATH: '/tmp/audit/events.jsonl',
       GOUSIYA_GRANT_STORE_FILE_PATH: '/tmp/grants.json',
     },
-    verifyFirebaseTokenIsActive: async () => undefined,
+    firebaseAdminAuth: { verifyIdToken: async (_token, _checkRevoked) => ({ uid: 'test-user' }) },
   }), /FIREBASE_PROJECT_ID/);
   assert.throws(() => createConfiguredGousiyaEmergencyState({
     env: {
       FIREBASE_PROJECT_ID: 'trusted-project-123',
       GOUSIYA_GRANT_STORE_FILE_PATH: '/tmp/grants.json',
     },
-    verifyFirebaseTokenIsActive: async () => undefined,
+    firebaseAdminAuth: { verifyIdToken: async (_token, _checkRevoked) => ({ uid: 'test-user' }) },
   }), /GOUSIYA_AUDIT_FILE_PATH/);
   assert.throws(() => createConfiguredGousiyaEmergencyState({
     env: {
       FIREBASE_PROJECT_ID: 'trusted-project-123',
       GOUSIYA_AUDIT_FILE_PATH: '/tmp/audit/events.jsonl',
     },
-    verifyFirebaseTokenIsActive: async () => undefined,
+    firebaseAdminAuth: { verifyIdToken: async (_token, _checkRevoked) => ({ uid: 'test-user' }) },
   }), /GOUSIYA_GRANT_STORE_FILE_PATH/);
 });
 
 
-test('refuses to construct runtime without a trusted token revocation checker', () => {
+test('refuses to construct runtime without a Firebase Admin Auth instance', () => {
   assert.throws(() => createConfiguredGousiyaEmergencyState({
     env: {
       FIREBASE_PROJECT_ID: 'trusted-project-123',
