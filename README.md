@@ -89,6 +89,10 @@ The multi-stage image builds with development dependencies but installs only pro
 
 Health checks confirm process availability; they do not verify all external providers or security integrations.
 
+## Production readiness
+
+See [Saqlain Production Readiness Review](docs/SAQLAIN_PRODUCTION_READINESS.md) for the prioritized launch blockers, required controls, and current validation scope. The feature branch is not production-ready solely because CI passes.
+
 ## Security and professional review
 
 - Keep API keys in environment variables or a deployment secret manager.
