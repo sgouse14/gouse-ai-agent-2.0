@@ -28,7 +28,7 @@ export interface BackupRecoveryCycleReport {
 
 export interface SaqlainBackupRuntimeOptions {
   /** Implementations must use approved sources and must never write to originals. */
-  runAgentCycle: (agent: SaqlainBackupAgent, cycleId: string) => Promise<AgentCycleOutcome>;
+  runAgentCycle: (agent: SaqlainBackupAgent, cycleId: string, context?: { priorResults: readonly AgentCycleResult[] }) => Promise<AgentCycleOutcome>;
   /** When set, an audit-write failure downgrades that agent result to HOLD. */
   auditFilePath?: string;
   now?: () => Date;
@@ -46,7 +46,7 @@ export interface SaqlainBackupRuntime {
 }
 
 /**
- * In-process 24/7 orchestration for four backup agents plus one recovery agent.
+ * In-process 24/7 orchestration for four backup agents, one recovery agent, and one communication agent.
  * Runs every 30 minutes while the host process is alive, avoids overlapping
  * cycles, isolates agent errors, and optionally writes a durable hash-chain audit.
  *
@@ -62,6 +62,10 @@ export function createSaqlainBackupRuntime(options: SaqlainBackupRuntimeOptions)
   let inFlight: Promise<BackupRecoveryCycleReport> | null = null;
   let lastReport: BackupRecoveryCycleReport | null = null;
   let cycleSequence = 0;
+  // Serialize audit appends so all cycle agents share the single-writer audit log.
+  //
+  // The communication agent runs last so it can summarize completed outcomes.
+  //
   // Serialize audit appends: all five agents may finish together, while the
   // durable JSONL audit log intentionally permits only one writer at a time.
   let auditQueue: Promise<unknown> = Promise.resolve();
@@ -71,11 +75,11 @@ export function createSaqlainBackupRuntime(options: SaqlainBackupRuntimeOptions)
     return next;
   }
 
-  async function runAgent(agent: SaqlainBackupAgent, cycleId: string): Promise<AgentCycleResult> {
+  async function runAgent(agent: SaqlainBackupAgent, cycleId: string, priorResults: readonly AgentCycleResult[] = []): Promise<AgentCycleResult> {
     const startedAt = now().toISOString();
     let outcome: AgentCycleOutcome;
     try {
-      outcome = await options.runAgentCycle(agent, cycleId);
+      outcome = await options.runAgentCycle(agent, cycleId, { priorResults: Object.freeze([...priorResults]) });
     } catch (error) {
       outcome = { status: 'FAILED', summary: error instanceof Error ? error.message : 'Unknown agent cycle failure.' };
     }
@@ -83,10 +87,10 @@ export function createSaqlainBackupRuntime(options: SaqlainBackupRuntimeOptions)
     if (options.auditFilePath) {
       try {
         await appendAudit({
-          eventType: 'BACKUP_RECOVERY_AGENT_CYCLE',
+          eventType: agent.role === 'COMMUNICATION' ? 'SAQLAIN_AGENT_COMMUNICATION' : 'BACKUP_RECOVERY_AGENT_CYCLE',
           actorId: agent.id,
           outcome: outcome.status === 'VERIFIED' ? 'INFO' : 'HOLD',
-          resource: agent.role === 'BACKUP' ? 'backup-cycle' : 'recovery-cycle',
+          resource: agent.role === 'BACKUP' ? 'backup-cycle' : agent.role === 'RECOVERY' ? 'recovery-cycle' : 'communication-cycle',
           taskId: cycleId,
           occurredAt: now().toISOString(),
           details: { status: outcome.status, summary: outcome.summary ?? 'Verified' },
@@ -127,7 +131,7 @@ export function createSaqlainBackupRuntime(options: SaqlainBackupRuntimeOptions)
     ];
     let verificationResult: AgentCycleResult | undefined;
     if (verifier) {
-      verificationResult = await runAgent(verifier, cycleId);
+      verificationResult = await runAgent(verifier, cycleId, results);
       results.push(verificationResult);
     }
     const sourceResults = results.filter((result) => result.role === 'BACKUP' && result.agentId !== 'saq-backup-verify');
@@ -135,7 +139,7 @@ export function createSaqlainBackupRuntime(options: SaqlainBackupRuntimeOptions)
       sourceResults.every((result) => result.status === 'VERIFIED');
     if (recovery) {
       if (verificationResult?.status === 'VERIFIED' && allSourceAgentsVerified) {
-        results.push(await runAgent(recovery, cycleId));
+        results.push(await runAgent(recovery, cycleId, results));
       } else {
         const heldAt = now().toISOString();
         results.push({
@@ -147,6 +151,12 @@ export function createSaqlainBackupRuntime(options: SaqlainBackupRuntimeOptions)
           finishedAt: now().toISOString(),
         });
       }
+    }
+    const communication = SAQLAIN_BACKUP_TEAM.find((agent) => agent.role === 'COMMUNICATION');
+    if (communication) {
+      // Communication is last and receives the completed backup, verification,
+      // and recovery outcomes. It cannot change any earlier result.
+      results.push(await runAgent(communication, cycleId, results));
     }
     const verified = results.filter((result) => result.status === 'VERIFIED').length;
     const heldOrFailed = results.some((result) => result.status !== 'VERIFIED');
