@@ -9,8 +9,8 @@ import {
 import {
   createGousiyaApprovalIssuer,
   createGousiyaApprovalTokenVerifier,
-  type GousiyaApprovalIssuerOptions,
   type IssueGousiyaApprovalInput,
+  type IssuedGousiyaApproval,
 } from './gousiyaApprovalIssuer.ts';
 
 function requiredEnv(env: NodeJS.ProcessEnv, key: string): string {
@@ -55,7 +55,7 @@ export function createConfiguredGousiyaEmergencyState(
  */
 export function createConfiguredGousiyaApprovalIssuer(
   env: NodeJS.ProcessEnv = process.env,
-): { issueApproval(input: IssueGousiyaApprovalInput): ReturnType<GousiyaApprovalIssuerOptions['authenticateFirebaseIdentity']> extends never ? never : Promise<import('./gousiyaApprovalIssuer.ts').IssuedGousiyaApproval> } {
+): { issueApproval(input: IssueGousiyaApprovalInput): Promise<IssuedGousiyaApproval> } {
   const config = sharedConfig(env);
   const firebaseApiKey = requiredEnv(env, 'FIREBASE_WEB_API_KEY');
   const registryFilePath = requiredEnv(env, 'GOUSIYA_APPROVER_REGISTRY_PATH');
