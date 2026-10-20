@@ -61,7 +61,7 @@ docker build -t gouse-ai-agent .
 docker run --rm -p 3000:3000 --env-file .env gouse-ai-agent
 ```
 
-The server listens on the platform-provided `PORT` when set, or port 3000 locally.
+The server listens on the platform-provided `PORT` when set, or port 3000 locally. For Vite development or preview behind a custom hostname, set `VITE_ALLOWED_HOSTS` to a comma-separated allowlist (for example, `dev.example.com`) rather than disabling host checks.
 
 ## Health checks
 
