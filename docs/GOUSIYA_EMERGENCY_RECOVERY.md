@@ -83,10 +83,10 @@ Rollback for this workflow means **abandoning or quarantining the staging result
 ## Files and tests
 
 - `server/gousiyaEmergencyRecovery.ts` — approval enforcement, durable grant lifecycle and Recovery Agent integration.
-- `server/gousiyaFirebaseApprovalVerifier.ts` — Firebase ID-token signature, claim and scoped approval verification; see the revocation-check blocker below.
+- `server/gousiyaFirebaseApprovalVerifier.ts` — Firebase ID-token signature/claim verification plus Identity Toolkit account status and `validSince` revocation checks.
 - `server/gousiyaEmergencyRuntime.ts` — fail-closed runtime configuration factory (no HTTP endpoint).
 - `server/gousiyaEmergencyRecovery.test.ts` — independent approvals, approval-ID reuse, durable restart/replay, staging isolation, expiry, revocation, audit failures, tampered backup handling, and source preservation.
-- `server/gousiyaFirebaseApprovalVerifier.test.ts` — covers token signature, issuer/audience, expiry/recent authentication, scope matching, algorithm/key rejection, certificate caching, and Admin revocation-check invocation/failure.
+- `server/gousiyaFirebaseApprovalVerifier.test.ts` — covers token signature, issuer/audience, expiry/recent authentication, scope matching, algorithm/key rejection, certificate caching, disabled accounts, revocation boundaries, malformed lookup data, and lookup outages.
 - `server/gousiyaEmergencyRuntime.test.ts` — covers configured runtime construction and required environment variables.
 - `docs/GOUSIYA_EMERGENCY_RECOVERY.md` — this runbook.
 
