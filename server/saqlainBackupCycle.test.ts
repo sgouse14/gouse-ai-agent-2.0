@@ -39,10 +39,11 @@ test('identity mismatch holds sensitive operation', () => {
   });
 });
 
-test('backup team is exactly four backups plus one recovery agent', () => {
-  assert.equal(SAQLAIN_BACKUP_TEAM.length, 5);
+test('operations team is four backups plus one recovery and one communication agent', () => {
+  assert.equal(SAQLAIN_BACKUP_TEAM.length, 6);
   assert.equal(SAQLAIN_BACKUP_TEAM.filter((a) => a.role === 'BACKUP').length, 4);
   assert.equal(SAQLAIN_BACKUP_TEAM.filter((a) => a.role === 'RECOVERY').length, 1);
+  assert.equal(SAQLAIN_BACKUP_TEAM.filter((a) => a.role === 'COMMUNICATION').length, 1);
   assert.ok(SAQLAIN_BACKUP_TEAM.every((a) => a.canDeleteSourceFiles === false && a.canOverwriteSourceFiles === false));
 });
 
