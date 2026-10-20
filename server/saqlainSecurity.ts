@@ -9,6 +9,7 @@ const HIGH_IMPACT_ACTIONS = new Set([
 ]);
 // Read-only security assessments still require authenticated project scope.
 const PROTECTED_SCOPED_READ_ACTIONS = new Set(['run_emp_protection_assessment', 'run_agent_communication']);
+const APPROVAL_REQUIRED_ACTIONS = new Set(['send_agent_communication']);
 
 const MUTATING_ACTIONS = new Set([
   'add_boq_item','update_boq_item','update_contingency','update_area','run_audit',
@@ -46,6 +47,12 @@ export function evaluateSaqlainAction(input: {
   }
   if (PROTECTED_EXPORT_ACTIONS.has(actionType)) {
     return { decision: 'block', reason: 'Protected source/data export is blocked at the Gouse AI security boundary.' };
+  }
+  if (APPROVAL_REQUIRED_ACTIONS.has(actionType)) {
+    if (!input.actorAuthenticated) return { decision: 'block', reason: 'Authentication required.' };
+    if (!input.projectId || typeof input.projectId !== 'string') return { decision: 'block', reason: 'Project scope required.' };
+    if (!input.approvalGranted) return { decision: 'review', reason: 'Explicit approval required before sending an external agent message.' };
+    return { decision: 'allow', reason: 'Communication policy checks passed; delivery and audit checks are still required.' };
   }
   if (PROTECTED_SCOPED_READ_ACTIONS.has(actionType)) {
     if (!input.actorAuthenticated) {
