@@ -6,7 +6,8 @@ import { runRecoveryRehearsal } from './saqlainRecoveryAgent.ts';
 import { SAQLAIN_BACKUP_TEAM, type SaqlainBackupAgent } from './saqlainBackupTeam.ts';
 import { type ApprovedBackupAgentConfig } from './saqlainApprovedBackupCycle.ts';
 import { runSecureBackupAgent } from './saqlainSecureBackupAgent.ts';
-import { createSaqlainBackupRuntime, type AgentCycleOutcome, type SaqlainBackupRuntime, type SaqlainBackupRuntimeOptions } from './saqlainBackupRuntime.ts';
+import { createSaqlainBackupRuntime, type AgentCycleOutcome, type AgentCycleResult, type SaqlainBackupRuntime, type SaqlainBackupRuntimeOptions } from './saqlainBackupRuntime.ts';
+import { prepareSaqlainCommunication } from './saqlainCommunicationAgent.ts';
 
 export interface ApprovedContinuousBackupOptions extends Omit<SaqlainBackupRuntimeOptions, 'runAgentCycle'>, ApprovedBackupAgentConfig {
   /** Separate destination for recovery rehearsals. Never point this at an original source. */
@@ -60,7 +61,24 @@ export function createApprovedContinuousBackupRuntime(
   }
 
   const snapshotsByCycle = new Map<string, Map<string, BackupStorageResult>>();
-  const runAgentCycle = async (agent: SaqlainBackupAgent, cycleId: string): Promise<AgentCycleOutcome> => {
+  const runAgentCycle = async (
+    agent: SaqlainBackupAgent,
+    cycleId: string,
+    context: { priorResults: readonly AgentCycleResult[] } = { priorResults: [] },
+  ): Promise<AgentCycleOutcome> => {
+    if (agent.role === 'COMMUNICATION') {
+      // This is a trusted, in-process system identity, never a request-body identity.
+      // The scoped Saqlain policy is still evaluated, and the runtime audits the outcome.
+      const communication = prepareSaqlainCommunication({
+        actorId: agent.id,
+        actorAuthenticated: true,
+        projectId: 'gouse-ai-agent-2.0',
+        cycleId,
+        priorResults: context.priorResults,
+      });
+      return { status: communication.status, summary: communication.summary };
+    }
+
     if (agent.role === 'BACKUP' && agent.id !== 'saq-backup-verify') {
       if (!options.auditFilePath) {
         return { status: 'HOLD', summary: 'Secure backup held: durable audit path is not configured.' };
