@@ -7,6 +7,9 @@ const HIGH_IMPACT_ACTIONS = new Set([
   'delete_project','delete_document','delete_file','overwrite_source',
   'publish_external','rotate_secret','change_permissions','disable_security',
 ]);
+// Read-only security assessments still require authenticated project scope.
+const PROTECTED_SCOPED_READ_ACTIONS = new Set(['run_emp_protection_assessment']);
+
 const MUTATING_ACTIONS = new Set([
   'add_boq_item','update_boq_item','update_contingency','update_area','run_audit',
   ...HIGH_IMPACT_ACTIONS,
@@ -43,6 +46,15 @@ export function evaluateSaqlainAction(input: {
   }
   if (PROTECTED_EXPORT_ACTIONS.has(actionType)) {
     return { decision: 'block', reason: 'Protected source/data export is blocked at the Gouse AI security boundary.' };
+  }
+  if (PROTECTED_SCOPED_READ_ACTIONS.has(actionType)) {
+    if (!input.actorAuthenticated) {
+      return { decision: 'block', reason: 'Authenticated actor is required for a protected security assessment.' };
+    }
+    if (!input.projectId || typeof input.projectId !== 'string') {
+      return { decision: 'block', reason: 'Project scope is required for a protected security assessment.' };
+    }
+    return { decision: 'allow', reason: 'Authenticated project-scoped read-only security assessment is permitted; audit is still required.' };
   }
   if (!MUTATING_ACTIONS.has(actionType)) {
     return { decision: 'allow', reason: 'Read-only or non-mutating action.' };
