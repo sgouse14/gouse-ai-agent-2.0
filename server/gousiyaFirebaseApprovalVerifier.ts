@@ -17,8 +17,15 @@ interface CertificateResponse {
   cacheMaxAgeSeconds: number;
 }
 
+export type FirebaseTokenActivityVerifier = (token: string) => Promise<void>;
+
 export interface FirebaseGousiyaVerifierOptions {
   projectId: string;
+  /**
+   * Required server-side check; production must use Firebase Admin
+   * verifyIdToken(token, true) or an equivalent account-status/revocation service.
+   */
+  verifyFirebaseTokenIsActive: FirebaseTokenActivityVerifier;
   /** Injectable only for deterministic tests; production uses the fixed Google certificate endpoint. */
   fetchCertificates?: () => Promise<CertificateResponse>;
   now?: () => Date;
@@ -83,9 +90,9 @@ async function fetchGoogleCertificates(): Promise<CertificateResponse> {
  * approval service after authorization checks; client-provided claims are not
  * trusted.
  *
- * This verifier does not check Firebase account-disablement or token revocation
- * through the Admin Auth API. Pair with an authoritative identity-status check,
- * or use Firebase Admin verifyIdToken(token, true) in an approved deployment.
+ * A required injected callback checks account disablement and ID-token revocation.
+ * In production, wire it to Firebase Admin verifyIdToken(token, true) or an
+ * equivalent authoritative identity-status service; never use a no-op callback.
  */
 export function createFirebaseGousiyaApprovalVerifier(
   options: FirebaseGousiyaVerifierOptions,
@@ -93,6 +100,9 @@ export function createFirebaseGousiyaApprovalVerifier(
   const projectId = options.projectId?.trim();
   if (!projectId || !/^[A-Za-z0-9:._-]+$/.test(projectId)) {
     throw new Error('A valid Firebase project ID is required.');
+  }
+  if (typeof options.verifyFirebaseTokenIsActive !== 'function') {
+    throw new Error('A Firebase account-status and token-revocation checker is required.');
   }
   const maxAuthAgeSeconds = options.maxAuthAgeSeconds ?? 5 * 60;
   if (!Number.isSafeInteger(maxAuthAgeSeconds) || maxAuthAgeSeconds < 1 || maxAuthAgeSeconds > 15 * 60) {
@@ -208,6 +218,10 @@ export function createFirebaseGousiyaApprovalVerifier(
       throw new Error('Firebase Gousiya approval validity window is invalid.');
     }
 
+    // A valid signature does not tell us whether the account is disabled or
+    // the token was revoked after issuance. Production must supply a real server
+    // identity-status check; its failure rejects this approval.
+    await options.verifyFirebaseTokenIsActive(token);
     return result;
   };
 }
