@@ -3,6 +3,7 @@ import { saqlainVerificationRouter } from './server/saqlainVerificationRoutes.ts
 import { saqlainGatekeeperRouter } from './server/saqlainGatekeeperRoutes.ts';
 import { saqlainHeartbeatRouter } from './server/saqlainHeartbeatRoutes.ts';
 import { saqlainTaskQueueRouter } from './server/saqlainTaskQueueRoutes.ts';
+import { buildSaqlainSecuritySummary } from './server/saqlainSecurity.ts';
 
 import path from 'path';
 import fs from 'fs';
@@ -61,6 +62,16 @@ app.use('/api/security/heartbeats', saqlainHeartbeatRouter);
 
 // Ordered 11-agent security verification API. Access is fail-closed unless credentials and durable audit storage are configured.
 app.use('/api/security/verification', saqlainVerificationRouter);
+
+// Read-only baseline posture summary; this does not scan host files or execute actions.
+app.post('/api/security/saqlain/summary', (req, res) => {
+  try {
+    return res.json(buildSaqlainSecuritySummary(req));
+  } catch (err) {
+    console.error('[API] Failed to build Saqlain security summary:', err);
+    return res.status(500).json({ error: 'Security summary unavailable' });
+  }
+});
 
 // Health endpoints for Cloud Run container probes and load balancers
 app.get('/healthz', (_req, res) => {
