@@ -4,7 +4,10 @@
 
 Gousiya is a defensive break-glass coordinator for rehearsing recovery from a verified backup into a separate staging directory. It does **not** restore over live files, delete protected originals, disable security controls, escalate privileges, attack external systems, bypass audit, or promote staged content into production.
 
-Implementation: `server/gousiyaEmergencyRecovery.ts`
+Implementation:
+- `server/gousiyaEmergencyRecovery.ts` — grant lifecycle, durable state and staging-only execution.
+- `server/gousiyaFirebaseApprovalVerifier.ts` — Firebase ID-token signature/claim verification for scoped approvals.
+- `server/gousiyaEmergencyRuntime.ts` — fail-closed configuration factory. It is not mounted as an HTTP route.
 
 ## Operational procedure
 
@@ -22,6 +25,10 @@ Both approvals are required: the system owner and an independent reviewer. They 
 
 The returned `VerifiedGousiyaApproval` claims are only as trustworthy as the configured verifier. Do not configure a fake or permissive verifier in production. Approval records and approver identities are written to the hash-chained audit log. Never accept approval booleans directly from an untrusted client.
 
+The current verifier cryptographically checks Firebase ID-token signatures against Google's published signing certificates and validates Firebase issuer, audience, expiry, issue time, recent authentication, and the scoped `gousiyaApproval` claim. That claim must be minted only by a trusted server-side approval service; ordinary client input must never be translated into these claims. Approval IDs are then reserved in the durable grant store to prevent a signed approval from issuing a second grant.
+
+**Known blocker:** this verifier does not call Firebase Admin Auth to check disabled accounts or revoked ID tokens. Before production use, add an authoritative account/revocation check (for example, Firebase Admin `verifyIdToken(token, true)` with correctly provisioned server credentials) or an equivalent trusted identity-status service. Until then, treat this feature as a staging/test implementation only.
+
 ### 3. Preflight checks
 
 Before issuing a grant, the incident commander and reviewer must confirm:
@@ -37,7 +44,7 @@ If any check cannot be established, stop and escalate to the incident commander.
 
 ### 4. Issue and execute a one-time grant
 
-The API remains an internal server-side module, not an HTTP endpoint. Its grant registry is now stored in a durable JSON file with restrictive file permissions, an exclusive sibling lock, schema validation, fsync, and atomic rename. Mutations reload the store while holding the lock; a malformed store or lock conflict fails closed. This is a **single-host file-store adapter**, not a substitute for a transactional database on multi-host/network deployments. When used in a controlled test/rehearsal environment:
+The API remains an internal server-side module, not an HTTP endpoint. The runtime factory requires these server environment variables: `FIREBASE_PROJECT_ID`, `GOUSIYA_AUDIT_FILE_PATH`, and `GOUSIYA_GRANT_STORE_FILE_PATH`. The grant registry is now stored in a durable JSON file with restrictive file permissions, an exclusive sibling lock, schema validation, fsync, and atomic rename. Mutations reload the store while holding the lock; a malformed store or lock conflict fails closed. This is a **single-host file-store adapter**, not a substitute for a transactional database on multi-host/network deployments. When used in a controlled test/rehearsal environment:
 
 1. Issue a grant only after the two approval decisions and path preflight have been recorded.
 2. Provide a unique incident ID, approved Recovery Agent ID, source snapshot directory, staging root, and concise reason.
@@ -77,16 +84,19 @@ Rollback for this workflow means **abandoning or quarantining the staging result
 
 - `server/gousiyaEmergencyRecovery.ts` — grant lifecycle and Recovery Agent integration.
 - `server/gousiyaEmergencyRecovery.test.ts` — covers verified independent approvals, durable restart/replay behavior, staging isolation, token replay, expiry, revocation, audit failures, tampered backup handling, audit events, and source preservation.
+- `server/gousiyaFirebaseApprovalVerifier.test.ts` — covers token signature, issuer/audience, expiry/recent authentication, scope matching, algorithm/key rejection, and certificate caching.
+- `server/gousiyaEmergencyRuntime.test.ts` — covers configured runtime construction and required environment variables.
 - `docs/GOUSIYA_EMERGENCY_RECOVERY.md` — this runbook.
 
 Run `npm test` (or the repository's configured package-manager test command) to execute the security test suite.
 
 ## Production blockers — do not treat as production-ready
 
-1. **Approval identity:** owner/reviewer booleans are caller supplied and are not cryptographic identity proof. Enforce authenticated role checks server-side and owner/reviewer separation.
-2. **Grant durability and concurrency:** grant state is in-memory, so restart loses grants and multiple replicas do not share state. Replace it with a transactional durable store and atomic compare-and-swap consumption before multi-process use.
-3. **Audit durability/replication:** configure protected shared storage, off-host/WORM replication, alerting, retention, and key/incident procedures. Keep audit storage separately permissioned from source and staging.
-4. **Endpoint exposure:** no public emergency-recovery HTTP route is exposed. Keep it that way until the above controls, authentication, rate limits, and security tests have been implemented and reviewed.
-5. **Operational validation:** test concurrent replay, restart recovery, revocation races, audit-store unavailability/corruption, permissions, and staging isolation in a disposable environment.
+1. **Identity revocation check:** the new token verifier validates signatures and claims but does not call Firebase Admin Auth to check disabled users or revoked tokens. Add this server-side check before any production use.
+2. **Approval identity:** owner/reviewer booleans are caller supplied and are not cryptographic identity proof. Enforce authenticated role checks server-side and owner/reviewer separation.
+3. **Grant durability and concurrency:** grant state is in-memory, so restart loses grants and multiple replicas do not share state. Replace it with a transactional durable store and atomic compare-and-swap consumption before multi-process use.
+4. **Audit durability/replication:** configure protected shared storage, off-host/WORM replication, alerting, retention, and key/incident procedures. Keep audit storage separately permissioned from source and staging.
+5. **Endpoint exposure:** no public emergency-recovery HTTP route is exposed. Keep it that way until the above controls, authentication, rate limits, and security tests have been implemented and reviewed.
+6. **Operational validation:** test concurrent replay, restart recovery, revocation races, audit-store unavailability/corruption, permissions, and staging isolation in a disposable environment.
 
 Until these blockers are closed and the complete CI/staging validation passes, use Gousiya for isolated rehearsals only, not as an operational production break-glass service.
