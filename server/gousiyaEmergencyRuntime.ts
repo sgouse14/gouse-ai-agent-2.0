@@ -4,7 +4,8 @@ import {
 } from './gousiyaEmergencyRecovery.ts';
 import {
   createFirebaseGousiyaApprovalVerifier,
-  type FirebaseTokenActivityVerifier,
+  createFirebaseAdminTokenActivityChecker,
+  type FirebaseAdminAuthLike,
 } from './gousiyaFirebaseApprovalVerifier.ts';
 
 function requiredEnv(env: NodeJS.ProcessEnv, key: string): string {
@@ -15,11 +16,8 @@ function requiredEnv(env: NodeJS.ProcessEnv, key: string): string {
 
 export interface ConfiguredGousiyaEmergencyRuntimeOptions {
   env?: NodeJS.ProcessEnv;
-  /**
-   * Must call Firebase Admin verifyIdToken(token, true), or an equivalent
-   * trusted service that detects disabled accounts and revoked tokens.
-   */
-  verifyFirebaseTokenIsActive: FirebaseTokenActivityVerifier;
+  /** A real Firebase Admin Auth instance. Its verifyIdToken method is called with checkRevoked=true. */
+  firebaseAdminAuth: FirebaseAdminAuthLike;
 }
 
 /**
@@ -32,8 +30,8 @@ export interface ConfiguredGousiyaEmergencyRuntimeOptions {
 export function createConfiguredGousiyaEmergencyState(
   options: ConfiguredGousiyaEmergencyRuntimeOptions,
 ): GousiyaEmergencyState {
-  if (typeof options?.verifyFirebaseTokenIsActive !== 'function') {
-    throw new Error('A Firebase account-status and token-revocation checker is required.');
+  if (!options?.firebaseAdminAuth || typeof options.firebaseAdminAuth.verifyIdToken !== 'function') {
+    throw new Error('A Firebase Admin Auth instance is required for account-status and token-revocation checks.');
   }
   const env = options.env ?? process.env;
   const projectId = requiredEnv(env, 'FIREBASE_PROJECT_ID');
@@ -44,7 +42,7 @@ export function createConfiguredGousiyaEmergencyState(
     grantStoreFilePath,
     verifyApprovalToken: createFirebaseGousiyaApprovalVerifier({
       projectId,
-      verifyFirebaseTokenIsActive: options.verifyFirebaseTokenIsActive,
+      verifyFirebaseTokenIsActive: createFirebaseAdminTokenActivityChecker(options.firebaseAdminAuth),
     }),
   });
 }
