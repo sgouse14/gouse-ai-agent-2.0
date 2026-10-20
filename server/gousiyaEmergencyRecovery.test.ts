@@ -260,8 +260,13 @@ test('durable grants survive state recreation and reject replay after restart', 
       sourceSnapshotDirectory: ctx.snapshot.directory, stagingRoot: ctx.stagingRoot,
       reason: 'Restart persistence test', ...approvals,
     });
+    // Consume once, then recreate state to simulate a server restart.
+    const firstUse = await executeGousiyaEmergencyRecovery({
+      state: ctx.state, grantId: issued.grant.grantId, token: issued.token,
+      incidentId: 'incident-restart',
+    });
+    assert.equal(firstUse.decision, 'VERIFIED');
     const restartedState = createTestState(ctx.auditFilePath, ctx.grantStoreFilePath);
-    // Recreating the state simulates a server restart; the grant is reloaded from disk.
     await assert.rejects(executeGousiyaEmergencyRecovery({
       state: restartedState, grantId: issued.grant.grantId, token: issued.token,
       incidentId: 'incident-restart',
