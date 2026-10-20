@@ -6,7 +6,12 @@ Updated: 2026-10-20
 
 **Implementation status: active development; not production-ready.**
 
-This document separates features that are implemented and tested from integration and deployment work that remains. Percentages are deliberately not presented as measured coverage: the repository has no single metric that can accurately express whole-project completion.
+This document separates features that are implemented and tested from integration and deployment work that remains. The percentages below are rough planning estimates, not measured code coverage or a CI metric; the repository has no single metric that can accurately express whole-project completion.
+
+- **Overall project completion (planning estimate): approximately 60%.**
+- **Core feature implementation (planning estimate): approximately 74%.**
+- **Production readiness (planning estimate): approximately 43%.**
+- **EMP Attack Protector:** software readiness assessment, scoped security policy, durable audit, and regression tests added; CI verification and production monitoring integration remain pending.
 
 - **Feature branch:** `feature/saqlain-cyber-agent`
 - **Pull request:** [#1 — remains draft/open](https://github.com/sgouse14/gouse-ai-agent-2.0/pull/1)
@@ -36,7 +41,8 @@ The items below are implemented in the feature branch and covered by the reposit
 | Trusted approval issuer | Internal issuer validates Firebase identity, checks a protected owner-managed role registry, and issues short-lived HMAC-SHA256 approval attestations bound to the incident, recovery agent, source snapshot, and staging root. Client-supplied roles/custom claims are not trusted as approval authority. Issuance is durably audited before the token is returned. |
 | Approver registry hardening | Registry must be a regular non-symlink file with owner-only permissions, inside a regular non-symlink parent directory with owner-only permissions. Regression tests cover insecure permissions. |
 | Regression testing / CI | Saqlain and Gousiya security unit/integration tests run through the standard `bun run test` workflow; latest fully successful code validation ran 150 tests with zero failures, and passed TypeScript, production build, and Docker build. |
-| Documentation/configuration | Backup, monitoring, emergency recovery, production-readiness, environment-template, and project-progress documentation are present and updated on the feature branch. |
+| EMP Attack Protector | Three-layer software-only EMP readiness and incident-triage module: resilience/readiness checks, reported-symptom assessment, and recovery readiness; protected project-scoped Saqlain policy integration; server-side authorization callback; durable hash-chained audit; fail-closed HOLD on audit errors. Regression tests added; CI for this change is pending. It does not physically detect EMP events or operate hardware. |
+| Documentation/configuration | Backup, monitoring, emergency recovery, EMP protection, production-readiness, environment-template, and project-progress documentation are present and updated on the feature branch. |
 
 ## Partially implemented — integration or operations required
 
@@ -51,6 +57,7 @@ The items below are implemented in the feature branch and covered by the reposit
 | Emergency grants | Durable locked/atomic single-host grant file. | Replace with a transactional shared database and atomic conditional consume before multi-process/multi-host deployment; add concurrent replay, crash, restart, corruption, and revocation-race tests. |
 | Audit durability | Local hash chain, writer lock, fsync and integrity checks. | Off-host/WORM replication, independent permissions, retention, alerting, recovery procedures, and controls for privileged OS-level tampering. |
 | External API/credential gateway | Policy/credential verification building blocks exist; not a complete production external-integration layer. | Define and test issuance, rotation, revocation, quota/permission enforcement, token ledger/exchange, and end-to-end external platform bindings. |
+| EMP protection operations | The software-only readiness/triage advisor is implemented in the feature branch. | Wire trusted sensor/operations inputs into the monitoring runtime; define signal freshness; complete site-level shielding/EMC, surge, power continuity, off-line backup, spare hardware, and alternate-communications validation with qualified operators; test escalation and recovery drills. |
 
 ## Not completed — do not describe as production-ready
 
@@ -62,6 +69,7 @@ The items below are implemented in the feature branch and covered by the reposit
 - Production secret-manager integration and reviewed signing-key/approver-registry lifecycle.
 - Live Firebase integration tests for disabled accounts and revoked tokens in the configured project.
 - End-to-end staging deployment, penetration testing, load/stress testing, disk-full/audit-lock/concurrent-cycle fault injection, and operator-run recovery drills.
+- Physical EMP detection, confirmed EMP attribution, and hardware-control automation; the EMP module only assesses readiness and operator/monitor-reported symptoms.
 - Operational approval for any production restore. Gousiya remains staging-only and must not auto-promote recovery output.
 - Final production security review and sign-off.
 
@@ -79,4 +87,4 @@ Pull request #1 remains open and draft for review. **Do not merge to `main` unti
 2. Replace single-host identity, queue, and grant persistence with transactional storage; add concurrency, restart, crash, and corruption tests.
 3. Deploy backup/monitoring runtimes under supervision with durable state, off-host versioned backups, independent alerts, and a controlled restore drill.
 4. Add application-wide authentication, tenant/project authorization, rate limiting, quotas, concurrency bounds, and timeouts.
-5. Configure off-host/WORM audit replication and alerting, then run staging integration, failure/load testing, and a formal security review.
+5. Configure off-host/WORM audit replication and alerting; wire the EMP protector to trusted operational signals and validate physical resilience with qualified operators; then run staging integration, failure/load testing, and a formal security review.
