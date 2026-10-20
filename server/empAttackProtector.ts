@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { appendDurableAuditEvent } from './saqlainAuditLog.ts';
+import { evaluateSaqlainAction } from './saqlainSecurity.ts';
 
 export type EmpProtectionStatus = 'READY' | 'DEGRADED' | 'ALERT' | 'HOLD';
 export type EmpObservation =
@@ -178,7 +179,13 @@ export function createEmpAttackProtector(options: EmpAttackProtectorOptions) {
       authorized = false;
     }
 
-    if (!authorized) {
+    const scopedPolicy = evaluateSaqlainAction({
+      actionType: 'run_emp_protection_assessment',
+      actorAuthenticated: authorized,
+      projectId,
+    });
+
+    if (!authorized || scopedPolicy.decision !== 'allow') {
       try {
         await appendAudit(options.auditFilePath, {
           eventType: 'EMP_PROTECTION_ASSESSMENT',
@@ -187,12 +194,12 @@ export function createEmpAttackProtector(options: EmpAttackProtectorOptions) {
           resource: 'project:' + projectId,
           taskId: assessmentId,
           occurredAt: assessedAt,
-          details: { decision: 'DENY', reasonCode: 'ACTOR_NOT_AUTHORIZED' },
+          details: { decision: 'DENY', reasonCode: !authorized ? 'ACTOR_NOT_AUTHORIZED' : 'SAQLAIN_POLICY_DENIED', policyReason: scopedPolicy.reason },
         });
       } catch {
         return holdReport(assessmentId, assessedAt, 'Authorization denied; audit persistence failed.');
       }
-      return holdReport(assessmentId, assessedAt, 'Actor is not authorized for this project.');
+      return holdReport(assessmentId, assessedAt, !authorized ? 'Actor is not authorized for this project.' : scopedPolicy.reason);
     }
 
     const assessment = assessEmpProtection(request.signals);
