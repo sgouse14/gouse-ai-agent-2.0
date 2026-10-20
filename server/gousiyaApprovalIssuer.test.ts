@@ -148,6 +148,17 @@ test('rejects a registry with overly broad filesystem permissions', async () => 
   }
 });
 
+test('rejects a registry stored inside a directory with broad permissions', async () => {
+  const ctx = await setup();
+  try {
+    await chmod(ctx.root, 0o755);
+    await assert.rejects(ctx.issuer.issueApproval(approvalRequest('owner-firebase-token')), /registry directory permissions must be owner-only/i);
+  } finally {
+    await chmod(ctx.root, 0o700);
+    await rm(ctx.root, { recursive: true, force: true });
+  }
+});
+
 test('does not return an approval when durable audit storage is unavailable', async () => {
   const ctx = await setup();
   try {
