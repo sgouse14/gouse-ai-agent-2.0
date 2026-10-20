@@ -215,8 +215,9 @@ function boundedLabel(value: string, fieldName: string): string {
 }
 
 /**
- * EMP protector with three layers:
- * 1) resilience/readiness, 2) impact-symptom triage, 3) recovery readiness.
+ * EMP protector with four defensive layers:
+ * 1) resilience/readiness, 2) impact-symptom triage, 3) recovery readiness,
+ * 4) advisory incident response with an explicit no-retaliation boundary.
  * It never switches equipment, modifies files, disables systems, or claims
  * to physically detect an electromagnetic pulse. Authorization and durable
  * audit failures fail closed.
