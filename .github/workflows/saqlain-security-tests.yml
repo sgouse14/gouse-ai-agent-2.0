@@ -42,3 +42,6 @@ jobs:
 
       - name: Build frontend and server
         run: bun run build
+
+      - name: Build Docker image
+        run: docker build --pull -t gouse-ai-agent:ci .
