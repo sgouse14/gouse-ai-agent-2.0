@@ -2,7 +2,7 @@
 
 ## Purpose
 
-The EMP Attack Protector is a defensive readiness and incident-triage module. It has three layers:
+The EMP Attack Protector is a defensive readiness, incident-triage, and safe-response module. It has four layers:
 
 1. **Resilience/readiness:** tracks documented shielding/EMC assessment, surge protection, and verified offline backups.
 2. **Impact assessment:** classifies operator/monitoring-reported symptoms such as unusual power loss, unexpected restarts, communications loss, electrical damage, or multiple systems becoming unavailable. These are indicators to investigate, not proof of an EMP.
