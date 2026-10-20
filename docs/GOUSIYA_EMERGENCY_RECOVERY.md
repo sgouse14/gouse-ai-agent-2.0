@@ -18,9 +18,9 @@ Implementation: `server/gousiyaEmergencyRecovery.ts`
 
 ### 2. Obtain and verify two-person approval
 
-Both approvals are required: the system owner and an independent reviewer. They must be two distinct, authenticated people with the appropriate roles. Record each approver's identity, role, timestamp, decision, incident ID, scope, source snapshot ID, staging destination, and reason in the organization's approved incident record.
+Both approvals are required: the system owner and an independent reviewer. They must be two distinct authenticated people with the appropriate roles. The module now requires separate approval tokens and a trusted, server-injected `verifyApprovalToken` function. That verifier must validate the token issuer, signature, audience, expiry, and authoritative approval claims; it must not derive identity or role from request-body fields. The module independently checks the returned decision, role, distinct subject IDs, incident, recovery agent, source path, staging path, and approval validity window.
 
-**Important implementation limit:** the current module accepts `ownerApproved` and `independentReviewerApproved` booleans from its caller; it does not verify who supplied them. Therefore these values are not, by themselves, proof of approval. Do not expose this module through an HTTP endpoint or rely on it for production break-glass authorization until approvals are bound server-side to authenticated identities and durably recorded. Never accept approval booleans directly from an untrusted client.
+The returned `VerifiedGousiyaApproval` claims are only as trustworthy as the configured verifier. Do not configure a fake or permissive verifier in production. Approval records and approver identities are written to the hash-chained audit log. Never accept approval booleans directly from an untrusted client.
 
 ### 3. Preflight checks
 
@@ -37,7 +37,7 @@ If any check cannot be established, stop and escalate to the incident commander.
 
 ### 4. Issue and execute a one-time grant
 
-The current API is an internal server-side module, not an HTTP endpoint. When used in a controlled test/rehearsal environment:
+The API remains an internal server-side module, not an HTTP endpoint. Its grant registry is now stored in a durable JSON file with restrictive file permissions, an exclusive sibling lock, schema validation, fsync, and atomic rename. Mutations reload the store while holding the lock; a malformed store or lock conflict fails closed. This is a **single-host file-store adapter**, not a substitute for a transactional database on multi-host/network deployments. When used in a controlled test/rehearsal environment:
 
 1. Issue a grant only after the two approval decisions and path preflight have been recorded.
 2. Provide a unique incident ID, approved Recovery Agent ID, source snapshot directory, staging root, and concise reason.
@@ -76,7 +76,7 @@ Rollback for this workflow means **abandoning or quarantining the staging result
 ## Files and tests
 
 - `server/gousiyaEmergencyRecovery.ts` — grant lifecycle and Recovery Agent integration.
-- `server/gousiyaEmergencyRecovery.test.ts` — covers approval requirements, staging isolation, token replay, expiry, revocation, audit failures, tampered backup handling, audit events, and source preservation.
+- `server/gousiyaEmergencyRecovery.test.ts` — covers verified independent approvals, durable restart/replay behavior, staging isolation, token replay, expiry, revocation, audit failures, tampered backup handling, audit events, and source preservation.
 - `docs/GOUSIYA_EMERGENCY_RECOVERY.md` — this runbook.
 
 Run `npm test` (or the repository's configured package-manager test command) to execute the security test suite.
