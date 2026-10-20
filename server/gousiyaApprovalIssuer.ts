@@ -1,6 +1,6 @@
 import { createHmac, randomUUID, timingSafeEqual } from 'node:crypto';
 import { lstat, readFile } from 'node:fs/promises';
-import { resolve } from 'node:path';
+import { dirname, resolve } from 'node:path';
 import { appendDurableAuditEvent } from './saqlainAuditLog.ts';
 import type {
   GousiyaApprovalScope,
@@ -131,6 +131,14 @@ function normalizeScope(input: IssueGousiyaApprovalInput, now: Date): GousiyaApp
 
 async function loadApproverRegistry(filePath: string): Promise<ParsedRegistry> {
   const path = resolve(filePath);
+  const parentPath = dirname(path);
+  const parentMetadata = await lstat(parentPath);
+  if (!parentMetadata.isDirectory() || parentMetadata.isSymbolicLink()) {
+    throw new Error('Gousiya approver registry directory must be a regular, non-symlink directory.');
+  }
+  if ((parentMetadata.mode & 0o077) !== 0) {
+    throw new Error('Gousiya approver registry directory permissions must be owner-only (0700 or stricter).');
+  }
   const metadata = await lstat(path);
   if (!metadata.isFile() || metadata.isSymbolicLink()) {
     throw new Error('Gousiya approver registry must be a regular, non-symlink file.');
