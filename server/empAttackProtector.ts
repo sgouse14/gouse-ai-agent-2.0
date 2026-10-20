@@ -199,7 +199,7 @@ export function createEmpAttackProtector(options: EmpAttackProtectorOptions) {
       } catch {
         return holdReport(assessmentId, assessedAt, 'Authorization denied; audit persistence failed.');
       }
-      return holdReport(assessmentId, assessedAt, !authorized ? 'Actor is not authorized for this project.' : scopedPolicy.reason);
+      return holdReport(assessmentId, assessedAt, !authorized ? 'Actor is not authorized for this project.' : scopedPolicy.reason, true);
     }
 
     const assessment = assessEmpProtection(request.signals);
@@ -235,13 +235,13 @@ export function createEmpAttackProtector(options: EmpAttackProtectorOptions) {
   return Object.freeze({ assess });
 }
 
-function holdReport(assessmentId: string, assessedAt: string, reason: string): EmpProtectionReport {
+function holdReport(assessmentId: string, assessedAt: string, reason: string, audited = false): EmpProtectionReport {
   const holdLayer: EmpProtectionLayer = Object.freeze({ status: 'DEGRADED', findingCodes: Object.freeze(['ASSESSMENT_HELD']) });
   return Object.freeze({
     assessmentId,
     assessedAt,
     status: 'HOLD',
-    audited: false,
+    audited,
     readiness: holdLayer,
     impactAssessment: Object.freeze({ status: 'INVESTIGATE', findingCodes: Object.freeze(['ASSESSMENT_HELD']) }),
     recovery: holdLayer,
