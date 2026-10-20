@@ -19,20 +19,77 @@ interface CertificateResponse {
 
 export type FirebaseTokenActivityVerifier = (token: string) => Promise<void>;
 
-/** Minimal structural contract implemented by Firebase Admin's Auth instance. */
-export interface FirebaseAdminAuthLike {
-  verifyIdToken(idToken: string, checkRevoked?: boolean): Promise<unknown>;
+interface FirebaseAccountRecord {
+  localId?: unknown;
+  disabled?: unknown;
+  validSince?: unknown;
 }
 
-/** Adapter that always asks Firebase Admin to reject disabled users and revoked tokens. */
-export function createFirebaseAdminTokenActivityChecker(
-  auth: FirebaseAdminAuthLike,
+export interface FirebaseRestTokenActivityCheckerOptions {
+  /** Firebase Web API key. Restrict it to Identity Toolkit API in Google Cloud. */
+  apiKey: string;
+  /** Injectable for tests; production calls the fixed Firebase Identity Toolkit account-lookup endpoint. */
+  fetchAccountInfo?: (token: string) => Promise<unknown>;
+}
+
+async function fetchFirebaseAccountInfo(token: string, apiKey: string): Promise<unknown> {
+  const url = new URL('https://identitytoolkit.googleapis.com/v1/accounts:lookup');
+  url.searchParams.set('key', apiKey);
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { accept: 'application/json', 'content-type': 'application/json' },
+    body: JSON.stringify({ idToken: token }),
+    redirect: 'error',
+    signal: AbortSignal.timeout(5_000),
+  });
+  if (!response.ok) throw new Error('Firebase account status lookup failed.');
+  return response.json();
+}
+
+/**
+ * Uses Firebase's documented accounts:lookup response to check current account
+ * state without a second package dependency. The API returns the disabled flag
+ * and validSince (seconds since epoch, the revocation boundary). The JWT
+ * signature and Firebase claims must already be verified by the parent verifier.
+ */
+export function createFirebaseRestTokenActivityChecker(
+  options: FirebaseRestTokenActivityCheckerOptions,
 ): FirebaseTokenActivityVerifier {
-  if (!auth || typeof auth.verifyIdToken !== 'function') {
-    throw new Error('A Firebase Admin Auth instance is required for revocation checks.');
-  }
+  const apiKey = options.apiKey?.trim();
+  if (!apiKey || apiKey.length > 4096) throw new Error('A Firebase Web API key is required for account-status checks.');
+  const fetchInfo = options.fetchAccountInfo ?? ((token: string) => fetchFirebaseAccountInfo(token, apiKey));
+
   return async (token: string): Promise<void> => {
-    await auth.verifyIdToken(token, true);
+    const parts = typeof token === 'string' ? token.split('.') : [];
+    if (parts.length !== 3 || !parts[1]) throw new Error('Malformed Firebase ID token for account-status check.');
+    let claims: JsonObject;
+    try {
+      const parsed: unknown = JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf8'));
+      if (!isObject(parsed)) throw new Error('invalid claim object');
+      claims = parsed;
+    } catch {
+      throw new Error('Malformed Firebase ID token for account-status check.');
+    }
+    if (typeof claims.sub !== 'string' || !claims.sub.trim() ||
+        typeof claims.auth_time !== 'number' || !Number.isSafeInteger(claims.auth_time)) {
+      throw new Error('Firebase ID token lacks required account-status claims.');
+    }
+
+    const response: unknown = await fetchInfo(token);
+    if (!isObject(response) || !Array.isArray(response.users) || response.users.length !== 1 ||
+        !isObject(response.users[0])) {
+      throw new Error('Firebase account status response is invalid; refusing approval.');
+    }
+    const user = response.users[0] as FirebaseAccountRecord;
+    if (user.localId !== claims.sub || user.disabled !== false ||
+        (typeof user.validSince !== 'string' && typeof user.validSince !== 'number')) {
+      throw new Error('Firebase account is disabled, missing, or not verifiable.');
+    }
+    const validSinceSeconds = Number(user.validSince);
+    if (!Number.isFinite(validSinceSeconds) || validSinceSeconds < 0 ||
+        claims.auth_time < validSinceSeconds) {
+      throw new Error('Firebase ID token is revoked or account-status data is invalid.');
+    }
   };
 }
 
