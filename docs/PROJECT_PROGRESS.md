@@ -1,100 +1,82 @@
-# Gouse AI Agent 2.0 — Current Project Progress
+# Gouse AI Agent 2.0 — Project Progress
 
-Updated: 2026-10-19
+Updated: 2026-10-20
 
-## Overall status
+## Current status
 
-**Estimated implementation progress: ~45% complete**
-**Estimated remaining: ~55%**
+**Implementation status: active development; not production-ready.**
 
-This is an engineering/planning estimate, not a measured code-coverage percentage.
+This document separates features that are implemented and tested from integration and deployment work that remains. Percentages are deliberately not presented as measured coverage: the repository has no single metric that can accurately express whole-project completion.
 
-## Completed / substantially implemented
+- **Feature branch:** `feature/saqlain-cyber-agent`
+- **Pull request:** [#1 — remains draft/open](https://github.com/sgouse14/gouse-ai-agent-2.0/pull/1)
+- **Main branch:** unchanged by this work; no merge performed.
+- **Latest full successful code-validation run:** [GitHub Actions #39387764332](https://github.com/sgouse14/gouse-ai-agent-2.0/actions/runs/39387764332) — 150 tests passed; TypeScript check, production build, and Docker image build succeeded on code commit `bd91280aa5972e2ba2f8804cf420694e73311e00`.
+- A later documentation-only commit updates this progress/runbook information. Its workflow steps for tests, type-check, production build, and Docker completed successfully, but GitHub marked the overall run cancelled; use the successful full code-validation run above as the definitive green run.
 
-| Area | Estimated status |
-|---|---:|
-| Gouse AI core architecture | ~70% |
-| Gouse Cyber Security AI | ~65% |
-| Task Queue Manager | ~70% |
-| Task/Agent ID verification | ~70% |
-| Task locking / ownership | ~70% |
-| Saqlain monitoring agent | ~70% |
-| Saqlain Gatekeeper policy + API boundary | ~55% |
-| 11-agent security team definitions | ~60% |
-| Security policy / India compliance definitions | ~60% |
-| Backup/recovery architecture | ~40% |
+## Completed implementation
 
-Implemented security boundary principles include protected originals, no destructive deletion/overwrite, identity checks, task ownership, security holds, and defensive-only external containment.
+The items below are implemented in the feature branch and covered by the repository test/build pipeline where noted. “Implemented” does not by itself mean production deployment or external-service validation is complete.
 
-## Partially implemented / next build
+| Area | Completed implementation |
+|---|---|
+| Saqlain security policy | Defensive security decision flows; protected-source/export boundaries; destructive deletion/overwrite and external retaliation are denied by policy. |
+| Task Queue Manager | Task ownership/locking, durable queue-store components, timeout review controls, retry-safe requeue/fail decisions, and audit-before-mutation behavior. |
+| Agent identity primitives | Owner-approved registration helpers, cryptographically random 128-bit binary IDs, stable agent keys, suspension/rotation helpers, current-ID validation, and no-reuse ledger contract. |
+| Gatekeeper | API boundary and credential/scope policy evaluation; registered current binary ID and platform-bound credentials; durable audit before returning a decision; fail-closed configuration. |
+| Verification chain | Ordered, evidence-backed 11-step verification flow, HOLD/re-review behavior, rejection handling, protected route controls, and audit-log reconstruction. |
+| Backup manifests/storage | SHA-256 manifest verification, traversal/symlink and duplicate-path checks, exclusive local snapshots, read-back verification, tamper detection, and retention of incomplete snapshots for investigation. |
+| Approved backup source adapter | Explicit allowlisted source roots, read-only snapshot handling, symlink/special-file rejection, and bounded file/byte processing. |
+| Five-agent backup/recovery cycle | Four backup roles plus one Recovery Agent, task/snapshot integration, non-overlapping cycle protection, audit-aware failure handling, and recovery rehearsal into separate staging without overwriting originals. |
+| Continuous runtime | In-process 30-minute backup/recovery scheduling, start/stop/manual cycle APIs, cycle IDs that avoid reuse across restarts, and a configured backup-service entry point with shutdown handling. |
+| Saqlain monitoring | Audited 30-minute monitoring runtime, health/hold/failure classification, serialized cycles, and fail-closed behavior on collector/audit failures. |
+| Audit log | Hash-chained JSONL audit records, exclusive writer locking, fsync, history-integrity verification, and tamper detection. The log is not immutable against privileged OS users and is not yet replicated off-host. |
+| Gousiya emergency recovery | Short-lived single-use grants; owner and independent-reviewer approval requirements; checksum-verified, isolated staging-only rehearsal; audit and recovery safety checks; durable single-host grant state with locking and atomic file replacement. No production promotion or public recovery endpoint. |
+| Firebase identity validation | Firebase ID-token signature/issuer/audience/expiry/recent-authentication validation plus Identity Toolkit account status checks, UID match, disabled-account rejection, and `validSince` revocation-boundary checks. |
+| Trusted approval issuer | Internal issuer validates Firebase identity, checks a protected owner-managed role registry, and issues short-lived HMAC-SHA256 approval attestations bound to the incident, recovery agent, source snapshot, and staging root. Client-supplied roles/custom claims are not trusted as approval authority. Issuance is durably audited before the token is returned. |
+| Approver registry hardening | Registry must be a regular non-symlink file with owner-only permissions, inside a regular non-symlink parent directory with owner-only permissions. Regression tests cover insecure permissions. |
+| Regression testing / CI | Saqlain and Gousiya security unit/integration tests run through the standard `bun run test` workflow; latest fully successful code validation ran 150 tests with zero failures, and passed TypeScript, production build, and Docker build. |
+| Documentation/configuration | Backup, monitoring, emergency recovery, production-readiness, environment-template, and project-progress documentation are present and updated on the feature branch. |
 
-| Area | Estimated status |
-|---|---:|
-| 4 Backup Agents / Secure Backup Agent | ~55% |
-| 1 Recovery Agent | ~50% |
-| 24/7 backup operation | ~20% orchestration module added; deployment integration pending |
-| 24/7 recovery operation | ~20% orchestration module added; Recovery Agent is now wired into the continuous backup runtime and stages only checksum-verified copies in a disjoint recovery directory; off-host replication, supervisor/alerts, and production restore drills remain pending |
-| Saqlain 30-minute verification of all 5 agents | ~60% design/partial |
-| 11-agent re-verification chain | ~45% orchestration module; integration pending |
-| Authorization credential / "coin" | ~10% |
-| External API permission gateway | ~0–10% |
-| Token ledger / gateway | 0% |
+## Partially implemented — integration or operations required
 
-## Not yet implemented or production-verified
+| Area | Current state | Remaining work |
+|---|---|---|
+| Agent identity registry | Identity and ID rotation logic exists; registry contract is defined. | Atomic durable persistence of agent records, issued-ID ledger, task state, and audit in a transactional store; wire fully into live task/API mutation paths. |
+| Gatekeeper deployment | Gatekeeper router and protected registry/credential checks exist. | Secret-manager integration, atomic credential/registry rotation and revocation, request rate limits/replay controls, off-host audit, and review of every sensitive application route. |
+| Task queue | Durable single-host store and operator review API exist. | Shared transactional storage for multiple instances, end-to-end worker liveness, crash/restart reconciliation, concurrency tests, and operational alerts. |
+| Backup/recovery service | In-process 30-minute scheduler and service entry point exist. | Run under a production supervisor; durable cycle/task state; configure trusted source roots and off-host/versioned storage; health monitoring/alerts; test restore drills with an operator. |
+| Verification chain | API and ordered review logic exist. | Transactional shared state, secret-manager-backed token lifecycle, re-review scheduling, off-host/WORM audit, limits/monitoring, and staging validation. |
+| Emergency approver governance | Issuer and protected role registry are implemented. | Establish a reviewed process to validate the real people/roles, provision/deprovision UIDs, rotate and recover the signing key, and protect/restore registry backups. Test revocation behavior against the actual Firebase project. |
+| Emergency grants | Durable locked/atomic single-host grant file. | Replace with a transactional shared database and atomic conditional consume before multi-process/multi-host deployment; add concurrent replay, crash, restart, corruption, and revocation-race tests. |
+| Audit durability | Local hash chain, writer lock, fsync and integrity checks. | Off-host/WORM replication, independent permissions, retention, alerting, recovery procedures, and controls for privileged OS-level tampering. |
+| External API/credential gateway | Policy/credential verification building blocks exist; not a complete production external-integration layer. | Define and test issuance, rotation, revocation, quota/permission enforcement, token ledger/exchange, and end-to-end external platform bindings. |
 
-- Gatekeeper is mounted at `/api/security/gatekeeper` with `/evaluate` and a narrow `/communication` acceptance boundary. The service checks the owner-approved current binary ID from a protected registry file, binds a server-configured bearer credential to stable agent key and platform, applies scope policy, and durably audits decisions before returning them. Missing registry/credential/audit configuration fails closed. Unit tests and deployment documentation added. Still pending: secret-manager integration, atomic registry rotation/revocation, rate limiting/replay protection, off-host audit replication, and explicitly protecting every other sensitive application route.
-- Durable database-backed Agent ID registry/ledger and atomic transaction integration (the new identity module defines the contract but does not itself provide persistence)
-- Four-backup + one-recovery role definitions, cycle assignment checks, SHA-256 manifests, append-only local snapshots, read-back verification, and queue-task integration are implemented. Secure Backup Agent is integrated into the continuous runtime, verifies persisted snapshots, requires durable audit writes, and rejects overlapping source/storage/audit paths before writes. Dedicated tests and an operating guide were added. `server/saqlainRecoveryAgent.ts` verifies each persisted snapshot and rehearses copies in separate staging; it never overwrites originals or automatically promotes recovery output. The agent is integrated into the 30-minute continuous runtime and has dedicated tests/documentation. Off-host replication, durable job state, process supervision, alerting, and operator-approved production restore remain pending. Added a read-only approved-root source adapter that rejects symlinks/special files and enforces file/byte limits, plus a helper that maps backup agents only to explicitly approved roots and creates verified snapshots. Added `server/saqlainApprovedContinuousBackup.ts` to wire the 30-minute runtime to approved source snapshots, re-read and verify persisted manifests/copies, and rehearse recovery into a separate staging root without overwriting originals. Added `docs/SAQLAIN_BACKUP_DEPLOYMENT.md` with environment/path requirements, pre-deployment checks, process-supervisor guidance, and safe recovery rules. Added `server/saqlainBackupService.ts` and `npm run backup:service` as an explicit environment-configured entrypoint with immediate run, 30-minute scheduling, and SIGINT/SIGTERM shutdown handling. Cycle IDs now use random UUIDs to avoid reuse across process restarts; recovery additionally requires every source backup and its audit write to pass, and per-cycle snapshot references are released after each completed cycle. Approved source roots reject symlink aliases. Configuration of real source roots, durable queue state, off-host replication, process supervision, alerting, and production storage protections remain pending
-- In-process 30-minute backup/recovery runtime added in `server/saqlainBackupRuntime.ts`; it runs the three source-copying backup agents concurrently, then the verification agent, then the recovery agent; it prevents overlapping cycles, isolates failures, optionally writes hash-chained audit events, and exposes start/stop/manual-cycle APIs. It is not yet a persistent daemon: process supervision, durable cycle/task state, alerts/heartbeats, authorized source adapters, off-host storage, and restore drills remain pending.
-- Full 30-minute end-to-end verification workflow
-- 11-agent chain is integrated into the Express API at `/api/security/verification`. The service reconstructs chain state from the hash-chained audit log, writes state transitions before returning them, and exposes administrator-protected create/list/get/resume routes plus per-agent-token-protected review submissions. Ordered evidence-backed reviews, HOLD/re-review flow, terminal rejection, step-11 external-evidence sanitization, and no-access-grant behavior are enforced. Tests and deployment documentation added. Still pending: shared transactional database for multi-instance use, secret-manager-backed token lifecycle, 30-minute scheduler integration, off-host/WORM audit replication, rate limiting, monitoring, and production validation.
-- Authorization credential generation, rotation and verification
-- Internal/external token ledger and exchange controls
-- Hash-chained JSONL audit log with exclusive writer lock, fsync, and tamper detection implemented; off-host/WORM storage, key-backed signatures, and integration across all security events remain pending
-- Complete external-agent communication gateway
-- Gousiya emergency recovery component implemented as a defensive break-glass coordinator: short-lived single-use random grants require owner and independent-reviewer approval, are audited before use, and authorize only checksum-verified staging rehearsals. Tests and operating documentation added. The grant registry is still in-memory, approval booleans require authenticated integration, and production restore/promotion remains prohibited.
-- CI workflow added for security unit tests on feature-branch pushes and pull requests to main; GitHub Actions run `38363387140` completed successfully with 55 tests passing and 0 failures, including the new verification-service persistence, credential, ordering, HOLD/resume, and tamper-detection tests
-- End-to-end security testing
-- Stress/failure testing
-- Production security hardening
-- Final production validation
+## Not completed — do not describe as production-ready
 
-## Current architecture boundary
+- Application-wide authentication and server-side tenant/project authorization for all private Express routes. Existing Saqlain-specific security modules do not automatically secure every application route.
+- Production deployment and supervised 24/7 operation, including durable job state, heartbeats, monitoring from an independent host, and paging/alerting.
+- Shared transactional database for multi-instance queue, identity, and emergency grant state.
+- Off-host immutable/WORM audit replication and tested incident-response/retention procedures.
+- Global and per-user/IP rate limiting, bounded concurrency, quotas, provider/network timeouts, and abuse controls across provider-backed endpoints.
+- Production secret-manager integration and reviewed signing-key/approver-registry lifecycle.
+- Live Firebase integration tests for disabled accounts and revoked tokens in the configured project.
+- End-to-end staging deployment, penetration testing, load/stress testing, disk-full/audit-lock/concurrent-cycle fault injection, and operator-run recovery drills.
+- Operational approval for any production restore. Gousiya remains staging-only and must not auto-promote recovery output.
+- Final production security review and sign-off.
 
-All internal security agents remain inside Gouse AI:
-- Gouse Cyber Security AI
-- Saqlain AI
-- 11-agent security/verification team
-- 4 Backup Agents
-- 1 Recovery Agent
-- Saqlain Gatekeeper
+## Safety and branch boundary
 
-External-facing Gousiya agents are outside Gouse AI and must use approved, scoped API access. External agents must never receive unrestricted internal privileges.
+The security agents, Gatekeeper, verification chain, backup agents, Recovery Agent, and Gousiya are intended to remain inside the Gouse AI security boundary. External agents may only receive approved, scoped access; they must not receive unrestricted internal privileges.
 
-- Task queue timeout recovery now has an authenticated operator API at `/api/security/task-queue`: review-only listing and explicit `REQUEUE`/`FAIL` decisions. The queue is read from the durable JSON registry; each decision is hash-chain audited before state mutation; requeue requires an explicit retry-safe confirmation and interrupted tasks are held for review. Monitoring now incorporates durable queue completion/failure counts and timeout-review holds. Configure `SAQLAIN_TASK_QUEUE_FILE`, `SAQLAIN_TASK_QUEUE_AUDIT_PATH`, and `SAQLAIN_TASK_QUEUE_OPERATOR_TOKENS_JSON` before use. This is a single-host starter, not a multi-instance transactional queue; CI for the latest changes is pending.
-- Saqlain monitoring now has an audited 30-minute runtime in `server/saqlainMonitoringRuntime.ts`, integrated into the configured backup service. It classifies health snapshots, alerts on failures/holds, serializes cycle execution, and fails closed on collector or audit errors. Tests and `docs/SAQLAIN_MONITORING_AGENT.md` were added. Current metrics are based on the latest in-process backup cycle; queue state and real worker liveness are not yet connected, and independent host-down alerting remains pending.
+The latest approval issuer remains an internal code module. **No public approval or emergency-recovery HTTP endpoint has been added.** The grant store is currently single-host and is not safe to treat as a distributed transactional database.
 
-## Latest Agent ID implementation
+Pull request #1 remains open and draft for review. **Do not merge to `main` until the outstanding security and deployment blockers are reviewed and validated.**
 
-Added `server/saqlainAgentIdentity.ts` and `server/saqlainTaskIdentityIntegration.ts` on this branch. The identity module defines owner-approved registration, cryptographically random 128-bit binary IDs, stable agent keys, suspension, audit events, and no-reuse tracking. The integration helper checks current identity and task-lock ownership, verifies the completion report, and rotates the ID only after successful verification. `verifyCurrentBinaryAgentId` provides a registry lookup helper for Gatekeeper integration. These are code modules, not a complete production integration: the caller must atomically persist task state, agent registry, issued-ID ledger, and audit events in durable storage. The helpers are not yet wired into live API routes or a database. Added `server/saqlainAgentIdentity.test.ts`, `server/saqlainGatekeeper.test.ts`, `server/saqlainVerificationChain.test.ts`, `server/saqlainBackupCycle.test.ts`, `server/saqlainBackupManifest.test.ts`, `server/saqlainBackupStorage.test.ts`, and `server/saqlainBackupTaskIntegration.test.ts`. The backup/recovery cycle is explicitly four backup agents plus one recovery agent, duplicate declarations in `server/saqlainBackupTeam.ts` were removed, and the SHA-256 manifest module validates safe relative paths, detects duplicate paths, verifies copied bytes, and detects manifest tampering. Added `server/saqlainBackupStorage.ts` and tests for uniquely named local snapshots, exclusive file creation, read-back checksum verification, persisted manifest verification, and fail-closed handling that retains partial snapshots for investigation. Added `server/saqlainBackupTaskIntegration.ts` to require a task lock and verified snapshot before a queue task can complete and a reviewer-ready report can be returned; failures are held and not handed off. Added `server/saqlainAuditLog.ts` with hash-chained JSONL records, exclusive writer lock, fsync, and history-integrity validation, plus tamper-detection tests. The backup runtime can now append audit events per agent cycle and holds that agent's result if audit writing fails. The audit module is not yet wired into every task/identity/Gatekeeper event and is not tamper-proof against privileged OS users. Added `server/saqlainBackupRuntime.test.ts`, `server/saqlainBackupSourceAdapter.ts` with tests, and `server/saqlainApprovedBackupCycle.ts` with integration tests. Concurrent per-agent audit writes are serialized to respect the audit log's exclusive-writer lock. The npm test script now includes twelve test files, including end-to-end temporary-directory coverage for source snapshotting, manifest re-verification, isolated recovery rehearsal, fail-closed behavior, source-failure recovery holds, and cycle-ID uniqueness. `.github/workflows/saqlain-security-tests.yml` runs the security suite with Node.js 22. Confirmed GitHub Actions run `38244713130` on commit `5892605b7f4cd95bcfde37f5476d4b0ea6a9d9c8`: all 50 tests passed, 0 failed, 0 skipped. This validates the listed unit/integration test suite only; it does not prove production readiness or continuous 24/7 operation.
+## Recommended remaining order
 
-## Current development branch
-
-feature/saqlain-cyber-agent
-
-main remains untouched. Pull Request #1 remains open/draft for review.
-
-## Recommended implementation order
-
-1. Continue expanding tests for runtime restart/recovery, disk-full and audit-lock failures, and concurrent cycles; current 12-file suite has a confirmed 50/50 pass
-2. Integrate the hash-chained audit log with backup tasks, identity rotation, Gatekeeper decisions, and verification-chain transitions; then add durable database-backed queue state and atomic transactions
-3. Integrate authenticated reviewers and the 30-minute HOLD re-review scheduler
-4. Configure approved source roots and connect the five-agent runtime to off-host versioned storage, heartbeat/alerts, and operator-approved restore drills
-5. Deploy the in-process runtime under a process supervisor; add durable cycle state, heartbeat/alerting, authorized source adapters, off-host backup storage, and restore drills
-6. Implement authorization credential generation/verification and external API permission gateway
-7. Implement Gousiya as the final-stage emergency/external liaison component
-8. Run full integration, failure and stress testing
-9. Production hardening and validation
-
-
-Gousiya emergency recovery hardening: revocation is reserved before awaiting audit I/O; an audit failure leaves the grant revoked, preventing a concurrent execution from winning the race. Regression test and documentation added. The grant registry remains in-memory, so multi-process production use is not yet safe.
+1. Configure real Firebase identity/account-status checks and verify approver UID/role assignments; document and review the registry/signing-key lifecycle.
+2. Replace single-host identity, queue, and grant persistence with transactional storage; add concurrency, restart, crash, and corruption tests.
+3. Deploy backup/monitoring runtimes under supervision with durable state, off-host versioned backups, independent alerts, and a controlled restore drill.
+4. Add application-wide authentication, tenant/project authorization, rate limiting, quotas, concurrency bounds, and timeouts.
+5. Configure off-host/WORM audit replication and alerting, then run staging integration, failure/load testing, and a formal security review.
