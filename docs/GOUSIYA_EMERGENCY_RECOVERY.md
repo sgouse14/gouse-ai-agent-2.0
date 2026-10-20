@@ -6,7 +6,7 @@ Gousiya is a defensive break-glass coordinator for rehearsing recovery from a ve
 
 Implementation:
 - `server/gousiyaEmergencyRecovery.ts` — grant lifecycle, durable state and staging-only execution.
-- `server/gousiyaFirebaseApprovalVerifier.ts` — Firebase ID-token signature/claim verification for scoped approvals.
+- `server/gousiyaFirebaseApprovalVerifier.ts` — Firebase ID-token signature/claim verification plus an adapter that calls Firebase Admin `verifyIdToken(token, true)` on a supplied Auth instance.
 - `server/gousiyaEmergencyRuntime.ts` — fail-closed configuration factory. It is not mounted as an HTTP route.
 
 ## Operational procedure
@@ -86,7 +86,7 @@ Rollback for this workflow means **abandoning or quarantining the staging result
 - `server/gousiyaFirebaseApprovalVerifier.ts` — Firebase ID-token signature, claim and scoped approval verification; see the revocation-check blocker below.
 - `server/gousiyaEmergencyRuntime.ts` — fail-closed runtime configuration factory (no HTTP endpoint).
 - `server/gousiyaEmergencyRecovery.test.ts` — independent approvals, approval-ID reuse, durable restart/replay, staging isolation, expiry, revocation, audit failures, tampered backup handling, and source preservation.
-- `server/gousiyaFirebaseApprovalVerifier.test.ts` — covers token signature, issuer/audience, expiry/recent authentication, scope matching, algorithm/key rejection, and certificate caching.
+- `server/gousiyaFirebaseApprovalVerifier.test.ts` — covers token signature, issuer/audience, expiry/recent authentication, scope matching, algorithm/key rejection, certificate caching, and Admin revocation-check invocation/failure.
 - `server/gousiyaEmergencyRuntime.test.ts` — covers configured runtime construction and required environment variables.
 - `docs/GOUSIYA_EMERGENCY_RECOVERY.md` — this runbook.
 
