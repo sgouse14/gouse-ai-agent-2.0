@@ -38,11 +38,11 @@ async function setup(users: GousiyaApproverRegistryEntry[] = [
     throw new Error('Firebase identity rejected');
   };
   const issuer = createGousiyaApprovalIssuer({
-    projectId: PROJECT_ID, registryFilePath, auditFilePath, signingSecret,
+    projectId: PROJECT_ID, registryFilePath, auditFilePath, signingSecret: SIGNING_SECRET,
     authenticateFirebaseIdentity, now: () => new Date(BASE_NOW),
   });
   const verifier = createGousiyaApprovalTokenVerifier({
-    projectId: PROJECT_ID, signingSecret, now: () => new Date(BASE_NOW),
+    projectId: PROJECT_ID, signingSecret: SIGNING_SECRET, now: () => new Date(BASE_NOW),
   });
   return { root, registryFilePath, auditFilePath, issuer, verifier };
 }
