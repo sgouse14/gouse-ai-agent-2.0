@@ -8,6 +8,8 @@ Status: **Not production-ready yet**. This review records concrete launch blocke
 
 The Express API exposes chat, project intelligence, BOQ generation, architecture rendering/analysis, professional search, material pricing, company generation, enquiry quoting, and PDF/spec parsing routes without a shared authentication middleware in `server.ts`.
 
+Partial mitigation now in the feature branch: the workspace-level `POST /api/security/saqlain/summary` endpoint requires a recently authenticated active Firebase identity and a successful durable audit write before returning its posture summary. This does **not** add authentication to the other application routes and does not establish project-membership authorization; the app-wide route review remains open.
+
 Required work:
 - Choose and configure a session or bearer-token identity provider.
 - Apply authentication to private application routes, not only the Saqlain management routers.
