@@ -63,6 +63,8 @@ test('security summary rejects missing or malformed bearer credentials', async (
   assert.equal(malformed.status, 401);
   const shortToken = await invoke(options, 'Bearer short');
   assert.equal(shortToken.status, 401);
+  const whitespaceToken = await invoke(options, 'Bearer ' + validToken.slice(0, 12) + ' ' + validToken.slice(12));
+  assert.equal(whitespaceToken.status, 401);
   assert.equal(authenticateCalls, 0);
 });
 
