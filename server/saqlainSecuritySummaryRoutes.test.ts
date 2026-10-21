@@ -17,7 +17,8 @@ function requestWith(authorization?: string, body: unknown = {}): Request {
 
 function responseWith(onJson: () => void = () => {}) {
   const state: { status: number; body: unknown } = { status: 200, body: undefined };
-  const response = {
+  let response: Response;
+  response = {
     status(code: number) {
       state.status = code;
       return response;
