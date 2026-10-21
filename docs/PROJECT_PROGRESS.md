@@ -4,7 +4,7 @@ Updated: 2026-10-21
 
 ## Status summary
 
-**Active development — not production-ready.** Today's completed implementation and validation are recorded separately from work planned for tomorrow. Items under tomorrow's plan are not marked complete until implemented, tested, and reviewed.
+**Active development — not production-ready.** Completed implementation and validation are recorded separately. Items in the remaining work queue are not marked complete until implemented, tested, and reviewed.
 
 - **Overall project completion:** approximately 61% (planning estimate)
 - **Core feature implementation:** approximately 75% (planning estimate)
@@ -14,7 +14,12 @@ Updated: 2026-10-21
 - **Pull request:** [#1 — open and draft](https://github.com/sgouse14/gouse-ai-agent-2.0/pull/1)
 - **Main branch:** unchanged; no merge performed.
 
-## Completed today — 20 October 2026
+## Work started — 21 October 2026
+
+- [x] Secured the workspace-level Saqlain security-summary endpoint with recently authenticated, active Firebase identity verification and audit-before-response. Regression tests cover missing/malformed tokens, identity rejection, missing audit configuration, and audit write failure. Full CI validation is pending.
+- [x] Documented the required `SAQLAIN_AUDIT_FILE` setting in `.env.example`.
+
+## Previously completed — 20 October 2026
 
 ### Security and governance
 - [x] Saqlain defensive security policy, protected-source/export boundaries, and blocks for destructive actions and external retaliation.
@@ -22,7 +27,6 @@ Updated: 2026-10-21
 - [x] Agent identity primitives: cryptographically random 128-bit binary IDs, stable agent keys, registration helpers, suspension/rotation helpers, current-ID checks, and no-reuse ledger contract.
 - [x] Verification chain with ordered 11-step review, evidence-backed checks, HOLD/re-review, rejection handling, and audit reconstruction.
 - [x] Scoped security policy for protected EMP-readiness assessments and internal agent communication.
-- [x] Protected the workspace-level Saqlain security-summary endpoint with recently authenticated, active Firebase identity verification and audit-before-response; test coverage added for missing/malformed tokens, identity rejection, missing audit configuration, and audit write failure. The new endpoint-specific CI run is pending.
 
 ### Task queue, backup, and recovery
 - [x] Task Queue Manager ownership/locking, timeout review, retry-safe requeue/fail decisions, and audit-before-mutation behavior.
@@ -64,9 +68,9 @@ Updated: 2026-10-21
 
 > Passing CI validates the tested code paths and build, not real-world physical EMP protection, production deployment, a penetration test, or security certification.
 
-## Planned for tomorrow — 21 October 2026
+## Remaining work queue — 21 October 2026 onward
 
-These are the remaining tasks to pick up tomorrow. They are **not yet complete**. Work should be implemented in small changes and revalidated after each meaningful step.
+These are the next tasks and are **not yet complete**. Work should be implemented in small changes and revalidated after each meaningful step.
 
 ### Priority 1 — identity, authorization, and approval configuration
 - [ ] Validate Firebase disabled-account and revoked-token behavior against the actual configured project.
