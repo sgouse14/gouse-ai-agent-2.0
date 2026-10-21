@@ -44,7 +44,7 @@ function getConfiguredAuthenticator(): SaqlainSummaryTokenAuthenticator {
 function readBearerToken(authorization: string | undefined): string | null {
   if (!authorization?.startsWith('Bearer ')) return null;
   const token = authorization.slice(7).trim();
-  if (token.length < 20 || token.length > MAX_TOKEN_LENGTH || /\\s/.test(token)) return null;
+  if (token.length < 20 || token.length > MAX_TOKEN_LENGTH || /\s/.test(token)) return null;
   return token;
 }
 
@@ -75,9 +75,7 @@ export function createSaqlainSecuritySummaryHandler(
 
     let authenticate: SaqlainSummaryTokenAuthenticator;
     try {
-      authenticate = typeof authenticateToken === 'function' && authenticateToken !== getConfiguredAuthenticator
-        ? authenticateToken
-        : getConfiguredAuthenticator();
+      authenticate = options.authenticateToken ?? getConfiguredAuthenticator();
     } catch {
       return res.status(503).json({ error: 'Security summary identity verification is not configured.' });
     }
