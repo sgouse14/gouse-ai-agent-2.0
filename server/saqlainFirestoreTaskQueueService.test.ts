@@ -42,7 +42,7 @@ test('Firestore queue allocates IDs, locks, completes, and counts durable tasks'
   assert.equal(counts.pendingTasks,1);
 });
 test('Firestore queue rejects completion by the wrong agent and unsafe requeue',async()=>{
-  const queue=new SaqlainFirestoreTaskQueueService({client:new MemoryClient()});
+  const queue=new SaqlainFirestoreTaskQueueService({client:new MemoryClient(), auditWriter: async () => undefined});
   const task=await queue.enqueue('backup','operator');
   await queue.lockNextPending('agent-a','operator');
   await assert.rejects(()=>queue.complete(task.managerTaskId,'agent-b','operator'),/current task owner/);
