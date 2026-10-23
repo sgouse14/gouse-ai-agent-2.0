@@ -1,5 +1,5 @@
 import { timingSafeEqual } from 'node:crypto';
-import { appendDurableAuditEvent, readVerifiedAuditLog } from './saqlainAuditLog.ts';
+import { appendSaqlainAuditEvent, readSaqlainAuditLog } from './saqlainAuditBackend.ts';
 import {
   VERIFICATION_CHAIN_ROLES,
   createVerificationChain,
@@ -50,7 +50,7 @@ export class SaqlainVerificationService {
     if (this.loaded) return;
     if (!this.loadPromise) {
       this.loadPromise = (async () => {
-        const records = await readVerifiedAuditLog(requireAuditPath());
+        const records = await readSaqlainAuditLog(requireAuditPath());
         for (const record of records as readonly AuditEntry[]) {
           if (record.eventType !== 'SAQLAIN_VERIFICATION_CHAIN_STATE') continue;
           const details = record.details as unknown as VerificationSnapshot | undefined;
@@ -73,7 +73,7 @@ export class SaqlainVerificationService {
 
   private async persist(chain: VerificationChain, operation: string, actorId: string): Promise<void> {
     const outcome = chain.status === 'REJECTED' ? 'DENY' : chain.status === 'HOLD' ? 'HOLD' : 'INFO';
-    await appendDurableAuditEvent(requireAuditPath(), {
+    await appendSaqlainAuditEvent(requireAuditPath(), {
       eventType: 'SAQLAIN_VERIFICATION_CHAIN_STATE',
       actorId,
       outcome,
