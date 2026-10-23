@@ -1,7 +1,7 @@
 import type { Request } from 'express';
 
 export type SaqlainActionDecision = 'allow' | 'review' | 'block';
-export type SaqlainThreatAction = 'monitor' | 'block' | 'quarantine' | 'isolate' | 'contain';
+export type SaqlainThreatAction = 'monitor' | 'block' | 'quarantine' | 'isolate' | 'contain' | 'recover';
 
 const HIGH_IMPACT_ACTIONS = new Set([
   'delete_project','delete_document','delete_file','overwrite_source',
