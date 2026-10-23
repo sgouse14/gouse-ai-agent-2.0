@@ -188,7 +188,7 @@ export function createFirebaseIdentityTokenAuthenticator(
     throw new Error('A Firebase account-status and token-revocation checker is required.');
   }
   const maxAuthAgeSeconds = options.maxAuthAgeSeconds ?? 5 * 60;
-  if (!Number.isSafeInteger(maxAuthAgeSeconds) || maxAuthAgeSeconds < 1 || maxAuthAgeSeconds > 15 * 60) {
+  if (!Number.isSafeInteger(maxAuthAgeSeconds) || maxAuthAgeSeconds < 1 || maxAuthAgeSeconds > 7 * 24 * 60 * 60) {
     throw new Error('maxAuthAgeSeconds must be between 1 and 900 seconds.');
   }
   const fetchCertificates = options.fetchCertificates ?? fetchGoogleCertificates;
