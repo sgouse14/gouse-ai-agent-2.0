@@ -1,4 +1,5 @@
 import { defineConfig, loadEnv } from 'vite';
+import { checkApplicationIpRateLimit, createApplicationApiAuthorizer } from './server/applicationSecurity';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import {
@@ -14,18 +15,33 @@ import {
 } from './server/apiService';
 
 function getRequestBody(req: any): Promise<any> {
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     let body = '';
+    let size = 0;
+    let failed = false;
     req.on('data', (chunk: any) => {
+      if (failed) return;
+      size += Buffer.byteLength(chunk);
+      if (size > 5 * 1024 * 1024) {
+        failed = true;
+        const error: any = new Error('Request body is too large');
+        error.statusCode = 413;
+        reject(error);
+        return;
+      }
       body += chunk;
     });
     req.on('end', () => {
+      if (failed) return;
       try {
         resolve(body ? JSON.parse(body) : {});
       } catch {
-        resolve({});
+        const error: any = new Error('Invalid JSON request body');
+        error.statusCode = 400;
+        reject(error);
       }
     });
+    req.on('error', reject);
   });
 }
 
@@ -36,6 +52,7 @@ function sendJson(res: any, data: any, status = 200) {
 }
 
 function apiMiddlewarePlugin() {
+  const authorizeApiRequest = createApplicationApiAuthorizer();
   return {
     name: 'gouse-ai-api-middleware',
     configureServer(server: any) {
@@ -47,6 +64,23 @@ function apiMiddlewarePlugin() {
         }
 
         try {
+          const ipLimit = checkApplicationIpRateLimit(url, req.method, req.socket?.remoteAddress);
+          if (!ipLimit.allowed) {
+            if (ipLimit.retryAfterSeconds) res.setHeader('Retry-After', String(ipLimit.retryAfterSeconds));
+            return sendJson(res, { error: 'Request rate limit exceeded.' }, 429);
+          }
+          const authorization = await authorizeApiRequest({
+            method: req.method,
+            path: url,
+            authorization: req.headers?.authorization,
+            projectIdHeader: req.headers?.['x-project-id'],
+            ipAddress: req.socket?.remoteAddress,
+          });
+          if (!authorization.allowed) {
+            if (authorization.retryAfterSeconds) res.setHeader('Retry-After', String(authorization.retryAfterSeconds));
+            return sendJson(res, { error: authorization.error || 'Application security check failed.' }, authorization.status || 503);
+          }
+
           if (url === '/api/health') {
             return sendJson(res, {
               status: 'ok',
@@ -207,8 +241,10 @@ function apiMiddlewarePlugin() {
           // Fallback for unhandled /api/ routes
           return sendJson(res, { error: 'Endpoint not found', url }, 404);
         } catch (err: any) {
-          console.error('API middleware error:', err);
-          return sendJson(res, { error: err.message || 'Internal Server Error' }, 500);
+          const status = err?.statusCode === 413 ? 413 : err?.statusCode === 400 ? 400 : 500;
+          const message = status === 413 ? 'Request body is too large' : status === 400 ? 'Invalid JSON request body' : 'Internal Server Error';
+          console.error('API middleware request failed with status', status);
+          return sendJson(res, { error: message }, status);
         }
       });
     },
