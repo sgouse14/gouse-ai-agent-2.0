@@ -189,7 +189,7 @@ export function createFirebaseIdentityTokenAuthenticator(
   }
   const maxAuthAgeSeconds = options.maxAuthAgeSeconds ?? 5 * 60;
   if (!Number.isSafeInteger(maxAuthAgeSeconds) || maxAuthAgeSeconds < 1 || maxAuthAgeSeconds > 7 * 24 * 60 * 60) {
-    throw new Error('maxAuthAgeSeconds must be between 1 and 900 seconds.');
+    throw new Error('maxAuthAgeSeconds must be between 1 and 604800 seconds.');
   }
   const fetchCertificates = options.fetchCertificates ?? fetchGoogleCertificates;
   const now = options.now ?? (() => new Date());
