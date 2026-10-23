@@ -9,7 +9,7 @@ import {
   type SubmitVerificationReviewInput,
 } from './saqlainVerificationChain.ts';
 
-type AuditEntry = Awaited<ReturnType<typeof readVerifiedAuditLog>>[number];
+type AuditEntry = Awaited<ReturnType<typeof readSaqlainAuditLog>>[number];
 type VerificationSnapshot = { operation: string; chain: VerificationChain };
 
 function constantTimeEqual(candidate: string, expected: string): boolean {
