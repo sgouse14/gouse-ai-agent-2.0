@@ -1,4 +1,5 @@
 import express from 'express';
+import { createApplicationIpRateLimitMiddleware, createApplicationSecurityMiddleware } from './server/applicationSecurity.ts';
 import { saqlainVerificationRouter } from './server/saqlainVerificationRoutes.ts';
 import { saqlainGatekeeperRouter } from './server/saqlainGatekeeperRoutes.ts';
 import { saqlainHeartbeatRouter } from './server/saqlainHeartbeatRoutes.ts';
@@ -24,6 +25,17 @@ import {
 
 const app = express();
 app.disable('x-powered-by');
+// Never trust forwarding headers unless the deployment configures an exact trusted proxy chain.
+const trustedProxyHops = process.env.TRUST_PROXY_HOPS?.trim();
+if (trustedProxyHops) {
+  const hops = Number(trustedProxyHops);
+  if (!Number.isInteger(hops) || hops < 1 || hops > 5) {
+    throw new Error('TRUST_PROXY_HOPS must be an integer from 1 to 5 and match the verified proxy chain');
+  }
+  app.set('trust proxy', hops);
+} else {
+  app.set('trust proxy', false);
+}
 
 // Baseline security headers. API responses are not cacheable by default.
 app.use((req, res, next) => {
@@ -37,7 +49,8 @@ app.use((req, res, next) => {
   next();
 });
 
-app.use(express.json({ limit: '20mb' }));
+app.use(createApplicationIpRateLimitMiddleware());
+app.use(express.json({ limit: '5mb' }));
 app.use(express.urlencoded({ extended: false, limit: '1mb' }));
 
 // Convert body-parser failures into clear client errors without exposing internals.
@@ -62,6 +75,9 @@ app.use('/api/security/heartbeats', saqlainHeartbeatRouter);
 
 // Ordered 11-agent security verification API. Access is fail-closed unless credentials and durable audit storage are configured.
 app.use('/api/security/verification', saqlainVerificationRouter);
+
+// Application API boundary: Firebase identity, server-managed project membership, and provider quotas.
+app.use(createApplicationSecurityMiddleware());
 
 // Workspace-level baseline posture summary; requires a recently authenticated
 // active Firebase identity and successful durable audit before returning any report.
@@ -361,6 +377,9 @@ app.post('/api/materials/parse-pdf-specs', async (req, res) => {
     res.status(500).json({ error: 'Failed to parse material standards' });
   }
 });
+
+// Unknown API paths must not fall through to the SPA HTML response.
+app.use('/api', (_req, res) => res.status(404).json({ error: 'API endpoint not found' }));
 
 // Determine production static assets path
 const distPath = fs.existsSync(path.join(process.cwd(), 'dist', 'index.html'))
