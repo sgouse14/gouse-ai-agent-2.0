@@ -1,15 +1,15 @@
 # Gouse AI Agent 2.0 — Project Progress
 
-Updated: 2026-10-21
+Updated: 2026-10-23
 
 ## Status summary
 
 **Active development — not production-ready.** Completed implementation and validation are recorded separately. Items in the remaining work queue are not marked complete until implemented, tested, and reviewed.
 
-- **Overall project completion:** approximately 61% (planning estimate)
-- **Core feature implementation:** approximately 75% (planning estimate)
-- **Production readiness:** approximately 43% (planning estimate)
-- These are estimates, not measured code coverage or a precise issue-count calculation.
+- **Saqlain implementation progress:** approximately 65% (subjective planning estimate; not measured code coverage)
+- **Overall project completion / production readiness:** still in progress; do not treat these estimates as release approval.
+- Estimates are planning indicators, not measured code coverage or a precise issue-count calculation.
+- **Latest verified CI:** [run #39921557491](https://github.com/sgouse14/gouse-ai-agent-2.0/actions/runs/39921557491) passed on commit `6af36a9d` (latest run checked on 2026-10-23).
 - **Feature branch:** `feature/saqlain-cyber-agent`
 - **Pull request:** [#1 — open and draft](https://github.com/sgouse14/gouse-ai-agent-2.0/pull/1)
 - **Main branch:** unchanged; no merge performed.
@@ -68,7 +68,7 @@ Updated: 2026-10-21
 
 > Passing CI validates the tested code paths and build, not real-world physical EMP protection, production deployment, a penetration test, or security certification.
 
-## Remaining work queue — 21 October 2026 onward
+## Remaining work queue — 23 October 2026 onward
 
 These are the next tasks and are **not yet complete**. Work should be implemented in small changes and revalidated after each meaningful step.
 
@@ -107,6 +107,69 @@ These are the next tasks and are **not yet complete**. Work should be implemente
 - [ ] Complete a formal security review and production-readiness sign-off.
 
 **Planning note:** This is a prioritized next-day work queue, not a promise that every large integration or independent security review can be completed in one day. Anything not completed tomorrow stays open and is rescheduled honestly.
+
+## New roadmap added — 23 October 2026
+
+The following capabilities were requested for planning. They are **planned, not implemented**, and should be delivered in small, tested increments after the existing reliability priorities.
+
+### Priority 0 — finish and verify existing Saqlain work
+- [ ] Confirm the latest CI run remains green after any subsequent commits.
+- [ ] Finish connecting the backup worker and monitoring to the same Firestore-backed queue used by the operator routes.
+- [ ] Add and test idempotency for queue operations and retry paths.
+- [ ] Verify audit-backend selection, audit integrity, fail-closed behavior, and timeout/recovery transitions.
+- [ ] Review Cloud Run service identity and least-privilege Firestore IAM; run staging tests only when the environment is available.
+- [ ] Keep Gousiya emergency recovery behavior unchanged and add regression coverage where relevant.
+
+### Priority 1 — Saqlain website error detection and authorized repair
+- [ ] Start with read-only checks for observable HTTP errors, broken links, browser/JavaScript errors, and common configuration problems.
+- [ ] Produce evidence-based diagnosis and prioritized repair recommendations.
+- [ ] Generate proposed code/configuration fixes for owner review.
+- [ ] Require explicit authorization and approval before modifying a live website.
+- [ ] Test repairs in staging where possible; record changes and provide rollback/recovery guidance.
+- [ ] Limit checks and changes to websites and assets the operator is authorized to manage.
+
+### Priority 1 — new Website Safe Guard agent
+- [ ] Define a separate agent role for website health and defensive security checks.
+- [ ] Begin with authorized, read-only monitoring and common vulnerability/misconfiguration checks.
+- [ ] Report severity, evidence, and recommended remediation; alert approved operators about important findings.
+- [ ] Integrate findings with Saqlain through scoped, audited messages rather than duplicating all responsibilities.
+- [ ] Add approval gates for intrusive testing and any live changes.
+- [ ] Validate in an isolated staging/test environment before activation.
+
+### Priority 1 — improve the Communication Agent
+- [ ] Improve delivery acknowledgements, progress/status reporting, and clear failure responses.
+- [ ] Add bounded retries, duplicate-message protection, and escalation for unresolved failures.
+- [ ] Improve task context and handoffs between Gousiya, Saqlain, Website Safe Guard, and future agents.
+- [ ] Add priority handling for urgent security findings.
+- [ ] Audit important coordination events and apply access controls to sensitive message content.
+- [ ] Test with approved recipients and a vetted transport adapter; do not assume external delivery works until staging confirms it.
+
+### Priority 1 — expand Gousiya orchestration
+- [ ] Let Gousiya break larger requests into tasks, assign suitable agents, and track dependencies and completion.
+- [ ] Add conflict/duplicate-work prevention, bounded retries, and escalation for high-risk or unresolved work.
+- [ ] Validate agent results before reporting task completion.
+- [ ] Add a central view of agent health, active work, failures, and outstanding tasks.
+- [ ] Apply per-agent tool/resource permissions and retain human approval for high-impact actions.
+- [ ] Preserve Gousiya's existing emergency recovery behavior; do not allow automatic production promotion.
+
+### Priority 1/2 — controlled agent creation and lifecycle management
+- [ ] Let Gousiya propose an agent from a capability gap, including purpose, instructions, tools, boundaries, and resource limits.
+- [ ] Check for duplicate or overlapping agents before creating a new one.
+- [ ] Register version, owner, permissions, and lifecycle state in a controlled registry.
+- [ ] Create and test agents in isolation; run functional and security checks before activation.
+- [ ] Require explicit approval for elevated permissions, sensitive-data access, and high-impact actions.
+- [ ] Support monitoring, pause/disable, updates, and rollback.
+- [ ] Prevent unbounded agent creation, resource consumption, and self-granted permissions.
+
+**Proposed agent lifecycle:** Request → Design → Permission review → Isolated testing → Approval → Activation → Monitoring.
+
+### Validation and end-of-day reporting
+- [ ] Run regression tests for agent coordination, permission boundaries, website authorization, and Gousiya recovery.
+- [ ] Record exact CI results, changed files/commits, and tests actually run.
+- [ ] Separate implemented features from design/documentation work and unverified cloud tasks.
+- [ ] Update progress estimates only from verified work; leave unfinished tasks open and reschedule them.
+
+**Scope boundary:** These are roadmap items. They must not be reported as completed until code, tests, and required staging validation confirm the result. Avoid unrelated changes, unauthorized website testing, unapproved live repairs, and production deployment without approval.
 
 ## Release boundary
 
