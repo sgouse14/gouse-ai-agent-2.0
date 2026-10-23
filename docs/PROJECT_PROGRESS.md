@@ -76,7 +76,9 @@ These are the next tasks and are **not yet complete**. Work should be implemente
 - [ ] Validate Firebase disabled-account and revoked-token behavior against the actual configured project.
 - [ ] Confirm real approver UID/role assignments and document the approval registry's add/remove/recovery process.
 - [ ] Set up production secret-manager integration and signing-key rotation/recovery procedures.
-- [ ] Review all private Express routes for application-wide authentication and server-side tenant/project authorization.
+- [x] Implement shared Firebase authentication on ordinary application API routes, a Google sign-in gate, server-side UID/project membership checks for project-scoped AI routes, API request ceilings, request-size limits, and regression tests. Configuration and staging validation remain open.
+- [ ] Provision `SAQLAIN_PROJECT_MEMBERSHIPS_JSON` with reviewed production Firebase UIDs/project IDs; test successful access and cross-project denial against the deployed Firebase project.
+- [ ] Validate distributed gateway/WAF rate limiting and proxy IP behavior in staging; built-in application counters are in-memory per process.
 
 ### Priority 2 — shared durable state and reliability
 - [ ] Design and integrate transactional shared storage for agent identity records, issued-ID ledger, task queue, and emergency grants.
