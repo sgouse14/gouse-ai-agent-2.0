@@ -39,6 +39,7 @@ test('Firestore client requires a project ID and does not request service-accoun
   assert.match(calls[0].url, /firestore\.googleapis\.com/);
   assert.equal(new Headers(calls[0].init?.headers).get('Authorization'), 'Bearer test-access-token');
   assert.equal(calls[0].url.includes('private_key'), false);
+  assert.equal(client.documentName('saqlainAuditEvents', 'event-1'), 'projects/saqlain-staging-123/databases/(default)/documents/saqlainAuditEvents/event-1');
 });
 
 test('Firestore client uses Cloud Run metadata identity when no token provider is injected', async () => {
