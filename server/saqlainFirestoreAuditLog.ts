@@ -34,7 +34,7 @@ function fields(value: Record<string, unknown>) {
 
 function auditRecordFromDocument(document: FirestoreRecord): AuditRecord {
   const { _name: _ignoredName, _updateTime: _ignoredUpdateTime, recordHash, ...payload } = document;
-  const record = payload as unknown as AuditRecord;
+  const record = { ...payload, recordHash } as unknown as AuditRecord;
   if (record.schemaVersion !== 1 || !Number.isInteger(record.sequence) || record.sequence < 1 ||
       typeof record.eventId !== 'string' || typeof record.occurredAt !== 'string' ||
       typeof record.eventType !== 'string' || typeof record.actorId !== 'string' ||
