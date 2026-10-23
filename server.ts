@@ -1,4 +1,4 @@
-import express from 'express';
+import express, { type Request, type Response, type NextFunction } from 'express';
 import { createApplicationIpRateLimitMiddleware, createApplicationSecurityMiddleware } from './server/applicationSecurity.ts';
 import { saqlainVerificationRouter } from './server/saqlainVerificationRoutes.ts';
 import { saqlainGatekeeperRouter } from './server/saqlainGatekeeperRoutes.ts';
@@ -54,7 +54,7 @@ app.use(express.json({ limit: '5mb' }));
 app.use(express.urlencoded({ extended: false, limit: '1mb' }));
 
 // Convert body-parser failures into clear client errors without exposing internals.
-app.use((err: any, _req: express.Request, res: express.Response, next: express.NextFunction) => {
+app.use((err: any, _req: Request, res: Response, next: NextFunction) => {
   if (err?.type === 'entity.too.large') {
     return res.status(413).json({ error: 'Request body is too large' });
   }
