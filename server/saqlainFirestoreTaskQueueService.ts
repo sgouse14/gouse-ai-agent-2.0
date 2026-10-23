@@ -58,18 +58,20 @@ export class SaqlainFirestoreTaskQueueService {
   private readonly collection: string;
   private readonly auditPath?: string;
   private readonly retries: number;
+  private readonly auditWriter: (filePath: string | undefined, event: import('./saqlainAuditLog.ts').AuditEventInput) => Promise<unknown>;
 
-  constructor(options: { client?: SaqlainFirestoreRestClient; collection?: string; auditFilePath?: string; retries?: number } = {}) {
+  constructor(options: { client?: SaqlainFirestoreRestClient; collection?: string; auditFilePath?: string; retries?: number; auditWriter?: (filePath: string | undefined, event: import('./saqlainAuditLog.ts').AuditEventInput) => Promise<unknown> } = {}) {
     this.client = options.client ?? new SaqlainFirestoreRestClient();
     this.collection = options.collection ?? process.env.SAQLAIN_FIRESTORE_QUEUE_COLLECTION?.trim() ?? 'saqlainTasks';
     this.auditPath = options.auditFilePath;
     this.retries = options.retries ?? 5;
+    this.auditWriter = options.auditWriter ?? appendSaqlainAuditEvent;
     if (!/^[A-Za-z][A-Za-z0-9_-]{0,62}$/.test(this.collection)) throw new Error('Firestore task collection name is invalid.');
     if (!Number.isInteger(this.retries) || this.retries < 1 || this.retries > 20) throw new Error('Firestore retry count is invalid.');
   }
 
   private async audit(eventType: string, actorId: string, outcome: 'ALLOW'|'DENY'|'HOLD', task?: QueueTask, details: Record<string, unknown> = {}) {
-    await appendSaqlainAuditEvent(this.auditPath, {
+    await this.auditWriter(this.auditPath, {
       eventType, actorId, outcome, resource: 'saqlain-task-queue',
       ...(task ? { taskId: task.managerTaskId } : {}),
       details: task ? { status: task.status, backupTaskId: task.backupTaskId, ...details } : details,
