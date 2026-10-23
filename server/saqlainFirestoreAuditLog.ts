@@ -13,8 +13,17 @@ export interface SaqlainFirestoreAuditOptions {
   now?: () => Date;
 }
 
+function canonicalJson(value: unknown): string {
+  if (Array.isArray(value)) return '[' + value.map(canonicalJson).join(',') + ']';
+  if (value && typeof value === 'object') {
+    const entries = Object.entries(value as Record<string, unknown>).sort(([a], [b]) => a.localeCompare(b));
+    return '{' + entries.map(([key, item]) => JSON.stringify(key) + ':' + canonicalJson(item)).join(',') + '}';
+  }
+  return JSON.stringify(value);
+}
+
 function hashRecord(record: Omit<AuditRecord, 'recordHash'>): string {
-  return createHash('sha256').update(JSON.stringify(record)).digest('hex');
+  return createHash('sha256').update(canonicalJson(record)).digest('hex');
 }
 
 function fields(value: Record<string, unknown>) {
@@ -22,15 +31,15 @@ function fields(value: Record<string, unknown>) {
 }
 
 function auditRecordFromDocument(document: FirestoreRecord): AuditRecord {
-  const record = document as unknown as AuditRecord;
-  const { recordHash, ...payload } = record;
+  const { _name: _ignoredName, _updateTime: _ignoredUpdateTime, recordHash, ...payload } = document;
+  const record = payload as unknown as AuditRecord;
   if (record.schemaVersion !== 1 || !Number.isInteger(record.sequence) || record.sequence < 1 ||
       typeof record.eventId !== 'string' || typeof record.occurredAt !== 'string' ||
       typeof record.eventType !== 'string' || typeof record.actorId !== 'string' ||
       !['ALLOW', 'DENY', 'HOLD', 'INFO'].includes(record.outcome) ||
       typeof record.previousHash !== 'string' || !/^[a-f0-9]{64}$/.test(record.previousHash) ||
       typeof recordHash !== 'string' || !/^[a-f0-9]{64}$/.test(recordHash) ||
-      hashRecord(payload) !== recordHash) {
+      hashRecord(payload as unknown as Omit<AuditRecord, 'recordHash'>) !== recordHash) {
     throw new Error('Firestore audit event failed schema or integrity validation.');
   }
   return record;
