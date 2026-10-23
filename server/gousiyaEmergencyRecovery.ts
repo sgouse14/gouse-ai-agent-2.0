@@ -402,7 +402,11 @@ export async function executeGousiyaEmergencyRecovery(input: {
 }): Promise<RecoveryRehearsalResult> {
   const now = input.now ?? new Date();
   const suppliedDigest = digest(input.token ?? '');
-  const reservation = await withGrantTransaction(input.state, async (grants) => {
+  const reservation = await withGrantTransaction<
+    | { kind: 'invalid' }
+    | { kind: 'expired'; grant: StoredGrant }
+    | { kind: 'consumed'; grant: StoredGrant }
+  >(input.state, async (grants) => {
     const grant = grants.get(input.grantId);
     if (!grant || !equalDigest(grant.tokenDigest, suppliedDigest) ||
         grant.incidentId !== input.incidentId || grant.status !== 'ISSUED') {
