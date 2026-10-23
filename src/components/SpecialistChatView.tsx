@@ -1,3 +1,4 @@
+import { apiFetch } from '../apiClient';
 import React, { useState, useRef, useEffect } from 'react';
 import {
   Mic,
@@ -463,7 +464,7 @@ I operate as an **Autonomous Engineering Agent**:
       }
 
       // 2. Fetch Gemini TTS audio from backend
-      const res = await fetch('/api/voice/tts', {
+      const res = await apiFetch('/api/voice/tts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -584,7 +585,7 @@ I operate as an **Autonomous Engineering Agent**:
     try {
       const projectContext = `Project: ${activeProject.name} | Typology: ${activeProject.projectType} | Location: ${activeProject.location} | Built-up Area: ${(activeProject.builtUpAreaSqFt || 3500).toLocaleString()} sq.ft | Scope: ${activeProject.description}`;
 
-      const res = await fetch('/api/chat', {
+      const res = await apiFetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
