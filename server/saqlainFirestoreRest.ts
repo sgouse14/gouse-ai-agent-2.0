@@ -109,7 +109,9 @@ export class SaqlainFirestoreRestClient {
   }
 
   documentName(collection: string, documentId: string): string {
-    return this.documentsUrl('/' + encodeURIComponent(collection) + '/' + encodeURIComponent(documentId));
+    return 'projects/' + encodeURIComponent(this.projectId) + '/databases/' +
+      encodeURIComponent(this.databaseId) + '/documents/' + encodeURIComponent(collection) +
+      (documentId ? '/' + encodeURIComponent(documentId) : '');
   }
 
   private documentsUrl(path = ''): string {
