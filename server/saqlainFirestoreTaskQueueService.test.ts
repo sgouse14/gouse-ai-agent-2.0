@@ -28,7 +28,7 @@ class MemoryClient extends SaqlainFirestoreRestClient {
   }
 }
 test('Firestore queue allocates IDs, locks, completes, and counts durable tasks', async()=>{
-  const queue=new SaqlainFirestoreTaskQueueService({client:new MemoryClient()});
+  const queue=new SaqlainFirestoreTaskQueueService({client:new MemoryClient(), auditWriter: async () => undefined});
   const first=await queue.enqueue('backup-a','operator',new Date('2026-10-23T00:00:00Z'));
   const second=await queue.enqueue('backup-b','operator',new Date('2026-10-23T00:01:00Z'));
   assert.equal(first.managerTaskId,'01010');
