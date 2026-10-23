@@ -7,9 +7,10 @@ import {
   markTaskTimeout,
   saqlainTaskQueue,
 } from './saqlainTaskQueueManager.ts';
-import { appendDurableAuditEvent } from './saqlainAuditLog.ts';
+import { appendSaqlainAuditEvent, getSaqlainAuditBackendMode } from './saqlainAuditBackend.ts';
 
 function requiredAuditPath(explicit?: string): string {
+  if (getSaqlainAuditBackendMode() === 'firestore') return '';
   const path = explicit?.trim() || process.env.SAQLAIN_TASK_QUEUE_AUDIT_PATH?.trim();
   if (!path) throw new Error('SAQLAIN_TASK_QUEUE_AUDIT_PATH is not configured.');
   return path;
@@ -20,7 +21,7 @@ export function createSaqlainTaskQueueService(
   options: { auditFilePath?: string; actorId?: string } = {},
 ) {
   async function auditDecision(eventType: string, task: QueueTask, actorId: string, outcome: 'ALLOW' | 'DENY' | 'HOLD', details: Record<string, unknown> = {}, auditPath?: string): Promise<void> {
-    await appendDurableAuditEvent(requiredAuditPath(auditPath ?? options.auditFilePath), {
+    await appendSaqlainAuditEvent(requiredAuditPath(auditPath ?? options.auditFilePath), {
       eventType,
       actorId,
       outcome,
