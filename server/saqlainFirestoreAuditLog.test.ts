@@ -19,6 +19,8 @@ class MemoryFirestoreClient extends SaqlainFirestoreRestClient {
     return document ? { ...document.fields, _updateTime: document.updateTime } : null;
   }
 
+  removeDocument(name: string) { this.documents.delete(name); }
+
   override async listDocuments(collection: string): Promise<Record<string, unknown>[]> {
     const prefix = this.documentName(collection, '');
     return [...this.documents.entries()]
@@ -79,4 +81,6 @@ test('Firestore audit writer refuses malformed events and detects a missing sequ
   // Simulate deletion/tampering in the backing store; the head must not mask it.
   const docs = await client.listDocuments('saqlainAuditEvents');
   assert.equal(docs.length, 2);
+  client.removeDocument(String(docs.find(document => document.sequence === 1)?._name));
+  await assert.rejects(() => log.readVerified(), /sequence or linkage verification failed/);
 });
