@@ -2,30 +2,27 @@
 
 Status: **Not production-ready yet**. This review records concrete launch blockers discovered while reviewing the Saqlain feature branch. The successful CI run validates tests, type-checking, frontend/server build, and Docker image construction; it does not prove the deployed security boundaries are complete.
 
-## P0 — Before exposing to untrusted users
+## P0 — Application-wide API security
 
-### 1. Add identity and project authorization to the application API
+### 1. Firebase authentication, project membership and abuse controls
 
-The Express API exposes chat, project intelligence, BOQ generation, architecture rendering/analysis, professional search, material pricing, company generation, enquiry quoting, and PDF/spec parsing routes without a shared authentication middleware in `server.ts`.
+**Implemented in the feature branch; deployment configuration and staging validation remain required.**
 
-Partial mitigation now in the feature branch: the workspace-level `POST /api/security/saqlain/summary` endpoint requires a recently authenticated active Firebase identity and a successful durable audit write before returning its posture summary. This does **not** add authentication to the other application routes and does not establish project-membership authorization; the app-wide route review remains open.
+- Express production APIs and the Vite development API share a fail-closed Firebase ID-token guard. Token verification checks Google's signing certificate, Firebase issuer/audience, expiry, sign-in age, disabled account state, and the Firebase revocation boundary.
+- The React workspace has a Firebase Google sign-in gate. API calls send an ID token in Authorization: Bearer.
+- Project-scoped chat, intelligence, BOQ, rendering, image analysis, live quote, and PDF/spec parsing endpoints require X-Project-ID and an explicit UID/project pair in the server-managed SAQLAIN_PROJECT_MEMBERSHIPS_JSON registry. Client-supplied project IDs do not grant access.
+- Provider-backed requests have in-process per-user limits, all API routes including separately authenticated Saqlain routes have an IP limit, and the workspace has a per-user request/hour ceiling. JSON payloads are limited to 5 MB. Unknown API paths return JSON 404 responses.
+- The /api/security/* routes retain their specialized credentials. The security-summary endpoint independently verifies Firebase identity and durable audit-before-response.
+- Forwarded IP headers are not trusted unless TRUST_PROXY_HOPS is explicitly set to a reviewed value.
 
-Required work:
-- Choose and configure a session or bearer-token identity provider.
-- Apply authentication to private application routes, not only the Saqlain management routers.
-- Enforce project membership and tenant boundaries server-side; never trust a client-supplied project ID as authorization.
-- Keep any intentionally public endpoints explicitly allowlisted and rate-limited.
-- Add tests proving unauthenticated requests are rejected and one project's identity cannot access another project's data.
+Required deployment steps:
+- Configure VITE_FIREBASE_API_KEY, VITE_FIREBASE_AUTH_DOMAIN and VITE_FIREBASE_PROJECT_ID for the client, plus FIREBASE_PROJECT_ID and FIREBASE_WEB_API_KEY on the server. They must identify the same Firebase project. Restrict the web API key to Identity Toolkit API.
+- Enable Google sign-in and configure Firebase Authentication authorized domains.
+- Provision and review SAQLAIN_PROJECT_MEMBERSHIPS_JSON using actual Firebase UIDs and project IDs. No project-specific API will be usable until this server-side registry is configured.
+- Add a distributed gateway/WAF or shared-store limiter before multi-replica deployment; in-process limits reset at restart and are not shared across replicas.
+- Validate sign-in, account disablement/revocation, rate-limiting, and cross-project denial in staging.
 
-### 2. Add abuse controls to provider-backed endpoints
-
-The application invokes AI and search providers without a shared per-user/IP rate limiter, concurrency ceiling, request timeout policy, or quota guard in the current server route layer.
-
-Required work:
-- Use a production-ready limiter with a trustworthy proxy/IP configuration.
-- Apply per-account and per-IP quotas, bounded concurrency, and provider timeouts.
-- Bound route-specific text and file payloads; the global JSON limit is currently 20 MB.
-- Return 429/413/504-style safe responses and add tests for limit behavior.
+Important remaining architecture boundary: project and BOQ data are still browser-localStorage records rather than an authoritative server-owned multi-tenant database. Membership checks guard project-scoped API/provider access but do not create secure multi-user project collaboration or protect the local records themselves. A server-side project store and membership lifecycle are still required for that capability.
 
 ## P1 — Before enabling operational security workflows
 
