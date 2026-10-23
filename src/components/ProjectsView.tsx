@@ -1,3 +1,4 @@
+import { apiFetch } from '../apiClient';
 import React, { useState } from 'react';
 import {
   FolderPlus,
@@ -322,7 +323,7 @@ Preliminary architectural audit and technical advisory for **${name || 'Project'
       let reportAnalysis = '';
 
       try {
-        const res = await fetch('/api/intelligence', {
+        const res = await apiFetch('/api/intelligence', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
