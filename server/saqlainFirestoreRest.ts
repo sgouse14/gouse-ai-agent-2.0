@@ -108,7 +108,11 @@ export class SaqlainFirestoreRestClient {
     }
   }
 
-  documentName(collection: string, documentId: string): string {\n    return this.documentsUrl('/' + encodeURIComponent(collection) + '/' + encodeURIComponent(documentId));\n  }\n\n  private documentsUrl(path = ''): string {
+  documentName(collection: string, documentId: string): string {
+    return this.documentsUrl('/' + encodeURIComponent(collection) + '/' + encodeURIComponent(documentId));
+  }
+
+  private documentsUrl(path = ''): string {
     return `https://firestore.googleapis.com/v1/projects/${encodeURIComponent(this.projectId)}/databases/${encodeURIComponent(this.databaseId)}/documents${path}`;
   }
 
