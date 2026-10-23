@@ -1,5 +1,5 @@
 import { timingSafeEqual } from 'node:crypto';
-import { appendSaqlainAuditEvent, readSaqlainAuditLog } from './saqlainAuditBackend.ts';
+import { appendSaqlainAuditEvent, getSaqlainAuditBackendMode, readSaqlainAuditLog } from './saqlainAuditBackend.ts';
 import {
   VERIFICATION_CHAIN_ROLES,
   createVerificationChain,
@@ -19,6 +19,7 @@ function constantTimeEqual(candidate: string, expected: string): boolean {
 }
 
 function requireAuditPath(): string {
+  if (getSaqlainAuditBackendMode() === 'firestore') return '';
   const path = process.env.SAQLAIN_VERIFICATION_AUDIT_PATH?.trim();
   if (!path) throw new Error('SAQLAIN_VERIFICATION_AUDIT_PATH is not configured; verification is unavailable.');
   return path;
