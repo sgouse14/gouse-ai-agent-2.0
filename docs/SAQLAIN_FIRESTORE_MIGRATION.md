@@ -29,14 +29,14 @@ The chain head is a concurrency-control document, not an independent source of t
 
 ## Important current limitation
 
-The audit facade is now wired into the security-summary route, verification service, and task-queue decision audits. The task queue registry still uses its file-backed store, and heartbeats remain in process memory. Do not assume all Saqlain audit call sites have migrated until the remaining route/service integrations are completed. Setting `GOOGLE_CLOUD_PROJECT` alone does **not** migrate those components to Firestore.
+The audit facade is now wired into the security-summary route, verification service, and task-queue decision audits. The task queue registry still uses its file-backed store. The heartbeat route now supports shared Firestore heartbeat documents when `SAQLAIN_AUDIT_BACKEND=firestore`; its request rate limiter remains per-process and requires a distributed gateway/shared limiter before multi-instance exposure. Do not assume all Saqlain audit call sites have migrated until the remaining route/service integrations are completed. Setting `GOOGLE_CLOUD_PROJECT` alone does **not** migrate those components to Firestore.
 
 Before enabling this adapter for production operations, complete the following work in isolated steps:
 
 1. Add an explicit `SAQLAIN_AUDIT_BACKEND` switch and a Saqlain-only audit facade that routes Saqlain audit append/read operations to Firestore or the existing local test backend. Keep Gousiya emergency-recovery audit behavior unchanged.
 2. Migrate the verification service's state replay to the selected audit backend and ensure the existing local test backend remains deterministic.
 3. Implement the queue as transactional Firestore task documents. Allocate IDs safely, enforce allowed transitions in transactions, and use idempotency keys for retried requests. Do not translate the local file lock into an in-memory lock.
-4. Implement shared heartbeat documents with server timestamps/expiry and bounded ingestion. Use a distributed gateway/shared quota for rate limits across instances.
+4. Heartbeat documents are now shared by agent ID when the Firestore backend is selected. Still implement server-side timestamps/expiry policy, distributed gateway/shared quotas for rate limits across instances, and alerting for stale/missing heartbeats.
 5. Add emulator or integration tests for two concurrent writers, lost responses/retries, partial failure, stale chain head, tampering/deletion, IAM denial, API outage, and recovery.
 6. Run a staging migration rehearsal: export/verify current audit history, choose a cutover boundary, preserve the original evidence read-only, write and verify test events, restart/scale instances, and rehearse rollback. Never silently merge two independent hash chains.
 7. Add independent off-project audit export and backup/restore validation before production promotion.
