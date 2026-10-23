@@ -1,3 +1,4 @@
+import { apiFetch } from '../apiClient';
 import React, { useState, useRef } from 'react';
 import {
   FileText,
@@ -173,7 +174,7 @@ Spot Rate: ₹ 385 per 50 kg bag (Wholesale benchmark: ₹ 365 - 415)`);
     setErrorMsg(null);
 
     try {
-      const response = await fetch('/api/materials/parse-pdf-specs', {
+      const response = await apiFetch('/api/materials/parse-pdf-specs', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
