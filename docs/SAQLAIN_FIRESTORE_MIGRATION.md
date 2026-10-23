@@ -29,7 +29,7 @@ The chain head is a concurrency-control document, not an independent source of t
 
 ## Important current limitation
 
-The audit facade is now wired into the security-summary route and verification service. The task queue's service audit path is still file-backed, the queue registry still uses its file-backed store, and heartbeats remain in process memory. Do not assume all Saqlain audit call sites have migrated until the remaining route/service integrations are completed. Setting `GOOGLE_CLOUD_PROJECT` alone does **not** migrate those components to Firestore.
+The audit facade is now wired into the security-summary route, verification service, and task-queue decision audits. The task queue registry still uses its file-backed store, and heartbeats remain in process memory. Do not assume all Saqlain audit call sites have migrated until the remaining route/service integrations are completed. Setting `GOOGLE_CLOUD_PROJECT` alone does **not** migrate those components to Firestore.
 
 Before enabling this adapter for production operations, complete the following work in isolated steps:
 
