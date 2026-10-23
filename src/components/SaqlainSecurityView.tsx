@@ -1,3 +1,4 @@
+import { apiFetch } from '../apiClient';
 import React, { useMemo, useState } from 'react';
 import {
   AlertTriangle,
@@ -152,7 +153,7 @@ export const SaqlainSecurityView: React.FC<Props> = ({ activeProjectName }) => {
     setRefreshing(true);
 
     try {
-      const response = await fetch('/api/security/saqlain/summary', {
+      const response = await apiFetch('/api/security/saqlain/summary', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ target }),
