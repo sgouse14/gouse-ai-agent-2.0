@@ -44,7 +44,7 @@ const monitoringRuntime = createSaqlainMonitoringRuntime({
     const results = report.results;
     const heartbeatSummary = collectRegisteredHeartbeatSummary(
       process.env.SAQLAIN_HEARTBEAT_CREDENTIALS_JSON,
-      getSaqlainHeartbeatSnapshot(),
+      await getSaqlainHeartbeatSnapshot(),
     );
     const queueCounts = taskQueueService.getCounts();
     return {
