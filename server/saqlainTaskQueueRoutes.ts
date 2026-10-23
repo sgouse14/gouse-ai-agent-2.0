@@ -2,6 +2,7 @@ import { timingSafeEqual } from 'node:crypto';
 import { Router, type Request, type Response } from 'express';
 import { createDurableQueueTaskRegistry } from './saqlainDurableQueueStore.ts';
 import { createSaqlainTaskQueueService } from './saqlainTaskQueueService.ts';
+import { getSaqlainAuditBackendMode } from './saqlainAuditBackend.ts';
 
 function equalSecret(candidate: string, expected: string): boolean {
   const a = Buffer.from(candidate);
@@ -26,7 +27,7 @@ function resolveOperator(authorization: string | undefined): string | null {
 function getService() {
   const queuePath = process.env.SAQLAIN_TASK_QUEUE_FILE?.trim();
   const auditPath = process.env.SAQLAIN_TASK_QUEUE_AUDIT_PATH?.trim();
-  if (!queuePath || !auditPath) throw new Error('Task queue storage/audit configuration is missing.');
+  if (!queuePath || (getSaqlainAuditBackendMode() === 'file' && !auditPath)) throw new Error('Task queue storage/audit configuration is missing.');
   return createSaqlainTaskQueueService(createDurableQueueTaskRegistry(queuePath), { auditFilePath: auditPath });
 }
 
