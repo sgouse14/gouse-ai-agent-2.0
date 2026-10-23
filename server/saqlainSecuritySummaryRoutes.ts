@@ -1,5 +1,6 @@
 import type { Request, RequestHandler } from 'express';
-import { appendDurableAuditEvent, type AuditEventInput } from './saqlainAuditLog.ts';
+import type { AuditEventInput } from './saqlainAuditLog.ts';
+import { appendSaqlainAuditEvent, getSaqlainAuditBackendMode } from './saqlainAuditBackend.ts';
 import {
   createFirebaseIdentityTokenAuthenticator,
   createFirebaseRestTokenActivityChecker,
@@ -64,7 +65,7 @@ export function createSaqlainSecuritySummaryHandler(
 ): RequestHandler {
   const authenticateToken = options.authenticateToken ?? getConfiguredAuthenticator;
   const getAuditFilePath = options.getAuditFilePath ?? (() => process.env.SAQLAIN_AUDIT_FILE?.trim() || undefined);
-  const writeAuditEvent = options.writeAuditEvent ?? appendDurableAuditEvent;
+  const writeAuditEvent = options.writeAuditEvent ?? appendSaqlainAuditEvent;
   const now = options.now ?? (() => new Date());
 
   return async (req, res) => {
@@ -92,14 +93,17 @@ export function createSaqlainSecuritySummaryHandler(
       });
     }
 
-    const auditFilePath = getAuditFilePath();
-    if (!auditFilePath) {
+    let auditFilePath: string | undefined;
+    try {
+      auditFilePath = getAuditFilePath();
+      if (getSaqlainAuditBackendMode() === 'file' && !auditFilePath) throw new Error('File audit path is not configured.');
+    } catch {
       return res.status(503).json({ error: 'Security summary audit storage is not configured.' });
     }
 
     const summary = buildSaqlainSecuritySummary(req as Request);
     try {
-      await writeAuditEvent(auditFilePath, {
+      await writeAuditEvent(auditFilePath ?? '', {
         eventType: 'SAQLAIN_SECURITY_SUMMARY_VIEWED',
         actorId: identity.uid,
         outcome: 'INFO',
