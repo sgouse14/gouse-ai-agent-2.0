@@ -24,7 +24,7 @@ test('Firestore value codec rejects non-finite and undefined values', () => {
 });
 
 test('Firestore client requires a project ID and does not request service-account keys', async () => {
-  assert.throws(() => new SaqlainFirestoreRestClient({ projectId: '' }), /project ID is required for Firestore/);
+  assert.throws(() => new SaqlainFirestoreRestClient({ projectId: '' }), /GOOGLE_CLOUD_PROJECT or FIREBASE_PROJECT_ID is required for Firestore/);
   const calls: Array<{ url: string; init?: RequestInit }> = [];
   const client = new SaqlainFirestoreRestClient({
     projectId: 'saqlain-staging-123',
