@@ -1,3 +1,4 @@
+import { apiFetch } from '../apiClient';
 import React, { useState, useMemo, useEffect } from 'react';
 import {
   Building2,
@@ -177,7 +178,7 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
     const loc = overrideLoc !== undefined ? overrideLoc : googleLocation;
 
     try {
-      const res = await fetch('/api/search/professionals', {
+      const res = await apiFetch('/api/search/professionals', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -291,7 +292,7 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
   const handleRequestLiveQuote = async (enquiry: MarketplaceEnquiry) => {
     setRequestingQuoteId(enquiry.id);
     try {
-      const res = await fetch('/api/enquiries/live-quote', {
+      const res = await apiFetch('/api/enquiries/live-quote', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -377,7 +378,7 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
     // If auto-request quote is enabled, fetch quote immediately
     if (autoRequestQuoteOnSubmit) {
       try {
-        const res = await fetch('/api/enquiries/live-quote', {
+        const res = await apiFetch('/api/enquiries/live-quote', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
