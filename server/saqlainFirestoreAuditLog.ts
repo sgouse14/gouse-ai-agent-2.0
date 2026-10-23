@@ -124,7 +124,7 @@ export class SaqlainFirestoreAuditLog {
   async readVerified(): Promise<readonly AuditRecord[]> {
     const documents = await this.client.listDocuments(this.collection);
     const records = documents
-      .filter(document => typeof document.sequence === 'number' || typeof document.sequence === 'string')
+      .filter(document => !String(document._name ?? '').endsWith('/' + this.headDocumentId) &&\n        (typeof document.sequence === 'number' || typeof document.sequence === 'string'))
       .map(auditRecordFromDocument)
       .sort((a, b) => a.sequence - b.sequence);
     let previousHash = GENESIS_HASH;
