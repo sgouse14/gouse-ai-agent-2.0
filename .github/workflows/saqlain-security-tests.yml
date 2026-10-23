@@ -40,6 +40,9 @@ jobs:
       - name: Type-check
         run: bun run typecheck
 
+      - name: Type-check server authorization code
+        run: bun run typecheck:server
+
       - name: Build frontend and server
         run: bun run build
 
