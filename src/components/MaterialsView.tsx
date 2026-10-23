@@ -1,3 +1,4 @@
+import { apiFetch } from '../apiClient';
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   Layers,
@@ -309,7 +310,7 @@ export const MaterialsView: React.FC<MaterialsViewProps> = ({
     const query = overrideQuery !== undefined ? overrideQuery : customMaterialQuery;
 
     try {
-      const res = await fetch('/api/materials/live-prices', {
+      const res = await apiFetch('/api/materials/live-prices', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -387,7 +388,7 @@ export const MaterialsView: React.FC<MaterialsViewProps> = ({
     setIsGeneratingPrompt(true);
 
     try {
-      const res = await fetch('/api/architecture/render-prompt', {
+      const res = await apiFetch('/api/architecture/render-prompt', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
