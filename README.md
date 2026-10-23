@@ -28,6 +28,7 @@ Key references:
 - [Project progress](docs/PROJECT_PROGRESS.md)
 - [Production operations and validation runbook](docs/SAQLAIN_PRODUCTION_OPERATIONS.md)
 - [Google Cloud Run staging readiness](docs/SAQLAIN_CLOUD_RUN_STAGING.md)
+- [Firestore migration plan](docs/SAQLAIN_FIRESTORE_MIGRATION.md)
 
 ## Requirements
 
