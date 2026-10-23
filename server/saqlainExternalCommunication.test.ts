@@ -1,18 +1,30 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { sendCycleStatusToExternalAgent } from './saqlainExternalCommunication.ts';
+import type { AuditEventInput, AuditRecord } from './saqlainAuditLog.ts';
+import { sendCycleStatusToExternalAgent, type ExternalAgentStatusMessage, type ExternalCommunicationOptions } from './saqlainExternalCommunication.ts';
 
 const request = { actorId: 'saq-communication-agent', projectId: 'project-a', recipientAgentId: 'approved-agent', cycleId: 'saqlain-cycle-12345678-1234-4234-8234-123456789abc', counts: { verified: 1, held: 0, failed: 0 } };
 
-function setup(override = {}) {
- const events = [];
- const delivered = [];
- const config = {
+function setup(override: Partial<ExternalCommunicationOptions> = {}) {
+ const events: string[] = [];
+ const delivered: Array<{ id: string; msg: ExternalAgentStatusMessage }> = [];
+ const config: ExternalCommunicationOptions = {
   auditFilePath: '/tmp/audit.jsonl',
   approvedRecipientIds: new Set(['approved-agent']),
   authorize: async () => ({ authenticated: true, projectAuthorized: true, approved: true }),
   deliver: async (id, msg) => { delivered.push({ id, msg }); return { receiptId: 'receipt-a' }; },
-  appendAudit: async (_path, event) => { events.push(event.eventType); return {}; },
+  appendAudit: async (_path: string, event: AuditEventInput): Promise<AuditRecord> => {
+   events.push(event.eventType);
+   return {
+    schemaVersion: 1, sequence: events.length, eventId: 'test-event-' + events.length,
+    occurredAt: event.occurredAt ?? '2026-10-23T00:00:00.000Z',
+    eventType: event.eventType, actorId: event.actorId, outcome: event.outcome,
+    ...(event.resource ? { resource: event.resource } : {}),
+    ...(event.taskId ? { taskId: event.taskId } : {}),
+    ...(event.details ? { details: event.details } : {}),
+    previousHash: '0'.repeat(64), recordHash: '1'.repeat(64),
+   };
+  },
   ...override,
  };
  return { config, events, delivered };
