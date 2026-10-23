@@ -4,7 +4,7 @@ Status: **initial REST client and transactional audit-chain prototype committed;
 
 ## Implemented in this phase
 
-- `server/saqlainFirestoreRest.ts`: minimal Firestore REST API client, value codec, document reads/listing, atomic commit calls, and Cloud Run metadata-server access-token retrieval. Tests can inject a fetch implementation and token provider.
+- `server/saqlainAuditBackend.ts`: explicit Saqlain-only backend selector; file mode remains the local default and Firestore mode routes Saqlain audit append/read through the shared collection. Gousiya recovery still uses its existing file functions. The security-summary route and verification service are wired to this facade.\n- `server/saqlainFirestoreRest.ts`: minimal Firestore REST API client, value codec, document reads/listing, atomic commit calls, and Cloud Run metadata-server access-token retrieval. Tests can inject a fetch implementation and token provider.
 - `server/saqlainFirestoreAuditLog.ts`: append-only event documents with a compare-and-swap chain-head document. Event plus head update are written in one Firestore commit; competing writers retry bounded precondition conflicts. Read verification checks record hashes, sequence/link continuity, and chain-head consistency.
 - `server/saqlainFirestoreRest.test.ts` and `server/saqlainFirestoreAuditLog.test.ts`: codec, identity-provider behavior, append chain, and retry test coverage.
 - `.env.example`: documents the optional staging project ID and audit collection name. No credentials are included.
@@ -29,7 +29,7 @@ The chain head is a concurrency-control document, not an independent source of t
 
 ## Important current limitation
 
-The new audit writer is an isolated adapter at this stage. Existing Saqlain routes and services still call the filesystem audit functions, the task queue still uses its file-backed registry, and heartbeats remain in process memory. Setting `GOOGLE_CLOUD_PROJECT` alone does **not** migrate those components to Firestore.
+The audit facade is now wired into the security-summary route and verification service. The task queue's service audit path is still file-backed, the queue registry still uses its file-backed store, and heartbeats remain in process memory. Do not assume all Saqlain audit call sites have migrated until the remaining route/service integrations are completed. Setting `GOOGLE_CLOUD_PROJECT` alone does **not** migrate those components to Firestore.
 
 Before enabling this adapter for production operations, complete the following work in isolated steps:
 
