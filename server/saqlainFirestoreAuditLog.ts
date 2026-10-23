@@ -19,7 +19,9 @@ function canonicalJson(value: unknown): string {
     const entries = Object.entries(value as Record<string, unknown>).sort(([a], [b]) => a.localeCompare(b));
     return '{' + entries.map(([key, item]) => JSON.stringify(key) + ':' + canonicalJson(item)).join(',') + '}';
   }
-  return JSON.stringify(value);
+  const encoded = JSON.stringify(value);
+  if (encoded === undefined) throw new Error('Unsupported value in canonical audit JSON.');
+  return encoded;
 }
 
 function hashRecord(record: Omit<AuditRecord, 'recordHash'>): string {
