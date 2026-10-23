@@ -3,6 +3,7 @@ import { Router, type Request, type Response } from 'express';
 import { createDurableQueueTaskRegistry } from './saqlainDurableQueueStore.ts';
 import { createSaqlainTaskQueueService } from './saqlainTaskQueueService.ts';
 import { getSaqlainAuditBackendMode } from './saqlainAuditBackend.ts';
+import { SaqlainFirestoreTaskQueueService } from './saqlainFirestoreTaskQueueService.ts';
 
 function equalSecret(candidate: string, expected: string): boolean {
   const a = Buffer.from(candidate);
@@ -25,9 +26,11 @@ function resolveOperator(authorization: string | undefined): string | null {
 }
 
 function getService() {
-  const queuePath = process.env.SAQLAIN_TASK_QUEUE_FILE?.trim();
+  const mode = getSaqlainAuditBackendMode();
   const auditPath = process.env.SAQLAIN_TASK_QUEUE_AUDIT_PATH?.trim();
-  if (!queuePath || (getSaqlainAuditBackendMode() === 'file' && !auditPath)) throw new Error('Task queue storage/audit configuration is missing.');
+  if (mode === 'firestore') return new SaqlainFirestoreTaskQueueService({ auditFilePath: auditPath });
+  const queuePath = process.env.SAQLAIN_TASK_QUEUE_FILE?.trim();
+  if (!queuePath || !auditPath) throw new Error('Task queue storage/audit configuration is missing.');
   return createSaqlainTaskQueueService(createDurableQueueTaskRegistry(queuePath), { auditFilePath: auditPath });
 }
 
@@ -43,10 +46,12 @@ function requireOperator(req: Request, res: Response): string | null {
 }
 
 /** Read-only queue review listing. Requires a configured operator bearer token. */
-saqlainTaskQueueRouter.get('/review', (req, res) => {
+saqlainTaskQueueRouter.get('/review', async (req, res) => {
   if (!requireOperator(req, res)) return;
   try {
-    const tasks = getService().list().filter((task) => task.status === 'TIMEOUT_REVIEW');
+    const service = getService();
+    const allTasks = service instanceof SaqlainFirestoreTaskQueueService ? await service.list() : service.list();
+    const tasks = allTasks.filter((task) => task.status === 'TIMEOUT_REVIEW');
     return res.json({ tasks });
   } catch {
     return res.status(503).json({ error: 'Task queue review is unavailable; no state was changed.' });
@@ -63,9 +68,11 @@ saqlainTaskQueueRouter.post('/:taskId/resolve', async (req: Request, res: Respon
     return res.status(400).json({ error: 'Invalid review resolution payload.' });
   }
   try {
-    const task = await getService().resolveTimeoutReview(req.params.taskId, decision, {
-      operatorId, reason, retrySafe: retrySafe === true,
-    });
+    const service = getService();
+    const input = { operatorId, reason, retrySafe: retrySafe === true };
+    const task = service instanceof SaqlainFirestoreTaskQueueService
+      ? await service.resolveTimeoutReview(req.params.taskId, decision, input)
+      : await service.resolveTimeoutReview(req.params.taskId, decision, input);
     return res.json({ task });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Task review resolution failed.';
