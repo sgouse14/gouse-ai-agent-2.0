@@ -18,7 +18,7 @@ async function setup() {
   const config = {
     storageRoot,
     approvedRoots: { 'gouse-ai': sourceRoot },
-    sourceByAgentId: { 'saq-backup-gouse': 'gouse-ai' },
+    sourceByAgentId: { 'saq-backup-gouse': 'gouse-ai' as const },
     now: () => new Date('2026-10-13T00:00:00.000Z'),
   };
   return { root, sourceRoot, storageRoot, auditFilePath, agent, config };
