@@ -11,10 +11,19 @@ function allowRequest(key: string, now: number): boolean {
   const current = recentRequests.get(key);
   if (!current || now - current.windowStartedAt >= WINDOW_MS || now < current.windowStartedAt) {
     recentRequests.set(key, { windowStartedAt: now, count: 1 });
-    return true;
+  } else {
+    if (current.count >= MAX_REQUESTS_PER_WINDOW) return false;
+    current.count += 1;
   }
-  if (current.count >= MAX_REQUESTS_PER_WINDOW) return false;
-  current.count += 1;
+
+  // Bound memory when many distinct clients reach this endpoint.
+  if (recentRequests.size > 10_000) {
+    for (const [savedKey, saved] of recentRequests) {
+      if (now < saved.windowStartedAt || now - saved.windowStartedAt >= WINDOW_MS) {
+        recentRequests.delete(savedKey);
+      }
+    }
+  }
   return true;
 }
 export const saqlainHeartbeatRouter = Router();
@@ -22,7 +31,10 @@ saqlainHeartbeatRouter.post('/', async (req: Request, res: Response) => {
   const agentId = typeof req.body?.agentId === 'string' ? req.body.agentId : '';
   const token = req.header('x-saqlain-agent-token') ?? '';
   const now = Date.now();
-  if (!allowRequest(agentId || 'unknown', now)) {
+  // Never key abuse controls by the untrusted agentId in the payload: an attacker
+  // could rotate arbitrary IDs to bypass throttling. Use the socket peer address.
+  const clientKey = req.socket.remoteAddress || 'unknown-client';
+  if (!allowRequest(clientKey, now)) {
     res.status(429).json({ accepted: false, error: 'Rate limit exceeded.' });
     return;
   }
