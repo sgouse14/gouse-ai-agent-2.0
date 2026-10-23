@@ -38,7 +38,7 @@ jobs:
         run: bun run test
 
       - name: Type-check
-        run: bun run lint
+        run: bun run typecheck
 
       - name: Build frontend and server
         run: bun run build
