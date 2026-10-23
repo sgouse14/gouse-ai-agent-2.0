@@ -7,6 +7,7 @@
  */
 declare module 'express' {
   import type { Socket } from 'node:net';
+  import type { Server } from 'node:http';
 
   export interface Request {
     body: any;
@@ -18,12 +19,15 @@ declare module 'express' {
     ip?: string;
     socket: Socket;
     header(name: string): string | undefined;
+    saqlainIdentity?: { uid: string; authTime: number; tokenIssuedAt: number; tokenExpiresAt: number };
+    saqlainProjectId?: string;
   }
 
   export interface Response {
     status(code: number): this;
     json(body?: unknown): this;
     send(body?: unknown): this;
+    sendFile(path: string): void;
     setHeader(name: string, value: string | number | readonly string[]): this;
   }
 
@@ -41,10 +45,12 @@ declare module 'express' {
     set(name: string, value: unknown): this;
     use(handler: RequestHandler): this;
     use(handler: ErrorRequestHandler): this;
-    use(path: string, handler: Router | RequestHandler | ErrorRequestHandler): this;
+    use(path: string, handler: RequestHandler): this;
+    use(path: string, handler: ErrorRequestHandler): this;
+    use(path: string, handler: Router): this;
     get(path: string, ...handlers: RequestHandler[]): this;
     post(path: string, ...handlers: RequestHandler[]): this;
-    listen(port: number, callback?: () => void): { close(callback?: (error?: Error) => void): void };
+    listen(port: number, hostname?: string, callback?: () => void): Server;
   }
 
   export function Router(): Router;
@@ -56,6 +62,7 @@ declare module 'express' {
     Router: typeof Router;
     json: typeof json;
     urlencoded: typeof urlencoded;
+    static(path: string): RequestHandler;
   };
   export default express;
 }
