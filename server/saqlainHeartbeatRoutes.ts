@@ -1,8 +1,9 @@
 import { Router, type Request, type Response } from 'express';
-import { appendDurableAuditEvent } from './saqlainAuditLog.ts';
+import { appendSaqlainAuditEvent, getSaqlainAuditBackendMode } from './saqlainAuditBackend.ts';
 import { acceptAuthenticatedHeartbeat, createInMemoryHeartbeatStore, parseHeartbeatCredentials } from './saqlainHeartbeatIngestion.ts';
+import { SaqlainFirestoreHeartbeatStore } from './saqlainFirestoreHeartbeatStore.ts';
 
-const store = createInMemoryHeartbeatStore();
+const localStore = createInMemoryHeartbeatStore();
 const recentRequests = new Map<string, { windowStartedAt: number; count: number }>();
 const WINDOW_MS = 60_000;
 const MAX_REQUESTS_PER_WINDOW = 60;
@@ -15,39 +16,46 @@ function allowRequest(key: string, now: number): boolean {
     if (current.count >= MAX_REQUESTS_PER_WINDOW) return false;
     current.count += 1;
   }
-
-  // Bound memory when many distinct clients reach this endpoint.
   if (recentRequests.size > 10_000) {
     for (const [savedKey, saved] of recentRequests) {
-      if (now < saved.windowStartedAt || now - saved.windowStartedAt >= WINDOW_MS) {
-        recentRequests.delete(savedKey);
-      }
+      if (now < saved.windowStartedAt || now - saved.windowStartedAt >= WINDOW_MS) recentRequests.delete(savedKey);
     }
   }
   return true;
 }
+
+function configuredAuditPath(): string | undefined {
+  return process.env.SAQLAIN_AUDIT_FILE?.trim() || undefined;
+}
+
 export const saqlainHeartbeatRouter = Router();
 saqlainHeartbeatRouter.post('/', async (req: Request, res: Response) => {
   const agentId = typeof req.body?.agentId === 'string' ? req.body.agentId : '';
   const token = req.header('x-saqlain-agent-token') ?? '';
   const now = Date.now();
-  // Never key abuse controls by the untrusted agentId in the payload: an attacker
-  // could rotate arbitrary IDs to bypass throttling. Use the socket peer address.
+  // This per-process throttle is a local safeguard, not a distributed rate limiter.
   const clientKey = req.socket.remoteAddress || 'unknown-client';
   if (!allowRequest(clientKey, now)) {
     res.status(429).json({ accepted: false, error: 'Rate limit exceeded.' });
     return;
   }
+
   const credentials = parseHeartbeatCredentials(process.env.SAQLAIN_HEARTBEAT_CREDENTIALS_JSON);
-  const auditFilePath = process.env.SAQLAIN_AUDIT_FILE;
-  if (!credentials || !auditFilePath) {
+  let auditPath: string | undefined;
+  let backend: 'file' | 'firestore';
+  try {
+    backend = getSaqlainAuditBackendMode();
+    auditPath = configuredAuditPath();
+    if (!credentials || (backend === 'file' && !auditPath)) throw new Error('Heartbeat configuration missing.');
+  } catch {
     res.status(503).json({ accepted: false, error: 'Heartbeat service is not configured.' });
     return;
   }
+
   const pendingStore = createInMemoryHeartbeatStore();
-  const result = acceptAuthenticatedHeartbeat({ agentId, token, credentials, store: pendingStore });
+  const result = acceptAuthenticatedHeartbeat({ agentId, token, credentials: credentials!, store: pendingStore });
   try {
-    await appendDurableAuditEvent(auditFilePath, {
+    await appendSaqlainAuditEvent(auditPath, {
       eventType: 'SAQLAIN_AGENT_HEARTBEAT',
       actorId: result.accepted ? agentId : 'unknown-agent',
       outcome: result.accepted ? 'INFO' : 'DENY',
@@ -56,20 +64,31 @@ saqlainHeartbeatRouter.post('/', async (req: Request, res: Response) => {
       details: { accepted: result.accepted },
     });
   } catch {
-    // Fail closed: do not claim acceptance if the audit event could not be persisted.
     res.status(503).json({ accepted: false, error: 'Heartbeat audit unavailable.' });
     return;
   }
+
   if (!result.accepted) {
     res.status(401).json({ accepted: false });
     return;
   }
-  // Commit heartbeat to the live store only after its audit record is durable.
-  store.record({ agentId, lastSeenAt: result.receivedAt! });
+
+  try {
+    if (backend === 'firestore') {
+      await new SaqlainFirestoreHeartbeatStore().record({ agentId, lastSeenAt: result.receivedAt! });
+    } else {
+      localStore.record({ agentId, lastSeenAt: result.receivedAt! });
+    }
+  } catch {
+    // Acknowledge only after the shared/local heartbeat state is durable.
+    res.status(503).json({ accepted: false, error: 'Heartbeat storage unavailable.' });
+    return;
+  }
   res.status(202).json({ accepted: true, receivedAt: result.receivedAt });
 });
 
-/** Internal read-only access for a trusted collector in this process; never expose directly as an HTTP route. */
-export function getSaqlainHeartbeatSnapshot() {
-  return store.list();
+/** Internal read-only snapshot for a trusted collector; never expose directly as an HTTP route. */
+export async function getSaqlainHeartbeatSnapshot() {
+  if (getSaqlainAuditBackendMode() === 'firestore') return new SaqlainFirestoreHeartbeatStore().list();
+  return localStore.list();
 }
