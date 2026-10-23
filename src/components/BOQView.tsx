@@ -1,3 +1,4 @@
+import { apiFetch } from '../apiClient';
 import React, { useState, useMemo, useEffect } from 'react';
 import {
   Calculator,
@@ -929,7 +930,7 @@ export const BOQView: React.FC<BOQViewProps> = ({
     setAiError(null);
 
     try {
-      const res = await fetch('/api/boq/generate', {
+      const res = await apiFetch('/api/boq/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
