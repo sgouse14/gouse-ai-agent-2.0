@@ -26,6 +26,7 @@ Key references:
 - [Secure Backup Agent](docs/SAQLAIN_SECURE_BACKUP_AGENT.md)
 - [Gousiya Emergency Recovery](docs/GOUSIYA_EMERGENCY_RECOVERY.md)
 - [Project progress](docs/PROJECT_PROGRESS.md)
+- [Production operations and validation runbook](docs/SAQLAIN_PRODUCTION_OPERATIONS.md)
 
 ## Requirements
 
