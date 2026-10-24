@@ -219,6 +219,69 @@ test('monitoring holds when no completed backup cycle exists and no cycle is act
 });
 
 
+test('EMP telemetry WATCH raises WARNING and stale/untrusted readings force HOLD', () => {
+  const base = {
+    cycleId: 'monitor-emp-telemetry',
+    checkedAt: '2026-10-24T12:00:00.000Z',
+    ...healthy,
+    backupCycleAgeMinutes: 5,
+    backupCycleInProgress: false,
+    backupCycleStatus: 'VERIFIED' as const,
+    empTelemetryFreshness: 'FRESH' as const,
+    empTelemetrySourceId: 'facility-power-monitor-1',
+    empTelemetryAgeMinutes: 2,
+    empProtectionScore: 1,
+    empProtectionReasons: ['Power-quality telemetry needs review.'],
+  };
+  const watch = evaluateMonitoringSnapshot({ ...base, empProtectionStatus: 'WATCH' as const });
+  assert.equal(watch.status, 'WARNING');
+  assert.match(buildSaqlainMonitoringAlert(watch) ?? '', /empProtectionStatus=WATCH/);
+  assert.match(buildSaqlainMonitoringAlert(watch) ?? '', /facility-power-monitor-1/);
+
+  const stale = evaluateMonitoringSnapshot({
+    ...base,
+    empProtectionStatus: 'HOLD' as const,
+    empTelemetryFreshness: 'STALE' as const,
+    empTelemetryAgeMinutes: 8,
+  });
+  assert.equal(stale.status, 'HOLD');
+  assert.match(buildSaqlainMonitoringAlert(stale) ?? '', /empTelemetryFreshness=STALE/);
+});
+
+test('monitoring cadence can be reduced for optional five-minute telemetry freshness', () => {
+  let interval = 0;
+  const handle = 2 as unknown as ReturnType<typeof setInterval>;
+  const runtime = createSaqlainMonitoringRuntime({
+    auditFilePath: '/tmp/saqlain-monitor-emp-interval-test.jsonl',
+    collectSnapshot: async () => healthy,
+    intervalMs: 5 * 60_000,
+    setIntervalFn: (_fn, milliseconds) => { interval = milliseconds; return handle; },
+    clearIntervalFn: received => { assert.equal(received, handle); },
+  });
+  runtime.start({ runImmediately: false });
+  assert.equal(interval, 5 * 60_000);
+  runtime.stop();
+});
+
+test('malformed EMP freshness metadata fails closed to HOLD', async () => {
+  const ctx = await setup();
+  try {
+    const runtime = createSaqlainMonitoringRuntime({
+      auditFilePath: ctx.auditFilePath,
+      collectSnapshot: async () => ({
+        ...healthy,
+        empProtectionStatus: 'NORMAL',
+        empTelemetryFreshness: 'STALE',
+      }) as never,
+    });
+    const report = await runtime.runCycle();
+    assert.equal(report.status, 'HOLD');
+    assert.match(report.error ?? '', /Non-fresh EMP telemetry must be held/i);
+  } finally {
+    await rm(ctx.root, { recursive: true, force: true });
+  }
+});
+
 test('non-healthy monitoring cycles send a deduplicatable alert and audit adapter acceptance', async () => {
   const ctx = await setup();
   try {
