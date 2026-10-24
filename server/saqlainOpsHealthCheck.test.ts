@@ -83,6 +83,25 @@ test('missing, future, malformed, and mismatched monitoring records fail closed'
   assert.equal(evaluateSaqlainOpsHealth([event()], { now: fixedNow, maxAgeMinutes: 0 }).code, 'INVALID_MAX_AGE_CONFIGURATION');
 });
 
+test('later monitoring alert-delivery failure overrides a previously healthy cycle', () => {
+  const healthyCycle = event({ sequence: 1, taskId: 'saqlain-monitor-healthy', occurredAt: '2026-10-24T11:40:00.000Z' });
+  const failedDelivery = event({
+    sequence: 2,
+    eventId: 'event-2',
+    eventType: 'SAQLAIN_MONITORING_ALERT_ADAPTER_FAILED',
+    actorId: 'saqlain-monitoring-agent',
+    outcome: 'HOLD',
+    taskId: 'saqlain-monitor-new-cycle',
+    occurredAt: '2026-10-24T11:55:00.000Z',
+    details: { idempotencyKey: 'saqlain-monitor-new-cycle', adapterAccepted: false, failureCode: 'ALERT_ADAPTER_ERROR' },
+  });
+  const result = evaluateSaqlainOpsHealth([healthyCycle, failedDelivery], { now: fixedNow });
+  assert.equal(result.healthy, false);
+  assert.equal(result.status, 'HOLD');
+  assert.equal(result.code, 'ALERT_DELIVERY_FAILED');
+  assert.equal(result.latestMonitoringEventAt, '2026-10-24T11:55:00.000Z');
+});
+
 test('audit file checker verifies the hash chain before returning healthy', async () => {
   const root = await mkdtemp(join(tmpdir(), 'saqlain-ops-health-'));
   const auditPath = join(root, 'audit', 'events.jsonl');
