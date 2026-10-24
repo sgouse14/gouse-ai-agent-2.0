@@ -3,6 +3,8 @@
  * Monitors platform health without destructive or security-bypass privileges.
  */
 
+import type { EmpProtectionStatus, EmpTelemetryFreshness } from './saqlainEmpAttackProtector.ts';
+
 export type MonitoringStatus = 'HEALTHY' | 'WARNING' | 'HOLD' | 'FAILED';
 
 // A scheduled cycle normally runs every 30 minutes. A 45-minute grace window
@@ -28,6 +30,14 @@ export interface MonitoringSnapshot {
   backupCycleInProgressMinutes?: number | null;
   /** Result of the most recently completed cycle. */
   backupCycleStatus?: 'VERIFIED' | 'PARTIAL' | 'HOLD' | null;
+  /** Present only when the owner enables the trusted EMP telemetry adapter. */
+  empProtectionStatus?: EmpProtectionStatus;
+  empTelemetryFreshness?: EmpTelemetryFreshness;
+  empTelemetrySourceId?: string;
+  /** Signed age in minutes: negative means the source timestamp is in the future. */
+  empTelemetryAgeMinutes?: number;
+  empProtectionScore?: number;
+  empProtectionReasons?: readonly string[];
   status: MonitoringStatus;
 }
 
@@ -63,6 +73,13 @@ export function evaluateMonitoringSnapshot(input: Omit<MonitoringSnapshot, 'stat
       status = 'FAILED';
     } else if (input.backupCycleStatus && input.backupCycleStatus !== 'VERIFIED') {
       status = 'HOLD';
+    } else if (
+      input.empProtectionStatus === 'HOLD' ||
+      (input.empTelemetryFreshness !== undefined && input.empTelemetryFreshness !== 'FRESH')
+    ) {
+      status = 'HOLD';
+    } else if (input.empProtectionStatus === 'WATCH') {
+      status = 'WARNING';
     }
   }
   return { ...input, status };
@@ -83,5 +100,11 @@ export function buildSaqlainMonitoringAlert(snapshot: MonitoringSnapshot): strin
         ? Math.floor(snapshot.backupCycleInProgressMinutes)
         : 'unknown'
     )] : []),
+    ...(snapshot.empProtectionStatus ? ['empProtectionStatus=' + snapshot.empProtectionStatus] : []),
+    ...(snapshot.empTelemetryFreshness ? ['empTelemetryFreshness=' + snapshot.empTelemetryFreshness] : []),
+    ...(snapshot.empTelemetrySourceId ? ['empTelemetrySourceId=' + snapshot.empTelemetrySourceId] : []),
+    ...(typeof snapshot.empTelemetryAgeMinutes === 'number' ? ['empTelemetryAgeMinutes=' + snapshot.empTelemetryAgeMinutes] : []),
+    ...(typeof snapshot.empProtectionScore === 'number' ? ['empProtectionScore=' + snapshot.empProtectionScore] : []),
+    ...(snapshot.empProtectionReasons?.length ? ['empProtectionReasons=' + snapshot.empProtectionReasons.join('; ')] : []),
   ].join(' | ');
 }
