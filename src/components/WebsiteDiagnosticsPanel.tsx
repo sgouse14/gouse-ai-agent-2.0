@@ -85,8 +85,8 @@ function isReport(value: unknown): value is WebsiteDiagnosticReport {
     typeof value.checkedAt === 'string' &&
     typeof value.origin === 'string' &&
     typeof value.requestedPath === 'string' &&
-    Number.isSafeInteger(value.resourcesChecked) &&
-    Number.isSafeInteger(value.resourceLimit) &&
+    typeof value.resourcesChecked === 'number' && Number.isSafeInteger(value.resourcesChecked) &&
+    typeof value.resourceLimit === 'number' && Number.isSafeInteger(value.resourceLimit) &&
     typeof value.scope === 'string' &&
     Array.isArray(value.findings) &&
     value.findings.every(isFinding) &&
