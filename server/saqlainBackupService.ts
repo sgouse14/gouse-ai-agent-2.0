@@ -7,6 +7,7 @@ import { createDurableQueueTaskRegistry } from './saqlainDurableQueueStore.ts';
 import { getSaqlainAuditBackendMode } from './saqlainAuditBackend.ts';
 import { SaqlainFirestoreTaskQueueService } from './saqlainFirestoreTaskQueueService.ts';
 import { SaqlainGoogleCloudStorageArchive } from './saqlainGoogleCloudStorageArchive.ts';
+import { createSaqlainEmpTelemetryFileReader } from './saqlainEmpTelemetryAdapter.ts';
 
 const required = (key: string): string => {
   const value = process.env[key]?.trim();
@@ -29,6 +30,29 @@ const gcsArchive = gcsBucket
       bucket: gcsBucket,
       prefix: process.env.SAQLAIN_BACKUP_GCS_PREFIX?.trim() || 'saqlain-backups',
     })
+  : undefined;
+
+const empTelemetryEnabledValue = process.env.SAQLAIN_EMP_TELEMETRY_ENABLED?.trim().toLowerCase() || 'false';
+if (empTelemetryEnabledValue !== 'true' && empTelemetryEnabledValue !== 'false') {
+  throw new Error('SAQLAIN_EMP_TELEMETRY_ENABLED must be true or false.');
+}
+const empTelemetryReader = empTelemetryEnabledValue === 'true'
+  ? (() => {
+      let allowedSourceIds: unknown;
+      try {
+        allowedSourceIds = JSON.parse(required('SAQLAIN_EMP_TELEMETRY_ALLOWED_SOURCE_IDS_JSON'));
+      } catch {
+        throw new Error('SAQLAIN_EMP_TELEMETRY_ALLOWED_SOURCE_IDS_JSON must be a JSON array of exact approved source IDs.');
+      }
+      if (!Array.isArray(allowedSourceIds) ||
+          allowedSourceIds.some(sourceId => typeof sourceId !== 'string')) {
+        throw new Error('SAQLAIN_EMP_TELEMETRY_ALLOWED_SOURCE_IDS_JSON must be a JSON array of exact approved source IDs.');
+      }
+      return createSaqlainEmpTelemetryFileReader({
+        filePath: required('SAQLAIN_EMP_TELEMETRY_FILE'),
+        allowedSourceIds,
+      });
+    })()
   : undefined;
 
 const auditBackendMode = getSaqlainAuditBackendMode();
@@ -80,6 +104,7 @@ const monitoringRuntime = createSaqlainMonitoringRuntime({
       await getSaqlainHeartbeatSnapshot(),
     );
     const queueCounts = await taskQueueService.getCounts();
+    const empAssessment = empTelemetryReader ? await empTelemetryReader.read() : undefined;
     return {
       // Counts only authenticated, recent heartbeats from configured heartbeat credentials.
       activeAgents: heartbeatSummary.activeAgents,
@@ -98,6 +123,15 @@ const monitoringRuntime = createSaqlainMonitoringRuntime({
         ? Math.max(0, (currentTime - currentCycleStartTime) / 60_000)
         : null,
       backupCycleStatus: report?.status ?? null,
+      ...(empAssessment ? {
+        // Optional trusted sensor correlation: stale/unapproved/future input becomes HOLD and triggers a monitoring alert.
+        empProtectionStatus: empAssessment.status,
+        empTelemetryFreshness: empAssessment.telemetry.freshness,
+        empTelemetrySourceId: empAssessment.telemetry.sourceId,
+        empTelemetryAgeMinutes: Math.round((empAssessment.telemetry.ageMs / 60_000) * 100) / 100,
+        empProtectionScore: empAssessment.score,
+        empProtectionReasons: empAssessment.reasons,
+      } : {}),
     };
   },
   // The systemd unit captures stderr in the journal. This is a local alert sink,
