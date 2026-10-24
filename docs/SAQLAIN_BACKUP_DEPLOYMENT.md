@@ -57,6 +57,15 @@ Run the service under a process supervisor (for example, systemd or an equivalen
 
 The entrypoint is available as `server/saqlainBackupService.ts`, with the `backup:service` package script. Off-site GCS archival is supported and required by startup when running on Cloud Run, but it has not been tested against a live bucket/IAM configuration. The adapter verifies object versioning, uses create-only preconditions, reads back objects, and writes a completion marker last. A GCS restore adapter, live bucket/permission validation, and a supervised restore drill remain open. The monitoring snapshot includes durable queue counts, failed tasks and timeout-review holds, authenticated heartbeat counts, and explicit backup-cycle freshness. A completed backup/recovery cycle older than 45 minutes or a cycle running longer than 45 minutes is reported as `FAILED`; no completed cycle with no active cycle is `HOLD`. The 45-minute limits are initial policy defaults and must be tuned from measured staging cycle duration before production use. These in-process alerts do not page anyone by themselves; configure a separately managed alerting/monitoring service that watches the supervised process and durable logs. Treat those as launch blockers for production-critical data.
 
+## Independent audit freshness health check
+
+The repository includes a read-only server/saqlainOpsHealthCheckCli.ts process that verifies the hash chain in SAQLAIN_BACKUP_AUDIT_FILE and checks that the latest Saqlain monitoring cycle is recent and has status HEALTHY. Missing monitoring records, stale records, tampered/unreadable audit logs, invalid status/outcome combinations, or a recorded alert-delivery failure return a non-zero exit code. It does not mutate backups, release holds, or initiate recovery.
+
+- Set SAQLAIN_OPS_HEALTH_MAX_AGE_MINUTES (default 45; allowed range 1–1440) in /etc/saqlain/backup.env.
+- Run once manually with npm run ops:healthcheck after the backup/monitoring runtime has produced a recent healthy cycle. The CLI emits one compact JSON result to stdout and exits non-zero if unhealthy.
+- Example systemd unit files are supplied at deploy/systemd/saqlain-ops-healthcheck.service.example and deploy/systemd/saqlain-ops-healthcheck.timer.example. Review paths and user permissions before installing. The timer runs a read-only check every five minutes and logs results to the system journal.
+- A local timer cannot report a dead host, failed disk, or inaccessible audit volume from outside that same host. Configure independent Cloud Monitoring/uptime alerting and a human paging owner; the local check is a second line of defense, not a replacement.
+
 ## Operational freshness and alert policy
 
 - Backup/recovery cycles are scheduled every 30 minutes. The Saqlain monitoring agent now checks the age of the last completed cycle and the runtime of an active cycle so old successful counts cannot silently mask missed or stuck work.
