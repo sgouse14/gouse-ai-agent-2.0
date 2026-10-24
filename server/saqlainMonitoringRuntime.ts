@@ -27,6 +27,8 @@ export interface SaqlainMonitoringRuntimeOptions {
   /** Read-only collector. It must not mutate protected files or release security holds. */
   collectSnapshot: () => Promise<Omit<MonitoringSnapshot, 'status' | 'cycleId' | 'checkedAt'>>;
   auditFilePath: string;
+  /** Optional bounded interval override, used to poll enabled operational telemetry more frequently. */
+  intervalMs?: number;
   /** Optional configured alert adapter. A resolved promise means the adapter accepted the alert. */
   notifyAlert?: (notification: MonitoringAlertNotification) => Promise<void>;
   now?: () => Date;
@@ -97,6 +99,10 @@ export function createSaqlainMonitoringRuntime(options: SaqlainMonitoringRuntime
   const now = options.now ?? (() => new Date());
   const schedule = options.setIntervalFn ?? setInterval;
   const unschedule = options.clearIntervalFn ?? clearInterval;
+  const intervalMs = options.intervalMs ?? SAQLAIN_MONITORING_INTERVAL_MS;
+  if (!Number.isSafeInteger(intervalMs) || intervalMs < 60_000 || intervalMs > 24 * 60 * 60 * 1000) {
+    throw new Error('Monitoring interval must be an integer between 1 minute and 24 hours.');
+  }
   let timer: ReturnType<typeof setInterval> | null = null;
   let inFlight: Promise<MonitoringCycleReport> | null = null;
   let lastReport: MonitoringCycleReport | null = null;
@@ -232,7 +238,7 @@ export function createSaqlainMonitoringRuntime(options: SaqlainMonitoringRuntime
   }
   function start(startOptions: { runImmediately?: boolean } = {}): void {
     if (timer !== null) return;
-    timer = schedule(() => { void runCycle().catch(() => undefined); }, SAQLAIN_MONITORING_INTERVAL_MS);
+    timer = schedule(() => { void runCycle().catch(() => undefined); }, intervalMs);
     if (startOptions.runImmediately !== false) void runCycle().catch(() => undefined);
   }
   function stop(): void {
