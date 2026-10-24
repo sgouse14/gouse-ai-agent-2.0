@@ -193,8 +193,15 @@ export class SaqlainGoogleCloudStorageArchive {
 
   private async readObject(name: string, maxBytes: number): Promise<Buffer | null> {
     const response = await this.request(this.objectUrl(name));
-    if (response.status === 404) return null;
-    if (!response.ok) throw new Error('GCS object read failed with HTTP ' + response.status + '.');
+    if (response.status === 404) {
+      await response.body?.cancel().catch(() => undefined);
+      return null;
+    }
+    if (!response.ok) {
+      const status = response.status;
+      await response.body?.cancel().catch(() => undefined);
+      throw new Error('GCS object read failed with HTTP ' + status + '.');
+    }
     const declaredLength = Number(response.headers.get('content-length'));
     if (Number.isFinite(declaredLength) && declaredLength > maxBytes) {
       throw new Error('GCS archive object exceeds the configured readback limit.');
@@ -220,8 +227,11 @@ export class SaqlainGoogleCloudStorageArchive {
     });
     if (!response.ok && response.status !== 412) {
       // Never include response bodies: cloud errors can contain object metadata or other sensitive details.
-      throw new Error('GCS create-only object upload failed with HTTP ' + response.status + '.');
+      const status = response.status;
+      await response.body?.cancel().catch(() => undefined);
+      throw new Error('GCS create-only object upload failed with HTTP ' + status + '.');
     }
+    await response.body?.cancel().catch(() => undefined);
     const persisted = await this.readObject(name, maxBytes);
     if (!persisted) throw new Error('GCS object was not available after create/readback.');
     if (!persisted.equals(Buffer.from(bytes))) {

@@ -25,7 +25,7 @@ Do not point backup or recovery staging at any source directory. Do not use a so
 
 ## Google Cloud Storage off-site archive
 
-The secure backup agent has an optional GCS archive adapter for Cloud Run and other environments that require a durable off-host copy. When `K_SERVICE` or `K_REVISION` is present, startup fails closed if `SAQLAIN_BACKUP_GCS_BUCKET` is not configured. In other environments, setting `SAQLAIN_BACKUP_OFFSITE_REQUIRED=true` has the same requirement. If a bucket is configured, each source snapshot is held unless the archive operation succeeds.
+The secure backup agent has an optional GCS archive adapter for Cloud Run and other environments that require a durable off-host copy. When Cloud Run service or job markers (`K_SERVICE`, `K_REVISION`, `CLOUD_RUN_JOB`, or `CLOUD_RUN_EXECUTION`) are present, startup fails closed if `SAQLAIN_BACKUP_GCS_BUCKET` is not configured. In other environments, setting `SAQLAIN_BACKUP_OFFSITE_REQUIRED=true` has the same requirement. If a bucket is configured, each source snapshot is held unless the archive operation succeeds.
 
 Before enabling this:
 1. Use an owner-managed bucket in the intended backup region/project, separate from the application runtime's writable local paths.

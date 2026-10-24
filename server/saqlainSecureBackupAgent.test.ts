@@ -93,3 +93,59 @@ test('audit lock failure prevents VERIFIED result and does not mutate source', a
     assert.equal(await readFile(join(ctx.storageRoot, 'test-cycle-05-saq-backup-gouse', 'project.txt'), 'utf8'), 'protected project source');
   } finally { await rm(ctx.root, { recursive: true, force: true }); }
 });
+
+
+test('off-site archive failure keeps the backup on HOLD and retains verified local evidence', async () => {
+  const ctx = await setup();
+  try {
+    const sourcePath = join(ctx.sourceRoot, 'project.txt');
+    const originalBefore = await readFile(sourcePath);
+    const result = await runSecureBackupAgent({
+      agent: ctx.agent,
+      cycleId: 'test-cycle-archive-failure',
+      config: ctx.config,
+      auditFilePath: ctx.auditFilePath,
+      archiveSnapshot: async () => { throw new Error('GCS archive unavailable'); },
+    });
+    assert.equal(result.decision, 'HOLD');
+    assert.equal(result.remoteArchive, null);
+    assert.match(result.reason, /GCS archive unavailable/);
+    assert.equal(result.originalsModified, false);
+    assert.deepEqual(await readFile(sourcePath), originalBefore);
+    assert.equal(await readFile(join(result.snapshot!.directory, 'project.txt'), 'utf8'), 'protected project source');
+    const events = await readVerifiedAuditLog(ctx.auditFilePath);
+    assert.equal(events[0].outcome, 'HOLD');
+    assert.equal(events[0].details?.decision, 'HOLD');
+    assert.equal(events[0].details?.remoteArchive, null);
+  } finally { await rm(ctx.root, { recursive: true, force: true }); }
+});
+
+test('a verified remote archive receipt is included in the durable backup audit', async () => {
+  const ctx = await setup();
+  try {
+    const result = await runSecureBackupAgent({
+      agent: ctx.agent,
+      cycleId: 'test-cycle-archive-success',
+      config: ctx.config,
+      auditFilePath: ctx.auditFilePath,
+      archiveSnapshot: async snapshot => ({
+        provider: 'google-cloud-storage',
+        status: 'VERIFIED',
+        bucket: 'saqlain-backups-test-01',
+        prefix: 'saqlain-backups',
+        snapshotId: snapshot.snapshotId,
+        objectCount: 3,
+        totalBytes: 24,
+        manifestSha256: 'a'.repeat(64),
+        completionObjectName: 'saqlain-backups/' + snapshot.snapshotId + '/ARCHIVE_COMPLETE.json',
+        verifiedAt: '2026-10-24T10:05:00.000Z',
+      }),
+    });
+    assert.equal(result.decision, 'VERIFIED');
+    assert.equal(result.remoteArchive?.provider, 'google-cloud-storage');
+    const events = await readVerifiedAuditLog(ctx.auditFilePath);
+    assert.equal(events[0].outcome, 'ALLOW');
+    assert.equal((events[0].details?.remoteArchive as Record<string, unknown>)?.bucket, 'saqlain-backups-test-01');
+    assert.equal((events[0].details?.remoteArchive as Record<string, unknown>)?.completionObjectName, result.remoteArchive?.completionObjectName);
+  } finally { await rm(ctx.root, { recursive: true, force: true }); }
+});

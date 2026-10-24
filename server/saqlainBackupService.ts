@@ -14,19 +14,7 @@ const required = (key: string): string => {
   return value;
 };
 
-const auditBackendMode = getSaqlainAuditBackendMode();
-const taskQueueService = auditBackendMode === 'firestore'
-  ? new SaqlainFirestoreTaskQueueService()
-  : createSaqlainTaskQueueService(createDurableQueueTaskRegistry(required('SAQLAIN_TASK_QUEUE_FILE')));
-// A task locked before a restart has an ambiguous outcome. Hold it for review;
-// never automatically mark it completed or re-run potentially non-idempotent work.
-// Await works for both the async Firestore adapter and the synchronous local adapter.
-const recoveredTasks = await taskQueueService.recoverInterruptedTasks();
-if (recoveredTasks.length > 0) {
-  console.warn('Saqlain queue recovery moved interrupted tasks to TIMEOUT_REVIEW:', recoveredTasks.map((task) => task.managerTaskId));
-}
-
-const cloudRunRuntime = Boolean(process.env.K_SERVICE?.trim() || process.env.K_REVISION?.trim());
+const cloudRunRuntime = Boolean(process.env.K_SERVICE?.trim() || process.env.K_REVISION?.trim() || process.env.CLOUD_RUN_JOB?.trim() || process.env.CLOUD_RUN_EXECUTION?.trim());
 const offsiteRequiredValue = process.env.SAQLAIN_BACKUP_OFFSITE_REQUIRED?.trim().toLowerCase();
 if (offsiteRequiredValue && offsiteRequiredValue !== 'true' && offsiteRequiredValue !== 'false') {
   throw new Error('SAQLAIN_BACKUP_OFFSITE_REQUIRED must be true or false.');
@@ -42,6 +30,18 @@ const gcsArchive = gcsBucket
       prefix: process.env.SAQLAIN_BACKUP_GCS_PREFIX?.trim() || 'saqlain-backups',
     })
   : undefined;
+
+const auditBackendMode = getSaqlainAuditBackendMode();
+const taskQueueService = auditBackendMode === 'firestore'
+  ? new SaqlainFirestoreTaskQueueService()
+  : createSaqlainTaskQueueService(createDurableQueueTaskRegistry(required('SAQLAIN_TASK_QUEUE_FILE')));
+// A task locked before a restart has an ambiguous outcome. Hold it for review;
+// never automatically mark it completed or re-run potentially non-idempotent work.
+// Await works for both the async Firestore adapter and the synchronous local adapter.
+const recoveredTasks = await taskQueueService.recoverInterruptedTasks();
+if (recoveredTasks.length > 0) {
+  console.warn('Saqlain queue recovery moved interrupted tasks to TIMEOUT_REVIEW:', recoveredTasks.map((task) => task.managerTaskId));
+}
 
 const runtime = createApprovedContinuousBackupRuntime({
   storageRoot: required('SAQLAIN_BACKUP_STORAGE_ROOT'),

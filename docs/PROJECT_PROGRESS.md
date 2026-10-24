@@ -57,6 +57,7 @@ Updated: 2026-10-24
 - [ ] Thresholds need staging calibration based on measured cycle durations.
 - [ ] External independent alerting/paging and process/host-down monitoring are not implemented by this change.
 - [x] Added optional Google Cloud Storage off-site archival with bucket-versioning enforcement, create-only object preconditions, SHA-256/readback verification, and a completion marker written last; Cloud Run startup requires a configured archive bucket.
+- [x] Added integration tests proving that remote archive failure leaves the local snapshot intact but returns `HOLD`, while successful remote archive receipts are included in the durable backup audit.
 - [ ] Live GCS bucket/IAM validation, GCS restore adapter, and a supervised restore drill remain open.
 - [x] EMP resilience helper now requires owner-allowlisted source IDs and timestamped telemetry; stale, future, or unapproved-source observations return HOLD without scoring or physical action.
 - [ ] Connect the helper to a trusted server-side telemetry adapter and provision verified source IDs; the helper is not yet exposed through a live endpoint.
