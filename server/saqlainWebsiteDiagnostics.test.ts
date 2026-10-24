@@ -49,8 +49,15 @@ test('scanner detects missing internal resources and a missing title without con
     },
   });
   assert.equal(report.status, 'ISSUES_FOUND');
-  assert.ok(report.findings.some(finding => finding.code === 'MISSING_PAGE_TITLE'));
-  assert.ok(report.findings.some(finding => finding.code === 'BROKEN_INTERNAL_RESOURCE' && finding.location === '/missing'));
+  const titleFinding = report.findings.find(finding => finding.code === 'MISSING_PAGE_TITLE');
+  assert.ok(titleFinding);
+  assert.equal(titleFinding.repairPlan?.actionType, 'content');
+  assert.equal(titleFinding.repairPlan?.approvalRequired, true);
+  assert.equal(titleFinding.repairPlan?.automaticApply, false);
+  const brokenLink = report.findings.find(finding => finding.code === 'BROKEN_INTERNAL_RESOURCE' && finding.location === '/missing');
+  assert.ok(brokenLink);
+  assert.equal(brokenLink.repairPlan?.actionType, 'routing');
+  assert.ok(brokenLink.repairPlan?.rollbackGuidance);
   assert.equal(report.resourcesChecked, 3);
   assert.equal(calls.length, 3);
   assert.ok(calls.every(call => call.address === '93.184.216.34'));
@@ -101,4 +108,16 @@ test('scanner rejects DNS answers that are not public IPv4 addresses', async () 
     }),
     WebsiteTargetRejectedError,
   );
+});
+
+
+test('a page with a low-severity actionable finding is not reported as a clean pass', async () => {
+  const report = await diagnoseWebsite('https://example.com/', {
+    resolvePublicIPv4: publicAddress,
+    request: async () => response(200, 'text/html', '<html><body>No title</body></html>'),
+  });
+  assert.equal(report.status, 'ISSUES_FOUND');
+  const finding = report.findings.find(item => item.code === 'MISSING_PAGE_TITLE');
+  assert.equal(finding?.repairPlan?.approvalRequired, true);
+  assert.equal(finding?.repairPlan?.automaticApply, false);
 });
