@@ -226,8 +226,12 @@ async function fetchSameOriginResource(
   let current = new URL(originalUrl);
   for (let redirects = 0; redirects <= MAX_REDIRECTS; redirects++) {
     let address: string;
-    try { address = await resolveAddress(current.hostname); }
-    catch (error) {
+    try {
+      address = await resolveAddress(current.hostname);
+      if (!isPublicIPv4(address)) {
+        throw new WebsiteTargetRejectedError('Website hostname did not resolve to an allowed public IPv4 address.');
+      }
+    } catch (error) {
       return {
         requestedUrl: originalUrl, finalUrl: current, response: null, externalRedirect: false,
         redirectLimitReached: false,
