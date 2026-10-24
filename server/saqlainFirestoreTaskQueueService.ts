@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import type { QueueTask, QueueTaskCounts, QueueTaskStatus } from './saqlainTaskQueueManager.ts';
 import { createQueueTask, lockQueueTask, completeQueueTask, markTaskTimeout } from './saqlainTaskQueueManager.ts';
 import { SaqlainFirestoreRestClient, encodeFirestoreValue, type FirestoreWrite } from './saqlainFirestoreRest.ts';
@@ -96,18 +97,48 @@ export class SaqlainFirestoreTaskQueueService {
     };
   }
 
-  async enqueue(backupTaskId: string, actorId = 'saqlain-queue', now = new Date()): Promise<QueueTask> {
-    if (!backupTaskId?.trim()) throw new Error('backupTaskId is required.');
+  async enqueue(backupTaskId: string, actorId = 'saqlain-queue', now = new Date(), idempotencyKey?: string): Promise<QueueTask> {
+    const normalizedBackupTaskId = typeof backupTaskId === 'string' ? backupTaskId.trim() : '';
+    if (!normalizedBackupTaskId) throw new Error('backupTaskId is required.');
+    const normalizedKey = typeof idempotencyKey === 'string' ? idempotencyKey.trim() : '';
+    if (normalizedKey.length < 8 || normalizedKey.length > 256) {
+      throw new Error('A stable idempotency key between 8 and 256 characters is required.');
+    }
+    const idempotencyDocumentId = 'queue-idempotency-' + createHash('sha256').update(normalizedKey).digest('hex');
+    const requestFingerprint = createHash('sha256')
+      .update(JSON.stringify({ backupTaskId: normalizedBackupTaskId }))
+      .digest('hex');
     for (let attempt=0; attempt<this.retries; attempt++) {
+      // A repeated request returns the exact task created by the first successful commit.
+      // The key record, task document, and counter are committed atomically below.
+      const idempotencyRecord = await this.client.getDocument(this.collection, idempotencyDocumentId);
+      if (idempotencyRecord) {
+        if (idempotencyRecord.requestFingerprint !== requestFingerprint ||
+            typeof idempotencyRecord.managerTaskId !== 'string' ||
+            !/^\\d{5,}$/.test(idempotencyRecord.managerTaskId)) {
+          throw new Error('Idempotency key was already used for a different or invalid queue request.');
+        }
+        const existingTaskDocument = await this.client.getDocument(this.collection, idempotencyRecord.managerTaskId);
+        if (!existingTaskDocument) throw new Error('Idempotency record references a missing queue task; refusing to create a duplicate.');
+        const existingTask = taskFrom(existingTaskDocument);
+        if (existingTask.backupTaskId !== normalizedBackupTaskId ||
+            existingTask.managerTaskId !== idempotencyRecord.managerTaskId) {
+          throw new Error('Idempotency record does not match its queue task; refusing to create a duplicate.');
+        }
+        return existingTask;
+      }
       const counter = await this.client.getDocument(this.collection, COUNTER_ID);
       const previous = counter ? Number(counter.sequence) : 0;
       if (!Number.isSafeInteger(previous) || previous < 0) throw new Error('Firestore queue sequence counter is invalid.');
-      const task = createQueueTask(previous + 1, backupTaskId, now);
+      const task = createQueueTask(previous + 1, normalizedBackupTaskId, now);
       await this.audit('QUEUE_TASK_ENQUEUE_INTENT', actorId, 'ALLOW', task);
       const writes: FirestoreWrite[] = [
         { update: { name: this.client.documentName(this.collection, task.managerTaskId), fields: enc(task as unknown as Record<string, unknown>) }, currentDocument: { exists: false } },
         { update: { name: this.client.documentName(this.collection, COUNTER_ID), fields: enc({ sequence: previous + 1 }) },
           currentDocument: counter?._updateTime ? { updateTime: String(counter._updateTime) } : { exists: false } },
+        { update: { name: this.client.documentName(this.collection, idempotencyDocumentId), fields: enc({
+          managerTaskId: task.managerTaskId, requestFingerprint, createdAt: now.toISOString(),
+        }) }, currentDocument: { exists: false } },
       ];
       try { await this.client.commit(writes); return task; }
       catch (error) {
