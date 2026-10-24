@@ -6,6 +6,15 @@ import * as https from 'node:https';
 export type WebsiteDiagnosticMethod = 'GET' | 'HEAD';
 export type WebsiteDiagnosticSeverity = 'high' | 'medium' | 'low' | 'info';
 
+export interface WebsiteRepairPlan {
+  actionType: 'content' | 'routing' | 'configuration' | 'manual-review';
+  steps: string[];
+  verification: string[];
+  approvalRequired: true;
+  automaticApply: false;
+  rollbackGuidance: string;
+}
+
 export interface WebsiteDiagnosticFinding {
   code: string;
   severity: WebsiteDiagnosticSeverity;
@@ -13,6 +22,7 @@ export interface WebsiteDiagnosticFinding {
   location: string;
   evidence: string;
   recommendation: string;
+  repairPlan?: WebsiteRepairPlan;
 }
 
 export interface WebsiteDiagnosticReport {
@@ -329,6 +339,113 @@ async function mapLimit<T, R>(items: readonly T[], limit: number, work: (item: T
   return result;
 }
 
+function repairPlanFor(finding: WebsiteDiagnosticFinding): WebsiteRepairPlan {
+  const sharedVerification = [
+    'Test the changed route/resource in the owner-controlled staging environment.',
+    'Re-run diagnostics and relevant application tests; confirm there are no new errors.',
+  ];
+  const rollbackGuidance = 'Record the current version before changing it. Revert the specific reviewed code/configuration change to that version if verification fails; do not overwrite protected originals or backups.';
+  switch (finding.code) {
+    case 'BROKEN_INTERNAL_RESOURCE':
+      return {
+        actionType: 'routing',
+        steps: [
+          'Confirm whether the missing route or asset should exist and identify its canonical path.',
+          'Restore the missing resource, correct the referring link, or add an explicit redirect to an approved destination.',
+          'Review redirects for loops and keep them on the expected canonical host.',
+        ],
+        verification: [...sharedVerification, 'Check the original URL and all known inbound links for the expected status and content.'],
+        approvalRequired: true,
+        automaticApply: false,
+        rollbackGuidance,
+      };
+    case 'SITE_SERVER_ERROR':
+    case 'RESOURCE_SERVER_ERROR':
+      return {
+        actionType: 'configuration',
+        steps: [
+          'Reproduce the 5xx response in staging and inspect owner-accessible server/application logs.',
+          'Identify the failing handler, dependency, or configuration before editing code.',
+          'Prepare the smallest targeted fix and a regression test.',
+        ],
+        verification: [...sharedVerification, 'Confirm the route returns the expected success status under normal and failure conditions.'],
+        approvalRequired: true,
+        automaticApply: false,
+        rollbackGuidance,
+      };
+    case 'MISSING_PAGE_TITLE':
+      return {
+        actionType: 'content',
+        steps: [
+          'Add a concise, unique HTML title describing the page.',
+          'Avoid duplicating titles across distinct pages and keep the title aligned with the page content.',
+        ],
+        verification: [...sharedVerification, 'Confirm the rendered HTML contains the expected title and metadata.'],
+        approvalRequired: true,
+        automaticApply: false,
+        rollbackGuidance,
+      };
+    case 'MIXED_CONTENT_REFERENCE':
+      return {
+        actionType: 'configuration',
+        steps: [
+          'Identify the HTTP resource referenced by the HTTPS page.',
+          'Confirm the destination supports valid HTTPS, then update the reference to the approved HTTPS URL.',
+          'Do not disable TLS validation or replace the URL with an unverified host.',
+        ],
+        verification: [...sharedVerification, 'Check browser network/security logs for remaining mixed-content requests.'],
+        approvalRequired: true,
+        automaticApply: false,
+        rollbackGuidance,
+      };
+    case 'CROSS_ORIGIN_REDIRECT_NOT_FOLLOWED':
+    case 'RESOURCE_REDIRECTS_OFFSITE':
+      return {
+        actionType: 'routing',
+        steps: [
+          'Confirm whether the off-origin redirect is expected and owned/approved by the website operator.',
+          'Review the redirect source and destination configuration.',
+          'Do not add a destination to the scan allowlist unless its owner has separately approved it.',
+        ],
+        verification: [...sharedVerification, 'Confirm the canonical redirect destination and check that no unexpected external hop remains.'],
+        approvalRequired: true,
+        automaticApply: false,
+        rollbackGuidance,
+      };
+    case 'HTML_BODY_LIMIT':
+    case 'RESOURCE_CHECK_FAILED':
+    case 'RESOURCE_CHECK_BLOCKED':
+    case 'REDIRECT_LIMIT':
+    case 'HEAD_NOT_SUPPORTED':
+    case 'RESOURCE_ACCESS_RESTRICTED':
+    case 'RESOURCE_RATE_LIMITED':
+    case 'RESOURCE_CLIENT_ERROR':
+      return {
+        actionType: 'manual-review',
+        steps: [
+          'Verify whether the response is expected using the website owner’s monitoring/logs.',
+          'If a change is warranted, prepare a specific patch or configuration proposal; do not infer that an inconclusive scan proves a defect.',
+        ],
+        verification: [...sharedVerification, 'Re-run the check only after the issue and expected behavior are understood.'],
+        approvalRequired: true,
+        automaticApply: false,
+        rollbackGuidance,
+      };
+    default:
+      return {
+        actionType: 'manual-review',
+        steps: [
+          'Review the finding and evidence with the website owner.',
+          'Prepare a minimal, scoped change proposal and an explicit rollback plan if a correction is required.',
+        ],
+        verification: sharedVerification,
+        approvalRequired: true,
+        automaticApply: false,
+        rollbackGuidance,
+      };
+  }
+}
+
 function findingForStatus(path: string, statusCode: number, method: WebsiteDiagnosticMethod): WebsiteDiagnosticFinding | null {
   if (statusCode >= 500) {
     return {
@@ -478,20 +595,20 @@ export async function diagnoseWebsite(
     finding.code + '|' + finding.location + '|' + finding.evidence,
     finding,
   ])).values()];
-  const hasHighOrMedium = uniqueFindings.some(finding => finding.severity === 'high' || finding.severity === 'medium');
+  const hasActionableFindings = uniqueFindings.some(finding => finding.severity !== 'info');
   const isIncomplete = root.response.bodyTooLarge || uniqueFindings.some(finding =>
     finding.code === 'RESOURCE_CHECK_FAILED' || finding.code === 'RESOURCE_CHECK_BLOCKED' ||
     finding.code === 'CROSS_ORIGIN_REDIRECT_NOT_FOLLOWED' || finding.code === 'REDIRECT_LIMIT'
   );
   return {
-    status: isIncomplete ? 'INCOMPLETE' : hasHighOrMedium ? 'ISSUES_FOUND' : 'PASS',
+    status: isIncomplete ? 'INCOMPLETE' : hasActionableFindings ? 'ISSUES_FOUND' : 'PASS',
     checkedAt: now().toISOString(),
     origin: target.origin,
     requestedPath: normalizePath(target),
     resourcesChecked,
     resourceLimit: MAX_RESOURCE_CHECKS,
     scope: 'submitted page and same-origin links/assets only',
-    findings: uniqueFindings,
+    findings: uniqueFindings.map(finding => ({ ...finding, repairPlan: repairPlanFor(finding) })),
     notes: [
       'The diagnostic is read-only. It does not sign in, submit forms, execute JavaScript, exploit vulnerabilities, or change website content.',
       'Only the submitted page is fetched with GET; same-origin links/assets are checked with HEAD. Cross-origin and query-bearing URLs are not contacted.',
