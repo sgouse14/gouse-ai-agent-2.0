@@ -97,3 +97,25 @@ test('audit write failure downgrades the agent result to HOLD', async () => {
     await rm(root, { recursive: true, force: true });
   }
 });
+
+
+test('runtime exposes current cycle start time for liveness monitoring and clears it after completion', async () => {
+  let release: (() => void) | undefined;
+  const gate = new Promise<void>(resolve => { release = resolve; });
+  const runtime = createSaqlainBackupRuntime({
+    runAgentCycle: async () => {
+      await gate;
+      return { status: 'VERIFIED' };
+    },
+    now: () => new Date('2026-10-24T10:00:00.000Z'),
+  });
+  const pending = runtime.runCycle();
+  const runningState = runtime.getState();
+  assert.equal(runningState.cycleInProgress, true);
+  assert.equal(runningState.cycleStartedAt, '2026-10-24T10:00:00.000Z');
+  release?.();
+  await pending;
+  const finishedState = runtime.getState();
+  assert.equal(finishedState.cycleInProgress, false);
+  assert.equal(finishedState.cycleStartedAt, null);
+});

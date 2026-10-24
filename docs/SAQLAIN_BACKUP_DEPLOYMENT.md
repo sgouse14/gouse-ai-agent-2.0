@@ -38,7 +38,14 @@ After installing dependencies, configuring all required environment variables ab
 
 Run the service under a process supervisor (for example, systemd or an equivalent managed service). Configure restart-on-failure, bounded restart backoff, restricted filesystem access, log rotation, and alerting for service exit or missed cycles. The runtime's in-process 30-minute timer is not sufficient by itself to guarantee 24/7 operation across process or host restarts.
 
-The entrypoint is now available as `server/saqlainBackupService.ts`, with the `backup:service` package script. It is not yet production-validated and does not provide durable cycle state, off-host replication, or independent host-down notifications. The monitoring snapshot now includes durable queue counts, including failed tasks and timeout-review holds; heartbeat counts still depend on configured authenticated heartbeats. Treat those as launch blockers for production critical data.
+The entrypoint is available as `server/saqlainBackupService.ts`, with the `backup:service` package script. It is not yet production-validated and does not provide durable cycle state, off-host replication, or independent host-down notifications. The monitoring snapshot includes durable queue counts, failed tasks and timeout-review holds, authenticated heartbeat counts, and explicit backup-cycle freshness. A completed backup/recovery cycle older than 45 minutes or a cycle running longer than 45 minutes is reported as `FAILED`; no completed cycle with no active cycle is `HOLD`. The 45-minute limits are initial policy defaults and must be tuned from measured staging cycle duration before production use. These in-process alerts do not page anyone by themselves; configure a separately managed alerting/monitoring service that watches the supervised process and durable logs. Treat those as launch blockers for production-critical data.
+
+## Operational freshness and alert policy
+
+- Backup/recovery cycles are scheduled every 30 minutes. The Saqlain monitoring agent now checks the age of the last completed cycle and the runtime of an active cycle so old successful counts cannot silently mask missed or stuck work.
+- Default thresholds are 45 minutes for a stale completed cycle and 45 minutes for an active cycle that has not finished. Tune these after observing staging duration distributions; if a legitimate cycle can exceed the active threshold, raise the limit deliberately and document why.
+- Monitoring status and alert text are durably audited. This process-local scheduler cannot alert if the host, container, disk, or audit volume is unavailable. Use an independent provider/platform monitor for missed heartbeats, process exit, host loss, and human paging.
+- Keep the external alert receiver and its credentials outside this repository and outside the backup process' writeable source paths. Test notification failure, duplicate alerts, escalation ownership, and recovery after alert-service outage.
 
 ## Incident and recovery rules
 

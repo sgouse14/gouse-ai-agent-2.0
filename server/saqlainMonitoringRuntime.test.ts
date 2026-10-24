@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { readVerifiedAuditLog } from './saqlainAuditLog.ts';
 import { SAQLAIN_MONITORING_INTERVAL_MS, createSaqlainMonitoringRuntime } from './saqlainMonitoringRuntime.ts';
+import { buildSaqlainMonitoringAlert, evaluateMonitoringSnapshot, SAQLAIN_BACKUP_MAX_CYCLE_RUNTIME_MINUTES, SAQLAIN_BACKUP_STALE_AFTER_MINUTES } from './saqlainMonitoringAgent.ts';
 
 const healthy = {
   activeAgents: 5, lockedTasks: 1, completedTasks: 3, failedTasks: 0,
@@ -152,3 +153,67 @@ test('zero active agents produces WARNING rather than a false healthy state', as
   } finally { await rm(ctx.root, { recursive: true, force: true }); }
 });
 
+
+
+test('monitoring fails when a completed backup/recovery cycle becomes stale', () => {
+  const snapshot = evaluateMonitoringSnapshot({
+    cycleId: 'monitor-stale-backup',
+    checkedAt: '2026-10-24T10:00:00.000Z',
+    ...healthy,
+    backupCycleAgeMinutes: SAQLAIN_BACKUP_STALE_AFTER_MINUTES + 1,
+    backupCycleInProgress: false,
+    backupCycleInProgressMinutes: null,
+    backupCycleStatus: 'VERIFIED',
+  });
+  assert.equal(snapshot.status, 'FAILED');
+  assert.match(buildSaqlainMonitoringAlert(snapshot) ?? '', /backupCycleAgeMinutes=46/);
+});
+
+test('monitoring holds incomplete backup cycles and detects stuck cycle execution', () => {
+  const partial = evaluateMonitoringSnapshot({
+    cycleId: 'monitor-partial-backup',
+    checkedAt: '2026-10-24T10:00:00.000Z',
+    ...healthy,
+    backupCycleAgeMinutes: 5,
+    backupCycleInProgress: false,
+    backupCycleStatus: 'PARTIAL',
+  });
+  assert.equal(partial.status, 'HOLD');
+  assert.match(buildSaqlainMonitoringAlert(partial) ?? '', /backupCycleStatus=PARTIAL/);
+
+  const activeButRecent = evaluateMonitoringSnapshot({
+    cycleId: 'monitor-running-backup',
+    checkedAt: '2026-10-24T10:00:00.000Z',
+    ...healthy,
+    backupCycleAgeMinutes: 100,
+    backupCycleInProgress: true,
+    backupCycleInProgressMinutes: 3,
+    backupCycleStatus: 'VERIFIED',
+  });
+  assert.equal(activeButRecent.status, 'HEALTHY');
+
+  const stuck = evaluateMonitoringSnapshot({
+    cycleId: 'monitor-stuck-backup',
+    checkedAt: '2026-10-24T10:00:00.000Z',
+    ...healthy,
+    backupCycleAgeMinutes: 100,
+    backupCycleInProgress: true,
+    backupCycleInProgressMinutes: SAQLAIN_BACKUP_MAX_CYCLE_RUNTIME_MINUTES + 1,
+    backupCycleStatus: 'VERIFIED',
+  });
+  assert.equal(stuck.status, 'FAILED');
+  assert.match(buildSaqlainMonitoringAlert(stuck) ?? '', /backupCycleInProgressMinutes=46/);
+});
+
+test('monitoring holds when no completed backup cycle exists and no cycle is active', () => {
+  const snapshot = evaluateMonitoringSnapshot({
+    cycleId: 'monitor-no-backup',
+    checkedAt: '2026-10-24T10:00:00.000Z',
+    ...healthy,
+    backupCycleAgeMinutes: null,
+    backupCycleInProgress: false,
+    backupCycleInProgressMinutes: null,
+    backupCycleStatus: null,
+  });
+  assert.equal(snapshot.status, 'HOLD');
+});

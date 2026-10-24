@@ -42,7 +42,7 @@ export interface SaqlainBackupRuntime {
   start(options?: { runImmediately?: boolean }): void;
   stop(): void;
   runCycle(): Promise<BackupRecoveryCycleReport>;
-  getState(): Readonly<{ running: boolean; cycleInProgress: boolean; lastReport: BackupRecoveryCycleReport | null }>;
+  getState(): Readonly<{ running: boolean; cycleInProgress: boolean; cycleStartedAt: string | null; lastReport: BackupRecoveryCycleReport | null }>;
 }
 
 /**
@@ -60,6 +60,7 @@ export function createSaqlainBackupRuntime(options: SaqlainBackupRuntimeOptions)
   const unschedule = options.clearIntervalFn ?? clearInterval;
   let timer: ReturnType<typeof setInterval> | null = null;
   let inFlight: Promise<BackupRecoveryCycleReport> | null = null;
+  let cycleStartedAt: string | null = null;
   let lastReport: BackupRecoveryCycleReport | null = null;
   let cycleSequence = 0;
   // Serialize audit appends so all cycle agents share the single-writer audit log.
@@ -116,6 +117,7 @@ export function createSaqlainBackupRuntime(options: SaqlainBackupRuntimeOptions)
   async function executeCycle(): Promise<BackupRecoveryCycleReport> {
     cycleSequence += 1;
     const startedAt = now().toISOString();
+    cycleStartedAt = startedAt;
     // A cryptographically random suffix prevents accidental ID reuse across
     // process restarts even when clocks or in-memory counters repeat.
     const cycleId = 'saqlain-cycle-' + randomUUID();
@@ -174,7 +176,7 @@ export function createSaqlainBackupRuntime(options: SaqlainBackupRuntimeOptions)
 
   function runCycle(): Promise<BackupRecoveryCycleReport> {
     if (inFlight) return inFlight;
-    inFlight = executeCycle().finally(() => { inFlight = null; });
+    inFlight = executeCycle().finally(() => { inFlight = null; cycleStartedAt = null; });
     return inFlight;
   }
 
@@ -195,6 +197,6 @@ export function createSaqlainBackupRuntime(options: SaqlainBackupRuntimeOptions)
     start,
     stop,
     runCycle,
-    getState: () => Object.freeze({ running: timer !== null, cycleInProgress: inFlight !== null, lastReport }),
+    getState: () => Object.freeze({ running: timer !== null, cycleInProgress: inFlight !== null, cycleStartedAt, lastReport }),
   };
 }

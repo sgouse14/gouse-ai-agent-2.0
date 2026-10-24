@@ -44,9 +44,18 @@ const runtime = createApprovedContinuousBackupRuntime({
 const monitoringRuntime = createSaqlainMonitoringRuntime({
   auditFilePath: required('SAQLAIN_BACKUP_AUDIT_FILE'),
   collectSnapshot: async () => {
-    const report = runtime.getState().lastReport;
-    if (!report) throw new Error('No completed backup/recovery cycle is available yet.');
-    const results = report.results;
+    const runtimeState = runtime.getState();
+    const report = runtimeState.lastReport;
+    const currentTime = Date.now();
+    const results = report?.results ?? [];
+    const lastCycleTime = report ? Date.parse(report.finishedAt) : Number.NaN;
+    const currentCycleStartTime = runtimeState.cycleStartedAt ? Date.parse(runtimeState.cycleStartedAt) : Number.NaN;
+    if (runtimeState.cycleInProgress && !Number.isFinite(currentCycleStartTime)) {
+      throw new Error('Backup runtime reports an active cycle without a valid start timestamp.');
+    }
+    if (report && !Number.isFinite(lastCycleTime)) {
+      throw new Error('Last backup cycle has an invalid finish timestamp.');
+    }
     const heartbeatSummary = collectRegisteredHeartbeatSummary(
       process.env.SAQLAIN_HEARTBEAT_CREDENTIALS_JSON,
       await getSaqlainHeartbeatSnapshot(),
@@ -63,6 +72,13 @@ const monitoringRuntime = createSaqlainMonitoringRuntime({
       securityHolds: results.filter((item) => item.status === 'HOLD').length + queueCounts.timeoutReviewTasks,
       backupChecks: results.filter((item) => item.role === 'BACKUP').length,
       recoveryChecks: results.filter((item) => item.role === 'RECOVERY').length,
+      // Freshness metadata prevents old successful counts from masking a missed or stuck cycle.
+      backupCycleAgeMinutes: report ? Math.max(0, (currentTime - lastCycleTime) / 60_000) : null,
+      backupCycleInProgress: runtimeState.cycleInProgress,
+      backupCycleInProgressMinutes: runtimeState.cycleInProgress
+        ? Math.max(0, (currentTime - currentCycleStartTime) / 60_000)
+        : null,
+      backupCycleStatus: report?.status ?? null,
     };
   },
 });

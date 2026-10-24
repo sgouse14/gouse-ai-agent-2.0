@@ -33,6 +33,19 @@ function validateCounts(input: Omit<MonitoringSnapshot, 'status' | 'cycleId' | '
     const value = input[key];
     if (!Number.isSafeInteger(value) || value < 0) throw new Error('Invalid monitoring count: ' + key);
   }
+  if (input.backupCycleInProgress !== undefined && typeof input.backupCycleInProgress !== 'boolean') {
+    throw new Error('Invalid monitoring signal: backupCycleInProgress');
+  }
+  for (const key of ['backupCycleAgeMinutes', 'backupCycleInProgressMinutes'] as const) {
+    const value = input[key];
+    if (value !== undefined && value !== null && (typeof value !== 'number' || !Number.isFinite(value) || value < 0)) {
+      throw new Error('Invalid monitoring freshness value: ' + key);
+    }
+  }
+  if (input.backupCycleStatus !== undefined && input.backupCycleStatus !== null &&
+      !['VERIFIED', 'PARTIAL', 'HOLD'].includes(input.backupCycleStatus)) {
+    throw new Error('Invalid monitoring signal: backupCycleStatus');
+  }
 }
 
 /** Read-only health monitor. It raises auditable alerts; it cannot mutate agents, tasks, identities, files or holds. */
@@ -87,6 +100,10 @@ export function createSaqlainMonitoringRuntime(options: SaqlainMonitoringRuntime
             securityHolds: snapshot.securityHolds,
             backupChecks: snapshot.backupChecks,
             recoveryChecks: snapshot.recoveryChecks,
+            backupCycleAgeMinutes: snapshot.backupCycleAgeMinutes ?? null,
+            backupCycleInProgress: snapshot.backupCycleInProgress ?? false,
+            backupCycleInProgressMinutes: snapshot.backupCycleInProgressMinutes ?? null,
+            backupCycleStatus: snapshot.backupCycleStatus ?? null,
           } : null,
           destructiveActionsTaken: false,
           securityHoldsReleased: false,

@@ -45,6 +45,18 @@ Updated: 2026-10-24
 - [ ] Live authorized staging-site validation is not yet performed.
 - [ ] Automatic repair is deliberately not implemented: the current endpoint only diagnoses and recommends fixes. A separate approved change adapter, explicit owner approval, verification, and rollback design are required before live changes.
 
+## Priority 3 — backup, monitoring, and EMP operations (24 October 2026)
+
+- [x] Monitoring now includes backup-cycle freshness and active-cycle age; a completed cycle older than 45 minutes or an active cycle exceeding 45 minutes is marked `FAILED`, and a missing last cycle without an active cycle is `HOLD`.
+- [x] Backup runtime exposes its current cycle start timestamp for monitoring and clears it on completion.
+- [x] Monitoring alerts and durable audit records include backup cycle age, in-progress duration, and most recent cycle status.
+- [x] Added regression tests for stale completed cycles, partial cycles, stuck active cycles, and missing cycle state.
+- [x] Updated the backup deployment runbook with operational freshness thresholds and external paging requirements.
+- [ ] Thresholds need staging calibration based on measured cycle durations.
+- [ ] External independent alerting/paging and process/host-down monitoring are not implemented by this change.
+- [ ] Off-host/versioned replication and a supervised restore drill remain open.
+- [ ] EMP telemetry freshness/provenance enforcement and qualified site readiness exercises remain open; EMP remains an advisory module, not a physical detector.
+
 ## Previously completed — 20 October 2026
 
 ### Security and governance
@@ -116,7 +128,7 @@ These are the next tasks and are **not yet complete**. Work should be implemente
 ### Priority 3 — backup, monitoring, and EMP operations
 - [ ] Run backup and monitoring services under a production supervisor.
 - [ ] Configure trusted source roots and off-host/versioned backup storage.
-- [ ] Add independent health checks, alerts, paging, and operational ownership.
+- [ ] Add independent health checks, alerts, paging, and operational ownership (code now detects stale/stuck cycles but does not provide external paging).
 - [ ] Wire the EMP protector to trusted monitoring/operations inputs; define signal freshness and escalation criteria.
 - [ ] Validate shielding/EMC, surge protection, power continuity, offline backups, spare hardware, and alternate communications with qualified site operators.
 - [ ] Conduct supervised recovery and restore drills; no automatic production promotion.
