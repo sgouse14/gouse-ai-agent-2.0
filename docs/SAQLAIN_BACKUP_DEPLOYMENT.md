@@ -66,6 +66,34 @@ The repository includes a read-only server/saqlainOpsHealthCheckCli.ts process t
 - Example systemd unit files are supplied at deploy/systemd/saqlain-ops-healthcheck.service.example and deploy/systemd/saqlain-ops-healthcheck.timer.example. Review paths and user permissions before installing. The timer runs a read-only check every five minutes and logs results to the system journal.
 - A local timer cannot report a dead host, failed disk, or inaccessible audit volume from outside that same host. Configure independent Cloud Monitoring/uptime alerting and a human paging owner; the local check is a second line of defense, not a replacement.
 
+## Optional trusted EMP telemetry integration
+
+The backup service can connect the existing EMP resilience helper to an owner-managed local telemetry file when `SAQLAIN_EMP_TELEMETRY_ENABLED=true`. It then polls monitoring every five minutes (backup/recovery cycles remain on their 30-minute schedule) and includes the EMP assessment in the audited monitoring snapshot.
+
+Configure these runtime variables only after a trusted collector is available:
+- `SAQLAIN_EMP_TELEMETRY_FILE`: absolute path to a local JSON snapshot, readable by the `saqlain` service account.
+- `SAQLAIN_EMP_TELEMETRY_ALLOWED_SOURCE_IDS_JSON`: a JSON array of exact, owner-approved source IDs, such as `["facility-power-monitor-1"]`.
+- `SAQLAIN_EMP_TELEMETRY_ENABLED=true`: activates the reader; the default is disabled.
+
+Expected snapshot fields:
+```json
+{
+  "sourceId": "facility-power-monitor-1",
+  "observedAt": "2026-10-24T12:00:00.000Z",
+  "sourceHealth": "HEALTHY",
+  "explicitEmpAlarm": false,
+  "powerQualityAlarmCount": 0,
+  "unexpectedRestartCount": 0,
+  "networkInterfaceFlapCount": 0,
+  "clockDriftMs": 10,
+  "telemetryGapCount": 0
+}
+```
+
+The file must be a regular, non-symlink file on a non-symlink path, must not be group/world writable, and must be at most 32 KiB. Unknown/missing JSON fields are rejected. The assessment uses an initial five-minute maximum observation age and 60-second future-clock tolerance. Unapproved source IDs, stale/future timestamps, or non-healthy source state cause a HOLD; a fresh WATCH result elevates monitoring to WARNING. Bad file configuration or unreadable/malformed data also forces the monitoring collection to HOLD.
+
+The service does not authenticate the physical sensor. The upstream collector must independently verify the telemetry source and write the file atomically into a protected directory; a JSON `sourceId` by itself is not proof of provenance. The helper is a software triage advisor, not an EMP detector, and it never switches power, disables hardware, performs containment, or starts recovery. This repository contains no configured live telemetry source and no qualified physical shielding assessment.
+
 ## Operational freshness and alert policy
 
 - Backup/recovery cycles are scheduled every 30 minutes. The Saqlain monitoring agent now checks the age of the last completed cycle and the runtime of an active cycle so old successful counts cannot silently mask missed or stuck work.
