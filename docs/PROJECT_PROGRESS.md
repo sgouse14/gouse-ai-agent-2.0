@@ -50,6 +50,7 @@ Updated: 2026-10-24
 - [x] Monitoring now includes backup-cycle freshness and active-cycle age; a completed cycle older than 45 minutes or an active cycle exceeding 45 minutes is marked `FAILED`, and a missing last cycle without an active cycle is `HOLD`.
 - [x] Backup runtime exposes its current cycle start timestamp for monitoring and clears it on completion.
 - [x] Monitoring alerts and durable audit records include backup cycle age, in-progress duration, and most recent cycle status.
+- [x] Non-healthy monitoring cycles emit to the supervised service journal and support an injectable alert adapter with cycle-scoped idempotency keys; adapter failure holds the alert state and is audited.
 - [x] Added regression tests for stale completed cycles, partial cycles, stuck active cycles, and missing cycle state.
 - [x] Updated the backup deployment runbook with operational freshness thresholds and external paging requirements.
 - [x] Added a hardened example systemd unit with a dedicated service user, restart policy, read-only source/application paths, and explicit writable backup/queue/audit directories.

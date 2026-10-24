@@ -44,7 +44,7 @@ The entrypoint is available as `server/saqlainBackupService.ts`, with the `backu
 
 - Backup/recovery cycles are scheduled every 30 minutes. The Saqlain monitoring agent now checks the age of the last completed cycle and the runtime of an active cycle so old successful counts cannot silently mask missed or stuck work.
 - Default thresholds are 45 minutes for a stale completed cycle and 45 minutes for an active cycle that has not finished. Tune these after observing staging duration distributions; if a legitimate cycle can exceed the active threshold, raise the limit deliberately and document why.
-- Monitoring status and alert text are durably audited. This process-local scheduler cannot alert if the host, container, disk, or audit volume is unavailable. Use an independent provider/platform monitor for missed heartbeats, process exit, host loss, and human paging.
+- Monitoring status and alert text are durably audited. The backup-service entrypoint emits non-healthy alerts to stderr, captured by systemd/journald, through a notification adapter that receives a cycle-scoped idempotency key; adapter failures force HOLD and are audited without logging adapter exception details. This local journal sink is not an external paging integration. The process-local scheduler cannot alert if the host, container, disk, or audit volume is unavailable. Use an independent provider/platform monitor for missed heartbeats, process exit, host loss, and human paging.
 - Keep the external alert receiver and its credentials outside this repository and outside the backup process' writeable source paths. Test notification failure, duplicate alerts, escalation ownership, and recovery after alert-service outage.
 
 ## Example systemd supervisor (Linux)

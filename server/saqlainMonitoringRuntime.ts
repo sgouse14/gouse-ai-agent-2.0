@@ -14,10 +14,21 @@ export interface MonitoringCycleReport {
   alert: string | null;
   error?: string;
 }
+export interface MonitoringAlertNotification {
+  cycleId: string;
+  /** Stable key for adapters that deduplicate delivery retries. */
+  idempotencyKey: string;
+  status: MonitoringStatus;
+  alert: string;
+  occurredAt: string;
+}
+
 export interface SaqlainMonitoringRuntimeOptions {
   /** Read-only collector. It must not mutate protected files or release security holds. */
   collectSnapshot: () => Promise<Omit<MonitoringSnapshot, 'status' | 'cycleId' | 'checkedAt'>>;
   auditFilePath: string;
+  /** Optional configured alert adapter. A resolved promise means the adapter accepted the alert. */
+  notifyAlert?: (notification: MonitoringAlertNotification) => Promise<void>;
   now?: () => Date;
   setIntervalFn?: (callback: () => void, milliseconds: number) => ReturnType<typeof setInterval>;
   clearIntervalFn?: (handle: ReturnType<typeof setInterval>) => void;
@@ -114,9 +125,58 @@ export function createSaqlainMonitoringRuntime(options: SaqlainMonitoringRuntime
       status = 'HOLD';
       errorMessage = 'Durable monitoring audit failed: ' + (error instanceof Error ? error.message : 'unknown audit error');
     }
-    const finalAlert = status === 'HOLD' && snapshot?.status === 'HEALTHY'
+    let finalAlert = status === 'HOLD' && snapshot?.status === 'HEALTHY'
       ? 'Saqlain monitoring alert: HOLD | cycle=' + cycleId + ' | audit or monitoring integrity failure'
       : alert;
+    if (finalAlert && options.notifyAlert) {
+      const occurredAt = now().toISOString();
+      const notification = {
+        cycleId,
+        idempotencyKey: cycleId,
+        status,
+        alert: finalAlert,
+        occurredAt,
+      };
+      try {
+        await options.notifyAlert(notification);
+        try {
+          await audit({
+            eventType: 'SAQLAIN_MONITORING_ALERT_ADAPTER_ACCEPTED',
+            actorId: 'saqlain-monitoring-agent',
+            outcome: 'INFO',
+            resource: 'saqlain-monitoring-alert',
+            taskId: cycleId,
+            occurredAt: now().toISOString(),
+            details: { status, idempotencyKey: cycleId, adapterAccepted: true },
+          });
+        } catch {
+          status = status === 'FAILED' ? 'FAILED' : 'HOLD';
+          const note = 'Alert adapter accepted the notification but durable delivery audit failed.';
+          errorMessage = errorMessage ? errorMessage + '; ' + note : note;
+          finalAlert = finalAlert + ' | notificationAudit=FAILED';
+        }
+      } catch {
+        const originalStatus = status;
+        status = status === 'FAILED' ? 'FAILED' : 'HOLD';
+        const note = 'Configured alert adapter failed; delivery is unconfirmed.';
+        errorMessage = errorMessage ? errorMessage + '; ' + note : note;
+        finalAlert = finalAlert + ' | notification=FAILED';
+        try {
+          await audit({
+            eventType: 'SAQLAIN_MONITORING_ALERT_ADAPTER_FAILED',
+            actorId: 'saqlain-monitoring-agent',
+            outcome: 'HOLD',
+            resource: 'saqlain-monitoring-alert',
+            taskId: cycleId,
+            occurredAt: now().toISOString(),
+            details: { originalStatus, idempotencyKey: cycleId, adapterAccepted: false, failureCode: 'ALERT_ADAPTER_ERROR' },
+          });
+        } catch {
+          errorMessage += ' Alert-delivery failure audit also failed.';
+          finalAlert += ' | notificationAudit=FAILED';
+        }
+      }
+    }
     const report: MonitoringCycleReport = Object.freeze({
       cycleId, startedAt, finishedAt: now().toISOString(), status, snapshot, alert: finalAlert,
       ...(errorMessage ? { error: errorMessage } : {}),

@@ -81,6 +81,11 @@ const monitoringRuntime = createSaqlainMonitoringRuntime({
       backupCycleStatus: report?.status ?? null,
     };
   },
+  // The systemd unit captures stderr in the journal. This is a local alert sink,
+  // not an external pager; production must add an independently managed adapter.
+  notifyAlert: async (notification) => {
+    console.error('[Saqlain monitoring alert]', JSON.stringify(notification));
+  },
 });
 
 runtime.start({ runImmediately: true });

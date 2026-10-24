@@ -217,3 +217,61 @@ test('monitoring holds when no completed backup cycle exists and no cycle is act
   });
   assert.equal(snapshot.status, 'HOLD');
 });
+
+
+test('non-healthy monitoring cycles send a deduplicatable alert and audit adapter acceptance', async () => {
+  const ctx = await setup();
+  try {
+    const received: Array<{ cycleId: string; idempotencyKey: string; status: string; alert: string }> = [];
+    const runtime = createSaqlainMonitoringRuntime({
+      auditFilePath: ctx.auditFilePath,
+      collectSnapshot: async () => ({ ...healthy, failedTasks: 1 }),
+      notifyAlert: async notice => { received.push(notice); },
+    });
+    const report = await runtime.runCycle();
+    assert.equal(report.status, 'FAILED');
+    assert.equal(received.length, 1);
+    assert.equal(received[0].cycleId, report.cycleId);
+    assert.equal(received[0].idempotencyKey, report.cycleId);
+    assert.match(received[0].alert, /FAILED/);
+    const events = await readVerifiedAuditLog(ctx.auditFilePath);
+    assert.ok(events.some(event => event.eventType === 'SAQLAIN_MONITORING_ALERT_ADAPTER_ACCEPTED'));
+  } finally { await rm(ctx.root, { recursive: true, force: true }); }
+});
+
+test('alert adapter failure forces HOLD and records an audited delivery failure', async () => {
+  const ctx = await setup();
+  try {
+    const runtime = createSaqlainMonitoringRuntime({
+      auditFilePath: ctx.auditFilePath,
+      collectSnapshot: async () => ({ ...healthy, securityHolds: 1 }),
+      notifyAlert: async () => { throw new Error('secret webhook endpoint or credential'); },
+    });
+    const report = await runtime.runCycle();
+    assert.equal(report.status, 'HOLD');
+    assert.match(report.alert ?? '', /notification=FAILED/);
+    assert.match(report.error ?? '', /delivery is unconfirmed/i);
+    assert.equal(JSON.stringify(report).includes('secret webhook endpoint'), false);
+    const events = await readVerifiedAuditLog(ctx.auditFilePath);
+    const failed = events.find(event => event.eventType === 'SAQLAIN_MONITORING_ALERT_ADAPTER_FAILED');
+    assert.ok(failed);
+    assert.equal(failed?.outcome, 'HOLD');
+    assert.equal(JSON.stringify(failed?.details).includes('secret webhook endpoint'), false);
+  } finally { await rm(ctx.root, { recursive: true, force: true }); }
+});
+
+test('healthy monitoring cycle does not notify the alert adapter', async () => {
+  const ctx = await setup();
+  try {
+    let calls = 0;
+    const runtime = createSaqlainMonitoringRuntime({
+      auditFilePath: ctx.auditFilePath,
+      collectSnapshot: async () => healthy,
+      notifyAlert: async () => { calls++; },
+    });
+    const report = await runtime.runCycle();
+    assert.equal(report.status, 'HEALTHY');
+    assert.equal(report.alert, null);
+    assert.equal(calls, 0);
+  } finally { await rm(ctx.root, { recursive: true, force: true }); }
+});
