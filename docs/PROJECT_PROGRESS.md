@@ -1,6 +1,6 @@
 # Gouse AI Agent 2.0 — Project Progress
 
-Updated: 2026-10-23
+Updated: 2026-10-24
 
 ## Status summary
 
@@ -9,15 +9,25 @@ Updated: 2026-10-23
 - **Saqlain implementation progress:** approximately 65% (subjective planning estimate; not measured code coverage)
 - **Overall project completion / production readiness:** still in progress; do not treat these estimates as release approval.
 - Estimates are planning indicators, not measured code coverage or a precise issue-count calculation.
-- **Latest verified CI:** [run #39921557491](https://github.com/sgouse14/gouse-ai-agent-2.0/actions/runs/39921557491) passed on commit `6af36a9d` (latest run checked on 2026-10-23).
+- **Latest verified code CI:** [run #40070558418](https://github.com/sgouse14/gouse-ai-agent-2.0/actions/runs/40070558418) passed on commit `265fb184` on 2026-10-24. It passed security tests, both TypeScript checks, frontend/server production build, and Docker image build.
 - **Feature branch:** `feature/saqlain-cyber-agent`
 - **Pull request:** [#1 — open and draft](https://github.com/sgouse14/gouse-ai-agent-2.0/pull/1)
 - **Main branch:** unchanged; no merge performed.
 
 ## Work started — 21 October 2026
 
-- [x] Secured the workspace-level Saqlain security-summary endpoint with recently authenticated, active Firebase identity verification and audit-before-response. Regression tests cover missing/malformed tokens, identity rejection, missing audit configuration, and audit write failure. Full CI validation is pending.
+- [x] Secured the workspace-level Saqlain security-summary endpoint with recently authenticated, active Firebase identity verification and audit-before-response. Regression tests cover missing/malformed tokens, identity rejection, missing audit configuration, and audit write failure; the current branch CI has passed.
 - [x] Documented the required `SAQLAIN_AUDIT_FILE` setting in `.env.example`.
+
+## Stabilization progress — 24 October 2026
+
+- [x] Firestore queue task-state updates now require Firestore update-time metadata and fail closed if the metadata is missing; regression coverage added.
+- [x] Firestore enqueue now requires a stable idempotency key and atomically commits the task, sequence counter, and idempotency record. A retry for the same operator and payload returns the original task; mismatched payload/operator reuse is rejected.
+- [x] Added tests for sequential retries, concurrent retries using the same key, idempotency-key misuse, and missing update-time metadata.
+- [x] Updated the backup service to select the configured queue backend for startup interrupted-task recovery and monitoring queue counts. Firestore operations are awaited; the file-backed queue remains the file/local-mode default.
+- [x] Latest code CI passed in [run #40070558418](https://github.com/sgouse14/gouse-ai-agent-2.0/actions/runs/40070558418), commit `265fb184`: security tests, TypeScript checks, production build, and Docker build all passed.
+- [ ] End-to-end backup job enqueue/lock/complete through the shared Firestore queue remains incomplete. Current worker change aligns startup recovery and monitoring counts only.
+- [ ] Live Cloud Run/Firestore IAM, multi-instance concurrency, API outage, and recovery tests have not been run.
 
 ## Previously completed — 20 October 2026
 
@@ -68,7 +78,7 @@ Updated: 2026-10-23
 
 > Passing CI validates the tested code paths and build, not real-world physical EMP protection, production deployment, a penetration test, or security certification.
 
-## Remaining work queue — 23 October 2026 onward
+## Remaining work queue — 24 October 2026 onward
 
 These are the next tasks and are **not yet complete**. Work should be implemented in small changes and revalidated after each meaningful step.
 
@@ -81,6 +91,7 @@ These are the next tasks and are **not yet complete**. Work should be implemente
 - [ ] Validate distributed gateway/WAF rate limiting and proxy IP behavior in staging; built-in application counters are in-memory per process.
 
 ### Priority 2 — shared durable state and reliability
+- [ ] Connect actual backup/recovery job enqueue, locking, completion, and restart reconciliation to the shared Firestore queue; current worker integration covers startup recovery and monitoring counts only.
 - [ ] Design and integrate transactional shared storage for agent identity records, issued-ID ledger, task queue, and emergency grants.
 - [ ] Add atomic grant consumption suitable for multi-instance deployments; retain single-host constraints until then.
 - [ ] Test concurrency, parallel replay, crashes, restarts, corruption, and reconciliation.
