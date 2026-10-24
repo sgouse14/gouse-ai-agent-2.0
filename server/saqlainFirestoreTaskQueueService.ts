@@ -81,7 +81,7 @@ export class SaqlainFirestoreTaskQueueService {
 
   async list(): Promise<QueueTask[]> {
     const docs = await this.client.listDocuments(this.collection);
-    return docs.filter(doc => typeof doc.managerTaskId === 'string')
+    return docs.filter(doc => typeof doc.managerTaskId === 'string' && /^\d{5,}$/.test(doc.managerTaskId) && typeof doc.backupTaskId === 'string')
       .map(taskFrom).sort((a,b) => Number(a.managerTaskId) - Number(b.managerTaskId));
   }
 
@@ -97,7 +97,7 @@ export class SaqlainFirestoreTaskQueueService {
     };
   }
 
-  async enqueue(backupTaskId: string, actorId = 'saqlain-queue', now = new Date(), idempotencyKey?: string): Promise<QueueTask> {
+  async enqueue(backupTaskId: string, idempotencyKey: string, actorId = 'saqlain-queue', now = new Date()): Promise<QueueTask> {
     const normalizedBackupTaskId = typeof backupTaskId === 'string' ? backupTaskId.trim() : '';
     if (!normalizedBackupTaskId) throw new Error('backupTaskId is required.');
     const normalizedKey = typeof idempotencyKey === 'string' ? idempotencyKey.trim() : '';
