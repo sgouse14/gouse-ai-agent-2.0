@@ -1,5 +1,5 @@
 import { lstat, readFile } from 'node:fs/promises';
-import { basename, dirname, relative, resolve, sep } from 'node:path';
+import { basename, dirname, isAbsolute, relative, resolve, sep } from 'node:path';
 import { sha256Hex, validateRelativeBackupPath, verifyBackupCopy, verifyBackupManifest, type BackupManifest, type BackupManifestEntry } from './saqlainBackupManifest.ts';
 import type { BackupStorageResult } from './saqlainBackupStorage.ts';
 
@@ -72,7 +72,7 @@ function assertSafePrefix(raw: string | undefined): string {
 
 function isWithin(parent: string, candidate: string): boolean {
   const rel = relative(parent, candidate);
-  return rel === '' || (rel !== '..' && !rel.startsWith('..' + sep) && !resolve(rel).startsWith(sep));
+  return rel === '' || (rel !== '..' && !rel.startsWith('..' + sep) && !isAbsolute(rel));
 }
 
 function safeObjectName(prefix: string, snapshotId: string, suffix: string): string {
@@ -304,9 +304,10 @@ export class SaqlainGoogleCloudStorageArchive {
     const completionObjectName = rootName + '/ARCHIVE_COMPLETE.json';
     const manifestObjectName = rootName + '/backup-manifest.json';
     const markerBytes = this.markerBytes(snapshot.snapshotId, local.manifestBytes, local.manifest, local.totalBytes);
-    const fileObjects = local.entries.map(({ entry }) => ({
-      entry,
-      name: safeObjectName(this.prefix, snapshot.snapshotId, 'files/' + entry.relativePath),
+    const fileObjects = local.entries.map(localEntry => ({
+      localEntry,
+      entry: localEntry.entry,
+      name: safeObjectName(this.prefix, snapshot.snapshotId, 'files/' + localEntry.entry.relativePath),
     }));
     const expectedObjectCount = fileObjects.length + 2; // manifest and completion marker
     const markerExisting = await this.readObject(completionObjectName, MAX_COMPLETION_MARKER_BYTES);
@@ -317,8 +318,8 @@ export class SaqlainGoogleCloudStorageArchive {
       }
       // A completion marker is a commit record. Never repair or extend an archive
       // after it exists; verify all committed objects and fail closed on any gap.
-      for (const { entry, name } of fileObjects) {
-        const expected = Buffer.from(await readFile(local.entries.find(item => item.entry.relativePath === entry.relativePath)!.path));
+      for (const { localEntry, entry, name } of fileObjects) {
+        const expected = Buffer.from(await readFile(localEntry.path));
         const stored = await this.readObject(name, this.maxFileBytes);
         if (!stored || !stored.equals(expected) || !verifyBackupCopy(entry, stored).verified) {
           throw new Error('Completed GCS archive is incomplete or differs from the approved snapshot.');
@@ -331,8 +332,7 @@ export class SaqlainGoogleCloudStorageArchive {
     } else {
       // Upload each object with a generation-match precondition, then read it
       // back. Existing bytes are accepted only when they match this exact snapshot.
-      for (const { entry, name } of fileObjects) {
-        const localEntry = local.entries.find(item => item.entry.relativePath === entry.relativePath)!;
+      for (const { localEntry, entry, name } of fileObjects) {
         const bytes = Buffer.from(await readFile(localEntry.path));
         if (!verifyBackupCopy(entry, bytes).verified) throw new Error('Local source snapshot changed during archival.');
         await this.uploadIfAbsentAndVerify(name, bytes, this.maxFileBytes);
