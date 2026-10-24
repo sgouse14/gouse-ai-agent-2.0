@@ -29,8 +29,8 @@ class MemoryClient extends SaqlainFirestoreRestClient {
 }
 test('Firestore queue allocates IDs, locks, completes, and counts durable tasks', async()=>{
   const queue=new SaqlainFirestoreTaskQueueService({client:new MemoryClient(), auditWriter: async () => undefined});
-  const first=await queue.enqueue('backup-a','operator',new Date('2026-10-23T00:00:00Z'));
-  const second=await queue.enqueue('backup-b','operator',new Date('2026-10-23T00:01:00Z'));
+  const first=await queue.enqueue('backup-a','operator',new Date('2026-10-23T00:00:00Z'),'enqueue-backup-a-001');
+  const second=await queue.enqueue('backup-b','operator',new Date('2026-10-23T00:01:00Z'),'enqueue-backup-b-001');
   assert.equal(first.managerTaskId,'01010');
   assert.equal(second.managerTaskId,'01012');
   const locked=await queue.lockNextPending('agent-a','operator');
@@ -43,7 +43,7 @@ test('Firestore queue allocates IDs, locks, completes, and counts durable tasks'
 });
 test('Firestore queue rejects completion by the wrong agent and unsafe requeue',async()=>{
   const queue=new SaqlainFirestoreTaskQueueService({client:new MemoryClient(), auditWriter: async () => undefined});
-  const task=await queue.enqueue('backup','operator');
+  const task=await queue.enqueue('backup','operator',new Date(),'enqueue-backup-c-001');
   await queue.lockNextPending('agent-a','operator');
   await assert.rejects(()=>queue.complete(task.managerTaskId,'agent-b','operator'),/current task owner/);
 });
@@ -74,10 +74,25 @@ class MissingUpdateTimeClient extends SaqlainFirestoreRestClient {
 test('Firestore queue fails closed if task update-time metadata is missing', async () => {
   const client = new MissingUpdateTimeClient();
   const queue = new SaqlainFirestoreTaskQueueService({ client, auditWriter: async () => undefined });
-  const created = await queue.enqueue('backup-update-time', 'operator');
+  const created = await queue.enqueue('backup-update-time', 'operator', new Date(), 'enqueue-update-time-001');
   // Simulate a read path that cannot provide Firestore update-time preconditions.
   await assert.rejects(
     () => queue.complete(created.managerTaskId, 'agent-a', 'operator'),
     /missing update-time metadata/,
+  );
+});
+
+
+test('Firestore queue enqueue is idempotent and rejects key reuse with a different payload', async () => {
+  const queue = new SaqlainFirestoreTaskQueueService({ client: new MemoryClient(), auditWriter: async () => undefined });
+  const key = 'stable-logical-task-0001';
+  const first = await queue.enqueue('backup-idempotent', 'operator', new Date('2026-10-23T01:00:00.000Z'), key);
+  const retry = await queue.enqueue('backup-idempotent', 'operator', new Date('2026-10-23T02:00:00.000Z'), key);
+  assert.equal(retry.managerTaskId, first.managerTaskId);
+  assert.equal(retry.createdAt, first.createdAt);
+  assert.equal((await queue.getCounts()).totalTasks, 1);
+  await assert.rejects(
+    () => queue.enqueue('different-backup', 'operator', new Date(), key),
+    /Idempotency key was already used/,
   );
 });
