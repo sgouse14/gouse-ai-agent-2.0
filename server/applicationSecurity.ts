@@ -17,7 +17,7 @@ const PUBLIC_PATHS = new Set(['/api/health']);
 const PROJECT_ROUTES = new Set([
   'POST /api/chat', 'POST /api/intelligence', 'POST /api/boq/generate',
   'POST /api/architecture/render-prompt', 'POST /api/architecture/analyze-image',
-  'POST /api/enquiries/live-quote', 'POST /api/materials/parse-pdf-specs',
+  'POST /api/enquiries/live-quote', 'POST /api/materials/parse-pdf-specs', 'POST /api/website/diagnostics',
 ]);
 const PROVIDER_ROUTES = new Set([
   ...PROJECT_ROUTES, 'POST /api/search/professionals', 'GET /api/search/professionals',
