@@ -38,6 +38,7 @@ Updated: 2026-10-24
 - [x] Added exact project-to-host allowlisting through SAQLAIN_WEBSITE_ALLOWED_HOSTS_JSON; wildcard hosts are rejected and missing/invalid configuration fails closed.
 - [x] Added audit-before-scan and audit-before-report behavior; audit failure denies the scan or withholds the report.
 - [x] Added tests for URL/IP validation, internal 404s, redirects, size limits, host authorization, authorization failures, and audit failures; added the tests to the standard test command.
+- [x] Each finding now includes an approval-gated repair proposal with steps, verification criteria, and rollback guidance; no remote change is applied automatically.
 - [x] Documented configuration, endpoint use, scope, limitations, and the future approval-gated repair workflow in docs/SAQLAIN_WEBSITE_DIAGNOSTICS.md.
 - [ ] Final CI for this new feature and endpoint integration is pending verification.
 - [ ] Live authorized staging-site validation is not yet performed.
