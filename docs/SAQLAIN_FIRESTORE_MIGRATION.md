@@ -1,13 +1,18 @@
 # Saqlain Cyber Agent — Firestore migration plan
 
-Status: **initial REST client and transactional audit-chain prototype committed; not yet wired into production route paths and not live-tested against a Google Cloud project.** This is a Saqlain-only migration. Do not infer production readiness from unit tests.
+Status: **Firestore REST client, audit-chain prototype, selected Saqlain audit call sites, Firestore heartbeat store, operator queue, enqueue idempotency, and queue recovery/monitoring backend selection are implemented. Not live-tested against a Google Cloud project; end-to-end queue-driven backup execution remains incomplete.** This is a Saqlain-only migration. Do not infer production readiness from unit tests.
 
 ## Implemented in this phase
 
-- `server/saqlainAuditBackend.ts`: explicit Saqlain-only backend selector; file mode remains the local default and Firestore mode routes Saqlain audit append/read through the shared collection. Gousiya recovery still uses its existing file functions. The security-summary route and verification service are wired to this facade.\n- `server/saqlainFirestoreRest.ts`: minimal Firestore REST API client, value codec, document reads/listing, atomic commit calls, and Cloud Run metadata-server access-token retrieval. Tests can inject a fetch implementation and token provider.
+- `server/saqlainAuditBackend.ts`: explicit Saqlain-only backend selector; file mode remains the local default and Firestore mode routes Saqlain audit append/read through the shared collection. Gousiya recovery still uses its existing file functions. The security-summary route and verification service are wired to this facade.
+- `server/saqlainFirestoreRest.ts`: minimal Firestore REST API client, value codec, document reads/listing, atomic commit calls, and Cloud Run metadata-server access-token retrieval. Tests can inject a fetch implementation and token provider.
 - `server/saqlainFirestoreAuditLog.ts`: append-only event documents with a compare-and-swap chain-head document. Event plus head update are written in one Firestore commit; competing writers retry bounded precondition conflicts. Read verification checks record hashes, sequence/link continuity, and chain-head consistency.
 - `server/saqlainFirestoreRest.test.ts` and `server/saqlainFirestoreAuditLog.test.ts`: codec, identity-provider behavior, append chain, and retry test coverage.
-- `.env.example`: documents the optional staging project ID and audit collection name. No credentials are included.
+- `server/saqlainFirestoreTaskQueueService.ts`: Firestore queue requires a stable idempotency key scoped to the actor and backup-task payload. The task document, sequence counter, and idempotency marker are created in one atomic commit; same-key/same-request retries return the original task, and mismatched reuse is rejected.
+- Firestore queue state transitions now fail closed when a task read lacks update-time metadata, rather than attempting an unconditional write.
+- `server/saqlainBackupService.ts`: selects the Firestore queue when `SAQLAIN_AUDIT_BACKEND=firestore` and awaits queue recovery/count operations. The file-backed queue remains the local/file-mode default.
+- Regression tests cover absent update-time metadata, idempotent retry, mismatched payload/operator reuse, and concurrent same-key enqueue attempts using an in-memory client.
+- `.env.example`: documents the optional staging project ID, audit/heartbeat/queue collection names, and backend selection. No credentials are included.
 
 ## Firestore layout
 
@@ -29,13 +34,15 @@ The chain head is a concurrency-control document, not an independent source of t
 
 ## Important current limitation
 
-The audit facade is now wired into the security-summary route, verification service, and task-queue decision audits. The operator task-queue API now selects the Firestore queue service when `SAQLAIN_AUDIT_BACKEND=firestore`; its review-resolution path uses Firestore task documents with update-time preconditions and enqueue allocates IDs with an atomic counter commit. The backup worker's startup recovery/monitoring still uses its file-backed registry and must be aligned before the entire worker fleet is considered migrated. The heartbeat route supports shared Firestore documents, while request rate limiting remains per-process. Do not assume all Saqlain audit call sites have migrated until the remaining route/service integrations are completed. Setting `GOOGLE_CLOUD_PROJECT` alone does **not** migrate those components to Firestore.
+The audit facade is wired into the security-summary route, verification service, and task-queue decision audit paths. The operator task-queue API selects the Firestore service when `SAQLAIN_AUDIT_BACKEND=firestore`; state updates use Firestore update-time preconditions, and enqueue atomically creates the task, sequence update, and actor-scoped idempotency record.
+
+The backup service now chooses the same configured queue backend for startup interrupted-task recovery and monitoring queue counts; asynchronous Firestore calls are awaited. **The actual periodic backup/recovery agent cycle is still run by the existing in-process runtime and is not yet fully driven by Firestore task enqueue/lock/complete operations.** End-to-end worker/queue integration therefore remains incomplete. Heartbeat storage can be shared through Firestore, but request rate limiting remains per-process. Do not assume all Saqlain audit call sites or worker state have migrated. Setting `GOOGLE_CLOUD_PROJECT` alone does **not** enable Firestore without selecting the backend and provisioning IAM/API access.
 
 Before enabling this adapter for production operations, complete the following work in isolated steps:
 
-1. Add an explicit `SAQLAIN_AUDIT_BACKEND` switch and a Saqlain-only audit facade that routes Saqlain audit append/read operations to Firestore or the existing local test backend. Keep Gousiya emergency-recovery audit behavior unchanged.
-2. Migrate the verification service's state replay to the selected audit backend and ensure the existing local test backend remains deterministic.
-3. The operator API queue now uses Firestore task documents, atomic sequence allocation, and update-time preconditions for state transitions. Remaining: wire the backup worker's recovery/monitoring to the same Firestore queue, add idempotency keys for retried enqueue requests, and exercise actual concurrent writers against Firestore/emulator. Do not translate the local file lock into an in-memory lock.
+1. Verify the `SAQLAIN_AUDIT_BACKEND` switch and audit facade across all remaining Saqlain audit call sites. Keep Gousiya emergency-recovery audit behavior unchanged.
+2. Validate verification-service audit replay against Firestore and the local file backend, including restart behavior and fail-closed handling.
+3. Finish connecting actual backup/recovery job execution to the async Firestore queue; current worker changes align startup recovery and monitoring counts, but do not yet enqueue/lock/complete each backup job through Firestore. Exercise concurrent writers, lost responses, and retry behavior against Firestore or the emulator. Do not translate the local file lock into an in-memory lock. The in-memory client tests are not live Firestore validation.
 4. Heartbeat documents are now shared by agent ID when the Firestore backend is selected. Still implement server-side timestamps/expiry policy, distributed gateway/shared quotas for rate limits across instances, and alerting for stale/missing heartbeats.
 5. Add emulator or integration tests for two concurrent writers, lost responses/retries, partial failure, stale chain head, tampering/deletion, IAM denial, API outage, and recovery.
 6. Run a staging migration rehearsal: export/verify current audit history, choose a cutover boundary, preserve the original evidence read-only, write and verify test events, restart/scale instances, and rehearse rollback. Never silently merge two independent hash chains.
@@ -56,7 +63,8 @@ Before enabling this adapter for production operations, complete the following w
 - [ ] Live staging Cloud Run revision can acquire identity tokens and read/write Firestore with the dedicated service account.
 - [ ] Firestore audit facade is wired into Saqlain routes only; Gousiya behavior is unchanged.
 - [ ] Audit chain survives parallel writes, revision replacement, and service restart.
-- [ ] Queue transitions and heartbeat state are shared and transactional/durable.
+- [ ] Queue transitions and heartbeat state are shared and transactional/durable in the configured staging environment; unit tests alone do not satisfy this gate.
+- [ ] Actual backup/recovery job production, locking, completion, and restart reconciliation use the shared Firestore queue end to end.
 - [ ] IAM denial and API outage tests prove fail-closed behavior.
 - [ ] Independent audit export, alerting, retention, backup and restore are rehearsed.
 - [ ] Authorized staging owner reviews evidence before any production rollout.
