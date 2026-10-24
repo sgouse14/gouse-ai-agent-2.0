@@ -1,6 +1,12 @@
 # Saqlain Cyber Agent — Website Error Diagnostics
 
-Status: **Initial read-only diagnostics implementation on the feature branch; not deployed or tested against a live authorized website yet.** This module suggests fixes. It does not repair or mutate remote sites.
+Status: **Read-only diagnostics backend and Saqlain Security UI implemented on the feature branch; CI passes, but no live authorized website or staging deployment has been validated yet.** This module suggests fixes. It does not repair or mutate remote sites.
+
+## User interface
+
+Open the **Saqlain Security** view from the application navigation. The **Website Error Diagnostics** panel accepts a full URL, submits it to the authenticated diagnostics endpoint for the currently selected project, and displays the report status, checked-resource count, findings, evidence, proposed repair steps, verification criteria, rollback guidance, and diagnostic limitations.
+
+The UI does not apply repairs. The current milestone is deliberately read-only; a later repair feature must use a separate owner-configured change adapter, explicit approval tied to a specific patch, post-change verification, and rollback support.
 
 ## Endpoint
 
