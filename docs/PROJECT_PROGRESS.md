@@ -132,18 +132,14 @@ These are the next tasks and are **not yet complete**. Work should be implemente
 - [ ] Add worker liveness checks and durable job/cycle state.
 
 ### Priority 3 — backup, monitoring, and EMP operations
-- [x] Add an independent read-only audit freshness CLI that verifies the hash-chained audit log and fails if the latest monitoring cycle is absent, stale, unhealthy, malformed, or mismatched.
-- [x] Add a dedicated systemd oneshot unit and five-minute timer example for the health check; it runs with read-only filesystem access and does not mutate backup/recovery state.
-- [ ] Install and exercise the supervisor/timer on a provisioned staging host; configure external host-down monitoring and human paging.
-- [ ] Configure trusted source roots and off-host/versioned backup storage; run actual staging archive and restore drills.
-- [ ] Wire the EMP protector to an owner-managed telemetry source and configure source allowlisting/freshness before enabling it in operational monitoring.
-- [ ] Validate shielding/EMC, surge protection, power continuity, offline backups, spare hardware, and alternate communications with qualified site operators.
-- [ ] Conduct supervised recovery and restore drills; no automatic production promotion.
-
-- [ ] Run backup and monitoring services under a production supervisor.
-- [ ] Configure trusted source roots and off-host/versioned backup storage.
-- [ ] Add independent health checks, alerts, paging, and operational ownership (code now detects stale/stuck cycles but does not provide external paging).
-- [ ] Wire the EMP protector to trusted monitoring/operations inputs; define signal freshness and escalation criteria.
+- [x] Add an independent read-only audit freshness CLI that verifies the hash-chained audit log and fails when monitoring records are absent, stale, unhealthy, malformed, tampered, or mismatched.
+- [x] Add a dedicated systemd oneshot unit and five-minute timer example for the audit freshness check, with read-only filesystem access.
+- [x] Add an optional protected EMP telemetry file adapter with exact source allowlisting, strict schema/file permissions, timestamp freshness checks, and fail-closed behavior.
+- [x] Wire enabled EMP telemetry into the backup service monitoring snapshot; stale/future/unapproved readings trigger HOLD and fresh WATCH findings trigger WARNING. Monitoring polls every five minutes when this option is enabled.
+- [ ] Include the health-check unit and backup service in a provisioned staging host, verify supervisor restart/stop behavior, and assign an operations owner.
+- [ ] Configure and test independent off-host host-down monitoring and human paging; the local timer cannot detect an unavailable host from outside itself.
+- [ ] Configure trusted source roots and off-host/versioned backup storage; validate GCS bucket/IAM and run actual staging archive plus restore drills.
+- [ ] Connect a real, owner-managed telemetry collector and verify its source authentication, atomic file delivery, cadence, freshness thresholds, and alert escalation in staging. No live sensor source is configured.
 - [ ] Validate shielding/EMC, surge protection, power continuity, offline backups, spare hardware, and alternate communications with qualified site operators.
 - [ ] Conduct supervised recovery and restore drills; no automatic production promotion.
 
