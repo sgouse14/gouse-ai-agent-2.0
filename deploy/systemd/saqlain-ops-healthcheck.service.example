@@ -1,0 +1,26 @@
+[Unit]
+Description=Saqlain independent backup/monitoring audit freshness check
+Documentation=https://github.com/sgouse14/gouse-ai-agent-2.0/blob/feature/saqlain-cyber-agent/docs/SAQLAIN_BACKUP_DEPLOYMENT.md
+
+[Service]
+Type=oneshot
+User=saqlain
+Group=saqlain
+WorkingDirectory=/opt/gouse-ai-agent-2.0
+EnvironmentFile=/etc/saqlain/backup.env
+ExecStart=/usr/bin/node --experimental-strip-types server/saqlainOpsHealthCheckCli.ts
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+ProtectClock=true
+RestrictSUIDSGID=true
+LockPersonality=true
+RestrictAddressFamilies=AF_UNIX
+ReadOnlyPaths=/opt/gouse-ai-agent-2.0
+ReadOnlyPaths=/var/log/saqlain
