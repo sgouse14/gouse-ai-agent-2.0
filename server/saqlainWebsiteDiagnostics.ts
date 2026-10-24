@@ -278,7 +278,7 @@ function readHtmlReferences(html: string, pageUrl: URL, findings: WebsiteDiagnos
     const tag = match[0];
     const tagName = match[1].toLowerCase();
     const attribute = tagName === 'a' || tagName === 'area' || tagName === 'link' ? 'href' : 'src';
-    const valueMatch = new RegExp('\\\\b' + attribute + '\\s*=\\s*(?:"([^"]*)"|\'([^\']*)\'|([^\\s>]+))', 'i').exec(tag);
+    const valueMatch = new RegExp(`\\b${attribute}\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s>]+))`, 'i').exec(tag);
     const raw = valueMatch?.[1] ?? valueMatch?.[2] ?? valueMatch?.[3];
     if (!raw || raw.length > MAX_URL_LENGTH || raw.startsWith('#')) continue;
     let target: URL;
