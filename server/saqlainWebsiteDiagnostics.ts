@@ -126,7 +126,7 @@ async function resolvePublicIPv4(hostname: string): Promise<string> {
   assertSafeHostname(hostname);
   let records: Awaited<ReturnType<typeof lookup>>;
   try {
-    records = await lookup(hostname, { all: true, verbatim: true });
+    records = await lookup(hostname, { all: true, family: 4, verbatim: true });
   } catch {
     throw new Error('Website DNS lookup failed.');
   }
