@@ -95,4 +95,19 @@ test('Firestore queue enqueue is idempotent and rejects key reuse with a differe
     () => queue.enqueue('different-backup', key, 'operator', new Date()),
     /Idempotency key was already used/,
   );
+  await assert.rejects(
+    () => queue.enqueue('backup-idempotent', key, 'different-operator', new Date()),
+    /Idempotency key was already used/,
+  );
+});
+
+test('concurrent Firestore enqueue retries with the same key resolve to one durable task', async () => {
+  const queue = new SaqlainFirestoreTaskQueueService({ client: new MemoryClient(), auditWriter: async () => undefined });
+  const key = 'concurrent-logical-task-0001';
+  const [first, retry] = await Promise.all([
+    queue.enqueue('backup-concurrent', key, 'operator', new Date('2026-10-23T03:00:00.000Z')),
+    queue.enqueue('backup-concurrent', key, 'operator', new Date('2026-10-23T03:00:01.000Z')),
+  ]);
+  assert.equal(first.managerTaskId, retry.managerTaskId);
+  assert.equal((await queue.getCounts()).totalTasks, 1);
 });
