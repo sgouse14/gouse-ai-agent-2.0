@@ -58,7 +58,7 @@ class MissingUpdateTimeClient extends SaqlainFirestoreRestClient {
   }
   override async listDocuments(collection: string): Promise<Record<string, unknown>[]> {
     const prefix=this.documentName(collection,'');
-    return [...this.docs.entries()].filter(([name])=>name.startsWith(prefix).map(([name,doc])=>({...doc,_name:name})));
+    return [...this.docs.entries()].filter(([name])=>name.startsWith(prefix)).map(([name,doc])=>({...doc,_name:name}));
   }
   override async commit(writes: readonly FirestoreWrite[]): Promise<void> {
     for (const write of writes) {
