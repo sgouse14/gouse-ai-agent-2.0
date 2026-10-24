@@ -86,6 +86,9 @@ const runtime = createApprovedContinuousBackupRuntime({
 
 const monitoringRuntime = createSaqlainMonitoringRuntime({
   auditFilePath: required('SAQLAIN_BACKUP_AUDIT_FILE'),
+  // The optional EMP telemetry freshness window is five minutes, so poll more
+  // frequently when that feature is enabled. Backup cycles still run every 30 minutes.
+  ...(empTelemetryReader ? { intervalMs: 5 * 60_000 } : {}),
   collectSnapshot: async () => {
     const runtimeState = runtime.getState();
     const report = runtimeState.lastReport;
