@@ -56,7 +56,9 @@ Updated: 2026-10-24
 - [ ] Thresholds need staging calibration based on measured cycle durations.
 - [ ] External independent alerting/paging and process/host-down monitoring are not implemented by this change.
 - [ ] Off-host/versioned replication and a supervised restore drill remain open.
-- [ ] EMP telemetry freshness/provenance enforcement and qualified site readiness exercises remain open; EMP remains an advisory module, not a physical detector.
+- [x] EMP resilience helper now requires owner-allowlisted source IDs and timestamped telemetry; stale, future, or unapproved-source observations return HOLD without scoring or physical action.
+- [ ] Connect the helper to a trusted server-side telemetry adapter and provision verified source IDs; the helper is not yet exposed through a live endpoint.
+- [ ] Qualified site readiness assessments and independent recovery drills remain open; EMP remains an advisory module, not a physical detector.
 
 ## Previously completed — 20 October 2026
 

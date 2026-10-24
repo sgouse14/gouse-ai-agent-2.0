@@ -51,7 +51,7 @@ function validateSnapshot(input: EmpSignalSnapshot): void {
     throw new Error('sourceId must be a valid telemetry source identifier.');
   }
   if (typeof input.observedAt !== 'string' || input.observedAt.length > 40 ||
-      !/^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,3})?(?:Z|[+-]\\d{2}:\\d{2})$/.test(input.observedAt) ||
+      !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?(?:Z|[+-]\d{2}:\d{2})$/.test(input.observedAt) ||
       !Number.isFinite(Date.parse(input.observedAt))) {
     throw new Error('observedAt must be an ISO 8601 timestamp with an explicit timezone.');
   }

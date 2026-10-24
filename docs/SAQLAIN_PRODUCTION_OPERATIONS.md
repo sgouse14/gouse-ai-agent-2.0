@@ -107,6 +107,8 @@ Before scaling beyond one host:
 - Persist worker liveness, job state and cycle state. Run backup/monitoring runtimes under a supervisor with restart policy, liveness probes and alerting; record operational owner and escalation path.
 - Configure trusted source roots and encrypted off-host/versioned backups. Keep backup destination separate from sources and test restores from offline/isolated copies.
 - Replicate hash-chained audit records off-host to access-controlled immutable/WORM storage with independent permissions, retention and alerts.
+- The standalone Saqlain EMP resilience helper now requires a source ID on an owner-provisioned exact allowlist and an ISO 8601 observation timestamp. By default, readings older than five minutes or more than 60 seconds in the future are held without scoring. These are initial heuristics and must be calibrated for the actual monitoring sources.
+- The EMP helper is not currently connected to a live sensor adapter or exposed as an API endpoint. A trusted server-side adapter must establish source identity/provenance and only then call the helper; a client-provided source ID or timestamp is not itself proof of trust.
 - EMP readiness signals must come from trusted monitoring or qualified operator inputs. The protector is not a physical EMP detector. Qualified site operators must assess shielding/EMC, surge protection, power continuity, offline backups, spare hardware and alternate communications; rehearse recovery under supervision. No automatic production promotion is permitted.
 
 ## 8. Required release evidence
