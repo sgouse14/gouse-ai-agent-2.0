@@ -66,11 +66,30 @@ export function evaluateSaqlainOpsHealth(
     return result(false, 'HOLD', checkedAt, null, null, 'INVALID_MAX_AGE_CONFIGURATION', 'Health-check freshness limit must be an integer from 1 to 1440 minutes.');
   }
 
-  // readVerifiedAuditLog returns the hash-chain in append/sequence order. Use
-  // the last monitoring event, not the last arbitrary audit entry.
-  const latest = [...records].reverse().find(record => record.eventType === 'SAQLAIN_MONITORING_CYCLE');
-  if (!latest) {
+  // readVerifiedAuditLog returns the verified hash-chain in append order. Use
+  // the latest monitoring cycle, not an arbitrary later audit event.
+  const latestCycleIndex = records.findLastIndex(record => record.eventType === 'SAQLAIN_MONITORING_CYCLE');
+  if (latestCycleIndex < 0) {
     return result(false, 'HOLD', checkedAt, null, null, 'NO_MONITORING_CYCLE', 'No verified Saqlain monitoring cycle was found in the audit log.');
+  }
+  const latest = records[latestCycleIndex];
+
+  // If a later monitoring alert-delivery failure was audited, do not let the
+  // preceding healthy cycle mask a failed alert or a cycle whose audit failed.
+  const laterAlertFailure = records.slice(latestCycleIndex + 1).find(record =>
+    record.eventType === 'SAQLAIN_MONITORING_ALERT_ADAPTER_FAILED',
+  );
+  if (laterAlertFailure) {
+    const failedAtMs = Date.parse(laterAlertFailure.occurredAt);
+    const failedAt = Number.isFinite(failedAtMs) ? new Date(failedAtMs).toISOString() : null;
+    const failureAge = Number.isFinite(failedAtMs)
+      ? Math.round(Math.max(0, nowMs - failedAtMs) / 60_000 * 100) / 100
+      : null;
+    return result(
+      false, 'HOLD', checkedAt, failedAt, failureAge,
+      'ALERT_DELIVERY_FAILED',
+      'A monitoring alert delivery failed after the last recorded cycle; verify the alert receiver and re-run monitoring.',
+    );
   }
 
   const eventMs = Date.parse(latest.occurredAt);
