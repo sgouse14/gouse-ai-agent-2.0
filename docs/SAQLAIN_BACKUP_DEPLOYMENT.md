@@ -90,7 +90,7 @@ Expected snapshot fields:
 }
 ```
 
-The file must be a regular, non-symlink file on a non-symlink path, must not be group/world writable, and must be at most 32 KiB. Unknown/missing JSON fields are rejected. The assessment uses an initial five-minute maximum observation age and 60-second future-clock tolerance. Unapproved source IDs, stale/future timestamps, or non-healthy source state cause a HOLD; a fresh WATCH result elevates monitoring to WARNING. Bad file configuration or unreadable/malformed data also forces the monitoring collection to HOLD.
+The file must be a regular, non-symlink file on a non-symlink path, owned by the runtime service account, not group/world writable, and at most 32 KiB. Its parent directory must also be a real directory that is not group/world writable. Unknown/missing JSON fields are rejected. The assessment uses an initial five-minute maximum observation age and 60-second future-clock tolerance. Unapproved source IDs, stale/future timestamps, or non-healthy source state cause a HOLD; a fresh WATCH result elevates monitoring to WARNING. Bad file configuration or unreadable/malformed data also forces the monitoring collection to HOLD.
 
 The service does not authenticate the physical sensor. The upstream collector must independently verify the telemetry source and write the file atomically into a protected directory; a JSON `sourceId` by itself is not proof of provenance. The helper is a software triage advisor, not an EMP detector, and it never switches power, disables hardware, performs containment, or starts recovery. This repository contains no configured live telemetry source and no qualified physical shielding assessment.
 
