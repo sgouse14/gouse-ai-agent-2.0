@@ -9,7 +9,7 @@ Updated: 2026-10-24
 - **Saqlain implementation progress:** approximately 65% (subjective planning estimate; not measured code coverage)
 - **Overall project completion / production readiness:** still in progress; do not treat these estimates as release approval.
 - Estimates are planning indicators, not measured code coverage or a precise issue-count calculation.
-- **Latest verified code CI:** [run #40070558418](https://github.com/sgouse14/gouse-ai-agent-2.0/actions/runs/40070558418) passed on commit `265fb184` on 2026-10-24. It passed security tests, both TypeScript checks, frontend/server production build, and Docker image build.
+- **Latest verified code CI:** [run #40077185658](https://github.com/sgouse14/gouse-ai-agent-2.0/actions/runs/40077185658) passed on commit `f5ba4127` on 2026-10-24. It passed security tests, both TypeScript checks, frontend/server production build, and Docker image build, including the optional EMP telemetry integration.
 - **Feature branch:** `feature/saqlain-cyber-agent`
 - **Pull request:** [#1 — open and draft](https://github.com/sgouse14/gouse-ai-agent-2.0/pull/1)
 - **Main branch:** unchanged; no merge performed.
@@ -55,12 +55,14 @@ Updated: 2026-10-24
 - [x] Updated the backup deployment runbook with operational freshness thresholds and external paging requirements.
 - [x] Added a hardened example systemd unit with a dedicated service user, restart policy, read-only source/application paths, and explicit writable backup/queue/audit directories.
 - [ ] Thresholds need staging calibration based on measured cycle durations.
-- [ ] External independent alerting/paging and process/host-down monitoring are not implemented by this change.
+- [x] Add a local read-only health freshness CLI and a five-minute systemd timer example that verifies the hash-chained audit log and monitoring cycle status.
+- [ ] External independent alerting/paging and process/host-down monitoring are not implemented by this change; a local timer cannot detect its own host outage.
 - [x] Added optional Google Cloud Storage off-site archival with bucket-versioning enforcement, create-only object preconditions, SHA-256/readback verification, and a completion marker written last; Cloud Run startup requires a configured archive bucket.
 - [x] Added integration tests proving that remote archive failure leaves the local snapshot intact but returns `HOLD`, while successful remote archive receipts are included in the durable backup audit.
 - [ ] Live GCS bucket/IAM validation, GCS restore adapter, and a supervised restore drill remain open.
 - [x] EMP resilience helper now requires owner-allowlisted source IDs and timestamped telemetry; stale, future, or unapproved-source observations return HOLD without scoring or physical action.
-- [ ] Connect the helper to a trusted server-side telemetry adapter and provision verified source IDs; the helper is not yet exposed through a live endpoint.
+- [x] Connect the EMP resilience helper to an optional protected local telemetry-file adapter and the monitoring collector, gated off by default. Exact owner-approved source IDs, file ownership/permissions, strict schema, and freshness checks are enforced in code.
+- [ ] Provision the real source allowlist and connect a trusted upstream collector that authenticates sensor provenance and writes snapshots atomically; no live telemetry source is configured.
 - [ ] Qualified site readiness assessments and independent recovery drills remain open; EMP remains an advisory module, not a physical detector.
 
 ## Previously completed — 20 October 2026
