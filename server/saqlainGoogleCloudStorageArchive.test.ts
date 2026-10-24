@@ -121,7 +121,9 @@ test('GCS archive refuses to overwrite a conflicting pre-existing object', async
   try {
     await assert.rejects(() => makeArchive(state).archiveSnapshot(ctx.snapshot), /differs from the expected bytes; refusing overwrite/i);
     assert.deepEqual(state.objects.get(conflictName), conflictingBytes);
-    assert.equal(state.writes.length, 0);
+    assert.equal(state.writes.includes(conflictName), false);
+    // Earlier successfully created objects remain for investigation; partial archives are not deleted.
+    assert.ok(state.writes.length >= 1);
   } finally { await rm(ctx.root, { recursive: true, force: true }); }
 });
 
