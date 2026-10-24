@@ -2,7 +2,6 @@ import { lookup } from 'node:dns/promises';
 import { isIP } from 'node:net';
 import * as http from 'node:http';
 import * as https from 'node:https';
-import type { LookupFunction } from 'node:dns';
 
 export type WebsiteDiagnosticMethod = 'GET' | 'HEAD';
 export type WebsiteDiagnosticSeverity = 'high' | 'medium' | 'low' | 'info';
@@ -124,9 +123,9 @@ export function parseWebsiteDiagnosticTarget(raw: unknown): URL {
 
 async function resolvePublicIPv4(hostname: string): Promise<string> {
   assertSafeHostname(hostname);
-  let records: Awaited<ReturnType<typeof lookup>>;
+  let records: Array<{ address: string; family: number }>;
   try {
-    records = await lookup(hostname, { all: true, family: 4, verbatim: true });
+    records = await lookup(hostname, { all: true, family: 4, verbatim: true }) as unknown as Array<{ address: string; family: number }>;
   } catch {
     throw new Error('Website DNS lookup failed.');
   }
@@ -136,7 +135,7 @@ async function resolvePublicIPv4(hostname: string): Promise<string> {
   return records[0].address;
 }
 
-function pinnedLookup(address: string): LookupFunction {
+function pinnedLookup(address: string) {
   return ((hostname: string, options: unknown, callback: (...args: unknown[]) => void) => {
     if (typeof options === 'object' && options !== null && (options as { all?: boolean }).all === true) {
       callback(null, [{ address, family: 4 }]);
@@ -162,7 +161,7 @@ function requestWithPinnedAddress(
     const request = transport.request(url, {
       method,
       agent: false,
-      lookup: pinnedLookup(publicIPv4),
+      lookup: pinnedLookup(publicIPv4) as never,
       maxHeaderSize: 16 * 1024,
       headers: {
         'User-Agent': USER_AGENT,
