@@ -1,0 +1,11 @@
+[Unit]
+Description=Run Saqlain backup/monitoring freshness check every five minutes
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=5min
+AccuracySec=30s
+Unit=saqlain-ops-healthcheck.service
+
+[Install]
+WantedBy=timers.target
