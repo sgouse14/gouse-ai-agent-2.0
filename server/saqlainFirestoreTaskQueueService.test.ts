@@ -47,3 +47,37 @@ test('Firestore queue rejects completion by the wrong agent and unsafe requeue',
   await queue.lockNextPending('agent-a','operator');
   await assert.rejects(()=>queue.complete(task.managerTaskId,'agent-b','operator'),/current task owner/);
 });
+
+
+class MissingUpdateTimeClient extends SaqlainFirestoreRestClient {
+  private docs = new Map<string, Record<string, unknown>>();
+  constructor() { super({ projectId: 'saqlain-staging-123', accessTokenProvider: async () => 'token' }); }
+  override async getDocument(collection: string, id: string): Promise<Record<string, unknown> | null> {
+    const doc=this.docs.get(this.documentName(collection,id));
+    return doc ? { ...doc } : null;
+  }
+  override async listDocuments(collection: string): Promise<Record<string, unknown>[]> {
+    const prefix=this.documentName(collection,'');
+    return [...this.docs.entries()].filter(([name])=>name.startsWith(prefix).map(([name,doc])=>({...doc,_name:name})));
+  }
+  override async commit(writes: readonly FirestoreWrite[]): Promise<void> {
+    for (const write of writes) {
+      if (!write.update) continue;
+      if (write.currentDocument?.exists === false && this.docs.has(write.update.name)) {
+        throw new Error('Firestore request failed with HTTP 409.');
+      }
+    }
+    for (const write of writes) if (write.update) this.docs.set(write.update.name, decodeFirestoreFields(write.update.fields));
+  }
+}
+
+test('Firestore queue fails closed if task update-time metadata is missing', async () => {
+  const client = new MissingUpdateTimeClient();
+  const queue = new SaqlainFirestoreTaskQueueService({ client, auditWriter: async () => undefined });
+  const created = await queue.enqueue('backup-update-time', 'operator');
+  // Simulate a read path that cannot provide Firestore update-time preconditions.
+  await assert.rejects(
+    () => queue.complete(created.managerTaskId, 'agent-a', 'operator'),
+    /missing update-time metadata/,
+  );
+});
