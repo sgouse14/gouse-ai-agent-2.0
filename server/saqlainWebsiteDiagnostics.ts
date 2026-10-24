@@ -163,9 +163,11 @@ function requestWithPinnedAddress(
   return new Promise((resolve, reject) => {
     const transport = url.protocol === 'https:' ? https : http;
     let settled = false;
+    let hardTimeout: ReturnType<typeof setTimeout> | undefined;
     const finish = (callback: () => void) => {
       if (settled) return;
       settled = true;
+      if (hardTimeout !== undefined) clearTimeout(hardTimeout);
       callback();
     };
     const request = transport.request(url, {
@@ -232,6 +234,8 @@ function requestWithPinnedAddress(
       }
       response.resume();
     });
+    // Enforce total wall-clock time as well as socket inactivity, so slow-drip servers cannot hold scans open.
+    hardTimeout = setTimeout(() => request.destroy(new Error('Website request timed out.')), REQUEST_TIMEOUT_MS);
     request.setTimeout(REQUEST_TIMEOUT_MS, () => request.destroy(new Error('Website request timed out.')));
     request.on('error', error => finish(() => reject(error)));
     request.end();
