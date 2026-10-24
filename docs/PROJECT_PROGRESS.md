@@ -39,8 +39,9 @@ Updated: 2026-10-24
 - [x] Added audit-before-scan and audit-before-report behavior; audit failure denies the scan or withholds the report.
 - [x] Added tests for URL/IP validation, internal 404s, redirects, size limits, host authorization, authorization failures, and audit failures; added the tests to the standard test command.
 - [x] Each finding now includes an approval-gated repair proposal with steps, verification criteria, and rollback guidance; no remote change is applied automatically.
+- [x] Added a Website Error Diagnostics panel to the Saqlain Security view: URL input, result status, finding severity/evidence, proposed repair steps, verification criteria, rollback guidance, and scope limitations.
 - [x] Documented configuration, endpoint use, scope, limitations, and the future approval-gated repair workflow in docs/SAQLAIN_WEBSITE_DIAGNOSTICS.md.
-- [ ] Final CI for this new feature and endpoint integration is pending verification.
+- [x] Full CI for the website diagnostics backend and security-view UI passed in [run #40072781250](https://github.com/sgouse14/gouse-ai-agent-2.0/actions/runs/40072781250), commit `433378b0`: security tests, TypeScript checks, frontend/server production build, and Docker image build all passed.
 - [ ] Live authorized staging-site validation is not yet performed.
 - [ ] Automatic repair is deliberately not implemented: the current endpoint only diagnoses and recommends fixes. A separate approved change adapter, explicit owner approval, verification, and rollback design are required before live changes.
 
