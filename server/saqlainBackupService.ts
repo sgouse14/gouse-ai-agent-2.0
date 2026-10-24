@@ -6,6 +6,7 @@ import { createSaqlainTaskQueueService } from './saqlainTaskQueueService.ts';
 import { createDurableQueueTaskRegistry } from './saqlainDurableQueueStore.ts';
 import { getSaqlainAuditBackendMode } from './saqlainAuditBackend.ts';
 import { SaqlainFirestoreTaskQueueService } from './saqlainFirestoreTaskQueueService.ts';
+import { SaqlainGoogleCloudStorageArchive } from './saqlainGoogleCloudStorageArchive.ts';
 
 const required = (key: string): string => {
   const value = process.env[key]?.trim();
@@ -25,6 +26,23 @@ if (recoveredTasks.length > 0) {
   console.warn('Saqlain queue recovery moved interrupted tasks to TIMEOUT_REVIEW:', recoveredTasks.map((task) => task.managerTaskId));
 }
 
+const cloudRunRuntime = Boolean(process.env.K_SERVICE?.trim() || process.env.K_REVISION?.trim());
+const offsiteRequiredValue = process.env.SAQLAIN_BACKUP_OFFSITE_REQUIRED?.trim().toLowerCase();
+if (offsiteRequiredValue && offsiteRequiredValue !== 'true' && offsiteRequiredValue !== 'false') {
+  throw new Error('SAQLAIN_BACKUP_OFFSITE_REQUIRED must be true or false.');
+}
+const offsiteArchiveRequired = cloudRunRuntime || offsiteRequiredValue === 'true';
+const gcsBucket = process.env.SAQLAIN_BACKUP_GCS_BUCKET?.trim();
+if (offsiteArchiveRequired && !gcsBucket) {
+  throw new Error('SAQLAIN_BACKUP_GCS_BUCKET is required when off-site archival is required or running on Cloud Run.');
+}
+const gcsArchive = gcsBucket
+  ? new SaqlainGoogleCloudStorageArchive({
+      bucket: gcsBucket,
+      prefix: process.env.SAQLAIN_BACKUP_GCS_PREFIX?.trim() || 'saqlain-backups',
+    })
+  : undefined;
+
 const runtime = createApprovedContinuousBackupRuntime({
   storageRoot: required('SAQLAIN_BACKUP_STORAGE_ROOT'),
   recoveryStagingRoot: required('SAQLAIN_RECOVERY_STAGING_ROOT'),
@@ -39,6 +57,7 @@ const runtime = createApprovedContinuousBackupRuntime({
     'saq-backup-saqlain': 'saqlain-ai',
     'saq-backup-files': 'protected-files',
   },
+  remoteArchive: gcsArchive ? (snapshot) => gcsArchive.archiveSnapshot(snapshot) : undefined,
 });
 
 const monitoringRuntime = createSaqlainMonitoringRuntime({

@@ -8,7 +8,10 @@ The in-process runtime and approved-source backup/recovery rehearsal are impleme
 
 Set these values in the service manager's protected environment file. Use absolute paths and a dedicated least-privilege service account.
 
-- `SAQLAIN_BACKUP_STORAGE_ROOT`: destination for immutable-by-policy local snapshots.
+- `SAQLAIN_BACKUP_STORAGE_ROOT`: destination for local snapshots (ephemeral on Cloud Run; never the only durable copy).
+- `SAQLAIN_BACKUP_GCS_BUCKET`: owner-provisioned GCS archive bucket. Mandatory on Cloud Run and whenever off-site archival is required.
+- `SAQLAIN_BACKUP_GCS_PREFIX`: relative object prefix; defaults to `saqlain-backups`.
+- `SAQLAIN_BACKUP_OFFSITE_REQUIRED`: `true` or `false`; Cloud Run implicitly requires off-site archival regardless of this flag.
 - `SAQLAIN_RECOVERY_STAGING_ROOT`: separate destination used only for recovery rehearsals.
 - `SAQLAIN_BACKUP_AUDIT_FILE`: path for the hash-chained backup/monitoring audit log.
 - `SAQLAIN_TASK_QUEUE_FILE`: path to the durable JSON task queue; keep it on persistent storage.
@@ -19,6 +22,20 @@ Set these values in the service manager's protected environment file. Use absolu
 - `SAQLAIN_SOURCE_PROTECTED_ROOT`: approved protected-files source directory.
 
 Do not point backup or recovery staging at any source directory. Do not use a source directory that contains either destination. Use real directories, not symlink aliases. The runtime must not be started until each path has been reviewed and approved by the operator.
+
+## Google Cloud Storage off-site archive
+
+The secure backup agent has an optional GCS archive adapter for Cloud Run and other environments that require a durable off-host copy. When `K_SERVICE` or `K_REVISION` is present, startup fails closed if `SAQLAIN_BACKUP_GCS_BUCKET` is not configured. In other environments, setting `SAQLAIN_BACKUP_OFFSITE_REQUIRED=true` has the same requirement. If a bucket is configured, each source snapshot is held unless the archive operation succeeds.
+
+Before enabling this:
+1. Use an owner-managed bucket in the intended backup region/project, separate from the application runtime's writable local paths.
+2. Enable bucket object versioning and verify it remains enabled. The archive adapter checks `versioning.enabled` before writes.
+3. Grant the attached Cloud Run service account only the required bucket metadata read and object create/read permissions (for example custom role permissions equivalent to `storage.buckets.get`, `storage.objects.create`, and `storage.objects.get`). Do not grant object deletion to the backup runtime.
+4. Configure `SAQLAIN_BACKUP_GCS_BUCKET` and optionally `SAQLAIN_BACKUP_GCS_PREFIX` in the protected service environment. Do not use `GOOGLE_APPLICATION_CREDENTIALS` key files for Cloud Run; the adapter obtains a short-lived access token from the attached service identity.
+5. The adapter uploads data files and the manifest with `ifGenerationMatch=0`, reads every object back, verifies exact bytes against the local manifest, and creates `ARCHIVE_COMPLETE.json` last. Existing objects are accepted only when their content is byte-identical; conflicting objects are never overwritten. Partial archives are retained for investigation, with no automatic remote deletion.
+6. Test a first archive, an idempotent retry, disabled-versioning denial, mismatched existing object, and remote readback corruption in staging. Independently perform a restore rehearsal from the GCS archive before relying on it for disaster recovery.
+
+Bucket versioning retains prior object generations but does not by itself make the bucket undeletable or immutable against privileged administrators. Configure approved retention/lifecycle controls independently, and keep delete permission away from the runtime service identity. The repository's current adapter archives and verifies snapshots; a production restore workflow from GCS and live Cloud Run IAM/bucket validation remain separate tasks.
 
 ## Pre-deployment validation
 
@@ -38,7 +55,7 @@ After installing dependencies, configuring all required environment variables ab
 
 Run the service under a process supervisor (for example, systemd or an equivalent managed service). Configure restart-on-failure, bounded restart backoff, restricted filesystem access, log rotation, and alerting for service exit or missed cycles. The runtime's in-process 30-minute timer is not sufficient by itself to guarantee 24/7 operation across process or host restarts.
 
-The entrypoint is available as `server/saqlainBackupService.ts`, with the `backup:service` package script. It is not yet production-validated and does not provide durable cycle state, off-host replication, or independent host-down notifications. The monitoring snapshot includes durable queue counts, failed tasks and timeout-review holds, authenticated heartbeat counts, and explicit backup-cycle freshness. A completed backup/recovery cycle older than 45 minutes or a cycle running longer than 45 minutes is reported as `FAILED`; no completed cycle with no active cycle is `HOLD`. The 45-minute limits are initial policy defaults and must be tuned from measured staging cycle duration before production use. These in-process alerts do not page anyone by themselves; configure a separately managed alerting/monitoring service that watches the supervised process and durable logs. Treat those as launch blockers for production-critical data.
+The entrypoint is available as `server/saqlainBackupService.ts`, with the `backup:service` package script. Off-site GCS archival is supported and required by startup when running on Cloud Run, but it has not been tested against a live bucket/IAM configuration. The adapter verifies object versioning, uses create-only preconditions, reads back objects, and writes a completion marker last. A GCS restore adapter, live bucket/permission validation, and a supervised restore drill remain open. The monitoring snapshot includes durable queue counts, failed tasks and timeout-review holds, authenticated heartbeat counts, and explicit backup-cycle freshness. A completed backup/recovery cycle older than 45 minutes or a cycle running longer than 45 minutes is reported as `FAILED`; no completed cycle with no active cycle is `HOLD`. The 45-minute limits are initial policy defaults and must be tuned from measured staging cycle duration before production use. These in-process alerts do not page anyone by themselves; configure a separately managed alerting/monitoring service that watches the supervised process and durable logs. Treat those as launch blockers for production-critical data.
 
 ## Operational freshness and alert policy
 

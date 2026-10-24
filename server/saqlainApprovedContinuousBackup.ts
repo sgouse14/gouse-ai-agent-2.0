@@ -2,6 +2,7 @@ import { readFile } from 'node:fs/promises';
 import { relative, resolve, sep } from 'node:path';
 import { verifyBackupCopy, verifyBackupManifest, type BackupManifest } from './saqlainBackupManifest.ts';
 import { type BackupStorageResult } from './saqlainBackupStorage.ts';
+import type { SaqlainGoogleCloudStorageArchiveReceipt } from './saqlainGoogleCloudStorageArchive.ts';
 import { runRecoveryRehearsal } from './saqlainRecoveryAgent.ts';
 import { SAQLAIN_BACKUP_TEAM, type SaqlainBackupAgent } from './saqlainBackupTeam.ts';
 import { type ApprovedBackupAgentConfig } from './saqlainApprovedBackupCycle.ts';
@@ -15,6 +16,8 @@ export interface ApprovedContinuousBackupOptions extends Omit<SaqlainBackupRunti
   recoveryStagingRoot: string;
   /** Optional outbound transport; absent by default. Only operator-approved recipient IDs may be contacted. */
   externalCommunication?: Omit<ExternalCommunicationOptions, 'auditFilePath'>;
+  /** Optional verified off-site archive; if supplied, backup success requires archive readback. */
+  remoteArchive?: (snapshot: BackupStorageResult) => Promise<SaqlainGoogleCloudStorageArchiveReceipt>;
 }
 
 function isWithin(parent: string, child: string): boolean {
@@ -114,6 +117,7 @@ export function createApprovedContinuousBackupRuntime(
         cycleId,
         config: options,
         auditFilePath: options.auditFilePath,
+        archiveSnapshot: options.remoteArchive,
       });
       if (result.decision !== 'VERIFIED' || !result.snapshot) {
         return { status: 'HOLD', summary: 'Secure backup held: ' + result.reason };
@@ -122,7 +126,10 @@ export function createApprovedContinuousBackupRuntime(
       const snapshots = snapshotsByCycle.get(cycleId) ?? new Map<string, BackupStorageResult>();
       snapshots.set(agent.id, snapshot);
       snapshotsByCycle.set(cycleId, snapshots);
-      return { status: 'VERIFIED', summary: 'Secure audited snapshot ' + snapshot.snapshotId + ' with ' + result.verifiedFiles + ' verified files.' };
+      const archiveSummary = result.remoteArchive
+        ? ' Off-site GCS archive verified at gs://' + result.remoteArchive.bucket + '/' + result.remoteArchive.completionObjectName + '.'
+        : '';
+      return { status: 'VERIFIED', summary: 'Secure audited snapshot ' + snapshot.snapshotId + ' with ' + result.verifiedFiles + ' verified files.' + archiveSummary };
     }
 
     if (agent.id === 'saq-backup-verify') {

@@ -4,6 +4,7 @@ import { appendDurableAuditEvent } from './saqlainAuditLog.ts';
 import { verifyBackupCopy, verifyBackupManifest, type BackupManifest } from './saqlainBackupManifest.ts';
 import { runApprovedBackupAgentSnapshot, type ApprovedBackupAgentConfig } from './saqlainApprovedBackupCycle.ts';
 import type { BackupStorageResult } from './saqlainBackupStorage.ts';
+import type { SaqlainGoogleCloudStorageArchiveReceipt } from './saqlainGoogleCloudStorageArchive.ts';
 import type { SaqlainBackupAgent } from './saqlainBackupTeam.ts';
 
 // Serialize same-process audit writes: source-copying agents run concurrently,
@@ -23,6 +24,7 @@ export interface SecureBackupAgentResult {
   verifiedFiles: number;
   originalsModified: false;
   reason: string;
+  remoteArchive: SaqlainGoogleCloudStorageArchiveReceipt | null;
 }
 
 function isWithin(parent: string, child: string): boolean {
@@ -69,6 +71,8 @@ export async function runSecureBackupAgent(input: {
   cycleId: string;
   config: ApprovedBackupAgentConfig;
   auditFilePath: string;
+  /** When configured, a local snapshot is not VERIFIED until this off-site archive completes. */
+  archiveSnapshot?: (snapshot: BackupStorageResult) => Promise<SaqlainGoogleCloudStorageArchiveReceipt>;
 }): Promise<SecureBackupAgentResult> {
   const { agent, cycleId, config, auditFilePath } = input;
   const source = config.sourceByAgentId[agent.id];
@@ -87,12 +91,18 @@ export async function runSecureBackupAgent(input: {
   let snapshot: BackupStorageResult | null = null;
   let decision: 'VERIFIED' | 'HOLD' = 'HOLD';
   let verifiedFiles = 0;
+  let remoteArchive: SaqlainGoogleCloudStorageArchiveReceipt | null = null;
   let reason = 'Backup held for review.';
   try {
     snapshot = await runApprovedBackupAgentSnapshot(agent, cycleId, config);
     verifiedFiles = await verifyStoredSnapshot(snapshot);
+    if (input.archiveSnapshot) {
+      remoteArchive = await input.archiveSnapshot(snapshot);
+      reason = 'Local snapshot and off-site GCS archive were read-back verified; original source was not modified.';
+    } else {
+      reason = 'Versioned local snapshot and persisted files verified; original source was not modified.';
+    }
     decision = 'VERIFIED';
-    reason = 'Versioned snapshot and persisted files verified; original source was not modified.';
   } catch (error) {
     reason = error instanceof Error ? error.message : 'Unknown secure backup failure.';
   }
@@ -109,8 +119,20 @@ export async function runSecureBackupAgent(input: {
       snapshotId: snapshot?.snapshotId ?? null,
       verifiedFiles,
       originalsModified: false,
+      remoteArchive: remoteArchive ? {
+        provider: remoteArchive.provider,
+        status: remoteArchive.status,
+        bucket: remoteArchive.bucket,
+        prefix: remoteArchive.prefix,
+        snapshotId: remoteArchive.snapshotId,
+        objectCount: remoteArchive.objectCount,
+        totalBytes: remoteArchive.totalBytes,
+        manifestSha256: remoteArchive.manifestSha256,
+        completionObjectName: remoteArchive.completionObjectName,
+        verifiedAt: remoteArchive.verifiedAt,
+      } : null,
       reason: reason.slice(0, 1000),
     },
   });
-  return { decision, agentId: agent.id, source, snapshot, verifiedFiles, originalsModified: false, reason };
+  return { decision, agentId: agent.id, source, snapshot, verifiedFiles, originalsModified: false, reason, remoteArchive };
 }
