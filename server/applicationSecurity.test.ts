@@ -72,3 +72,26 @@ test('IP rate limit applies to protected APIs but permits health probes', () => 
   for (let i = 0; i < 120; i++) assert.equal(checkApplicationIpRateLimit('/api/security/gatekeeper', 'POST', ip, nowMs).allowed, true);
   assert.equal(checkApplicationIpRateLimit('/api/security/gatekeeper', 'POST', ip, nowMs).allowed, false);
 });
+
+
+test('website diagnostics is project-scoped and denies unprovisioned project membership', async () => {
+  const noProject = await authorizer('{"firebase-user-1":["proj-01"]}')({
+    ...base,
+    path: '/api/website/diagnostics',
+    projectIdHeader: undefined,
+  });
+  assert.equal(noProject.status, 400);
+
+  const wrongProject = await authorizer('{"firebase-user-1":["proj-02"]}')({
+    ...base,
+    path: '/api/website/diagnostics',
+  });
+  assert.equal(wrongProject.status, 403);
+
+  const approved = await authorizer('{"firebase-user-1":["proj-01"]}')({
+    ...base,
+    path: '/api/website/diagnostics',
+  });
+  assert.equal(approved.allowed, true);
+  assert.equal(approved.projectId, 'proj-01');
+});
