@@ -1,0 +1,49 @@
+[Unit]
+Description=Saqlain Cyber Agent backup, recovery rehearsal, and monitoring
+Documentation=https://github.com/sgouse14/gouse-ai-agent-2.0/blob/feature/saqlain-cyber-agent/docs/SAQLAIN_BACKUP_DEPLOYMENT.md
+Wants=network-online.target
+After=network-online.target
+StartLimitIntervalSec=300
+StartLimitBurst=5
+
+[Service]
+Type=simple
+User=saqlain
+Group=saqlain
+WorkingDirectory=/opt/gouse-ai-agent-2.0
+EnvironmentFile=/etc/saqlain/backup.env
+ExecStart=/usr/bin/npm run backup:service
+Restart=on-failure
+RestartSec=10s
+TimeoutStartSec=60s
+TimeoutStopSec=60s
+KillSignal=SIGTERM
+UMask=0077
+
+# Defense in depth: source and application files are read-only; only explicitly
+# named snapshot, recovery, queue, and audit directories are writable.
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+ProtectHostname=true
+ProtectClock=true
+RestrictSUIDSGID=true
+LockPersonality=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+
+ReadOnlyPaths=/srv/gouse-ai/source-gouse
+ReadOnlyPaths=/srv/gouse-ai/source-saqlain
+ReadOnlyPaths=/srv/gouse-ai/protected-source
+ReadOnlyPaths=/opt/gouse-ai-agent-2.0
+ReadWritePaths=/var/lib/saqlain/backup
+ReadWritePaths=/var/lib/saqlain/recovery
+ReadWritePaths=/var/lib/saqlain/queue
+ReadWritePaths=/var/log/saqlain
+
+[Install]
+WantedBy=multi-user.target
