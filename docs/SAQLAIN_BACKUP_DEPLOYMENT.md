@@ -47,6 +47,19 @@ The entrypoint is available as `server/saqlainBackupService.ts`, with the `backu
 - Monitoring status and alert text are durably audited. This process-local scheduler cannot alert if the host, container, disk, or audit volume is unavailable. Use an independent provider/platform monitor for missed heartbeats, process exit, host loss, and human paging.
 - Keep the external alert receiver and its credentials outside this repository and outside the backup process' writeable source paths. Test notification failure, duplicate alerts, escalation ownership, and recovery after alert-service outage.
 
+## Example systemd supervisor (Linux)
+
+A hardened unit template is provided at `deploy/systemd/saqlain-backup.service.example`. It uses a dedicated `saqlain` service account, restarts on process failure, runs from a read-only application tree, makes approved source roots read-only, and grants write access only to the configured backup, recovery, queue, and audit directories. Review and adapt every path before installing it.
+
+1. Install the application and dependencies under `/opt/gouse-ai-agent-2.0` using a deployment-owned account. Verify the service user can read the application and approved source trees but cannot edit them.
+2. Create a dedicated `saqlain` system user/group, then create the writable directories with owner `saqlain:saqlain` and restrictive permissions. The example paths are `/var/lib/saqlain/backup`, `/var/lib/saqlain/recovery`, `/var/lib/saqlain/queue`, and `/var/log/saqlain`.
+3. Create `/etc/saqlain/backup.env` with the required variables listed above, using exact approved source roots such as `/srv/gouse-ai/source-gouse`, `/srv/gouse-ai/source-saqlain`, and `/srv/gouse-ai/protected-source`. Ensure storage and recovery roots do not overlap sources. Keep the environment file owned by root with mode `0600`; never commit populated values or tokens.
+4. Confirm the installed Node.js binary is `/usr/bin/node`, or change `ExecStart` to its verified absolute path. Confirm the chosen paths match the `ReadOnlyPaths` and `ReadWritePaths` in the unit; do not widen writable paths to entire source or application directories.
+5. Copy the reviewed unit to `/etc/systemd/system/saqlain-backup.service`, then run `systemctl daemon-reload`, `systemctl enable --now saqlain-backup.service`, and inspect `systemctl status saqlain-backup.service` plus `journalctl -u saqlain-backup.service`. Verify it restarts after a controlled failure and stops cleanly on SIGTERM.
+6. Before relying on it, run a supervised staging backup/recovery rehearsal, confirm the audit chain and freshness alerts, and restore from a separate versioned/off-host copy. Use an independent monitoring service for host-down and paging alerts; systemd restart policy does not notify a human by itself.
+
+This is a deployment example only. The repository cannot validate your Linux paths, ownership, systemd version, service-account permissions, or external monitoring integration, and the unit has not been installed or exercised on a host. Do not point it at a production source tree until the owner has reviewed the read/write boundaries.
+
 ## Incident and recovery rules
 
 - Preserve original source files; do not delete or overwrite them.
