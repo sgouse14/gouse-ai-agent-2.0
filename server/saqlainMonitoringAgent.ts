@@ -73,13 +73,18 @@ export function evaluateMonitoringSnapshot(input: Omit<MonitoringSnapshot, 'stat
       status = 'FAILED';
     } else if (input.backupCycleStatus && input.backupCycleStatus !== 'VERIFIED') {
       status = 'HOLD';
-    } else if (
-      input.empProtectionStatus === 'HOLD' ||
-      (input.empTelemetryFreshness !== undefined && input.empTelemetryFreshness !== 'FRESH')
-    ) {
-      status = 'HOLD';
-    } else if (input.empProtectionStatus === 'WATCH') {
-      status = 'WARNING';
+    }
+
+    // EMP telemetry can raise severity, never lower an existing HOLD or FAILED state.
+    if (status !== 'FAILED') {
+      if (
+        input.empProtectionStatus === 'HOLD' ||
+        (input.empTelemetryFreshness !== undefined && input.empTelemetryFreshness !== 'FRESH')
+      ) {
+        status = 'HOLD';
+      } else if (input.empProtectionStatus === 'WATCH' && status === 'HEALTHY') {
+        status = 'WARNING';
+      }
     }
   }
   return { ...input, status };
