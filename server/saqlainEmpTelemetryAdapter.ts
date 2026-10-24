@@ -1,6 +1,6 @@
 import { constants } from 'node:fs';
-import { open, realpath } from 'node:fs/promises';
-import { isAbsolute, resolve } from 'node:path';
+import { lstat, open, realpath } from 'node:fs/promises';
+import { dirname, isAbsolute, resolve } from 'node:path';
 import {
   assessEmpResilience,
   type EmpProtectionAssessment,
@@ -89,6 +89,10 @@ export function createSaqlainEmpTelemetryFileReader(options: SaqlainEmpTelemetry
     if (canonicalPath !== config.filePath) {
       throw new Error('EMP telemetry path must not contain symbolic-link path components.');
     }
+    const parentInfo = await lstat(dirname(config.filePath)).catch(() => null);
+    if (!parentInfo?.isDirectory() || parentInfo.isSymbolicLink() || (parentInfo.mode & 0o022) !== 0) {
+      throw new Error('EMP telemetry parent directory must be a real, non-group/world-writable directory.');
+    }
 
     let handle: Awaited<ReturnType<typeof open>> | undefined;
     try {
@@ -99,6 +103,9 @@ export function createSaqlainEmpTelemetryFileReader(options: SaqlainEmpTelemetry
       handle = await open(config.filePath, constants.O_RDONLY | noFollow);
       const info = await handle.stat();
       if (!info.isFile()) throw new Error('EMP telemetry path must be a regular file.');
+      if (typeof process.getuid === 'function' && info.uid !== process.getuid()) {
+        throw new Error('EMP telemetry file must be owned by the runtime service account.');
+      }
       if (info.size < 1 || info.size > config.maxBytes) {
         throw new Error('EMP telemetry file is empty or exceeds its size limit.');
       }
