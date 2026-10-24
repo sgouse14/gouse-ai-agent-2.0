@@ -68,7 +68,10 @@ export function evaluateSaqlainOpsHealth(
 
   // readVerifiedAuditLog returns the verified hash-chain in append order. Use
   // the latest monitoring cycle, not an arbitrary later audit event.
-  const latestCycleIndex = records.findLastIndex(record => record.eventType === 'SAQLAIN_MONITORING_CYCLE');
+  let latestCycleIndex = -1;
+  for (let index = 0; index < records.length; index++) {
+    if (records[index].eventType === 'SAQLAIN_MONITORING_CYCLE') latestCycleIndex = index;
+  }
   if (latestCycleIndex < 0) {
     return result(false, 'HOLD', checkedAt, null, null, 'NO_MONITORING_CYCLE', 'No verified Saqlain monitoring cycle was found in the audit log.');
   }
