@@ -29,6 +29,20 @@ Updated: 2026-10-24
 - [ ] End-to-end backup job enqueue/lock/complete through the shared Firestore queue remains incomplete. Current worker change aligns startup recovery and monitoring counts only.
 - [ ] Live Cloud Run/Firestore IAM, multi-instance concurrency, API outage, and recovery tests have not been run.
 
+## Website Error Diagnostics — initial implementation (24 October 2026)
+
+- [x] Added an initial read-only diagnostic service that can inspect a submitted page, detect common HTTP status problems, flag missing/empty HTML titles, and identify mixed-content references.
+- [x] Added bounded same-origin link/resource checks; discovered links/assets use HEAD, and cross-origin targets are not followed.
+- [x] Added DNS and request safeguards: exact public DNS hostnames, public IPv4-only resolution and pinned connections, rejected reserved/private targets, redirects constrained and revalidated, URL/header/body/time/concurrency limits.
+- [x] Added POST /api/website/diagnostics behind Firebase authentication and server-provisioned project membership.
+- [x] Added exact project-to-host allowlisting through SAQLAIN_WEBSITE_ALLOWED_HOSTS_JSON; wildcard hosts are rejected and missing/invalid configuration fails closed.
+- [x] Added audit-before-scan and audit-before-report behavior; audit failure denies the scan or withholds the report.
+- [x] Added tests for URL/IP validation, internal 404s, redirects, size limits, host authorization, authorization failures, and audit failures; added the tests to the standard test command.
+- [x] Documented configuration, endpoint use, scope, limitations, and the future approval-gated repair workflow in docs/SAQLAIN_WEBSITE_DIAGNOSTICS.md.
+- [ ] Final CI for this new feature and endpoint integration is pending verification.
+- [ ] Live authorized staging-site validation is not yet performed.
+- [ ] Automatic repair is deliberately not implemented: the current endpoint only diagnoses and recommends fixes. A separate approved change adapter, explicit owner approval, verification, and rollback design are required before live changes.
+
 ## Previously completed — 20 October 2026
 
 ### Security and governance
