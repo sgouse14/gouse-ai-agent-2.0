@@ -5,6 +5,7 @@ import { saqlainGatekeeperRouter } from './server/saqlainGatekeeperRoutes.ts';
 import { saqlainHeartbeatRouter } from './server/saqlainHeartbeatRoutes.ts';
 import { saqlainTaskQueueRouter } from './server/saqlainTaskQueueRoutes.ts';
 import { createSaqlainSecuritySummaryHandler } from './server/saqlainSecuritySummaryRoutes.ts';
+import { saqlainWebsiteDiagnosticsHandler } from './server/saqlainWebsiteDiagnosticsRoutes.ts';
 
 import path from 'path';
 import fs from 'fs';
@@ -78,6 +79,9 @@ app.use('/api/security/verification', saqlainVerificationRouter);
 
 // Application API boundary: Firebase identity, server-managed project membership, and provider quotas.
 app.use(createApplicationSecurityMiddleware());
+
+// Read-only, project-authorized website diagnostics; host allowlist and audit must be configured.
+app.post('/api/website/diagnostics', saqlainWebsiteDiagnosticsHandler);
 
 // Workspace-level baseline posture summary; requires a recently authenticated
 // active Firebase identity and successful durable audit before returning any report.
