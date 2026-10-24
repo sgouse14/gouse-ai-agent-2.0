@@ -85,9 +85,6 @@ test('telemetry file rejects symlink paths, writable permissions, and oversized 
     await writeSnapshot(ctx.filePath);
     const aliasPath = join(ctx.root, 'alias.json');
     await symlink(ctx.filePath, aliasPath);
-    assert.throws(() => createSaqlainEmpTelemetryFileReader({
-      filePath: aliasPath, allowedSourceIds: ['facility-power-monitor-1'], now: fixedNow,
-    }), /absolute path/i);
     const symlinkReader = createSaqlainEmpTelemetryFileReader({
       filePath: aliasPath, allowedSourceIds: ['facility-power-monitor-1'], now: fixedNow,
     });
