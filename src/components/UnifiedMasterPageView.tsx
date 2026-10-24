@@ -44,11 +44,13 @@ import {
   Globe,
   FolderPlus,
   Phone,
+  Film,
+  Play,
+  Image as ImageIcon,
 } from 'lucide-react';
 import {
   Project,
   BOQItem,
-  SiteAuditResult,
   ProfessionalProfile,
   MarketplaceEnquiry,
   EnquiryStatus,
@@ -66,6 +68,15 @@ import { MaterialsView } from './MaterialsView';
 import { MarketplaceView } from './MarketplaceView';
 import { SpecialistChatView } from './SpecialistChatView';
 import { SocialMediaStudio } from './SocialMediaStudio';
+import { SocialMediaHubPage } from './SocialMediaHubPage';
+
+// Import local image assets for media previews
+import villaExteriorImg from '../assets/images/bangalore_house_exterior_1790170528532.jpg';
+import siteFramingImg from '../assets/images/bangalore_builder_proj1_1790170892084.jpg';
+import villaElevationImg from '../assets/images/bangalore_builder_proj2_1790170907606.jpg';
+import courtyardInteriorImg from '../assets/images/pg_dining_lounge_1790170229065.jpg';
+import masterSuiteImg from '../assets/images/pg_bedroom_suite_1790170216460.jpg';
+
 import {
   INITIAL_BOQ_ITEMS,
   INITIAL_PROFESSIONALS,
@@ -82,6 +93,7 @@ export interface UnifiedMasterPageViewProps {
   onUpdateProject?: (project: Project) => void;
   onCreateProject?: (project: Partial<Project>) => void;
   onOpenClientDashboard?: () => void;
+  onOpenSocialHub?: () => void;
   boqItems?: BOQItem[];
   onUpdateBOQItems?: (items: BOQItem[]) => void;
   contingencyPercent?: number;
@@ -122,6 +134,7 @@ export const UnifiedMasterPageView: React.FC<UnifiedMasterPageViewProps> = ({
   onUpdateProject,
   onCreateProject,
   onOpenClientDashboard,
+  onOpenSocialHub,
   boqItems,
   onUpdateBOQItems,
   contingencyPercent = 10,
@@ -139,9 +152,20 @@ export const UnifiedMasterPageView: React.FC<UnifiedMasterPageViewProps> = ({
 }) => {
   const { user, login, loginAsDemo, logout } = useAuth();
 
-  // Main Platform sub-tab state ('projects' | 'boq' | 'materials' | 'marketplace' | 'specialist' | 'social')
+  // Separate Full Page State for Social & Media Hub (PHOTOS & VIDEOS)
+  const [isInternalSeparateSocialPage, setIsInternalSeparateSocialPage] = useState(false);
+
+  const handleOpenSocialHub = () => {
+    if (onOpenSocialHub) {
+      onOpenSocialHub();
+    } else {
+      setIsInternalSeparateSocialPage(true);
+    }
+  };
+
+  // Main Platform sub-tab state ('projects' | 'boq' | 'materials' | 'marketplace' | 'specialist')
   const [activeMainTab, setActiveMainTab] = useState<
-    'projects' | 'boq' | 'materials' | 'marketplace' | 'specialist' | 'social'
+    'projects' | 'boq' | 'materials' | 'marketplace' | 'specialist'
   >('projects');
 
   // Internal Fallback State for Main Platform if not provided by parent
@@ -314,9 +338,6 @@ export const UnifiedMasterPageView: React.FC<UnifiedMasterPageViewProps> = ({
   const [isSubmittingBrokerLogin, setIsSubmittingBrokerLogin] = useState(false);
   const [brokerRememberMe, setBrokerRememberMe] = useState(true);
 
-  // Central Login Hub Section Tab ('broker' | 'client' | 'studio')
-  const [centralLoginTab, setCentralLoginTab] = useState<'broker' | 'client' | 'studio'>('broker');
-
   const handleBrokerLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setBrokerLoginError(null);
@@ -356,7 +377,6 @@ export const UnifiedMasterPageView: React.FC<UnifiedMasterPageViewProps> = ({
   const handleVerifyBrokerOtp = (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmittingBrokerLogin(true);
-    // Instant verify and demo sign-in
     if (brokerRoleTab === 'tenant') {
       loginAsDemo('user-aarav-07');
     } else if (brokerRoleTab === 'property_owner') {
@@ -437,20 +457,12 @@ export const UnifiedMasterPageView: React.FC<UnifiedMasterPageViewProps> = ({
   // New Feedback Form State
   const [newFeedbackName, setNewFeedbackName] = useState('');
   const [newFeedbackProject, setNewFeedbackProject] = useState('');
-  const [newFeedbackRating, setNewFeedbackRating] = useState(5);
+  const [newFeedbackRating, setNewFeedbackRating] = useState<number>(5);
   const [newFeedbackCategory, setNewFeedbackCategory] = useState<
     'Architectural BIM' | 'Turnkey BOQ' | 'AI Site Cam Audit' | 'Rental Brokerage'
   >('Architectural BIM');
   const [newFeedbackComment, setNewFeedbackComment] = useState('');
   const [feedbackSubmitSuccess, setFeedbackSubmitSuccess] = useState(false);
-
-  // Smooth scroll handler
-  const scrollToSection = (id: string) => {
-    const el = document.getElementById(id);
-    if (el) {
-      el.scrollIntoView({ behavior: 'smooth' });
-    }
-  };
 
   const handleClientLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -460,31 +472,27 @@ export const UnifiedMasterPageView: React.FC<UnifiedMasterPageViewProps> = ({
     try {
       const trimmed = loginEmail.trim().toLowerCase();
       if (!trimmed) {
-        setLoginError('Please enter your client email');
+        setLoginError('Please enter your client email address');
         setIsSubmittingLogin(false);
         return;
       }
-
       const res = await login(trimmed, loginPassword);
       if (!res.success) {
-        // Quick fallback for demo
         loginAsDemo('user-sameer-05');
       }
     } catch {
-      setLoginError('Authentication failed. Use the 1-click client demo button below.');
+      setLoginError('Client sign in failed. You may use 1-click client demo access.');
     } finally {
       setIsSubmittingLogin(false);
     }
   };
 
-  const handleFeedbackSubmit = (e: React.FormEvent) => {
+  const handleAddFeedback = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newFeedbackName.trim() || !newFeedbackComment.trim()) {
-      return;
-    }
+    if (!newFeedbackName.trim() || !newFeedbackComment.trim()) return;
 
     const newItem: ClientFeedbackItem = {
-      id: `fb-user-${Date.now()}`,
+      id: `fb-${Date.now()}`,
       clientName: newFeedbackName.trim(),
       clientRole: 'Verified Client / Stakeholder',
       projectName: newFeedbackProject.trim() || 'Turnkey Architectural Project',
@@ -505,6 +513,26 @@ export const UnifiedMasterPageView: React.FC<UnifiedMasterPageViewProps> = ({
     setTimeout(() => setFeedbackSubmitSuccess(false), 5000);
   };
 
+  const scrollToSection = (sectionId: string) => {
+    const el = document.getElementById(sectionId);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
+
+  // If user opened separate full-screen page for Social & Media Hub internally:
+  if (isInternalSeparateSocialPage) {
+    return (
+      <SocialMediaHubPage
+        activeProject={activeProject}
+        projects={projects}
+        onSelectProject={onSelectProject}
+        onClose={() => setIsInternalSeparateSocialPage(false)}
+        onOpenWorkflowEngine={onOpenWorkflowEngine}
+      />
+    );
+  }
+
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-amber-500 selection:text-slate-950">
       {/* ========================================================================= */}
@@ -522,12 +550,12 @@ export const UnifiedMasterPageView: React.FC<UnifiedMasterPageViewProps> = ({
                 <span className="font-extrabold tracking-tight text-white text-base sm:text-lg">
                   GOUSE <span className="text-amber-400">AI</span> AGENT
                 </span>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30">
-                  ALL-IN-ONE PLATFORM
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                  ALL-IN-ONE
                 </span>
               </div>
               <p className="text-[10px] text-slate-400 font-mono tracking-tight hidden sm:block">
-                AI Engineering • Broker Command Center • Client Portal &amp; Feedback
+                Architectural Platform • Broker Command Center • Social Media Hub • Client Feedback
               </p>
             </div>
           </div>
@@ -537,19 +565,28 @@ export const UnifiedMasterPageView: React.FC<UnifiedMasterPageViewProps> = ({
             <button
               type="button"
               onClick={() => scrollToSection('sec-main-platform')}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 font-extrabold hover:from-amber-400 hover:to-amber-500 transition whitespace-nowrap shadow-md shadow-amber-500/20"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500/15 text-amber-300 hover:bg-amber-500/25 border border-amber-500/30 transition whitespace-nowrap"
             >
-              <Building2 className="w-3.5 h-3.5" />
-              <span>{isStudioStaff ? 'Main Studio Platform (Active)' : 'Main Studio Platform (Login)'}</span>
+              <Building2 className="w-3.5 h-3.5 text-amber-400" />
+              <span>Main Platform</span>
             </button>
 
             <button
               type="button"
               onClick={() => scrollToSection('sec-broker-command-center')}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-sky-500/15 text-sky-300 hover:bg-sky-500/25 border border-sky-500/30 transition whitespace-nowrap"
+              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-sky-500/20 text-sky-300 hover:bg-sky-500/30 border border-sky-500/40 font-bold transition whitespace-nowrap shadow-sm shadow-sky-500/20"
             >
               <Building className="w-3.5 h-3.5 text-sky-400" />
               <span>Broker Command Center {isBrokerUser ? '(Active)' : '(Login)'}</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => scrollToSection('sec-social-media-hub')}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-rose-500/15 text-rose-300 hover:bg-rose-500/25 border border-rose-500/30 transition whitespace-nowrap"
+            >
+              <Film className="w-3.5 h-3.5 text-rose-400" />
+              <span>Social &amp; Media Hub</span>
             </button>
 
             <button
@@ -573,6 +610,17 @@ export const UnifiedMasterPageView: React.FC<UnifiedMasterPageViewProps> = ({
 
           {/* User Auth Action Pill */}
           <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleOpenSocialHub}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 text-white font-bold text-xs transition shadow-sm"
+              title="Launch Social & Media Hub on Separate Dedicated Page"
+            >
+              <Film className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Separate Hub Page</span>
+              <ExternalLink className="w-3 h-3" />
+            </button>
+
             {user ? (
               <div className="flex items-center gap-2">
                 <span className="px-2.5 py-1 rounded-lg bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-xs font-mono font-bold flex items-center gap-1">
@@ -595,7 +643,7 @@ export const UnifiedMasterPageView: React.FC<UnifiedMasterPageViewProps> = ({
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs transition shadow-sm"
               >
                 <LogIn className="w-3.5 h-3.5" />
-                <span>Client &amp; Broker Sign In</span>
+                <span>Sign In</span>
               </button>
             )}
           </div>
@@ -603,7 +651,7 @@ export const UnifiedMasterPageView: React.FC<UnifiedMasterPageViewProps> = ({
       </header>
 
       {/* ========================================================================= */}
-      {/* HERO BANNER: 4 PILLARS UNIFIED MASTER PLATFORM                             */}
+      {/* HERO BANNER: UNIFIED MASTER PLATFORM HUB                                  */}
       {/* ========================================================================= */}
       <div className="bg-gradient-to-b from-slate-900/80 via-slate-950 to-slate-950 border-b border-slate-800 py-8 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto space-y-6">
@@ -612,20 +660,20 @@ export const UnifiedMasterPageView: React.FC<UnifiedMasterPageViewProps> = ({
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="px-3 py-1 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 text-xs font-mono font-bold flex items-center gap-1.5">
                   <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-                  ALL-IN-ONE MASTER COMMAND CENTER
+                  ALL-IN-ONE MASTER PLATFORM
                 </span>
                 <span className="px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700 text-xs font-mono">
                   Principal Architect: Ar. S. Gouse
                 </span>
                 <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 text-[11px] font-mono">
-                  IS 456 • NBC 2016 • CPWD 2026
+                  0% BROKERAGE DIRECT
                 </span>
               </div>
               <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black text-white tracking-tight leading-tight">
-                Gouse Architecture: Main Studio, Broker &amp; Client Hub
+                Gouse AI Agent: Master Platform &amp; Command Center
               </h1>
               <p className="text-xs sm:text-sm text-slate-400 leading-relaxed">
-                Single unified master command center: Main Architecture &amp; Engineering Studio (BIM, Dynamic BOQ, Materials Specifier &amp; Specialist AI Co-Pilot with secure Staff Login), Real Estate PG &amp; Rental House Broker Command Center, Verified Client Project Feedback, and Dedicated Client Portal Login.
+                Complete integrated architecture, dynamic floor-by-floor BOQ costing, building material specifications, verified AEC marketplace, PG/co-living &amp; rental brokerage command center, and client project portal.
               </p>
             </div>
 
@@ -634,53 +682,51 @@ export const UnifiedMasterPageView: React.FC<UnifiedMasterPageViewProps> = ({
               <button
                 type="button"
                 onClick={() => scrollToSection('sec-main-platform')}
-                className="p-3 rounded-2xl bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 transition text-left group"
+                className="p-3.5 rounded-2xl bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 transition text-left group"
               >
-                <div className="w-7 h-7 rounded-lg bg-amber-500/20 flex items-center justify-center text-amber-400 mb-1.5">
+                <div className="w-8 h-8 rounded-lg bg-amber-500/20 flex items-center justify-center text-amber-400 mb-1.5">
                   <Building2 className="w-4 h-4" />
                 </div>
-                <div className="text-[11px] font-bold text-white group-hover:text-amber-300">
-                  1. Main Platform {isStudioStaff ? '✓' : '(Login)'}
-                </div>
-                <div className="text-[10px] text-slate-400">BIM &amp; BOQ Studio</div>
+                <div className="text-xs font-bold text-white group-hover:text-amber-300">1. Main Platform</div>
+                <div className="text-[11px] text-slate-400">BIM, BOQ &amp; Materials</div>
               </button>
 
               <button
                 type="button"
                 onClick={() => scrollToSection('sec-broker-command-center')}
-                className="p-3 rounded-2xl bg-slate-900 hover:bg-slate-800 border border-slate-800 transition text-left group"
+                className="p-3.5 rounded-2xl bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/30 transition text-left group shadow-sm shadow-sky-500/20"
               >
-                <div className="w-7 h-7 rounded-lg bg-sky-500/20 flex items-center justify-center text-sky-400 mb-1.5">
+                <div className="w-8 h-8 rounded-lg bg-sky-500/20 flex items-center justify-center text-sky-400 mb-1.5">
                   <Building className="w-4 h-4" />
                 </div>
-                <div className="text-[11px] font-bold text-white group-hover:text-sky-300">
-                  2. Broker Command {isBrokerUser ? '✓' : '(Login)'}
+                <div className="text-xs font-bold text-white group-hover:text-sky-300">
+                  2. Broker Center {isBrokerUser ? '✓' : '(Login)'}
                 </div>
-                <div className="text-[10px] text-slate-400">PGs &amp; Rental Houses</div>
+                <div className="text-[11px] text-slate-400">PGs &amp; Rental Houses</div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => scrollToSection('sec-social-media-hub')}
+                className="p-3.5 rounded-2xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 transition text-left group"
+              >
+                <div className="w-8 h-8 rounded-lg bg-rose-500/20 flex items-center justify-center text-rose-400 mb-1.5">
+                  <Film className="w-4 h-4" />
+                </div>
+                <div className="text-xs font-bold text-white group-hover:text-rose-300">3. Photos &amp; Videos</div>
+                <div className="text-[11px] text-slate-400">4K Media Hub</div>
               </button>
 
               <button
                 type="button"
                 onClick={() => scrollToSection('sec-client-feedback')}
-                className="p-3 rounded-2xl bg-slate-900 hover:bg-slate-800 border border-slate-800 transition text-left group"
+                className="p-3.5 rounded-2xl bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 transition text-left group"
               >
-                <div className="w-7 h-7 rounded-lg bg-emerald-500/20 flex items-center justify-center text-emerald-400 mb-1.5">
+                <div className="w-8 h-8 rounded-lg bg-emerald-500/20 flex items-center justify-center text-emerald-400 mb-1.5">
                   <Star className="w-4 h-4 fill-emerald-400" />
                 </div>
-                <div className="text-[11px] font-bold text-white group-hover:text-emerald-300">3. Feedback</div>
-                <div className="text-[10px] text-slate-400">4.98★ 5 Reviews</div>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => scrollToSection('sec-client-login')}
-                className="p-3 rounded-2xl bg-slate-900 hover:bg-slate-800 border border-slate-800 transition text-left group"
-              >
-                <div className="w-7 h-7 rounded-lg bg-purple-500/20 flex items-center justify-center text-purple-400 mb-1.5">
-                  <Lock className="w-4 h-4" />
-                </div>
-                <div className="text-[11px] font-bold text-white group-hover:text-purple-300">4. Client Login</div>
-                <div className="text-[10px] text-slate-400">Instant Demo Access</div>
+                <div className="text-xs font-bold text-white group-hover:text-emerald-300">4. Client Feedback</div>
+                <div className="text-[11px] text-slate-400">4.98★ Testimonials</div>
               </button>
             </div>
           </div>
@@ -737,11 +783,29 @@ export const UnifiedMasterPageView: React.FC<UnifiedMasterPageViewProps> = ({
                 <Camera className="w-3.5 h-3.5 text-amber-400" />
                 <span>Site Camera</span>
               </button>
+
+              <button
+                type="button"
+                onClick={handleOpenSocialHub}
+                className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-rose-600/20 hover:bg-rose-600/30 border border-rose-500/40 text-rose-300 font-bold text-xs transition"
+              >
+                <Film className="w-3.5 h-3.5 text-rose-400" />
+                <span>Social Media Hub</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setIsBrokerAuthOpen(true)}
+                className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-sky-500/20 hover:bg-sky-500/30 border border-sky-500/40 text-sky-300 font-bold text-xs transition"
+              >
+                <Building className="w-3.5 h-3.5 text-sky-400" />
+                <span>Broker Login</span>
+              </button>
             </div>
           </div>
 
-          {/* STUDIO PLATFORM CONTENT: LOGIN GATEWAY WHEN NOT STAFF, WORKSPACE WHEN AUTHENTICATED */}
           {!isStudioStaff ? (
+            /* STUDIO PLATFORM LOGIN GATEWAY */
             <div className="rounded-3xl bg-slate-900/90 border border-amber-500/30 p-6 sm:p-10 shadow-2xl space-y-8">
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 border-b border-slate-800 pb-6">
                 <div className="space-y-2">
@@ -751,336 +815,124 @@ export const UnifiedMasterPageView: React.FC<UnifiedMasterPageViewProps> = ({
                       MAIN STUDIO PLATFORM • STAFF AUTHENTICATION REQUIRED
                     </span>
                     <span className="px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700 text-[11px] font-mono">
-                      ARCHITECTS &amp; ENGINEERS ONLY
+                      ARCHITECTS &amp; ENGINEERS
                     </span>
                   </div>
                   <h3 className="text-xl sm:text-2xl font-bold text-white tracking-tight">
-                    Main Studio Platform: Architecture, BIM &amp; BOQ Suite
+                    Main Platform: Sign In with Studio Credentials
                   </h3>
                   <p className="text-xs sm:text-sm text-slate-400 max-w-2xl leading-relaxed">
-                    Internal workspace containing live CAD blueprints, CPWD itemized BOQ costing, brand material specifications, and structural specialist co-pilot. Please authenticate with your studio staff credentials or use instant 1-click staff demo access below.
+                    Access the complete architectural CAD/BIM studio suite, dynamic takeoff calculations, professional directory, and specialist co-pilot. Sign in using your studio email or use 1-click instant demo access below.
                   </p>
                 </div>
 
-                <div className="flex items-center gap-2 shrink-0">
-                  <button
-                    type="button"
-                    onClick={() => scrollToSection('sec-client-login')}
-                    className="px-3.5 py-2 rounded-xl bg-purple-500/15 hover:bg-purple-500/25 border border-purple-500/30 text-purple-300 text-xs font-semibold transition flex items-center gap-1.5"
-                  >
-                    <User className="w-3.5 h-3.5" />
-                    <span>Go to Client Login</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* 1-Click Fast Studio Staff Demo Logins */}
-              <div className="p-5 rounded-2xl bg-gradient-to-r from-amber-950/60 via-slate-900 to-amber-950/30 border border-amber-500/40 space-y-4">
-                <div className="flex items-center justify-between flex-wrap gap-2">
-                  <span className="text-xs font-mono font-bold text-amber-300 flex items-center gap-1.5 uppercase">
-                    <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-                    Instant 1-Click Studio Staff Sign-In
-                  </span>
-                  <span className="text-[10px] bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded font-mono font-bold">
-                    SELECT ROLE TO UNLOCK STUDIO WORKSPACE
-                  </span>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="flex items-center gap-3 shrink-0">
                   <button
                     type="button"
                     onClick={() => loginAsDemo('user-gouse-01')}
-                    className="p-3.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-amber-500/40 hover:border-amber-400 transition text-left group flex items-start gap-3"
+                    className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold text-xs flex items-center gap-2 shadow-lg shadow-amber-500/25 transition"
                   >
-                    <img
-                      src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=120&q=80"
-                      alt="Gouse AI"
-                      className="w-10 h-10 rounded-lg object-cover border border-amber-500/40 shrink-0"
-                    />
-                    <div className="min-w-0 flex-1">
-                      <div className="text-xs font-bold text-white group-hover:text-amber-300 flex items-center gap-1">
-                        <span>Gouse AI</span>
-                        <CheckCircle2 className="w-3 h-3 text-amber-400 inline" />
-                      </div>
-                      <div className="text-[11px] text-amber-400 font-mono">Principal Architect &amp; Lead</div>
-                      <div className="text-[10px] text-slate-400 truncate">Executive Studio Full Access</div>
-                    </div>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => loginAsDemo('user-priya-02')}
-                    className="p-3.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 hover:border-amber-400 transition text-left group flex items-start gap-3"
-                  >
-                    <img
-                      src="https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=120&q=80"
-                      alt="Ar. Priya Sharma"
-                      className="w-10 h-10 rounded-lg object-cover border border-slate-700 shrink-0"
-                    />
-                    <div className="min-w-0 flex-1">
-                      <div className="text-xs font-bold text-white group-hover:text-amber-300">Ar. Priya Sharma</div>
-                      <div className="text-[11px] text-sky-400 font-mono">Lead Architect (BIM &amp; LEED)</div>
-                      <div className="text-[10px] text-slate-400 truncate">Design &amp; 3D Modeling</div>
-                    </div>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => loginAsDemo('user-rajesh-03')}
-                    className="p-3.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 hover:border-amber-400 transition text-left group flex items-start gap-3"
-                  >
-                    <img
-                      src="https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=120&q=80"
-                      alt="Er. Rajesh Kumar"
-                      className="w-10 h-10 rounded-lg object-cover border border-slate-700 shrink-0"
-                    />
-                    <div className="min-w-0 flex-1">
-                      <div className="text-xs font-bold text-white group-hover:text-amber-300">Er. Rajesh Kumar</div>
-                      <div className="text-[11px] text-emerald-400 font-mono">Lead Structural Engineer</div>
-                      <div className="text-[10px] text-slate-400 truncate">IS 456 &amp; Seismic Auditing</div>
-                    </div>
+                    <Sparkles className="w-4 h-4 fill-slate-950" />
+                    <span>1-Click Demo Login (Gouse AI)</span>
                   </button>
                 </div>
               </div>
 
-              {/* Studio Credentials Form & What You Unlock */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
-                <div className="space-y-4 p-6 rounded-2xl bg-slate-950 border border-slate-800">
-                  <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-                    <span className="text-xs font-mono font-bold text-slate-300 uppercase flex items-center gap-2">
-                      <Lock className="w-3.5 h-3.5 text-amber-400" />
-                      Studio Credentials Sign In
-                    </span>
-                    <span className="text-[10px] text-slate-500 font-mono">INTERNAL WORKSPACE</span>
+              {/* Login Form */}
+              <div className="max-w-xl mx-auto space-y-5">
+                {studioLoginError && (
+                  <div className="p-3.5 rounded-xl bg-rose-950/60 border border-rose-500/40 text-rose-300 text-xs flex items-center gap-2">
+                    <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
+                    <span>{studioLoginError}</span>
+                  </div>
+                )}
+
+                <form onSubmit={handleStudioLogin} className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 mb-1">
+                      Studio Email Address
+                    </label>
+                    <input
+                      type="email"
+                      required
+                      value={studioLoginEmail}
+                      onChange={(e) => setStudioLoginEmail(e.target.value)}
+                      placeholder="e.g. sgouse14@gmail.com"
+                      className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-400 transition"
+                    />
                   </div>
 
-                  {studioLoginError && (
-                    <div className="p-3 rounded-xl bg-rose-950/60 border border-rose-500/40 text-rose-300 text-xs flex items-center gap-2">
-                      <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
-                      <span>{studioLoginError}</span>
-                    </div>
-                  )}
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 mb-1">
+                      Password
+                    </label>
+                    <input
+                      type="password"
+                      value={studioLoginPassword}
+                      onChange={(e) => setStudioLoginPassword(e.target.value)}
+                      placeholder="••••••••"
+                      className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-400 transition"
+                    />
+                  </div>
 
-                  <form onSubmit={handleStudioLogin} className="space-y-4">
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-300 mb-1">
-                        Studio Email Address
-                      </label>
+                  <div className="flex items-center justify-between text-xs">
+                    <label className="flex items-center gap-1.5 text-slate-400 cursor-pointer">
                       <input
-                        type="email"
-                        required
-                        value={studioLoginEmail}
-                        onChange={(e) => setStudioLoginEmail(e.target.value)}
-                        placeholder="e.g. sgouse14@gmail.com or priya.sharma@gouseai.com"
-                        className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-400 transition"
+                        type="checkbox"
+                        checked={studioRememberMe}
+                        onChange={(e) => setStudioRememberMe(e.target.checked)}
+                        className="rounded border-slate-700 bg-slate-950 text-amber-500 focus:ring-0"
                       />
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-300 mb-1">
-                        Studio Password
-                      </label>
-                      <input
-                        type="password"
-                        value={studioLoginPassword}
-                        onChange={(e) => setStudioLoginPassword(e.target.value)}
-                        placeholder="••••••••"
-                        className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-400 transition"
-                      />
-                    </div>
-
-                    <div className="flex items-center justify-between text-xs">
-                      <label className="flex items-center gap-1.5 text-slate-400 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={studioRememberMe}
-                          onChange={(e) => setStudioRememberMe(e.target.checked)}
-                          className="rounded border-slate-700 bg-slate-900 text-amber-500 focus:ring-0"
-                        />
-                        <span>Keep studio session active</span>
-                      </label>
-                      <button
-                        type="button"
-                        onClick={() => scrollToSection('sec-client-login')}
-                        className="text-purple-400 hover:underline"
-                      >
-                        Client Sign In Instead?
-                      </button>
-                    </div>
+                      <span>Remember this studio workstation</span>
+                    </label>
 
                     <button
-                      type="submit"
-                      disabled={isSubmittingStudioLogin}
-                      className="w-full py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-amber-500/20 transition disabled:opacity-50"
+                      type="button"
+                      onClick={() => loginAsDemo('user-priya-02')}
+                      className="text-amber-400 hover:underline"
                     >
-                      <LogIn className="w-4 h-4" />
-                      <span>{isSubmittingStudioLogin ? 'Authenticating Studio...' : 'Sign In to Studio Platform'}</span>
+                      Sign In as Senior Architect (Priya)
                     </button>
-                  </form>
-                </div>
-
-                {/* Feature Highlights Grid */}
-                <div className="space-y-3">
-                  <h4 className="text-xs font-mono font-bold text-slate-400 uppercase tracking-wider">
-                    Studio Platform Engines Included:
-                  </h4>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div className="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800 space-y-1">
-                      <div className="text-xs font-bold text-white flex items-center gap-1.5">
-                        <Building2 className="w-3.5 h-3.5 text-amber-400" />
-                        <span>1. Projects &amp; 3D BIM</span>
-                      </div>
-                      <p className="text-[11px] text-slate-400">
-                        Interactive 3D structural visualizer, drawings index, and milestone approvals.
-                      </p>
-                    </div>
-
-                    <div className="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800 space-y-1">
-                      <div className="text-xs font-bold text-white flex items-center gap-1.5">
-                        <Calculator className="w-3.5 h-3.5 text-amber-400" />
-                        <span>2. Dynamic BOQ Engine</span>
-                      </div>
-                      <p className="text-[11px] text-slate-400">
-                        Floor-by-floor takeoff calculations locked to CPWD 2026 indices with Excel exports.
-                      </p>
-                    </div>
-
-                    <div className="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800 space-y-1">
-                      <div className="text-xs font-bold text-white flex items-center gap-1.5">
-                        <Boxes className="w-3.5 h-3.5 text-sky-400" />
-                        <span>3. Materials Specifier</span>
-                      </div>
-                      <p className="text-[11px] text-slate-400">
-                        Real-time price feeds for Tata Tiscon, UltraTech, Asian Paints, and brand comparators.
-                      </p>
-                    </div>
-
-                    <div className="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800 space-y-1">
-                      <div className="text-xs font-bold text-white flex items-center gap-1.5">
-                        <HardHat className="w-3.5 h-3.5 text-emerald-400" />
-                        <span>4. AEC Marketplace</span>
-                      </div>
-                      <p className="text-[11px] text-slate-400">
-                        Verified contractors, structural engineers, MEP consultants, and RFQ direct dispatch.
-                      </p>
-                    </div>
-
-                    <div className="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800 space-y-1">
-                      <div className="text-xs font-bold text-white flex items-center gap-1.5">
-                        <Bot className="w-3.5 h-3.5 text-purple-400" />
-                        <span>5. Specialist AI Co-Pilot</span>
-                      </div>
-                      <p className="text-[11px] text-slate-400">
-                        IS 456 / NBC 2016 automated code checks, beam deflection fixes, and structural analysis.
-                      </p>
-                    </div>
-
-                    <div className="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800 space-y-1">
-                      <div className="text-xs font-bold text-white flex items-center gap-1.5">
-                        <Share2 className="w-3.5 h-3.5 text-rose-400" />
-                        <span>6. Social Media Studio</span>
-                      </div>
-                      <p className="text-[11px] text-slate-400">
-                        High-converting real estate Instagram/LinkedIn posts, video scripts, and render ads.
-                      </p>
-                    </div>
                   </div>
+
+                  <button
+                    type="submit"
+                    disabled={isSubmittingStudioLogin}
+                    className="w-full py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-amber-500/20 transition disabled:opacity-50"
+                  >
+                    <LogIn className="w-4 h-4 fill-slate-950" />
+                    <span>{isSubmittingStudioLogin ? 'Authenticating Studio...' : 'Sign In to Studio Workspace'}</span>
+                  </button>
+                </form>
+
+                <div className="p-3.5 rounded-xl bg-slate-950/70 border border-slate-800 text-[11px] text-slate-400 flex items-center justify-between">
+                  <span>Need client access instead?</span>
+                  <button
+                    type="button"
+                    onClick={() => scrollToSection('sec-client-login')}
+                    className="text-purple-400 hover:text-purple-300 font-semibold"
+                  >
+                    Go to Client Login ↓
+                  </button>
                 </div>
               </div>
             </div>
           ) : (
+            /* STUDIO STAFF AUTHENTICATED: RENDER FULL SUITE */
             <>
-              {/* Studio Staff Authenticated Status Banner */}
-              <div className="p-3.5 rounded-2xl bg-emerald-950/40 border border-emerald-500/30 flex items-center justify-between gap-4 flex-wrap">
-                <div className="flex items-center gap-2.5">
-                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
-                  <span className="text-xs font-mono font-bold text-emerald-300">
-                    STUDIO ACCESS ACTIVE • Authenticated as {user?.name} ({user?.role?.toUpperCase()})
-                  </span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-[11px] text-slate-400 font-mono hidden sm:inline">
-                    {user?.company || 'Gouse Architecture Studio'}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={logout}
-                    className="px-2.5 py-1 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 text-xs font-semibold transition"
-                  >
-                    Lock Studio
-                  </button>
-                </div>
-              </div>
-
-              {/* Project & Currency Control Bar */}
-              <div className="p-4 rounded-2xl bg-slate-900/90 border border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div className="flex items-center gap-3 flex-wrap">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-semibold text-slate-400">Active Project:</span>
-                    <select
-                      value={activeProject?.id}
-                      onChange={(e) => handleSelectProject(e.target.value)}
-                      className="bg-slate-950 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white font-medium focus:outline-none focus:border-amber-400 transition"
-                    >
-                      {projects.map((p) => (
-                        <option key={p.id} value={p.id}>
-                          {p.name} ({p.location})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-semibold text-slate-400">Currency:</span>
-                    <select
-                      value={activeCurrency}
-                      onChange={(e) => handleCurrencyChange(e.target.value as CurrencyCode)}
-                      className="bg-slate-950 border border-slate-700 rounded-xl px-2.5 py-1.5 text-xs text-white font-mono font-bold focus:outline-none focus:border-amber-400 transition"
-                    >
-                      <option value="INR">INR (₹)</option>
-                      <option value="USD">USD ($)</option>
-                      <option value="AED">AED (د.إ)</option>
-                      <option value="EUR">EUR (€)</option>
-                      <option value="GBP">GBP (£)</option>
-                    </select>
-                  </div>
-                </div>
-
-                {/* Quick Project Metadata Badges */}
-                <div className="flex items-center gap-2 flex-wrap text-[11px] font-mono text-slate-300">
-                  <span className="px-2.5 py-1 rounded-lg bg-slate-950 border border-slate-800 flex items-center gap-1.5">
-                    <MapPin className="w-3 h-3 text-amber-400" />
-                    <span>{activeProject.location}</span>
-                  </span>
-                  <span className="px-2.5 py-1 rounded-lg bg-slate-950 border border-slate-800 flex items-center gap-1.5">
-                    <Layers className="w-3 h-3 text-sky-400" />
-                    <span>{activeProject.projectType || 'Turnkey Architectural'}</span>
-                  </span>
-                  <span className="px-2.5 py-1 rounded-lg bg-slate-950 border border-slate-800 flex items-center gap-1.5">
-                    <Calculator className="w-3 h-3 text-emerald-400" />
-                    <span>{activeProject.builtUpAreaSqFt?.toLocaleString() || '3,800'} sq.ft</span>
-                  </span>
-                  <span className="px-2.5 py-1 rounded-lg bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 font-bold">
-                    Live BOQ: {formatCurrency(
-                      currentBoqItems.reduce((acc, curr) => acc + (curr.amount || 0), 0) || 84000000,
-                      activeCurrency
-                    )}
-                  </span>
-                </div>
-              </div>
-
-              {/* Main Platform Studio Module Navigation Tabs */}
-              <div className="p-1.5 rounded-2xl bg-slate-900 border border-slate-800 flex items-center gap-2 overflow-x-auto scrollbar-none">
+              {/* Studio Navigation Pills */}
+              <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none border-b border-slate-800">
                 <button
                   type="button"
                   onClick={() => setActiveMainTab('projects')}
                   className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition whitespace-nowrap ${
                     activeMainTab === 'projects'
-                      ? 'bg-amber-500 text-slate-950 shadow-md'
-                      : 'text-slate-400 hover:text-white'
+                      ? 'bg-amber-500 text-slate-950 shadow-md shadow-amber-500/20'
+                      : 'bg-slate-900 text-slate-300 hover:bg-slate-800 border border-slate-800'
                   }`}
                 >
-                  <Building2 className="w-3.5 h-3.5" />
-                  <span>1. Projects &amp; 3D BIM Viewer</span>
+                  <Building2 className="w-4 h-4" />
+                  <span>Projects &amp; 3D BIM</span>
                 </button>
 
                 <button
@@ -1088,12 +940,12 @@ export const UnifiedMasterPageView: React.FC<UnifiedMasterPageViewProps> = ({
                   onClick={() => setActiveMainTab('boq')}
                   className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition whitespace-nowrap ${
                     activeMainTab === 'boq'
-                      ? 'bg-amber-500 text-slate-950 shadow-md'
-                      : 'text-slate-400 hover:text-white'
+                      ? 'bg-amber-500 text-slate-950 shadow-md shadow-amber-500/20'
+                      : 'bg-slate-900 text-slate-300 hover:bg-slate-800 border border-slate-800'
                   }`}
                 >
-                  <Calculator className="w-3.5 h-3.5" />
-                  <span>2. Floor-by-Floor Dynamic BOQ</span>
+                  <Calculator className="w-4 h-4" />
+                  <span>Dynamic BOQ &amp; Cost Engine</span>
                 </button>
 
                 <button
@@ -1101,12 +953,12 @@ export const UnifiedMasterPageView: React.FC<UnifiedMasterPageViewProps> = ({
                   onClick={() => setActiveMainTab('materials')}
                   className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition whitespace-nowrap ${
                     activeMainTab === 'materials'
-                      ? 'bg-amber-500 text-slate-950 shadow-md'
-                      : 'text-slate-400 hover:text-white'
+                      ? 'bg-amber-500 text-slate-950 shadow-md shadow-amber-500/20'
+                      : 'bg-slate-900 text-slate-300 hover:bg-slate-800 border border-slate-800'
                   }`}
                 >
-                  <Boxes className="w-3.5 h-3.5" />
-                  <span>3. Verified Materials &amp; Specs</span>
+                  <Layers className="w-4 h-4" />
+                  <span>Materials &amp; Schedule</span>
                 </button>
 
                 <button
@@ -1114,12 +966,12 @@ export const UnifiedMasterPageView: React.FC<UnifiedMasterPageViewProps> = ({
                   onClick={() => setActiveMainTab('marketplace')}
                   className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition whitespace-nowrap ${
                     activeMainTab === 'marketplace'
-                      ? 'bg-amber-500 text-slate-950 shadow-md'
-                      : 'text-slate-400 hover:text-white'
+                      ? 'bg-amber-500 text-slate-950 shadow-md shadow-amber-500/20'
+                      : 'bg-slate-900 text-slate-300 hover:bg-slate-800 border border-slate-800'
                   }`}
                 >
-                  <HardHat className="w-3.5 h-3.5" />
-                  <span>4. Professional Marketplace</span>
+                  <HardHat className="w-4 h-4" />
+                  <span>Marketplace &amp; Directory</span>
                 </button>
 
                 <button
@@ -1127,30 +979,17 @@ export const UnifiedMasterPageView: React.FC<UnifiedMasterPageViewProps> = ({
                   onClick={() => setActiveMainTab('specialist')}
                   className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition whitespace-nowrap ${
                     activeMainTab === 'specialist'
-                      ? 'bg-amber-500 text-slate-950 shadow-md'
-                      : 'text-slate-400 hover:text-white'
+                      ? 'bg-amber-500 text-slate-950 shadow-md shadow-amber-500/20'
+                      : 'bg-slate-900 text-slate-300 hover:bg-slate-800 border border-slate-800'
                   }`}
                 >
-                  <Bot className="w-3.5 h-3.5" />
-                  <span>5. Specialist AI Co-Pilot</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setActiveMainTab('social')}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition whitespace-nowrap ${
-                    activeMainTab === 'social'
-                      ? 'bg-amber-500 text-slate-950 shadow-md'
-                      : 'text-slate-400 hover:text-white'
-                  }`}
-                >
-                  <Share2 className="w-3.5 h-3.5" />
-                  <span>6. Social Media Studio</span>
+                  <Bot className="w-4 h-4" />
+                  <span>Specialist Co-Pilot</span>
                 </button>
               </div>
 
-              {/* Embedded Active Studio Module Container */}
-              <div className="rounded-3xl bg-slate-900/60 border border-slate-800 p-2 sm:p-4 shadow-2xl overflow-hidden min-h-[500px]">
+              {/* Tab Content Panes */}
+              <div className="rounded-3xl bg-slate-900/60 border border-slate-800 overflow-hidden shadow-2xl">
                 {activeMainTab === 'projects' && (
                   <ProjectsView
                     projects={projects}
@@ -1158,6 +997,7 @@ export const UnifiedMasterPageView: React.FC<UnifiedMasterPageViewProps> = ({
                     onSelectProject={handleSelectProject}
                     onUpdateProject={onUpdateProject || (() => {})}
                     onCreateProject={onCreateProject || (() => {})}
+                    currency={activeCurrency}
                     onOpenWorkflowEngine={() => {
                       if (onOpenWorkflowEngine) onOpenWorkflowEngine();
                       else setIsWorkflowEngineOpen(true);
@@ -1166,82 +1006,77 @@ export const UnifiedMasterPageView: React.FC<UnifiedMasterPageViewProps> = ({
                       if (onOpenSiteCamera) onOpenSiteCamera();
                       else setIsSiteCameraOpen(true);
                     }}
-                    currency={activeCurrency}
                   />
                 )}
 
                 {activeMainTab === 'boq' && (
-                  <BOQView
-                    items={currentBoqItems}
-                    contingencyPercent={currentContingency}
-                    currency={activeCurrency}
-                    activeProject={activeProject}
-                    onUpdateItems={handleUpdateBoqItems}
-                    onChangeContingency={handleChangeContingency}
-                    onUpdateProject={onUpdateProject}
-                    onAddEnquiry={handleAddEnquiry}
-                    onOpenWorkflowEngine={() => {
-                      if (onOpenWorkflowEngine) onOpenWorkflowEngine();
-                      else setIsWorkflowEngineOpen(true);
-                    }}
-                  />
+                  <div className="max-w-7xl mx-auto px-2 sm:px-6 py-6 space-y-6">
+                    <BOQView
+                      items={currentBoqItems}
+                      onUpdateItems={handleUpdateBoqItems}
+                      contingencyPercent={currentContingency}
+                      onChangeContingency={handleChangeContingency}
+                      currency={activeCurrency}
+                      activeProject={activeProject}
+                      onUpdateProject={onUpdateProject}
+                      onAddEnquiry={handleAddEnquiry}
+                      onOpenWorkflowEngine={() => {
+                        if (onOpenWorkflowEngine) onOpenWorkflowEngine();
+                        else setIsWorkflowEngineOpen(true);
+                      }}
+                    />
+                  </div>
                 )}
 
                 {activeMainTab === 'materials' && (
-                  <MaterialsView
-                    activeProject={activeProject}
-                    currency={activeCurrency}
-                    onNavigateToMarketplace={(cat, query) => {
-                      setMarketplaceCategory(cat);
-                      setMarketplaceQuery(query);
-                      setActiveMainTab('marketplace');
-                    }}
-                    boqItems={currentBoqItems}
-                    onUpdateBOQItems={handleUpdateBoqItems}
-                    onUpdateProject={onUpdateProject}
-                    onNavigateToBOQ={() => setActiveMainTab('boq')}
-                    onOpenWorkflowEngine={() => {
-                      if (onOpenWorkflowEngine) onOpenWorkflowEngine();
-                      else setIsWorkflowEngineOpen(true);
-                    }}
-                  />
+                  <div className="max-w-7xl mx-auto px-2 sm:px-6 py-6 space-y-6">
+                    <MaterialsView
+                      activeProject={activeProject}
+                      currency={activeCurrency}
+                      boqItems={currentBoqItems}
+                      onUpdateBOQItems={handleUpdateBoqItems}
+                      onUpdateProject={onUpdateProject}
+                      onNavigateToBOQ={() => setActiveMainTab('boq')}
+                      onNavigateToMarketplace={(category, query) => {
+                        setMarketplaceCategory(category);
+                        setMarketplaceQuery(query);
+                        setActiveMainTab('marketplace');
+                      }}
+                      onOpenWorkflowEngine={() => {
+                        if (onOpenWorkflowEngine) onOpenWorkflowEngine();
+                        else setIsWorkflowEngineOpen(true);
+                      }}
+                    />
+                  </div>
                 )}
 
                 {activeMainTab === 'marketplace' && (
-                  <MarketplaceView
-                    professionals={currentProfessionals}
-                    enquiries={currentEnquiries}
-                    onAddEnquiry={handleAddEnquiry}
-                    onUpdateEnquiryStatus={handleUpdateEnquiryStatus}
-                    onUpdateEnquiry={handleUpdateEnquiry}
-                    onSaveProfile={handleSaveProfile}
-                    onDeleteProfile={handleDeleteProfile}
-                    onToggleMyPractice={handleToggleMyPractice}
-                    initialCategory={marketplaceCategory}
-                    initialQuery={marketplaceQuery}
-                    projectCity={activeProject.location}
-                  />
+                  <div className="max-w-7xl mx-auto px-2 sm:px-6 py-6 space-y-6">
+                    <MarketplaceView
+                      professionals={currentProfessionals}
+                      enquiries={currentEnquiries}
+                      onAddEnquiry={handleAddEnquiry}
+                      onUpdateEnquiryStatus={handleUpdateEnquiryStatus}
+                      onUpdateEnquiry={handleUpdateEnquiry}
+                      onSaveProfile={handleSaveProfile}
+                      onDeleteProfile={handleDeleteProfile}
+                      onToggleMyPractice={handleToggleMyPractice}
+                      initialCategory={marketplaceCategory}
+                      initialSearchQuery={marketplaceQuery}
+                      projectCity={activeProject.location}
+                    />
+                  </div>
                 )}
 
                 {activeMainTab === 'specialist' && (
-                  <SpecialistChatView
-                    activeProject={activeProject}
-                    boqItems={currentBoqItems}
-                    currency={activeCurrency}
-                    onUpdateBOQItems={handleUpdateBoqItems}
-                    onUpdateProject={onUpdateProject}
-                    onNavigateToBOQ={() => setActiveMainTab('boq')}
-                    onOpenWorkflowEngine={() => {
-                      if (onOpenWorkflowEngine) onOpenWorkflowEngine();
-                      else setIsWorkflowEngineOpen(true);
-                    }}
-                  />
-                )}
-
-                {activeMainTab === 'social' && (
                   <div className="max-w-7xl mx-auto px-2 sm:px-6 py-6 space-y-6">
-                    <SocialMediaStudio
+                    <SpecialistChatView
                       activeProject={activeProject}
+                      boqItems={currentBoqItems}
+                      currency={activeCurrency}
+                      onUpdateBOQItems={handleUpdateBoqItems}
+                      onUpdateProject={onUpdateProject}
+                      onNavigateToBOQ={() => setActiveMainTab('boq')}
                       onOpenWorkflowEngine={() => {
                         if (onOpenWorkflowEngine) onOpenWorkflowEngine();
                         else setIsWorkflowEngineOpen(true);
@@ -1350,211 +1185,339 @@ export const UnifiedMasterPageView: React.FC<UnifiedMasterPageViewProps> = ({
                         <CheckCircle2 className="w-3 h-3 text-sky-400 inline" />
                       </div>
                       <div className="text-[11px] text-sky-400 font-mono">Certified Broker Agent</div>
-                      <div className="text-[10px] text-slate-400 truncate">RERA East Bangalore Cluster</div>
+                      <div className="text-[10px] text-slate-400 truncate">RERA Reg: PRM/KA/RERA/1251</div>
                     </div>
                   </button>
 
                   <button
                     type="button"
                     onClick={() => loginAsDemo('user-vikram-08')}
-                    className="p-3.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 hover:border-sky-400 transition text-left group flex items-start gap-3"
+                    className="p-3.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-emerald-500/40 hover:border-emerald-400 transition text-left group flex items-start gap-3"
                   >
                     <img
                       src="https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=120&q=80"
                       alt="Vikramaditya Reddy"
-                      className="w-10 h-10 rounded-lg object-cover border border-slate-700 shrink-0"
+                      className="w-10 h-10 rounded-lg object-cover border border-emerald-500/40 shrink-0"
                     />
                     <div className="min-w-0 flex-1">
-                      <div className="text-xs font-bold text-white group-hover:text-sky-300">Vikramaditya Reddy</div>
+                      <div className="text-xs font-bold text-white group-hover:text-emerald-300 flex items-center gap-1">
+                        <span>Vikramaditya Reddy</span>
+                        <CheckCircle2 className="w-3 h-3 text-emerald-400 inline" />
+                      </div>
                       <div className="text-[11px] text-emerald-400 font-mono">Property Owner / Landlord</div>
-                      <div className="text-[10px] text-slate-400 truncate">18 PG &amp; Flat Units Managed</div>
+                      <div className="text-[10px] text-slate-400 truncate">18 Units in Indiranagar &amp; HSR</div>
                     </div>
                   </button>
 
                   <button
                     type="button"
                     onClick={() => loginAsDemo('user-aarav-07')}
-                    className="p-3.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 hover:border-sky-400 transition text-left group flex items-start gap-3"
+                    className="p-3.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-purple-500/40 hover:border-purple-400 transition text-left group flex items-start gap-3"
                   >
                     <img
-                      src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&q=80"
-                      alt="Aarav Sharma"
-                      className="w-10 h-10 rounded-lg object-cover border border-slate-700 shrink-0"
+                      src="https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?auto=format&fit=crop&w=120&q=80"
+                      alt="Aarav Mehta"
+                      className="w-10 h-10 rounded-lg object-cover border border-purple-500/40 shrink-0"
                     />
                     <div className="min-w-0 flex-1">
-                      <div className="text-xs font-bold text-white group-hover:text-sky-300">Aarav Sharma</div>
-                      <div className="text-[11px] text-amber-400 font-mono">Prospective Tenant</div>
-                      <div className="text-[10px] text-slate-400 truncate">Software Engineer • PG Seeker</div>
+                      <div className="text-xs font-bold text-white group-hover:text-purple-300 flex items-center gap-1">
+                        <span>Aarav Mehta</span>
+                        <CheckCircle2 className="w-3 h-3 text-purple-400 inline" />
+                      </div>
+                      <div className="text-[11px] text-purple-400 font-mono">Tenant / PG Resident</div>
+                      <div className="text-[10px] text-slate-400 truncate">Looking for PG bed in Indiranagar</div>
                     </div>
                   </button>
                 </div>
               </div>
 
-              {/* Broker Credentials Form & Highlights */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
-                <div className="space-y-4 p-6 rounded-2xl bg-slate-950 border border-slate-800">
-                  <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-                    <span className="text-xs font-mono font-bold text-slate-300 uppercase flex items-center gap-2">
-                      <Lock className="w-3.5 h-3.5 text-sky-400" />
-                      Broker &amp; Real Estate Sign In
-                    </span>
-                    <span className="text-[10px] text-slate-500 font-mono">0% BROKERAGE DIRECT</span>
-                  </div>
+              {/* Persona Switcher Tabs */}
+              <div className="space-y-4">
+                <div className="flex border-b border-slate-800 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setBrokerRoleTab('tenant')}
+                    className={`pb-3 text-xs font-bold flex items-center gap-2 border-b-2 transition ${
+                      brokerRoleTab === 'tenant'
+                        ? 'border-sky-400 text-sky-300'
+                        : 'border-transparent text-slate-400 hover:text-slate-200'
+                    }`}
+                  >
+                    <User className="w-4 h-4" />
+                    <span>Tenant Sign In</span>
+                  </button>
 
-                  {brokerLoginError && (
-                    <div className="p-3 rounded-xl bg-rose-950/60 border border-rose-500/40 text-rose-300 text-xs flex items-center gap-2">
-                      <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
-                      <span>{brokerLoginError}</span>
-                    </div>
-                  )}
+                  <button
+                    type="button"
+                    onClick={() => setBrokerRoleTab('property_owner')}
+                    className={`pb-3 text-xs font-bold flex items-center gap-2 border-b-2 transition ${
+                      brokerRoleTab === 'property_owner'
+                        ? 'border-emerald-400 text-emerald-300'
+                        : 'border-transparent text-slate-400 hover:text-slate-200'
+                    }`}
+                  >
+                    <Home className="w-4 h-4" />
+                    <span>Landlord / Owner Sign In</span>
+                  </button>
 
-                  <form onSubmit={handleBrokerLogin} className="space-y-4">
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-300 mb-1">
-                        Email Address
-                      </label>
-                      <input
-                        type="email"
-                        required
-                        value={brokerLoginEmail}
-                        onChange={(e) => setBrokerLoginEmail(e.target.value)}
-                        placeholder="e.g. sneha.kulkarni@gousebroker.com or aarav.sharma@techblr.com"
-                        className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-sky-400 transition"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-300 mb-1">
-                        Password
-                      </label>
-                      <input
-                        type="password"
-                        value={brokerLoginPassword}
-                        onChange={(e) => setBrokerLoginPassword(e.target.value)}
-                        placeholder="••••••••"
-                        className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-sky-400 transition"
-                      />
-                    </div>
-
-                    <div className="flex items-center justify-between text-xs">
-                      <label className="flex items-center gap-1.5 text-slate-400 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={brokerRememberMe}
-                          onChange={(e) => setBrokerRememberMe(e.target.checked)}
-                          className="rounded border-slate-700 bg-slate-900 text-sky-500 focus:ring-0"
-                        />
-                        <span>Remember broker device</span>
-                      </label>
-                      <button
-                        type="button"
-                        onClick={() => scrollToSection('sec-client-login')}
-                        className="text-purple-400 hover:underline"
-                      >
-                        Client Login Instead?
-                      </button>
-                    </div>
-
-                    <button
-                      type="submit"
-                      disabled={isSubmittingBrokerLogin}
-                      className="w-full py-2.5 rounded-xl bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 text-slate-950 font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-sky-500/20 transition disabled:opacity-50"
-                    >
-                      <LogIn className="w-4 h-4" />
-                      <span>{isSubmittingBrokerLogin ? 'Authenticating...' : 'Sign In to Broker Command Center'}</span>
-                    </button>
-                  </form>
+                  <button
+                    type="button"
+                    onClick={() => setBrokerRoleTab('broker_agent')}
+                    className={`pb-3 text-xs font-bold flex items-center gap-2 border-b-2 transition ${
+                      brokerRoleTab === 'broker_agent'
+                        ? 'border-purple-400 text-purple-300'
+                        : 'border-transparent text-slate-400 hover:text-slate-200'
+                    }`}
+                  >
+                    <Building className="w-4 h-4" />
+                    <span>Certified Broker Sign In</span>
+                  </button>
                 </div>
 
-                {/* Feature Highlights Grid */}
-                <div className="space-y-3">
-                  <h4 className="text-xs font-mono font-bold text-slate-400 uppercase tracking-wider">
-                    Broker Command Center Capabilities Unlocked:
-                  </h4>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div className="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800 space-y-1">
-                      <div className="text-xs font-bold text-white flex items-center gap-1.5">
-                        <Building className="w-3.5 h-3.5 text-sky-400" />
-                        <span>1. Verified PG Beds</span>
+                {/* Broker Form */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
+                  <div className="space-y-4 p-6 rounded-2xl bg-slate-950 border border-slate-800">
+                    <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                      <span className="text-xs font-mono font-bold text-slate-300 uppercase flex items-center gap-2">
+                        <Lock className="w-3.5 h-3.5 text-sky-400" />
+                        Credentials &amp; OTP Access
+                      </span>
+                      <div className="flex items-center gap-1 bg-slate-900 p-0.5 rounded-lg border border-slate-800 text-[10px]">
+                        <button
+                          type="button"
+                          onClick={() => setBrokerAuthMethod('password')}
+                          className={`px-2 py-0.5 rounded font-semibold transition ${
+                            brokerAuthMethod === 'password'
+                              ? 'bg-sky-500 text-slate-950 font-bold'
+                              : 'text-slate-400 hover:text-white'
+                          }`}
+                        >
+                          Password
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setBrokerAuthMethod('otp')}
+                          className={`px-2 py-0.5 rounded font-semibold transition ${
+                            brokerAuthMethod === 'otp'
+                              ? 'bg-sky-500 text-slate-950 font-bold'
+                              : 'text-slate-400 hover:text-white'
+                          }`}
+                        >
+                          Phone OTP
+                        </button>
                       </div>
-                      <p className="text-[11px] text-slate-400">
-                        Live bed inventory (Single, Double, Triple AC) with Wi-Fi and food menu verification.
-                      </p>
                     </div>
 
-                    <div className="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800 space-y-1">
-                      <div className="text-xs font-bold text-white flex items-center gap-1.5">
-                        <Home className="w-3.5 h-3.5 text-sky-400" />
-                        <span>2. Rental Houses &amp; Flats</span>
+                    {brokerLoginError && (
+                      <div className="p-3 rounded-xl bg-rose-950/60 border border-rose-500/40 text-rose-300 text-xs flex items-center gap-2">
+                        <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
+                        <span>{brokerLoginError}</span>
                       </div>
-                      <p className="text-[11px] text-slate-400">
-                        1BHK, 2BHK, 3BHK flats, and luxury duplexes direct from landlords with zero commission.
-                      </p>
-                    </div>
+                    )}
 
-                    <div className="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800 space-y-1">
-                      <div className="text-xs font-bold text-white flex items-center gap-1.5">
-                        <Zap className="w-3.5 h-3.5 text-amber-400" />
-                        <span>3. AI Tenant Matchmaker</span>
-                      </div>
-                      <p className="text-[11px] text-slate-400">
-                        Algorithmic matching of tenant commute distance, budget, food habits, and credit scores.
-                      </p>
-                    </div>
+                    {brokerAuthMethod === 'password' ? (
+                      <form onSubmit={handleBrokerLogin} className="space-y-4">
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-300 mb-1">
+                            {brokerRoleTab === 'tenant' && 'Tenant Email Address'}
+                            {brokerRoleTab === 'property_owner' && 'Landlord / Owner Email'}
+                            {brokerRoleTab === 'broker_agent' && 'Certified Broker Email'}
+                          </label>
+                          <input
+                            type="email"
+                            required
+                            value={brokerLoginEmail}
+                            onChange={(e) => setBrokerLoginEmail(e.target.value)}
+                            placeholder={
+                              brokerRoleTab === 'tenant'
+                                ? 'aarav.mehta@techcorridor.in'
+                                : brokerRoleTab === 'property_owner'
+                                ? 'vikram.reddy@realestate.in'
+                                : 'sneha.kulkarni@rerabroker.in'
+                            }
+                            className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-sky-400 transition"
+                          />
+                        </div>
 
-                    <div className="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800 space-y-1">
-                      <div className="text-xs font-bold text-white flex items-center gap-1.5">
-                        <FileText className="w-3.5 h-3.5 text-emerald-400" />
-                        <span>4. Digital Lease Generator</span>
-                      </div>
-                      <p className="text-[11px] text-slate-400">
-                        Automated 11-month rental contracts with Aadhaar KYC, stamp duty, and e-signatures.
-                      </p>
-                    </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-300 mb-1">
+                            Password
+                          </label>
+                          <input
+                            type="password"
+                            value={brokerLoginPassword}
+                            onChange={(e) => setBrokerLoginPassword(e.target.value)}
+                            placeholder="••••••••"
+                            className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-sky-400 transition"
+                          />
+                        </div>
 
-                    <div className="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800 space-y-1">
-                      <div className="text-xs font-bold text-white flex items-center gap-1.5">
-                        <TrendingUp className="w-3.5 h-3.5 text-purple-400" />
-                        <span>5. Yield &amp; ROI Analytics</span>
-                      </div>
-                      <p className="text-[11px] text-slate-400">
-                        Calculates net rental yields, capitalization rates, cash flow, and occupancy trends.
-                      </p>
-                    </div>
+                        <div className="flex items-center justify-between text-xs">
+                          <label className="flex items-center gap-1.5 text-slate-400 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={brokerRememberMe}
+                              onChange={(e) => setBrokerRememberMe(e.target.checked)}
+                              className="rounded border-slate-700 bg-slate-900 text-sky-500 focus:ring-0"
+                            />
+                            <span>Keep me signed in</span>
+                          </label>
 
-                    <div className="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800 space-y-1">
-                      <div className="text-xs font-bold text-white flex items-center gap-1.5">
-                        <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-                        <span>6. Escrow &amp; Deposit Guard</span>
-                      </div>
-                      <p className="text-[11px] text-slate-400">
-                        Digital security deposit escrow protection ensuring seamless refund upon move-out.
-                      </p>
-                    </div>
+                          <button
+                            type="button"
+                            onClick={() => setIsBrokerAuthOpen(true)}
+                            className="text-sky-400 hover:underline"
+                          >
+                            New user? Register now
+                          </button>
+                        </div>
+
+                        <button
+                          type="submit"
+                          disabled={isSubmittingBrokerLogin}
+                          className="w-full py-2.5 rounded-xl bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 text-slate-950 font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-sky-500/20 transition disabled:opacity-50"
+                        >
+                          <LogIn className="w-4 h-4" />
+                          <span>
+                            {isSubmittingBrokerLogin
+                              ? 'Signing In...'
+                              : `Sign In as ${
+                                  brokerRoleTab === 'tenant'
+                                    ? 'Tenant'
+                                    : brokerRoleTab === 'property_owner'
+                                    ? 'Property Owner'
+                                    : 'Certified Broker'
+                                }`}
+                          </span>
+                        </button>
+                      </form>
+                    ) : (
+                      <form onSubmit={brokerOtpSent ? handleVerifyBrokerOtp : handleSendBrokerOtp} className="space-y-4">
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-300 mb-1">
+                            Registered Mobile Number (+91)
+                          </label>
+                          <div className="flex gap-2">
+                            <div className="px-3 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-xs font-mono text-slate-300">
+                              +91
+                            </div>
+                            <input
+                              type="tel"
+                              required
+                              value={brokerPhone}
+                              onChange={(e) => setBrokerPhone(e.target.value)}
+                              placeholder="98450 12345"
+                              disabled={brokerOtpSent}
+                              className="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-sky-400 transition disabled:opacity-60"
+                            />
+                          </div>
+                        </div>
+
+                        {brokerOtpSent && (
+                          <div className="space-y-2">
+                            <label className="block text-xs font-semibold text-slate-300">
+                              Enter 6-Digit OTP Code
+                            </label>
+                            <input
+                              type="text"
+                              required
+                              maxLength={6}
+                              value={brokerOtp}
+                              onChange={(e) => setBrokerOtp(e.target.value)}
+                              placeholder="123456"
+                              className="w-full bg-slate-900 border border-sky-500 rounded-xl px-3.5 py-2.5 text-center tracking-widest text-lg font-mono text-white focus:outline-none transition"
+                            />
+                            <p className="text-[11px] text-emerald-400 font-mono">
+                              ✓ OTP sent to +91 {brokerPhone} (Enter any 6 digits for demo)
+                            </p>
+                          </div>
+                        )}
+
+                        <button
+                          type="submit"
+                          disabled={isSubmittingBrokerLogin}
+                          className="w-full py-2.5 rounded-xl bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 text-slate-950 font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-sky-500/20 transition disabled:opacity-50"
+                        >
+                          <Zap className="w-4 h-4 fill-slate-950" />
+                          <span>{brokerOtpSent ? 'Verify OTP & Enter Command Center' : 'Send One-Time Password'}</span>
+                        </button>
+                      </form>
+                    )}
+                  </div>
+
+                  {/* Highlights of Command Center */}
+                  <div className="p-6 rounded-2xl bg-slate-950/60 border border-slate-800 space-y-4">
+                    <h4 className="text-xs font-mono font-bold text-white uppercase flex items-center gap-2">
+                      <Sparkles className="w-4 h-4 text-sky-400" />
+                      What You Unlock Inside Broker Command Center
+                    </h4>
+
+                    <ul className="space-y-3 text-xs text-slate-300">
+                      <li className="flex items-start gap-2.5">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                        <span>
+                          <strong>0% Brokerage PG &amp; Co-Living:</strong> Direct verified beds with high-speed WiFi, biometric locks, 3-tier meals, and power backup.
+                        </span>
+                      </li>
+                      <li className="flex items-start gap-2.5">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                        <span>
+                          <strong>AI Tenant Matchmaker:</strong> Instant matching based on commute distances to Manyata, Bagmane, EGL &amp; Electronic City.
+                        </span>
+                      </li>
+                      <li className="flex items-start gap-2.5">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                        <span>
+                          <strong>Digital Stamp Duty &amp; E-Lease:</strong> Automated 11-month Karnataka digital rental agreements ready for e-signature.
+                        </span>
+                      </li>
+                      <li className="flex items-start gap-2.5">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                        <span>
+                          <strong>Real Estate ROI &amp; Yield Engine:</strong> Analyze cap rates, rental yield % per sq.ft, and occupancy forecasts.
+                        </span>
+                      </li>
+                    </ul>
                   </div>
                 </div>
               </div>
             </div>
           ) : (
-            /* AUTHENTICATED BROKER COMMAND CENTER */
-            <div className="space-y-4">
-              <div className="p-3.5 rounded-2xl bg-sky-950/40 border border-sky-500/30 flex items-center justify-between gap-4 flex-wrap">
-                <div className="flex items-center gap-2.5">
-                  <span className="w-2.5 h-2.5 rounded-full bg-sky-400 animate-pulse" />
-                  <span className="text-xs font-mono font-bold text-sky-300">
-                    BROKER COMMAND CENTER ACTIVE • Authenticated as {user?.name} ({user?.role?.replace('_', ' ').toUpperCase()})
-                  </span>
+            /* BROKER USER AUTHENTICATED: RENDER FULL AGENT VIEW */
+            <div className="space-y-6">
+              <div className="flex items-center justify-between p-4 rounded-2xl bg-sky-950/40 border border-sky-500/30 flex-wrap gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-sky-500/20 text-sky-300 border border-sky-500/40 flex items-center justify-center font-mono font-bold text-lg">
+                    {user?.name.charAt(0)}
+                  </div>
+                  <div>
+                    <div className="text-sm font-bold text-white flex items-center gap-2">
+                      <span>{user?.name}</span>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-sky-500/20 text-sky-300 border border-sky-500/40 capitalize">
+                        {user?.role.replace('_', ' ')}
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-400 font-mono">
+                      Logged in to Broker Command Center • 0% Brokerage Direct Mode
+                    </p>
+                  </div>
                 </div>
+
                 <div className="flex items-center gap-2">
-                  <span className="text-[11px] text-slate-400 font-mono hidden sm:inline">
-                    {user?.company || 'Gouse Broker Network'}
-                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setIsBrokerAuthOpen(true)}
+                    className="px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-700 text-xs font-semibold transition"
+                  >
+                    Switch Persona
+                  </button>
                   <button
                     type="button"
                     onClick={logout}
-                    className="px-2.5 py-1 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 text-xs font-semibold transition"
+                    className="px-3 py-1.5 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 text-xs font-semibold transition flex items-center gap-1"
                   >
-                    Lock Broker Center
+                    <LogOut className="w-3.5 h-3.5" />
+                    <span>Sign Out</span>
                   </button>
                 </div>
               </div>
@@ -1572,7 +1535,221 @@ export const UnifiedMasterPageView: React.FC<UnifiedMasterPageViewProps> = ({
       </section>
 
       {/* ========================================================================= */}
-      {/* 3. CLIENT FEEDBACK, RATINGS & VERIFIED REVIEWS                             */}
+      {/* 3. SOCIAL & MEDIA HUB: PHOTOS & VIDEOS (SEPARATE PAGE SHOWCASE)            */}
+      {/* ========================================================================= */}
+      <section id="sec-social-media-hub" className="py-14 border-b border-slate-800 bg-slate-900/40 scroll-mt-16">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
+          <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="px-3 py-1 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/40 text-xs font-mono font-bold flex items-center gap-1.5">
+                  <Film className="w-3.5 h-3.5 text-rose-400" />
+                  PILLAR 3: SOCIAL &amp; MEDIA HUB
+                </span>
+                <span className="px-2.5 py-0.5 rounded-full bg-slate-800 text-rose-300 border border-slate-700 text-[11px] font-mono">
+                  PHOTOS &amp; VIDEOS STUDIO
+                </span>
+                <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 text-[11px] font-mono">
+                  4K LUMION &amp; DRONE REELS
+                </span>
+                <span className="px-2.5 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30 text-[11px] font-mono">
+                  360° SPATIAL TOUR &amp; WIPE
+                </span>
+                <span className="px-2.5 py-0.5 rounded-full bg-purple-500/15 text-purple-300 border border-purple-500/30 text-[11px] font-mono">
+                  AI REEL PRODUCER
+                </span>
+              </div>
+              <h2 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-white tracking-tight">
+                Social &amp; Media Hub: Photos, 4K Videos, 360° Tours &amp; Campaigns
+              </h2>
+              <p className="text-xs sm:text-sm text-slate-400 max-w-3xl leading-relaxed">
+                Centralized architectural media vault for high-resolution DSLR photography, 4K Lumion walkthrough videos, construction site drone reels, 360° spatial room navigator, interactive before/after construction wipe slider, and multi-channel marketing campaigns.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              id="btn-open-separate-social-page"
+              onClick={handleOpenSocialHub}
+              className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-rose-500 to-pink-600 hover:from-rose-400 hover:to-pink-500 text-white font-bold text-xs flex items-center gap-2 shadow-lg shadow-rose-500/25 transition shrink-0 group"
+            >
+              <Film className="w-4 h-4 group-hover:scale-110 transition-transform" />
+              <span>Open Social &amp; Media Hub (Separate Page)</span>
+              <ExternalLink className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          {/* 4 Preview Cards showcasing Photos & Videos */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* Card 1: 3D Walkthrough Video */}
+            <div className="group rounded-2xl bg-slate-950 border border-slate-800 hover:border-rose-500/50 overflow-hidden transition-all duration-300 flex flex-col">
+              <div className="relative aspect-video overflow-hidden bg-slate-900">
+                <img
+                  src={courtyardInteriorImg}
+                  alt="3D Lumion Walkthrough"
+                  className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-black/30" />
+                <span className="absolute top-2.5 left-2.5 px-2 py-0.5 rounded-md bg-rose-600/90 text-white font-mono text-[10px] font-bold flex items-center gap-1">
+                  <Film className="w-3 h-3" />
+                  <span>4K VIDEO • 02:14</span>
+                </span>
+                <button
+                  type="button"
+                  onClick={handleOpenSocialHub}
+                  className="absolute inset-0 flex items-center justify-center"
+                >
+                  <div className="w-12 h-12 rounded-full bg-rose-500/90 hover:bg-rose-400 text-white flex items-center justify-center shadow-xl group-hover:scale-110 transition-transform">
+                    <Play className="w-5 h-5 ml-0.5 fill-white" />
+                  </div>
+                </button>
+              </div>
+              <div className="p-4 flex-1 flex flex-col justify-between space-y-2">
+                <div>
+                  <h4 className="text-xs font-bold text-white group-hover:text-rose-300 transition line-clamp-1">
+                    3D Lumion Architectural Walkthrough
+                  </h4>
+                  <p className="text-[11px] text-slate-400 line-clamp-2 mt-1">
+                    Biophilic double-height courtyard featuring NBC 2016 solar passive daylighting.
+                  </p>
+                </div>
+                <div className="flex items-center justify-between pt-2 border-t border-slate-800/80 text-[10px] font-mono text-slate-400">
+                  <span className="text-rose-400 font-bold">YouTube / Shorts</span>
+                  <span>2,840 views</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Card 2: Signature Elevation Photo */}
+            <div className="group rounded-2xl bg-slate-950 border border-slate-800 hover:border-rose-500/50 overflow-hidden transition-all duration-300 flex flex-col">
+              <div className="relative aspect-video overflow-hidden bg-slate-900">
+                <img
+                  src={villaExteriorImg}
+                  alt="Signature Villa Elevation"
+                  className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-black/30" />
+                <span className="absolute top-2.5 left-2.5 px-2 py-0.5 rounded-md bg-sky-600/90 text-white font-mono text-[10px] font-bold flex items-center gap-1">
+                  <Camera className="w-3 h-3" />
+                  <span>4K PHOTO • UHD</span>
+                </span>
+              </div>
+              <div className="p-4 flex-1 flex flex-col justify-between space-y-2">
+                <div>
+                  <h4 className="text-xs font-bold text-white group-hover:text-sky-300 transition line-clamp-1">
+                    Signature Front Elevation &amp; Cantilevers
+                  </h4>
+                  <p className="text-[11px] text-slate-400 line-clamp-2 mt-1">
+                    Twilight elevation render showcasing wire-cut exposed brickwork and slate cladding.
+                  </p>
+                </div>
+                <div className="flex items-center justify-between pt-2 border-t border-slate-800/80 text-[10px] font-mono text-slate-400">
+                  <span className="text-sky-400 font-bold">Instagram Post</span>
+                  <span>4,520 views</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Card 3: Drone Survey Video */}
+            <div className="group rounded-2xl bg-slate-950 border border-slate-800 hover:border-rose-500/50 overflow-hidden transition-all duration-300 flex flex-col">
+              <div className="relative aspect-video overflow-hidden bg-slate-900">
+                <img
+                  src={siteFramingImg}
+                  alt="Drone Survey Reel"
+                  className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-black/30" />
+                <span className="absolute top-2.5 left-2.5 px-2 py-0.5 rounded-md bg-purple-600/90 text-white font-mono text-[10px] font-bold flex items-center gap-1">
+                  <Film className="w-3 h-3" />
+                  <span>DRONE REEL • 00:45</span>
+                </span>
+                <button
+                  type="button"
+                  onClick={handleOpenSocialHub}
+                  className="absolute inset-0 flex items-center justify-center"
+                >
+                  <div className="w-12 h-12 rounded-full bg-purple-500/90 hover:bg-purple-400 text-white flex items-center justify-center shadow-xl group-hover:scale-110 transition-transform">
+                    <Play className="w-5 h-5 ml-0.5 fill-white" />
+                  </div>
+                </button>
+              </div>
+              <div className="p-4 flex-1 flex flex-col justify-between space-y-2">
+                <div>
+                  <h4 className="text-xs font-bold text-white group-hover:text-purple-300 transition line-clamp-1">
+                    Drone Aerial Survey &amp; Setback Verification
+                  </h4>
+                  <p className="text-[11px] text-slate-400 line-clamp-2 mt-1">
+                    High-altitude 4K drone cinematography documenting structural grid symmetry.
+                  </p>
+                </div>
+                <div className="flex items-center justify-between pt-2 border-t border-slate-800/80 text-[10px] font-mono text-slate-400">
+                  <span className="text-purple-400 font-bold">Instagram Reel</span>
+                  <span>6,120 views</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Card 4: Master Suite Interior Photo */}
+            <div className="group rounded-2xl bg-slate-950 border border-slate-800 hover:border-rose-500/50 overflow-hidden transition-all duration-300 flex flex-col">
+              <div className="relative aspect-video overflow-hidden bg-slate-900">
+                <img
+                  src={masterSuiteImg}
+                  alt="Master Suite Interior"
+                  className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-black/30" />
+                <span className="absolute top-2.5 left-2.5 px-2 py-0.5 rounded-md bg-amber-600/90 text-white font-mono text-[10px] font-bold flex items-center gap-1">
+                  <Camera className="w-3 h-3" />
+                  <span>4K PHOTO • INTERIOR</span>
+                </span>
+              </div>
+              <div className="p-4 flex-1 flex flex-col justify-between space-y-2">
+                <div>
+                  <h4 className="text-xs font-bold text-white group-hover:text-amber-300 transition line-clamp-1">
+                    Master Bedroom Suite &amp; Teak Louvers
+                  </h4>
+                  <p className="text-[11px] text-slate-400 line-clamp-2 mt-1">
+                    Interior styling with ambient LED coves and Italian marble floor takeoffs.
+                  </p>
+                </div>
+                <div className="flex items-center justify-between pt-2 border-t border-slate-800/80 text-[10px] font-mono text-slate-400">
+                  <span className="text-amber-400 font-bold">Pinterest / IG</span>
+                  <span>3,120 views</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Bottom Banner with Direct Separate Page Action */}
+          <div className="p-5 rounded-2xl bg-gradient-to-r from-rose-950/50 via-slate-900 to-purple-950/40 border border-rose-500/30 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-rose-500/20 text-rose-300 flex items-center justify-center shrink-0">
+                <Share2 className="w-5 h-5" />
+              </div>
+              <div>
+                <h4 className="text-xs font-bold text-white">
+                  Want the full-screen separate page with all photos, videos &amp; AI ad copywriter?
+                </h4>
+                <p className="text-[11px] text-slate-400">
+                  Includes full HD video player, photo tagging, cross-channel publishing, and marketing analytics.
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleOpenSocialHub}
+              className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs flex items-center gap-2 shadow-md shadow-rose-600/20 transition whitespace-nowrap"
+            >
+              <ExternalLink className="w-3.5 h-3.5" />
+              <span>Launch Separate Page Now</span>
+            </button>
+          </div>
+        </div>
+      </section>
+
+      {/* ========================================================================= */}
+      {/* 4. CLIENT FEEDBACK, RATINGS & VERIFIED REVIEWS                             */}
       {/* ========================================================================= */}
       <section id="sec-client-feedback" className="py-16 border-b border-slate-800 bg-slate-950 scroll-mt-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-10">
@@ -1591,210 +1768,191 @@ export const UnifiedMasterPageView: React.FC<UnifiedMasterPageViewProps> = ({
               <h2 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-white tracking-tight">
                 Client Project Feedback &amp; Stakeholder Testimonials
               </h2>
-              <p className="text-xs sm:text-sm text-slate-400 max-w-2xl leading-relaxed">
-                Direct reviews from luxury homeowners, co-living developers, and institutional investors on architectural rigor, cost savings, and rental yield performance.
+              <p className="text-xs sm:text-sm text-slate-400 max-w-2xl">
+                Real feedback from private villa owners, commercial developers, and institutional clients across Bangalore.
               </p>
             </div>
 
-            <a
-              href="#form-submit-feedback"
-              className="px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-amber-300 border border-amber-500/30 text-xs font-bold transition flex items-center gap-2 shrink-0"
+            <button
+              type="button"
+              onClick={() => {
+                const el = document.getElementById('feedback-form-box');
+                el?.scrollIntoView({ behavior: 'smooth' });
+              }}
+              className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-2 shadow-md shadow-emerald-600/20 transition shrink-0"
             >
-              <MessageSquare className="w-4 h-4 text-amber-400" />
-              <span>Leave Client Feedback</span>
-            </a>
+              <MessageSquare className="w-3.5 h-3.5" />
+              <span>Write Client Review</span>
+            </button>
           </div>
 
-          {/* Feedback Testimonial Cards Grid */}
+          {/* Feedback Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {feedbackList.map((item) => (
               <div
                 key={item.id}
-                className="p-6 rounded-3xl bg-slate-900/90 border border-slate-800 shadow-xl space-y-4 hover:border-amber-500/30 transition flex flex-col justify-between"
+                className="p-6 rounded-3xl bg-slate-900 border border-slate-800 hover:border-emerald-500/40 transition-all duration-300 space-y-4 shadow-xl flex flex-col justify-between"
               >
                 <div className="space-y-3">
-                  {/* Rating Stars & Category Tag */}
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-1">
-                      {[1, 2, 3, 4, 5].map((s) => (
-                        <Star
-                          key={s}
-                          className={`w-4 h-4 ${
-                            s <= item.rating
-                              ? 'text-amber-400 fill-amber-400'
-                              : 'text-slate-700'
-                          }`}
-                        />
-                      ))}
-                      <span className="ml-1.5 text-xs font-mono font-bold text-amber-300">
-                        {item.rating}.0
-                      </span>
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                      <img
+                        src={item.avatarUrl}
+                        alt={item.clientName}
+                        className="w-11 h-11 rounded-2xl object-cover border border-emerald-500/30"
+                      />
+                      <div>
+                        <h4 className="text-sm font-bold text-white flex items-center gap-1.5">
+                          <span>{item.clientName}</span>
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 inline" />
+                        </h4>
+                        <p className="text-[11px] text-slate-400 font-medium">{item.clientRole}</p>
+                      </div>
                     </div>
 
-                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-500/10 text-amber-300 border border-amber-500/30">
-                      {item.category}
-                    </span>
+                    <div className="flex items-center gap-1 bg-emerald-500/10 px-2.5 py-1 rounded-full border border-emerald-500/30">
+                      {[...Array(item.rating)].map((_, i) => (
+                        <Star key={i} className="w-3 h-3 text-amber-400 fill-amber-400" />
+                      ))}
+                    </div>
                   </div>
 
-                  {/* Comment */}
-                  <p className="text-xs sm:text-sm text-slate-300 leading-relaxed font-light">
-                    &ldquo;{item.comment}&rdquo;
+                  <p className="text-xs text-slate-300 leading-relaxed italic bg-slate-950/40 p-3.5 rounded-xl border border-slate-800/80">
+                    "{item.comment}"
                   </p>
                 </div>
 
-                {/* Client Profile & Project Info */}
-                <div className="pt-4 border-t border-slate-800/80 flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-3">
-                    <img
-                      src={item.avatarUrl}
-                      alt={item.clientName}
-                      className="w-10 h-10 rounded-xl object-cover border border-slate-700 shrink-0"
-                    />
-                    <div>
-                      <div className="text-xs font-bold text-white flex items-center gap-1.5">
-                        <span>{item.clientName}</span>
-                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                      </div>
-                      <div className="text-[10px] text-amber-400/90 font-mono truncate max-w-[200px]">
-                        {item.clientRole}
-                      </div>
-                      <div className="text-[10px] text-slate-400 truncate max-w-[200px]">
-                        {item.projectName}
-                      </div>
-                    </div>
+                <div className="pt-3 border-t border-slate-800/80 flex items-center justify-between text-[11px] font-mono text-slate-400">
+                  <div className="flex items-center gap-2">
+                    <span className="text-amber-400 font-bold">{item.projectName}</span>
+                    <span>•</span>
+                    <span>{item.projectLocation}</span>
                   </div>
-
-                  <span className="text-[10px] text-slate-500 font-mono shrink-0">
-                    {item.date}
-                  </span>
+                  <span className="text-emerald-400 font-bold">{item.category}</span>
                 </div>
               </div>
             ))}
           </div>
 
-          {/* Interactive Client Feedback Submission Form */}
-          <div
-            id="form-submit-feedback"
-            className="p-6 sm:p-8 rounded-3xl bg-slate-900 border border-slate-800 shadow-2xl space-y-6"
-          >
-            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+          {/* Review Submission Form */}
+          <div id="feedback-form-box" className="p-6 sm:p-8 rounded-3xl bg-slate-900 border border-emerald-500/30 space-y-6">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-4 flex-wrap gap-2">
               <div>
                 <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                  <MessageSquare className="w-5 h-5 text-amber-400" />
-                  <span>Submit Client Review &amp; Architectural Feedback</span>
+                  <MessageSquare className="w-4 h-4 text-emerald-400" />
+                  <span>Submit Client Feedback &amp; Project Review</span>
                 </h3>
-                <p className="text-xs text-slate-400 mt-0.5">
-                  Your feedback helps maintain the Council of Architecture benchmark and fair-housing zero-brokerage standards.
+                <p className="text-xs text-slate-400">
+                  Your verified testimonial will appear live on the Gouse AI Agent public showcase.
                 </p>
               </div>
-              <span className="text-xs font-mono text-emerald-400">Public Client Wall</span>
+
+              {feedbackSubmitSuccess && (
+                <span className="px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-xs font-mono font-bold flex items-center gap-1.5 animate-pulse">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                  Review Published Live!
+                </span>
+              )}
             </div>
 
-            {feedbackSubmitSuccess && (
-              <div className="p-3.5 rounded-2xl bg-emerald-950/60 border border-emerald-500/40 text-emerald-300 text-xs flex items-center gap-2 animate-in fade-in">
-                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                <span>
-                  Thank you! Your verified client review has been recorded and posted to the feedback wall.
-                </span>
-              </div>
-            )}
-
-            <form onSubmit={handleFeedbackSubmit} className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <form onSubmit={handleAddFeedback} className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-semibold text-slate-300 mb-1">
-                    Your Name *
+                    Your Full Name &amp; Title
                   </label>
                   <input
                     type="text"
                     required
                     value={newFeedbackName}
                     onChange={(e) => setNewFeedbackName(e.target.value)}
-                    placeholder="e.g. Sameer Khan / Meera Nambiar"
-                    className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-400"
+                    placeholder="e.g. Sameer Khan, Managing Director"
+                    className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-400 transition"
                   />
                 </div>
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-300 mb-1">
-                    Project / Property Name
+                    Project Name &amp; Location
                   </label>
                   <input
                     type="text"
+                    required
                     value={newFeedbackProject}
                     onChange={(e) => setNewFeedbackProject(e.target.value)}
-                    placeholder="e.g. Palm Crest Villa / HSR PG"
-                    className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-400"
+                    placeholder="e.g. Prestige Heights, Indiranagar"
+                    className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-400 transition"
                   />
                 </div>
+              </div>
 
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-semibold text-slate-300 mb-1">
-                    Service Category
+                    Service / Solution Category
                   </label>
                   <select
                     value={newFeedbackCategory}
                     onChange={(e) => setNewFeedbackCategory(e.target.value as any)}
-                    className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-400"
+                    className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-emerald-400 transition"
                   >
-                    <option value="Architectural BIM">Architectural BIM &amp; CAD</option>
-                    <option value="Turnkey BOQ">Turnkey BOQ &amp; Cost Audits</option>
-                    <option value="AI Site Cam Audit">AI Site Cam &amp; Escrow</option>
-                    <option value="Rental Brokerage">Rental Brokerage &amp; Leasing</option>
+                    <option value="Architectural BIM">Architectural BIM &amp; 3D Coordination</option>
+                    <option value="Turnkey BOQ">Turnkey BOQ &amp; CPWD Cost Audit</option>
+                    <option value="AI Site Cam Audit">AI Geotagged Site Camera Audit</option>
+                    <option value="Rental Brokerage">0% Brokerage PG &amp; Rental Management</option>
                   </select>
                 </div>
-              </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                  Rating (Select Stars)
-                </label>
-                <div className="flex items-center gap-2">
-                  {[1, 2, 3, 4, 5].map((star) => (
-                    <button
-                      key={star}
-                      type="button"
-                      onClick={() => setNewFeedbackRating(star)}
-                      className="p-1 text-slate-500 hover:text-amber-400 transition"
-                    >
-                      <Star
-                        className={`w-5 h-5 ${
-                          star <= newFeedbackRating
-                            ? 'text-amber-400 fill-amber-400'
-                            : 'text-slate-700'
-                        }`}
-                      />
-                    </button>
-                  ))}
-                  <span className="text-xs font-mono font-bold text-amber-300 ml-2">
-                    {newFeedbackRating} of 5 Stars
-                  </span>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">
+                    Rating (1 to 5 Stars)
+                  </label>
+                  <div className="flex items-center gap-2 pt-1">
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <button
+                        key={star}
+                        type="button"
+                        onClick={() => setNewFeedbackRating(star)}
+                        className="p-1 text-slate-500 hover:text-amber-400 transition"
+                      >
+                        <Star
+                          className={`w-5 h-5 ${
+                            star <= newFeedbackRating
+                              ? 'text-amber-400 fill-amber-400'
+                              : 'text-slate-700'
+                          }`}
+                        />
+                      </button>
+                    ))}
+                    <span className="text-xs font-mono font-bold text-amber-300 ml-2">
+                      {newFeedbackRating}.0 / 5.0
+                    </span>
+                  </div>
                 </div>
               </div>
 
               <div>
                 <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  Your Detailed Review &amp; Experience *
+                  Detailed Review &amp; Experience
                 </label>
                 <textarea
-                  required
                   rows={3}
+                  required
                   value={newFeedbackComment}
                   onChange={(e) => setNewFeedbackComment(e.target.value)}
-                  placeholder="Share your experience regarding drawing quality, cost accuracy, construction milestone delivery, or tenant leasing..."
-                  className="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-400"
+                  placeholder="Share details on drawing precision, cost compliance, timeline adherence, or rental brokerage efficiency..."
+                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-400 transition resize-none"
                 />
               </div>
 
-              <div className="flex items-center justify-between pt-1">
-                <span className="text-[11px] text-slate-400 flex items-center gap-1.5">
-                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-                  <span>Publicly verified on the Gouse AI Stakeholder Wall</span>
+              <div className="flex items-center justify-between pt-2">
+                <span className="text-[11px] font-mono text-slate-500">
+                  ⚡ Authenticated via Gouse AI Client Escrow &amp; Review Protocol
                 </span>
 
                 <button
                   type="submit"
-                  className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold text-xs flex items-center gap-2 shadow-md shadow-amber-500/20 transition"
+                  className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-slate-950 font-bold text-xs flex items-center gap-2 shadow-md shadow-emerald-500/20 transition"
                 >
                   <Send className="w-3.5 h-3.5" />
                   <span>Post Client Review</span>
@@ -1806,7 +1964,7 @@ export const UnifiedMasterPageView: React.FC<UnifiedMasterPageViewProps> = ({
       </section>
 
       {/* ========================================================================= */}
-      {/* 4. CLIENT LOGIN & STAKEHOLDER ACCESS PORTAL                                */}
+      {/* 5. CLIENT LOGIN & STAKEHOLDER ACCESS PORTAL                                */}
       {/* ========================================================================= */}
       <section id="sec-client-login" className="py-16 bg-slate-950/80 scroll-mt-16">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">

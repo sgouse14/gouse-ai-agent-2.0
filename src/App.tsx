@@ -18,6 +18,7 @@ import { ClientPage } from './components/ClientPage';
 import { ClientView } from './components/ClientView';
 import { PlatformDemo } from './components/PlatformDemo';
 import { UnifiedMasterPageView } from './components/UnifiedMasterPageView';
+import { SocialMediaHubPage } from './components/SocialMediaHubPage';
 import { useAuth } from './context/AuthContext';
 import { Sparkles, LogIn, UserPlus, ArrowLeft } from 'lucide-react';
 import {
@@ -42,8 +43,11 @@ export function App() {
   // Broker preview toggle for staff
   const [isPreviewingBroker, setIsPreviewingBroker] = useState<boolean>(false);
 
+  // Dedicated separate page toggle for Social & Media Hub (PHOTOS & VIDEOS)
+  const [isShowingSocialHub, setIsShowingSocialHub] = useState<boolean>(false);
+
   // Outside platform view mode: Gouse AI Agent Platform is brought outside by default!
-  const [unauthView, setUnauthView] = useState<'broker' | 'platform_demo'>('broker');
+  const [unauthView, setUnauthView] = useState<'broker' | 'platform_demo' | 'social_hub'>('broker');
 
   // Navigation
   const [activeTab, setActiveTab] = useState<TabType>('projects');
@@ -395,8 +399,24 @@ export function App() {
     setEnquiries((prev) => [newEnquiry, ...prev]);
   };
 
+  // Dedicated Separate Page for Social & Media Hub (PHOTOS & VIDEOS):
+  if (isShowingSocialHub || unauthView === 'social_hub') {
+    return (
+      <SocialMediaHubPage
+        activeProject={activeProject}
+        projects={projects}
+        onSelectProject={setActiveProjectId}
+        onClose={() => {
+          setIsShowingSocialHub(false);
+          if (unauthView === 'social_hub') setUnauthView('broker');
+        }}
+        onOpenWorkflowEngine={() => setIsWorkflowEngineOpen(true)}
+      />
+    );
+  }
+
   // 1. If user is NOT signed in: Show the ALL-IN-ONE Unified Master Page!
-  // Combines: Client Login, Client Feedback, Gouse AI Agent Broker Command Center, and Gouse AI Agent all on one page!
+  // Combines: Client Login, Client Feedback, Gouse AI Agent Broker Command Center, and Main Studio Platform all together!
   if (!user) {
     if (unauthView === 'platform_demo') {
       return (
@@ -422,6 +442,7 @@ export function App() {
         onUpdateProject={handleUpdateProject}
         onCreateProject={handleCreateProject}
         onOpenClientDashboard={() => setClientActiveView('dashboard')}
+        onOpenSocialHub={() => setIsShowingSocialHub(true)}
         boqItems={boqItems}
         onUpdateBOQItems={setBoqItems}
         contingencyPercent={contingencyPercent}
@@ -510,6 +531,7 @@ export function App() {
           onUpdateProject={handleUpdateProject}
           onCreateProject={handleCreateProject}
           onOpenClientDashboard={() => setClientActiveView('dashboard')}
+          onOpenSocialHub={() => setIsShowingSocialHub(true)}
           boqItems={boqItems}
           onUpdateBOQItems={setBoqItems}
           contingencyPercent={contingencyPercent}
@@ -585,6 +607,7 @@ export function App() {
         onUpdateProject={handleUpdateProject}
         onCreateProject={handleCreateProject}
         onOpenClientDashboard={() => setClientActiveView('dashboard')}
+        onOpenSocialHub={() => setIsShowingSocialHub(true)}
         boqItems={boqItems}
         onUpdateBOQItems={setBoqItems}
         contingencyPercent={contingencyPercent}

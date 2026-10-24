@@ -57,9 +57,6 @@ import {
 } from 'lucide-react';
 import { Project, TeamMember, AuditEvent } from '../types';
 import { formatDate, CurrencyCode } from '../utils/formatters';
-import { PgHousePropertyListingSection } from './PgHousePropertyListingSection';
-import { GouseAiAgentBrokerView } from './GouseAiAgentBrokerView';
-import { SocialMediaStudio } from './SocialMediaStudio';
 
 export const PRESET_PORTRAITS = [
   {
@@ -145,7 +142,7 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
   onOpenSiteCamera,
   currency = 'INR',
 }) => {
-  const [activeTab, setActiveTab] = useState<'team' | 'site_audits' | 'social' | 'agent_broker' | 'pg_listing' | 'rent_house_listing'>('team');
+  const [activeTab, setActiveTab] = useState<'team' | 'site_audits'>('team');
   const [isCreatingProject, setIsCreatingProject] = useState(false);
   const [newProjectName, setNewProjectName] = useState('');
   const [newProjectType, setNewProjectType] = useState('Residential Architecture');
@@ -436,37 +433,6 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
             </span>
           </button>
 
-          <button
-            id="tab-btn-social"
-            onClick={() => setActiveTab('social')}
-            className={`flex items-center gap-2 px-4 py-2.5 text-xs font-medium border-b-2 transition ${
-              activeTab === 'social'
-                ? 'border-sky-400 text-sky-400 bg-sky-500/5'
-                : 'border-transparent text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            <Camera className="w-3.5 h-3.5 text-pink-400" />
-            <span>Social Media &amp; Showcase Hub</span>
-            <span className="rounded bg-gradient-to-r from-pink-500/20 via-purple-500/20 to-sky-500/20 text-sky-200 border border-sky-500/30 text-[10px] px-2 py-0.2 font-mono font-bold">
-              PHOTOS &amp; VIDEOS
-            </span>
-          </button>
-
-          <button
-            id="tab-btn-agent-broker"
-            onClick={() => setActiveTab('agent_broker')}
-            className={`flex items-center gap-2 px-4 py-2.5 text-xs font-medium border-b-2 transition ${
-              activeTab === 'agent_broker' || activeTab === 'pg_listing' || activeTab === 'rent_house_listing'
-                ? 'border-amber-400 text-amber-400 bg-amber-500/5 font-semibold'
-                : 'border-transparent text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            <Building className="w-3.5 h-3.5 text-amber-400" />
-            <span>Gouse AI Agent Broker</span>
-            <span className="rounded bg-gradient-to-r from-amber-500/20 to-emerald-500/20 text-amber-300 border border-amber-500/30 text-[10px] px-2 py-0.2 font-mono font-bold">
-              PG &amp; RENT
-            </span>
-          </button>
         </div>
 
         {/* Compact Right Actions */}
@@ -1225,25 +1191,6 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
         </div>
       )}
 
-      {/* Tab: Social Media & Showcase Hub (Photo & Video Upload, Channels & Ads) */}
-      {activeTab === 'social' && (
-        <SocialMediaStudio
-          activeProject={activeProject}
-          onOpenWorkflowEngine={onOpenWorkflowEngine}
-        />
-      )}
-
-      {/* Tab: Gouse AI Agent Broker (PG & Rent House) */}
-      {(activeTab === 'agent_broker' || activeTab === 'pg_listing' || activeTab === 'rent_house_listing') && (
-        <div className="space-y-4">
-          <GouseAiAgentBrokerView
-            project={activeProject}
-            onUpdateProject={onUpdateProject}
-            currency={currency || activeProject.currency || 'INR'}
-            initialSubTab={activeTab === 'rent_house_listing' ? 'rent_house' : activeTab === 'pg_listing' ? 'pg' : 'all'}
-          />
-        </div>
-      )}
     </div>
   );
 };

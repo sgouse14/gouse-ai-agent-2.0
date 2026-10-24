@@ -27,18 +27,20 @@ import {
   LogIn,
   LogOut,
   Lock,
+  PlusCircle,
 } from 'lucide-react';
 import { Project } from '../types';
 import { CurrencyCode, formatCurrency } from '../utils/formatters';
 import { PgHousePropertyListingSection } from './PgHousePropertyListingSection';
 import { useAuth } from '../context/AuthContext';
 import { BrokerAuthModal } from './BrokerAuthModal';
+import { BuyHouseLandSection } from './BuyHouseLandSection';
 
 interface GouseAiAgentBrokerViewProps {
   project?: Project;
   onUpdateProject?: (updated: Project) => void;
   currency?: CurrencyCode;
-  initialSubTab?: 'all' | 'pg' | 'rent_house' | 'matchmaker' | 'agreement' | 'analytics';
+  initialSubTab?: 'all' | 'pg' | 'rent_house' | 'buy_house' | 'land_plot' | 'sell_property' | 'matchmaker' | 'agreement' | 'analytics';
   isOutsidePlatform?: boolean;
   onOpenPlatformDemo?: () => void;
 }
@@ -58,7 +60,7 @@ export const GouseAiAgentBrokerView: React.FC<GouseAiAgentBrokerViewProps> = ({
 
   // Main Navigation within Gouse AI Agent Broker
   const [activeBrokerTab, setActiveBrokerTab] = useState<
-    'all' | 'pg' | 'rent_house' | 'matchmaker' | 'agreement' | 'analytics'
+    'all' | 'pg' | 'rent_house' | 'buy_house' | 'land_plot' | 'sell_property' | 'matchmaker' | 'agreement' | 'analytics'
   >(initialSubTab);
 
   // AI Broker Matchmaker Form State
@@ -313,22 +315,22 @@ export const GouseAiAgentBrokerView: React.FC<GouseAiAgentBrokerViewProps> = ({
             <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-white tracking-tight leading-tight">
               Gouse AI Agent Broker:{' '}
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-400 via-amber-200 to-amber-500">
-                PG, Co-Living &amp; Rental House
+                PG, Rental House, Buy &amp; Sell, Land &amp; Plots
               </span>{' '}
               Command Center
             </h1>
 
             {/* Subtitle */}
             <p className="text-xs sm:text-sm text-slate-300 leading-relaxed font-light">
-              Autonomous real estate brokerage and inventory management platform. Discover and lease verified executive PG rooms, co-living suites, independent rental houses, and builder floors with zero hidden markups, instant tenant matchmaking, and automated digital lease agreements.
+              Autonomous real estate brokerage and inventory management platform. Buy luxury villas, lease executive PG rooms &amp; rental floors, acquire BDA/DTCP approved land parcels, or list your house/land with zero hidden markups, instant AI property valuations, and automated digital agreements.
             </p>
 
             {/* Key Value Points */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
               <div className="p-2.5 rounded-xl bg-slate-900/80 border border-slate-800 text-left">
                 <div className="text-[10px] font-mono text-slate-400 uppercase tracking-wide">Listed Assets</div>
-                <div className="text-base font-bold text-white mt-0.5">8+ Properties</div>
-                <div className="text-[10px] text-amber-400">PGs &amp; Independent Houses</div>
+                <div className="text-base font-bold text-white mt-0.5">16+ Verified Assets</div>
+                <div className="text-[10px] text-amber-400">Houses, PGs &amp; Land Parcels</div>
               </div>
 
               <div className="p-2.5 rounded-xl bg-slate-900/80 border border-slate-800 text-left">
@@ -426,7 +428,7 @@ export const GouseAiAgentBrokerView: React.FC<GouseAiAgentBrokerViewProps> = ({
         <button
           type="button"
           onClick={() => setActiveBrokerTab('all')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition whitespace-nowrap ${
+          className={`flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition whitespace-nowrap ${
             activeBrokerTab === 'all'
               ? 'bg-amber-500 text-slate-950 shadow-md shadow-amber-500/25 ring-2 ring-amber-400'
               : 'text-slate-400 hover:text-white hover:bg-slate-800'
@@ -439,69 +441,114 @@ export const GouseAiAgentBrokerView: React.FC<GouseAiAgentBrokerViewProps> = ({
         <button
           type="button"
           onClick={() => setActiveBrokerTab('pg')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition whitespace-nowrap ${
+          className={`flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition whitespace-nowrap ${
             activeBrokerTab === 'pg'
               ? 'bg-amber-500 text-slate-950 shadow-md shadow-amber-500/25 ring-2 ring-amber-400'
               : 'text-slate-400 hover:text-white hover:bg-slate-800'
           }`}
         >
           <Building className="w-4 h-4" />
-          <span>🏢 PG &amp; Co-Living Hostels</span>
+          <span>🏢 PG &amp; Co-Living</span>
         </button>
 
         <button
           type="button"
           onClick={() => setActiveBrokerTab('rent_house')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition whitespace-nowrap ${
+          className={`flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition whitespace-nowrap ${
             activeBrokerTab === 'rent_house'
               ? 'bg-emerald-500 text-slate-950 shadow-md shadow-emerald-500/25 ring-2 ring-emerald-400'
               : 'text-slate-400 hover:text-white hover:bg-slate-800'
           }`}
         >
           <Home className="w-4 h-4" />
-          <span>🏡 Rent House &amp; Independent Flats</span>
+          <span>🏡 Rent House</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveBrokerTab('buy_house')}
+          className={`flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition whitespace-nowrap ${
+            activeBrokerTab === 'buy_house'
+              ? 'bg-amber-400 text-slate-950 shadow-md shadow-amber-400/25 ring-2 ring-amber-300'
+              : 'text-slate-400 hover:text-white hover:bg-slate-800'
+          }`}
+        >
+          <Building className="w-4 h-4 text-amber-400" />
+          <span>🏰 Buy House &amp; Villas</span>
+          <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 font-bold">
+            FOR SALE
+          </span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveBrokerTab('land_plot')}
+          className={`flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition whitespace-nowrap ${
+            activeBrokerTab === 'land_plot'
+              ? 'bg-emerald-400 text-slate-950 shadow-md shadow-emerald-400/25 ring-2 ring-emerald-300'
+              : 'text-slate-400 hover:text-white hover:bg-slate-800'
+          }`}
+        >
+          <MapPin className="w-4 h-4 text-emerald-400" />
+          <span>🗺️ Land &amp; Plots</span>
+          <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 font-bold">
+            BDA/DTCP
+          </span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveBrokerTab('sell_property')}
+          className={`flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition whitespace-nowrap ${
+            activeBrokerTab === 'sell_property'
+              ? 'bg-purple-500 text-white shadow-md shadow-purple-500/25 ring-2 ring-purple-400'
+              : 'text-slate-400 hover:text-white hover:bg-slate-800'
+          }`}
+        >
+          <PlusCircle className="w-4 h-4 text-purple-400" />
+          <span>📢 Sell House / Land</span>
+          <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-purple-500/20 text-purple-300 font-bold">
+            0% FEE
+          </span>
         </button>
 
         <button
           type="button"
           onClick={() => setActiveBrokerTab('matchmaker')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition whitespace-nowrap ${
+          className={`flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition whitespace-nowrap ${
             activeBrokerTab === 'matchmaker'
               ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/25 ring-2 ring-indigo-400'
               : 'text-slate-400 hover:text-white hover:bg-slate-800'
           }`}
         >
           <Sparkles className="w-4 h-4 text-indigo-400" />
-          <span>🤖 AI Broker Matchmaker</span>
-          <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-indigo-500/20 text-indigo-300">
-            SMART
-          </span>
+          <span>🤖 AI Matchmaker</span>
         </button>
 
         <button
           type="button"
           onClick={() => setActiveBrokerTab('agreement')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition whitespace-nowrap ${
+          className={`flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition whitespace-nowrap ${
             activeBrokerTab === 'agreement'
               ? 'bg-teal-600 text-white shadow-md shadow-teal-600/25 ring-2 ring-teal-400'
               : 'text-slate-400 hover:text-white hover:bg-slate-800'
           }`}
         >
           <FileText className="w-4 h-4 text-teal-400" />
-          <span>📑 Digital Rental Agreement Desk</span>
+          <span>📑 Agreement Desk</span>
         </button>
 
         <button
           type="button"
           onClick={() => setActiveBrokerTab('analytics')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition whitespace-nowrap ${
+          className={`flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition whitespace-nowrap ${
             activeBrokerTab === 'analytics'
               ? 'bg-purple-600 text-white shadow-md shadow-purple-600/25 ring-2 ring-purple-400'
               : 'text-slate-400 hover:text-white hover:bg-slate-800'
           }`}
         >
           <TrendingUp className="w-4 h-4 text-purple-400" />
-          <span>📊 Yield &amp; ROI Analytics</span>
+          <span>📊 Yield Analytics</span>
         </button>
       </div>
 
@@ -515,6 +562,27 @@ export const GouseAiAgentBrokerView: React.FC<GouseAiAgentBrokerViewProps> = ({
           currency={currency}
           mode={activeBrokerTab === 'all' ? 'all' : activeBrokerTab}
         />
+      )}
+
+      {/* ========================================================================= */}
+      {/* 3.1. SUB-VIEW: BUY HOUSE & LUXURY VILLAS                                  */}
+      {/* ========================================================================= */}
+      {activeBrokerTab === 'buy_house' && (
+        <BuyHouseLandSection mode="buy_house" currency={currency} />
+      )}
+
+      {/* ========================================================================= */}
+      {/* 3.2. SUB-VIEW: LAND & PLOTS                                               */}
+      {/* ========================================================================= */}
+      {activeBrokerTab === 'land_plot' && (
+        <BuyHouseLandSection mode="land_plot" currency={currency} />
+      )}
+
+      {/* ========================================================================= */}
+      {/* 3.3. SUB-VIEW: SELL HOUSE / LAND / RENT OUT SELF-LISTING DESK              */}
+      {/* ========================================================================= */}
+      {activeBrokerTab === 'sell_property' && (
+        <BuyHouseLandSection mode="sell_property" currency={currency} />
       )}
 
       {/* ========================================================================= */}

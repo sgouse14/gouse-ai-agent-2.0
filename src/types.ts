@@ -491,12 +491,15 @@ export interface SocialMediaItem {
   aspectRatio: '16:9' | '9:16' | '1:1' | '4:5';
   duration?: string;
   platform: 'all' | 'instagram' | 'facebook' | 'youtube' | 'linkedin';
-  category: '3d_walkthrough' | 'site_elevation' | 'drone_aerial' | 'interior_design' | 'floor_plan' | 'slab_casting' | 'handover';
+  category: '3d_walkthrough' | 'site_elevation' | 'drone_aerial' | 'interior_design' | 'floor_plan' | 'slab_casting' | 'handover' | 'client_past';
   uploadedAt: string;
   architectAttribution: string;
   tags: string[];
   likesCount?: number;
   viewsCount?: number;
   isFeatured?: boolean;
+  clientName?: string;
+  clientRole?: string;
+  handoverYear?: string;
 }
 

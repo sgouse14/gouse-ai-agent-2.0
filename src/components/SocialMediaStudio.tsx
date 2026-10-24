@@ -37,8 +37,13 @@ import {
   Layers,
   Sparkle,
   Radio,
+  Compass,
+  FileText,
+  Users,
 } from 'lucide-react';
 import { Project, SocialMediaItem } from '../types';
+import { SocialVirtualTourAndCampaigns } from './SocialVirtualTourAndCampaigns';
+import { ClientPastProjectsShowcase } from './ClientPastProjectsShowcase';
 
 // Import local project assets for instant out-of-the-box rich visuals
 import villaExteriorImg from '../assets/images/bangalore_house_exterior_1790170528532.jpg';
@@ -187,7 +192,9 @@ export const SocialMediaStudio: React.FC<SocialMediaStudioProps> = ({
   onOpenWorkflowEngine,
 }) => {
   // Navigation & Sub-mode tabs
-  const [activeSubMode, setActiveSubMode] = useState<'gallery' | 'channels' | 'ads' | 'wall'>('gallery');
+  const [activeSubMode, setActiveSubMode] = useState<
+    'gallery' | 'client_past' | 'virtual_tour' | 'campaigns' | 'brochure' | 'channels' | 'ads' | 'wall'
+  >('gallery');
   const [mediaTypeFilter, setMediaTypeFilter] = useState<'all' | 'photo' | 'video'>('all');
   const [platformFilter, setPlatformFilter] = useState<'all' | 'instagram' | 'facebook' | 'youtube' | 'linkedin'>('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -609,21 +616,21 @@ export const SocialMediaStudio: React.FC<SocialMediaStudioProps> = ({
           </div>
         </div>
 
-        {/* 4 CORE SUB-MODE SWITCHERS */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5 p-1.5 rounded-xl bg-slate-950 border border-slate-800">
+        {/* 8 CORE SUB-MODE SWITCHERS */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2 p-1.5 rounded-xl bg-slate-950 border border-slate-800">
           <button
             id="subtab-media-gallery"
             type="button"
             onClick={() => setActiveSubMode('gallery')}
-            className={`flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg text-xs font-bold transition ${
+            className={`flex items-center justify-center gap-1.5 py-2 px-2 rounded-lg text-xs font-bold transition ${
               activeSubMode === 'gallery'
                 ? 'bg-gradient-to-r from-sky-500 to-blue-600 text-slate-950 shadow-md shadow-sky-500/20'
                 : 'text-slate-400 hover:text-white hover:bg-slate-900'
             }`}
           >
-            <Layers className="h-4 w-4" />
-            <span>Media Library &amp; Uploads</span>
-            <span className={`rounded-full px-2 py-0.2 text-[10px] font-mono ${
+            <Layers className="h-3.5 w-3.5" />
+            <span>4K Gallery</span>
+            <span className={`rounded-full px-1.5 py-0.2 text-[9px] font-mono ${
               activeSubMode === 'gallery' ? 'bg-slate-950 text-sky-300' : 'bg-slate-800 text-slate-300'
             }`}>
               {mediaItems.length}
@@ -631,54 +638,106 @@ export const SocialMediaStudio: React.FC<SocialMediaStudioProps> = ({
           </button>
 
           <button
+            id="subtab-client-past-photos"
+            type="button"
+            onClick={() => setActiveSubMode('client_past')}
+            className={`flex items-center justify-center gap-1.5 py-2 px-2 rounded-lg text-xs font-bold transition ${
+              activeSubMode === 'client_past'
+                ? 'bg-gradient-to-r from-emerald-500 to-teal-600 text-slate-950 shadow-md shadow-emerald-500/20 ring-2 ring-emerald-400'
+                : 'text-slate-400 hover:text-white hover:bg-slate-900'
+            }`}
+          >
+            <Users className="h-3.5 w-3.5 text-emerald-400" />
+            <span>Client Past</span>
+            <span className={`rounded-full px-1.5 py-0.2 text-[9px] font-mono ${
+              activeSubMode === 'client_past' ? 'bg-slate-950 text-emerald-300 font-bold' : 'bg-slate-800 text-slate-300'
+            }`}>
+              PHOTOS
+            </span>
+          </button>
+
+          <button
+            id="subtab-virtual-tour"
+            type="button"
+            onClick={() => setActiveSubMode('virtual_tour')}
+            className={`flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-lg text-xs font-bold transition ${
+              activeSubMode === 'virtual_tour'
+                ? 'bg-gradient-to-r from-rose-500 to-pink-600 text-white shadow-md shadow-rose-500/20'
+                : 'text-slate-400 hover:text-white hover:bg-slate-900'
+            }`}
+          >
+            <Compass className="h-3.5 w-3.5 text-rose-400" />
+            <span>360° Tour &amp; Wipe</span>
+          </button>
+
+          <button
+            id="subtab-ai-campaigns"
+            type="button"
+            onClick={() => setActiveSubMode('campaigns')}
+            className={`flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-lg text-xs font-bold transition ${
+              activeSubMode === 'campaigns'
+                ? 'bg-gradient-to-r from-purple-500 to-indigo-600 text-white shadow-md shadow-purple-500/20'
+                : 'text-slate-400 hover:text-white hover:bg-slate-900'
+            }`}
+          >
+            <Share2 className="h-3.5 w-3.5 text-purple-400" />
+            <span>AI Reel Producer</span>
+          </button>
+
+          <button
+            id="subtab-lookbook-brochure"
+            type="button"
+            onClick={() => setActiveSubMode('brochure')}
+            className={`flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-lg text-xs font-bold transition ${
+              activeSubMode === 'brochure'
+                ? 'bg-gradient-to-r from-amber-500 to-yellow-500 text-slate-950 shadow-md shadow-amber-500/20'
+                : 'text-slate-400 hover:text-white hover:bg-slate-900'
+            }`}
+          >
+            <FileText className="h-3.5 w-3.5 text-amber-400" />
+            <span>PDF Lookbook</span>
+          </button>
+
+          <button
             id="subtab-social-channels"
             type="button"
             onClick={() => setActiveSubMode('channels')}
-            className={`flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg text-xs font-bold transition ${
+            className={`flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-lg text-xs font-bold transition ${
               activeSubMode === 'channels'
                 ? 'bg-gradient-to-r from-pink-500 to-purple-600 text-white shadow-md shadow-pink-500/20'
                 : 'text-slate-400 hover:text-white hover:bg-slate-900'
             }`}
           >
-            <Camera className="h-4 w-4" />
-            <span>Instagram &amp; YouTube Player</span>
-            <span className="rounded-full bg-slate-900 px-2 py-0.2 text-[10px] font-mono text-pink-300">
-              MOCKUPS
-            </span>
+            <Camera className="h-3.5 w-3.5 text-pink-400" />
+            <span>Channels Player</span>
           </button>
 
           <button
             id="subtab-social-ads"
             type="button"
             onClick={() => setActiveSubMode('ads')}
-            className={`flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg text-xs font-bold transition ${
+            className={`flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-lg text-xs font-bold transition ${
               activeSubMode === 'ads'
                 ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 shadow-md shadow-amber-500/20'
                 : 'text-slate-400 hover:text-white hover:bg-slate-900'
             }`}
           >
-            <Megaphone className="h-4 w-4" />
-            <span>Promote via Social Ads</span>
-            <span className="rounded-full bg-slate-950/40 px-2 py-0.2 text-[10px] font-mono font-extrabold text-slate-950">
-              ₹500 ADS
-            </span>
+            <Megaphone className="h-3.5 w-3.5 text-amber-400" />
+            <span>Social Ads</span>
           </button>
 
           <button
             id="subtab-stakeholder-wall"
             type="button"
             onClick={() => setActiveSubMode('wall')}
-            className={`flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg text-xs font-bold transition ${
+            className={`flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-lg text-xs font-bold transition ${
               activeSubMode === 'wall'
                 ? 'bg-gradient-to-r from-emerald-500 to-teal-600 text-slate-950 shadow-md shadow-emerald-500/20'
                 : 'text-slate-400 hover:text-white hover:bg-slate-900'
             }`}
           >
-            <MessageSquare className="h-4 w-4" />
-            <span>Stakeholder Media Feed</span>
-            <span className="rounded-full bg-slate-900 px-2 py-0.2 text-[10px] font-mono text-emerald-300">
-              {wallComments.length}
-            </span>
+            <MessageSquare className="h-3.5 w-3.5 text-emerald-400" />
+            <span>Client Feed ({wallComments.length})</span>
           </button>
         </div>
 
@@ -973,6 +1032,37 @@ export const SocialMediaStudio: React.FC<SocialMediaStudioProps> = ({
             </div>
           )}
         </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* SUB-MODE: CLIENT PAST PROJECTS & HANDOVER PHOTOS SHOWCASE                 */}
+      {/* ========================================================================= */}
+      {activeSubMode === 'client_past' && (
+        <ClientPastProjectsShowcase
+          activeProject={activeProject}
+          onOpenSocialHub={onOpenWorkflowEngine}
+        />
+      )}
+
+      {/* ========================================================================= */}
+      {/* SUB-MODE: 360° VIRTUAL TOUR & BEFORE/AFTER WIPE SLIDER                    */}
+      {/* ========================================================================= */}
+      {activeSubMode === 'virtual_tour' && (
+        <SocialVirtualTourAndCampaigns activeProject={activeProject} mode="virtual_tour" />
+      )}
+
+      {/* ========================================================================= */}
+      {/* SUB-MODE: MULTI-CHANNEL AI SOCIAL CAMPAIGN GENERATOR                      */}
+      {/* ========================================================================= */}
+      {activeSubMode === 'campaigns' && (
+        <SocialVirtualTourAndCampaigns activeProject={activeProject} mode="campaigns" />
+      )}
+
+      {/* ========================================================================= */}
+      {/* SUB-MODE: ARCHITECTURAL LOOKBOOK & PRINTABLE PDF BROCHURE                  */}
+      {/* ========================================================================= */}
+      {activeSubMode === 'brochure' && (
+        <SocialVirtualTourAndCampaigns activeProject={activeProject} mode="brochure" />
       )}
 
       {/* ========================================================================= */}
