@@ -57,6 +57,38 @@ function validateCounts(input: Omit<MonitoringSnapshot, 'status' | 'cycleId' | '
       !['VERIFIED', 'PARTIAL', 'HOLD'].includes(input.backupCycleStatus)) {
     throw new Error('Invalid monitoring signal: backupCycleStatus');
   }
+  if (input.empProtectionStatus !== undefined &&
+      !['NORMAL', 'WATCH', 'HOLD'].includes(input.empProtectionStatus)) {
+    throw new Error('Invalid monitoring signal: empProtectionStatus');
+  }
+  if (input.empTelemetryFreshness !== undefined &&
+      !['FRESH', 'STALE', 'FUTURE', 'UNTRUSTED_SOURCE'].includes(input.empTelemetryFreshness)) {
+    throw new Error('Invalid monitoring signal: empTelemetryFreshness');
+  }
+  if ((input.empProtectionStatus === undefined) !== (input.empTelemetryFreshness === undefined)) {
+    throw new Error('EMP protection status and telemetry freshness must be provided together.');
+  }
+  if (input.empTelemetryFreshness !== undefined && input.empTelemetryFreshness !== 'FRESH' &&
+      input.empProtectionStatus !== 'HOLD') {
+    throw new Error('Non-fresh EMP telemetry must be held.');
+  }
+  if (input.empTelemetrySourceId !== undefined &&
+      (typeof input.empTelemetrySourceId !== 'string' || !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(input.empTelemetrySourceId))) {
+    throw new Error('Invalid monitoring signal: empTelemetrySourceId');
+  }
+  if (input.empTelemetryAgeMinutes !== undefined &&
+      (typeof input.empTelemetryAgeMinutes !== 'number' || !Number.isFinite(input.empTelemetryAgeMinutes))) {
+    throw new Error('Invalid monitoring freshness value: empTelemetryAgeMinutes');
+  }
+  if (input.empProtectionScore !== undefined &&
+      (!Number.isSafeInteger(input.empProtectionScore) || input.empProtectionScore < 0 || input.empProtectionScore > 100)) {
+    throw new Error('Invalid monitoring signal: empProtectionScore');
+  }
+  if (input.empProtectionReasons !== undefined &&
+      (!Array.isArray(input.empProtectionReasons) || input.empProtectionReasons.length > 20 ||
+       input.empProtectionReasons.some(reason => typeof reason !== 'string' || reason.length > 1000))) {
+    throw new Error('Invalid monitoring signal: empProtectionReasons');
+  }
 }
 
 /** Read-only health monitor. It raises auditable alerts; it cannot mutate agents, tasks, identities, files or holds. */
@@ -115,6 +147,15 @@ export function createSaqlainMonitoringRuntime(options: SaqlainMonitoringRuntime
             backupCycleInProgress: snapshot.backupCycleInProgress ?? false,
             backupCycleInProgressMinutes: snapshot.backupCycleInProgressMinutes ?? null,
             backupCycleStatus: snapshot.backupCycleStatus ?? null,
+            empProtection: snapshot.empProtectionStatus ? {
+              status: snapshot.empProtectionStatus,
+              telemetryFreshness: snapshot.empTelemetryFreshness ?? null,
+              sourceId: snapshot.empTelemetrySourceId ?? null,
+              telemetryAgeMinutes: snapshot.empTelemetryAgeMinutes ?? null,
+              score: snapshot.empProtectionScore ?? null,
+              reasons: snapshot.empProtectionReasons ?? [],
+              automaticPhysicalActionsTaken: false,
+            } : null,
           } : null,
           destructiveActionsTaken: false,
           securityHoldsReleased: false,
