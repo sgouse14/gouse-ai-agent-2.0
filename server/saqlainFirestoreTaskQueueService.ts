@@ -122,12 +122,16 @@ export class SaqlainFirestoreTaskQueueService {
       const doc = await this.client.getDocument(this.collection, id);
       if (!doc) throw new Error('Queue task does not exist.');
       const current = taskFrom(doc);
+      const updateTime = doc._updateTime;
+      if (typeof updateTime !== 'string' || !updateTime.trim()) {
+        throw new Error('Firestore task is missing update-time metadata; refusing an unconditional state update.');
+      }
       const next = transform(current);
       validateTransition(current, next);
       await this.audit(eventType, actorId, 'ALLOW', current, { nextStatus: next.status });
       const write: FirestoreWrite = {
         update: { name: this.client.documentName(this.collection, id), fields: enc(next as unknown as Record<string, unknown>) },
-        currentDocument: doc._updateTime ? { updateTime: String(doc._updateTime) } : undefined,
+        currentDocument: { updateTime },
       };
       try { await this.client.commit([write]); return next; }
       catch (error) {
