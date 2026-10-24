@@ -11,6 +11,7 @@ import {
   ShieldAlert,
   ShieldCheck,
 } from 'lucide-react';
+import { WebsiteDiagnosticsPanel } from './WebsiteDiagnosticsPanel';
 import type {
   SaqlainFinding,
   SaqlainFindingCategory,
@@ -231,6 +232,8 @@ export const SaqlainSecurityView: React.FC<Props> = ({ activeProjectName }) => {
           </button>
         </div>
       </div>
+
+      <WebsiteDiagnosticsPanel />
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <Metric label="Risk Score" value={riskScore + '/100'} icon={ShieldAlert} />
