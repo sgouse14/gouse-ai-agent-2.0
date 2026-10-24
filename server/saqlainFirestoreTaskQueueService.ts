@@ -115,7 +115,7 @@ export class SaqlainFirestoreTaskQueueService {
       if (idempotencyRecord) {
         if (idempotencyRecord.requestFingerprint !== requestFingerprint ||
             typeof idempotencyRecord.managerTaskId !== 'string' ||
-            !/^\\d{5,}$/.test(idempotencyRecord.managerTaskId)) {
+            !/^\d{5,}$/.test(idempotencyRecord.managerTaskId)) {
           throw new Error('Idempotency key was already used for a different or invalid queue request.');
         }
         const existingTaskDocument = await this.client.getDocument(this.collection, idempotencyRecord.managerTaskId);
