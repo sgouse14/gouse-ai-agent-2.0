@@ -132,6 +132,14 @@ These are the next tasks and are **not yet complete**. Work should be implemente
 - [ ] Add worker liveness checks and durable job/cycle state.
 
 ### Priority 3 — backup, monitoring, and EMP operations
+- [x] Add an independent read-only audit freshness CLI that verifies the hash-chained audit log and fails if the latest monitoring cycle is absent, stale, unhealthy, malformed, or mismatched.
+- [x] Add a dedicated systemd oneshot unit and five-minute timer example for the health check; it runs with read-only filesystem access and does not mutate backup/recovery state.
+- [ ] Install and exercise the supervisor/timer on a provisioned staging host; configure external host-down monitoring and human paging.
+- [ ] Configure trusted source roots and off-host/versioned backup storage; run actual staging archive and restore drills.
+- [ ] Wire the EMP protector to an owner-managed telemetry source and configure source allowlisting/freshness before enabling it in operational monitoring.
+- [ ] Validate shielding/EMC, surge protection, power continuity, offline backups, spare hardware, and alternate communications with qualified site operators.
+- [ ] Conduct supervised recovery and restore drills; no automatic production promotion.
+
 - [ ] Run backup and monitoring services under a production supervisor.
 - [ ] Configure trusted source roots and off-host/versioned backup storage.
 - [ ] Add independent health checks, alerts, paging, and operational ownership (code now detects stale/stuck cycles but does not provide external paging).
