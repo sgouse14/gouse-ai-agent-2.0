@@ -46,7 +46,7 @@ Bounded defaults: at most 20 discovered resources, 4 concurrent requests, a 4-se
 
 ## Output and repair workflow
 
-The endpoint returns a report with a diagnostic status, timestamp, number of resources checked, findings with severity/evidence/recommendation, and limitations. It does not execute website JavaScript, inspect the browser console, sign in to authenticated pages, submit forms, exploit vulnerabilities, deploy code, change DNS/configuration, or modify remote content.
+The endpoint returns a report with a diagnostic status, timestamp, number of resources checked, findings with severity/evidence/recommendation, and a structured repair proposal for each finding. Each proposal contains change category, implementation steps, verification checks, a rollback guide, and an explicit approvalRequired=true / automaticApply=false boundary. It does not execute website JavaScript, inspect the browser console, sign in to authenticated pages, submit forms, exploit vulnerabilities, deploy code, change DNS/configuration, or modify remote content.
 
 A later repair workflow should separately:
 1. Generate a proposed patch/change plan.
