@@ -52,6 +52,7 @@ Updated: 2026-10-24
 - [x] Monitoring alerts and durable audit records include backup cycle age, in-progress duration, and most recent cycle status.
 - [x] Added regression tests for stale completed cycles, partial cycles, stuck active cycles, and missing cycle state.
 - [x] Updated the backup deployment runbook with operational freshness thresholds and external paging requirements.
+- [x] Added a hardened example systemd unit with a dedicated service user, restart policy, read-only source/application paths, and explicit writable backup/queue/audit directories.
 - [ ] Thresholds need staging calibration based on measured cycle durations.
 - [ ] External independent alerting/paging and process/host-down monitoring are not implemented by this change.
 - [ ] Off-host/versioned replication and a supervised restore drill remain open.
