@@ -101,12 +101,14 @@ export class SaqlainFirestoreTaskQueueService {
     const normalizedBackupTaskId = typeof backupTaskId === 'string' ? backupTaskId.trim() : '';
     if (!normalizedBackupTaskId) throw new Error('backupTaskId is required.');
     const normalizedKey = typeof idempotencyKey === 'string' ? idempotencyKey.trim() : '';
+    const normalizedActorId = typeof actorId === 'string' ? actorId.trim() : '';
+    if (!normalizedActorId) throw new Error('actorId is required.');
     if (normalizedKey.length < 8 || normalizedKey.length > 256) {
       throw new Error('A stable idempotency key between 8 and 256 characters is required.');
     }
     const idempotencyDocumentId = 'queue-idempotency-' + createHash('sha256').update(normalizedKey).digest('hex');
     const requestFingerprint = createHash('sha256')
-      .update(JSON.stringify({ backupTaskId: normalizedBackupTaskId }))
+      .update(JSON.stringify({ backupTaskId: normalizedBackupTaskId, actorId: normalizedActorId }))
       .digest('hex');
     for (let attempt=0; attempt<this.retries; attempt++) {
       // A repeated request returns the exact task created by the first successful commit.
@@ -131,7 +133,7 @@ export class SaqlainFirestoreTaskQueueService {
       const previous = counter ? Number(counter.sequence) : 0;
       if (!Number.isSafeInteger(previous) || previous < 0) throw new Error('Firestore queue sequence counter is invalid.');
       const task = createQueueTask(previous + 1, normalizedBackupTaskId, now);
-      await this.audit('QUEUE_TASK_ENQUEUE_INTENT', actorId, 'ALLOW', task);
+      await this.audit('QUEUE_TASK_ENQUEUE_INTENT', normalizedActorId, 'ALLOW', task);
       const writes: FirestoreWrite[] = [
         { update: { name: this.client.documentName(this.collection, task.managerTaskId), fields: enc(task as unknown as Record<string, unknown>) }, currentDocument: { exists: false } },
         { update: { name: this.client.documentName(this.collection, COUNTER_ID), fields: enc({ sequence: previous + 1 }) },
