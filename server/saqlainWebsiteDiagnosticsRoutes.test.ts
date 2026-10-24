@@ -99,7 +99,7 @@ test('website diagnostics scans only an allowlisted host and audits request and 
 
 test('website diagnostics denies a host that is not allowlisted for the project', async () => {
   const context = baseOptions();
-  const result = await invoke(context.options, { url: 'https://other.example/' });
+  const result = await invoke(context.options, { url: 'https://other-website.com/' });
   assert.equal(result.status, 403);
   assert.equal(context.getDiagnoseCalls(), 0);
   assert.equal(context.audit.length, 1);
