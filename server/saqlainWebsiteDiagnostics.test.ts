@@ -121,3 +121,26 @@ test('a page with a low-severity actionable finding is not reported as a clean p
   assert.equal(finding?.repairPlan?.approvalRequired, true);
   assert.equal(finding?.repairPlan?.automaticApply, false);
 });
+
+
+test('scanner revalidates public IP addresses on same-origin redirects', async () => {
+  let resolutionCount = 0;
+  const requestedPaths: string[] = [];
+  await assert.rejects(
+    () => diagnoseWebsite('https://example.com/', {
+      resolvePublicIPv4: async () => {
+        resolutionCount += 1;
+        return resolutionCount === 1 ? '93.184.216.34' : '169.254.169.254';
+      },
+      request: async (url, method) => {
+        requestedPaths.push(url.pathname);
+        return method === 'GET'
+          ? response(302, '', '', '/next')
+          : response(200, '', '');
+      },
+    }),
+    WebsiteTargetRejectedError,
+  );
+  assert.equal(resolutionCount, 2);
+  assert.deepEqual(requestedPaths, ['/']);
+});
