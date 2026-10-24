@@ -238,6 +238,13 @@ test('EMP telemetry WATCH raises WARNING and stale/untrusted readings force HOLD
   assert.match(buildSaqlainMonitoringAlert(watch) ?? '', /empProtectionStatus=WATCH/);
   assert.match(buildSaqlainMonitoringAlert(watch) ?? '', /facility-power-monitor-1/);
 
+  const alreadyHeld = evaluateMonitoringSnapshot({
+    ...base,
+    securityHolds: 1,
+    empProtectionStatus: 'WATCH' as const,
+  });
+  assert.equal(alreadyHeld.status, 'HOLD');
+
   const stale = evaluateMonitoringSnapshot({
     ...base,
     empProtectionStatus: 'HOLD' as const,
