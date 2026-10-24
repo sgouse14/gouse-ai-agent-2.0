@@ -142,7 +142,7 @@ function pinnedLookup(address: string) {
     } else {
       callback(null, address, 4);
     }
-  }) as unknown as LookupFunction;
+  });
 }
 
 function requestWithPinnedAddress(
@@ -173,8 +173,9 @@ function requestWithPinnedAddress(
       const contentType = typeof response.headers['content-type'] === 'string'
         ? response.headers['content-type'].slice(0, 256)
         : '';
-      const location = typeof response.headers.location === 'string'
-        ? response.headers.location.slice(0, MAX_URL_LENGTH)
+      const rawLocation = response.headers.location;
+      const location = typeof rawLocation === 'string' && rawLocation.length <= MAX_URL_LENGTH
+        ? rawLocation
         : null;
       const chunks: Buffer[] = [];
       let bytes = 0;
@@ -186,6 +187,15 @@ function requestWithPinnedAddress(
         if (bytes > MAX_HTML_BYTES) {
           bodyTooLarge = true;
           chunks.length = 0;
+          // Stop downloading immediately after crossing the response-size ceiling.
+          finish(() => resolve({
+            statusCode: response.statusCode ?? 0,
+            contentType,
+            location,
+            body: '',
+            bodyTooLarge: true,
+          }));
+          response.destroy();
           return;
         }
         chunks.push(buffer);
