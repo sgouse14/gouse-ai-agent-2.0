@@ -218,6 +218,18 @@ function requestWithPinnedAddress(
         body: bodyTooLarge ? '' : Buffer.concat(chunks).toString('utf8'),
         bodyTooLarge,
       })));
+      const declaredLength = Number(response.headers['content-length']);
+      if (method !== 'HEAD' && Number.isFinite(declaredLength) && declaredLength > MAX_HTML_BYTES) {
+        finish(() => resolve({
+          statusCode: response.statusCode ?? 0,
+          contentType,
+          location,
+          body: '',
+          bodyTooLarge: true,
+        }));
+        response.destroy();
+        return;
+      }
       response.resume();
     });
     request.setTimeout(REQUEST_TIMEOUT_MS, () => request.destroy(new Error('Website request timed out.')));
