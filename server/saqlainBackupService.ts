@@ -4,6 +4,8 @@ import { collectRegisteredHeartbeatSummary } from './saqlainHeartbeatMonitoring.
 import { getSaqlainHeartbeatSnapshot } from './saqlainHeartbeatRoutes.ts';
 import { createSaqlainTaskQueueService } from './saqlainTaskQueueService.ts';
 import { createDurableQueueTaskRegistry } from './saqlainDurableQueueStore.ts';
+import { getSaqlainAuditBackendMode } from './saqlainAuditBackend.ts';
+import { SaqlainFirestoreTaskQueueService } from './saqlainFirestoreTaskQueueService.ts';
 
 const required = (key: string): string => {
   const value = process.env[key]?.trim();
@@ -11,11 +13,14 @@ const required = (key: string): string => {
   return value;
 };
 
-const durableTaskQueue = createDurableQueueTaskRegistry(required('SAQLAIN_TASK_QUEUE_FILE'));
-const taskQueueService = createSaqlainTaskQueueService(durableTaskQueue);
+const auditBackendMode = getSaqlainAuditBackendMode();
+const taskQueueService = auditBackendMode === 'firestore'
+  ? new SaqlainFirestoreTaskQueueService()
+  : createSaqlainTaskQueueService(createDurableQueueTaskRegistry(required('SAQLAIN_TASK_QUEUE_FILE')));
 // A task locked before a restart has an ambiguous outcome. Hold it for review;
 // never automatically mark it completed or re-run potentially non-idempotent work.
-const recoveredTasks = taskQueueService.recoverInterruptedTasks();
+// Await works for both the async Firestore adapter and the synchronous local adapter.
+const recoveredTasks = await taskQueueService.recoverInterruptedTasks();
 if (recoveredTasks.length > 0) {
   console.warn('Saqlain queue recovery moved interrupted tasks to TIMEOUT_REVIEW:', recoveredTasks.map((task) => task.managerTaskId));
 }
@@ -46,7 +51,7 @@ const monitoringRuntime = createSaqlainMonitoringRuntime({
       process.env.SAQLAIN_HEARTBEAT_CREDENTIALS_JSON,
       await getSaqlainHeartbeatSnapshot(),
     );
-    const queueCounts = taskQueueService.getCounts();
+    const queueCounts = await taskQueueService.getCounts();
     return {
       // Counts only authenticated, recent heartbeats from configured heartbeat credentials.
       activeAgents: heartbeatSummary.activeAgents,
