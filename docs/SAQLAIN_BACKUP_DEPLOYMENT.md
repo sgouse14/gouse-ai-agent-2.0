@@ -94,6 +94,20 @@ The file must be a regular, non-symlink file on a non-symlink path, owned by the
 
 The service does not authenticate the physical sensor. The upstream collector must independently verify the telemetry source and write the file atomically into a protected directory; a JSON `sourceId` by itself is not proof of provenance. The helper is a software triage advisor, not an EMP detector, and it never switches power, disables hardware, performs containment, or starts recovery. This repository contains no configured live telemetry source and no qualified physical shielding assessment.
 
+## Optional off-host monitoring alert webhook
+
+The backup service can optionally send monitoring alerts to an operator-managed HTTPS webhook. Leave all webhook variables blank to retain local journal-only behavior. When configured, the local journal is still written and the webhook is called for non-healthy alerts. A delivery error is treated as unconfirmed, audited as a failure, and escalates the monitoring result to HOLD unless it is already FAILED.
+
+Configure the following through the deployment secret manager/protected runtime environment:
+- `SAQLAIN_MONITORING_ALERT_WEBHOOK_URL`: HTTPS endpoint URL, without credentials, query, fragment, or custom port.
+- `SAQLAIN_MONITORING_ALERT_WEBHOOK_TOKEN`: high-entropy bearer token shared securely with the receiver. Do not commit or log it.
+- `SAQLAIN_MONITORING_ALERT_WEBHOOK_ALLOWED_HOSTS_JSON`: JSON array of exact receiver DNS hostnames; wildcards and IP literal hosts are rejected.
+- `SAQLAIN_MONITORING_ALERT_WEBHOOK_TIMEOUT_MS`: optional timeout from 250 to 15000 milliseconds (default 5000).
+
+The adapter sends only a fixed-schema alert containing cycle ID, idempotency key, status, short alert text, and timestamp. It sends no backup paths, full monitoring snapshot, tokens, or raw provider exceptions. Redirects are not followed; the receiver must deduplicate the `Idempotency-Key` header because a network timeout can occur after the receiver accepted the request. The code does not automatically retry delivery; use receiver-side idempotency and alert on a failed delivery record.
+
+This is an outbound delivery adapter, not a complete paging integration. The receiver, receiver credentials, endpoint availability, external host-down monitoring, escalation policy, and human paging owner remain to be provisioned and tested in staging. Do not use a public demonstration/webhook inspection endpoint or an unreviewed third-party URL for production alerts.
+
 ## Operational freshness and alert policy
 
 - Backup/recovery cycles are scheduled every 30 minutes. The Saqlain monitoring agent now checks the age of the last completed cycle and the runtime of an active cycle so old successful counts cannot silently mask missed or stuck work.
