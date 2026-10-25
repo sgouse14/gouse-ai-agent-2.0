@@ -116,6 +116,9 @@ test('timeout aborts delivery and does not expose remote error details', async (
 
 test('environment configuration is opt-in and fails closed when partially configured', () => {
   assert.equal(createSaqlainMonitoringAlertWebhookFromEnv({}), undefined);
+  assert.equal(createSaqlainMonitoringAlertWebhookFromEnv({
+    SAQLAIN_MONITORING_ALERT_WEBHOOK_TIMEOUT_MS: '5000',
+  }), undefined);
   const validEnv = {
     SAQLAIN_MONITORING_ALERT_WEBHOOK_URL: 'https://alerts.example.com/v1',
     SAQLAIN_MONITORING_ALERT_WEBHOOK_TOKEN: 'test-bearer-token-which-is-long-enough',
