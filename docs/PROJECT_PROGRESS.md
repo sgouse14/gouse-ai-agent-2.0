@@ -1,6 +1,6 @@
 # Gouse AI Agent 2.0 — Project Progress
 
-Updated: 2026-10-24
+Updated: 2026-10-25
 
 ## Status summary
 
@@ -9,7 +9,7 @@ Updated: 2026-10-24
 - **Saqlain implementation progress:** approximately 65% (subjective planning estimate; not measured code coverage)
 - **Overall project completion / production readiness:** still in progress; do not treat these estimates as release approval.
 - Estimates are planning indicators, not measured code coverage or a precise issue-count calculation.
-- **Latest verified code CI:** [run #40077185658](https://github.com/sgouse14/gouse-ai-agent-2.0/actions/runs/40077185658) passed on commit `f5ba4127` on 2026-10-24. It passed security tests, both TypeScript checks, frontend/server production build, and Docker image build, including the optional EMP telemetry integration.
+- **Latest verified code CI:** [run #40172174991](https://github.com/sgouse14/gouse-ai-agent-2.0/actions/runs/40172174991) passed on commit `fae53738` on 2026-10-25. It passed security tests, both TypeScript checks, frontend/server production build, and Docker image build, including the optional off-host alert webhook and EMP telemetry integration.
 - **Feature branch:** `feature/saqlain-cyber-agent`
 - **Pull request:** [#1 — open and draft](https://github.com/sgouse14/gouse-ai-agent-2.0/pull/1)
 - **Main branch:** unchanged; no merge performed.
@@ -138,6 +138,8 @@ These are the next tasks and are **not yet complete**. Work should be implemente
 - [x] Add a dedicated systemd oneshot unit and five-minute timer example for the audit freshness check, with read-only filesystem access.
 - [x] Add an opt-in HTTPS off-host monitoring webhook adapter with exact hostname allowlisting, bearer authentication, redirect refusal, bounded timeout/payload, and per-cycle idempotency key.
 - [x] Integrate optional webhook delivery into the backup service while retaining local journal output; delivery failures remain auditable and escalate monitoring rather than appearing successful.
+- [x] Add webhook regression tests for HTTPS/hostname restrictions, payload schema, authentication and idempotency headers, redirects, timeout, failed responses, and opt-in configuration.
+- [x] Full CI for the alert webhook and EMP/health-check integration passed in [run #40172174991](https://github.com/sgouse14/gouse-ai-agent-2.0/actions/runs/40172174991), commit `fae53738`.
 - [x] Add an optional protected EMP telemetry file adapter with exact source allowlisting, strict schema/file permissions, timestamp freshness checks, and fail-closed behavior.
 - [x] Wire enabled EMP telemetry into the backup service monitoring snapshot; stale/future/unapproved readings trigger HOLD and fresh WATCH findings trigger WARNING. Monitoring polls every five minutes when this option is enabled.
 - [ ] Include the health-check unit and backup service in a provisioned staging host, verify supervisor restart/stop behavior, and assign an operations owner.
