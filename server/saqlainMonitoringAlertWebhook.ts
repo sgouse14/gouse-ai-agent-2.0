@@ -142,7 +142,9 @@ export function createSaqlainMonitoringAlertWebhookFromEnv(
   const rawToken = env.SAQLAIN_MONITORING_ALERT_WEBHOOK_TOKEN?.trim() ?? '';
   const rawAllowlist = env.SAQLAIN_MONITORING_ALERT_WEBHOOK_ALLOWED_HOSTS_JSON?.trim() ?? '';
   const rawTimeout = env.SAQLAIN_MONITORING_ALERT_WEBHOOK_TIMEOUT_MS?.trim() ?? '';
-  if (!rawUrl && !rawToken && !rawAllowlist && !rawTimeout) return undefined;
+  // An optional timeout value alone does not enable delivery; this lets the
+  // documented default timeout coexist with blank URL/token/allowlist settings.
+  if (!rawUrl && !rawToken && !rawAllowlist) return undefined;
   if (!rawUrl || !rawToken || !rawAllowlist) {
     throw new Error('Monitoring alert webhook URL, token, and hostname allowlist must be configured together.');
   }
