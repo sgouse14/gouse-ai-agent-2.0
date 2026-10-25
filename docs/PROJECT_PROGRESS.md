@@ -136,6 +136,8 @@ These are the next tasks and are **not yet complete**. Work should be implemente
 ### Priority 3 — backup, monitoring, and EMP operations
 - [x] Add an independent read-only audit freshness CLI that verifies the hash-chained audit log and fails when monitoring records are absent, stale, unhealthy, malformed, tampered, or mismatched.
 - [x] Add a dedicated systemd oneshot unit and five-minute timer example for the audit freshness check, with read-only filesystem access.
+- [x] Add an opt-in HTTPS off-host monitoring webhook adapter with exact hostname allowlisting, bearer authentication, redirect refusal, bounded timeout/payload, and per-cycle idempotency key.
+- [x] Integrate optional webhook delivery into the backup service while retaining local journal output; delivery failures remain auditable and escalate monitoring rather than appearing successful.
 - [x] Add an optional protected EMP telemetry file adapter with exact source allowlisting, strict schema/file permissions, timestamp freshness checks, and fail-closed behavior.
 - [x] Wire enabled EMP telemetry into the backup service monitoring snapshot; stale/future/unapproved readings trigger HOLD and fresh WATCH findings trigger WARNING. Monitoring polls every five minutes when this option is enabled.
 - [ ] Include the health-check unit and backup service in a provisioned staging host, verify supervisor restart/stop behavior, and assign an operations owner.
