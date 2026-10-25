@@ -112,6 +112,12 @@ Before scaling beyond one host:
 - No live telemetry file or sensor/collector is configured in this repository. The upstream collector must authenticate/prove source provenance before writing the protected file atomically; a client-provided source ID or timestamp is not itself proof of trust. This adapter is not a physical EMP detector or an API endpoint and triggers no physical action.
 - EMP readiness signals must come from trusted monitoring or qualified operator inputs. The protector is not a physical EMP detector. Qualified site operators must assess shielding/EMC, surge protection, power continuity, offline backups, spare hardware and alternate communications; rehearse recovery under supervision. No automatic production promotion is permitted.
 
+## Optional monitoring alert delivery
+
+An opt-in HTTPS webhook adapter is integrated into the Saqlain backup service. It uses a fixed, bounded payload, exact hostname allowlisting, bearer authentication, no redirects, a bounded timeout, and a cycle-scoped idempotency key. All webhook configuration is optional and blank by default. If configured delivery fails, the monitoring runtime records a failure and escalates the report to HOLD/FAILED rather than treating it as delivered.
+
+No webhook receiver or credential is configured by this repository. Before relying on off-host alerts, provision a reviewed endpoint, store its token in the deployment secret manager, verify successful delivery and receiver-side idempotency, and test timeout, non-2xx, receiver outage, key rotation, and host-down scenarios. The local service journal is not a substitute for independent monitoring of a down host or unavailable audit disk.
+
 ## 8. Required release evidence
 
 Do not mark production-ready until a release owner links evidence for all of the following:
