@@ -8,6 +8,7 @@ import { getSaqlainAuditBackendMode } from './saqlainAuditBackend.ts';
 import { SaqlainFirestoreTaskQueueService } from './saqlainFirestoreTaskQueueService.ts';
 import { SaqlainGoogleCloudStorageArchive } from './saqlainGoogleCloudStorageArchive.ts';
 import { createSaqlainEmpTelemetryFileReader } from './saqlainEmpTelemetryAdapter.ts';
+import { createSaqlainMonitoringAlertWebhookFromEnv } from './saqlainMonitoringAlertWebhook.ts';
 
 const required = (key: string): string => {
   const value = process.env[key]?.trim();
@@ -31,6 +32,10 @@ const gcsArchive = gcsBucket
       prefix: process.env.SAQLAIN_BACKUP_GCS_PREFIX?.trim() || 'saqlain-backups',
     })
   : undefined;
+
+// Optional off-host alert delivery. With no webhook configured, monitoring continues
+// to use the local journal as its alert sink.
+const monitoringAlertWebhook = createSaqlainMonitoringAlertWebhookFromEnv();
 
 const empTelemetryEnabledValue = process.env.SAQLAIN_EMP_TELEMETRY_ENABLED?.trim().toLowerCase() || 'false';
 if (empTelemetryEnabledValue !== 'true' && empTelemetryEnabledValue !== 'false') {
@@ -137,10 +142,11 @@ const monitoringRuntime = createSaqlainMonitoringRuntime({
       } : {}),
     };
   },
-  // The systemd unit captures stderr in the journal. This is a local alert sink,
-  // not an external pager; production must add an independently managed adapter.
+  // The local service journal remains the fallback/duplicate record. A configured
+  // HTTPS webhook adds off-host delivery; its failure forces HOLD and is audited.
   notifyAlert: async (notification) => {
     console.error('[Saqlain monitoring alert]', JSON.stringify(notification));
+    await monitoringAlertWebhook?.notifyAlert(notification);
   },
 });
 
