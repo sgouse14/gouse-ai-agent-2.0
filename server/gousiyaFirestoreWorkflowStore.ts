@@ -42,7 +42,8 @@ function validWorkflow(value: unknown): value is GousiyaRecoveryWorkflow {
       typeof v.updatedAt !== 'string' || !Number.isFinite(Date.parse(v.updatedAt)) ||
       !(v.holdReturnStage === null || (typeof v.holdReturnStage === 'string' && WORKFLOW_STAGES.has(v.holdReturnStage))) ||
       !Array.isArray(v.events) || v.events.length !== Number(v.version)) return false;
-  return v.events.every((event: unknown, index: number) => {
+  const events = v.events as unknown[];
+  return events.every((event: unknown, index: number) => {
     if (!event || typeof event !== 'object') return false;
     const e = event as Record<string, unknown>;
     return (e.from === null || (typeof e.from === 'string' && WORKFLOW_STAGES.has(e.from))) &&
@@ -52,7 +53,7 @@ function validWorkflow(value: unknown): value is GousiyaRecoveryWorkflow {
       (e.evidenceId === null || (typeof e.evidenceId === 'string' && e.evidenceId.length <= 256)) &&
       typeof e.at === 'string' && Number.isFinite(Date.parse(e.at)) &&
       (index !== 0 || (e.from === null && e.to === 'INTAKE')) &&
-      (index === 0 || e.from === (v.events[index - 1] as Record<string, unknown>).to);
+      (index === 0 || e.from === (events[index - 1] as Record<string, unknown>).to);
   });
 }
 function conflict(error: unknown): boolean {
