@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import express from 'express';
 import type { AddressInfo } from 'node:net';
+import type { Request, Response, NextFunction } from 'express';
 import { createWorkspaceStateRouter } from './workspaceStateRoutes.ts';
 import { WorkspaceStateError, type WorkspaceStateService, type WorkspaceStateDomain } from './workspaceStateService.ts';
 
@@ -42,7 +43,7 @@ async function withServer(
     next();
   });
   app.use('/api/workspace-state', createWorkspaceStateRouter(service as unknown as WorkspaceStateService));
-  app.use((err: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
     if (err instanceof SyntaxError) { res.status(400).json({ error: 'Invalid JSON request body' }); return; }
     res.status(500).json({ error: 'test server error' });
   });
