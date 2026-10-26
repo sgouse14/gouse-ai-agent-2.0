@@ -220,27 +220,35 @@ export function App() {
     // Keep the pre-sync data in a UID-specific recovery snapshot. If a different
     // Firebase user signs into this browser, never import the previous user's
     // browser data into the new user's cloud workspace.
-    try {
-      if (ownerMismatch && previousOwnerUid) {
+    if (ownerMismatch && previousOwnerUid) {
+      try {
         localStorage.setItem('gouse_ai_local_backup_' + previousOwnerUid, JSON.stringify({
           savedAt: new Date().toISOString(),
           domains: storedLocalSnapshot,
         }));
-        setProjects(INITIAL_PROJECTS);
-        setBoqItems(INITIAL_BOQ_ITEMS.map((item) => ensureItemFloorBreakdown(item, DEFAULT_BUILDING_FLOORS)));
-        setProfessionals(INITIAL_PROFESSIONALS);
-        setEnquiries(INITIAL_ENQUIRIES);
-        setActiveProjectId(INITIAL_PROJECTS[0]?.id ?? '');
-      } else {
+      } catch {
+        // Continue to isolate users even if storage quota prevents a backup write.
+      }
+      setProjects(INITIAL_PROJECTS);
+      setBoqItems(INITIAL_BOQ_ITEMS.map((item) => ensureItemFloorBreakdown(item, DEFAULT_BUILDING_FLOORS)));
+      setProfessionals(INITIAL_PROFESSIONALS);
+      setEnquiries(INITIAL_ENQUIRIES);
+      setActiveProjectId(INITIAL_PROJECTS[0]?.id ?? '');
+    } else {
+      try {
         localStorage.setItem('gouse_ai_local_backup_before_shared_sync', JSON.stringify({
           savedAt: new Date().toISOString(),
           ownerUid: currentUid ?? null,
           domains: storedLocalSnapshot,
         }));
+      } catch {
+        // Never delete original domain keys if the recovery snapshot cannot be written.
       }
+    }
+    try {
       if (currentUid) localStorage.setItem('gouse_ai_workspace_owner_uid', currentUid);
     } catch {
-      // Never delete original domain keys if the recovery snapshot cannot be written.
+      // Cloud-side ownership is still enforced by the verified Firebase UID.
     }
     let sharedProjectIds = new Set(
       (Array.isArray(localSnapshot.projects) ? localSnapshot.projects as Project[] : []).map((project) => project.id),
