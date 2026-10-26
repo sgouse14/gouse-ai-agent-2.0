@@ -1,6 +1,6 @@
 # Gouse AI Agent 2.0 — Project Progress
 
-Updated: 2026-10-25
+Updated: 2026-10-26
 
 ## Status summary
 
@@ -247,7 +247,8 @@ The following capabilities were requested for planning. They are **planned, not 
 
 ## Release boundary
 
-- PR #1 remains open and draft.
+- PR #6 is the replacement open draft targeting `main`; PR #1 is closed and unmerged.
+- PR #7 is the open draft for shared-state/readiness changes targeting `feature/saqlain-cyber-agent`; PR #5 is closed and unmerged.
 - `main` remains unchanged.
 - Gousiya remains staging-only; no recovery output should be automatically promoted to production.
 - The EMP protector does not confirm that an EMP occurred and does not control physical equipment.
