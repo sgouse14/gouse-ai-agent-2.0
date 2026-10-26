@@ -95,12 +95,17 @@ app.get('/healthz', (_req, res) => {
 // Readiness checks the selected durable audit backend and fails closed if it
 // cannot be read/verified (or, for file mode, written). It never exposes secrets.
 app.get('/readyz', async (_req, res) => {
-  const { checkSaqlainReadiness } = await import('./server/saqlainReadiness.ts');
-  const result = await checkSaqlainReadiness();
-  if (result.ready) {
-    res.status(200).json({ status: 'ready' });
-  } else {
-    res.status(503).json({ status: 'not_ready', dependency: result.dependency });
+  try {
+    const { checkSaqlainReadiness } = await import('./server/saqlainReadiness.ts');
+    const result = await checkSaqlainReadiness();
+    if (result.ready) {
+      res.status(200).json({ status: 'ready' });
+    } else {
+      res.status(503).json({ status: 'not_ready', dependency: result.dependency });
+    }
+  } catch {
+    // Unexpected readiness failures must not become false-positive readiness.
+    res.status(503).json({ status: 'not_ready', dependency: 'durable_storage' });
   }
 });
 
