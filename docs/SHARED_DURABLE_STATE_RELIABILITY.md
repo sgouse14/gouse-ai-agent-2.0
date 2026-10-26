@@ -48,7 +48,7 @@
 
 ## CI automation
 
-Added `.github/workflows/shared-state-ci.yml` to run the complete test suite, client/server TypeScript checks, production build, and Docker image build on pull requests, pushes to the shared-state branch, and manual dispatch. The first run failed before dependency installation because the repo has no lockfile and the workflow initially used `npm ci` plus lockfile caching. The workflow now uses `npm install` without lockfile caching; the corrected run is pending. HTTP route integration tests were added to `npm test` and still need CI execution.
+Added `.github/workflows/shared-state-ci.yml` to run the complete test suite, client/server TypeScript checks, production build, and Docker image build on pull requests, pushes to the shared-state branch, and manual dispatch. The first run failed before dependency installation because setup-node was configured to cache a missing npm lockfile. The repository does have a committed `bun.lock`, so CI now uses `oven-sh/setup-bun` and `bun install --frozen-lockfile` to install the locked dependencies. The corrected run is pending. HTTP route integration tests were added to `npm test` and still need CI execution.
 
 ## Validation record
 
