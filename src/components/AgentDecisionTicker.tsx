@@ -25,9 +25,9 @@ const DEFAULT_DECISIONS: AgentDecisionItem[] = [
     id: 'dec-1',
     timestamp: '00:02s ago',
     agentType: 'BIM',
-    decision: 'IS 456 Structural Audit: Locked Fe550D TMT rebar @ ₹4,850/Cu.M; neutralized column shear clash at Grid C-4.',
+    decision: 'BIM & BOQ Agent License: ₹1,500/Year accepted by Gouse AI Agent. Locked Fe550D rebar @ ₹4,850/Cu.M; neutralized Grid C-4 clash.',
     status: 'EXECUTED',
-    metric: 'Demolition Risk: 0%',
+    metric: 'Annual Plan: ₹1,500/Yr',
   },
   {
     id: 'dec-2',

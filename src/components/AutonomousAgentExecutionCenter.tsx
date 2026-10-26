@@ -38,8 +38,13 @@ import {
   FileCode,
   HardHat,
   Share2,
+  Volume2,
+  VolumeX,
+  Radio,
+  Terminal,
 } from 'lucide-react';
 import { Project } from '../types';
+import { getBimBoqSubscription } from './BimBoqSubscriptionModal';
 
 export interface AutonomousAgentExecutionCenterProps {
   activeProject?: Project;
@@ -48,6 +53,7 @@ export interface AutonomousAgentExecutionCenterProps {
   onOpenBrokerCenter?: () => void;
   onOpenSmartHomeSka?: () => void;
   onOpenClientPortal?: () => void;
+  onOpenBimSubscription?: () => void;
 }
 
 interface AutonomousObjective {
@@ -84,6 +90,7 @@ export const AutonomousAgentExecutionCenter: React.FC<AutonomousAgentExecutionCe
   onOpenBrokerCenter,
   onOpenSmartHomeSka,
   onOpenClientPortal,
+  onOpenBimSubscription,
 }) => {
   // Agent Mandate Statement (Exact user request)
   const agentMandate =
@@ -96,6 +103,26 @@ export const AutonomousAgentExecutionCenter: React.FC<AutonomousAgentExecutionCe
   const [activeWorkflowTab, setActiveWorkflowTab] = useState<'agent_core' | 'file_ingest' | 'risk_radar' | 'cyber_security'>('agent_core');
   const [isSaqlainAuditActive, setIsSaqlainAuditActive] = useState(false);
   const [saqlainStatusMessage, setSaqlainStatusMessage] = useState<string | null>(null);
+  const [isSpeaking, setIsSpeaking] = useState(false);
+
+  const handleSpeakAgentStatus = () => {
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      if (isSpeaking) {
+        window.speechSynthesis.cancel();
+        setIsSpeaking(false);
+        return;
+      }
+      window.speechSynthesis.cancel();
+      const text = `Gouse AI Autonomous Execution Agent online. Principal Architect Ar. S. Gouse, Council of Architecture registration CA/2012/55190. Five sub-agents synchronized: Architectural BIM, Zero Percent Brokerage, Smart Home SKA Autonomic IoT, Lumion 4K Media, and Saqlain Cyber Security Sentinel. Zero-trust SHA-256 cryptographic defense active. Ready for your architectural or real estate objective.`;
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.rate = 1.05;
+      utterance.pitch = 1.0;
+      utterance.onend = () => setIsSpeaking(false);
+      utterance.onerror = () => setIsSpeaking(false);
+      setIsSpeaking(true);
+      window.speechSynthesis.speak(utterance);
+    }
+  };
 
   // Completed Solution State
   const [completedSolution, setCompletedSolution] = useState<{
@@ -202,7 +229,26 @@ export const AutonomousAgentExecutionCenter: React.FC<AutonomousAgentExecutionCe
           setIsExecutingGoal(false);
           const lower = goal.toLowerCase();
 
-          if (lower.includes('rent') || lower.includes('pg') || lower.includes('buy') || lower.includes('sell') || lower.includes('land')) {
+          if (
+            lower.includes('subscribe') ||
+            lower.includes('1500') ||
+            lower.includes('fee') ||
+            lower.includes('license') ||
+            lower.includes('membership')
+          ) {
+            setCompletedSolution({
+              goalTitle: `BIM & BOQ Agent Annual License: ₹1,500 / Year`,
+              decisionTaken:
+                'Gouse AI Agent verified the annual subscription terms: ₹1,500 per year unlocks unlimited IS 456 structural clash engineering, dynamic floor-by-floor takeoff ledgers with CPWD locked rates, and lead architect clearance under Ar. S. Gouse (CA/2012/55190).',
+              actionableItems: [
+                'Unlimited 3D BIM & CAD (.dwg/.dxf) Structural Scans with zero contractor variance',
+                'Dynamic floor takeoff ledger locked against CPWD 2026 wholesale material rates',
+                'Saqlain Cyber Security SHA-256 cryptographic watermarking on all project drawings',
+              ],
+              actionTarget: 'bim_subscription_modal',
+              actionButtonText: 'Accept Annual License (₹1,500 / Year) →',
+            });
+          } else if (lower.includes('rent') || lower.includes('pg') || lower.includes('buy') || lower.includes('sell') || lower.includes('land')) {
             setCompletedSolution({
               goalTitle: `Autonomous Brokerage: ${goal}`,
               decisionTaken:
@@ -385,7 +431,9 @@ export const AutonomousAgentExecutionCenter: React.FC<AutonomousAgentExecutionCe
   };
 
   const handleActionClick = (target: string) => {
-    if (target === 'ska_agent_modal') {
+    if (target === 'bim_subscription_modal') {
+      onOpenBimSubscription ? onOpenBimSubscription() : onNavigateSection?.('sec-main-platform');
+    } else if (target === 'ska_agent_modal') {
       onOpenSmartHomeSka?.();
     } else if (target === 'sec-social-media-hub') {
       onOpenSocialHub ? onOpenSocialHub() : onNavigateSection?.('sec-social-media-hub');
@@ -404,11 +452,17 @@ export const AutonomousAgentExecutionCenter: React.FC<AutonomousAgentExecutionCe
 
       <div className="max-w-7xl mx-auto space-y-8 relative z-10">
         {/* 1. AGENT IDENTITY & MANDATE CARD */}
-        <div className="p-6 sm:p-8 rounded-3xl bg-slate-900/90 border-2 border-cyan-500/40 shadow-2xl shadow-cyan-500/10 space-y-6">
+        <div className="relative p-6 sm:p-8 rounded-3xl bg-slate-900/95 border-2 border-cyan-500/50 shadow-2xl shadow-cyan-500/20 space-y-6 overflow-hidden">
+          {/* Cyber Corner Crosshairs */}
+          <div className="absolute top-2 left-2 w-3.5 h-3.5 border-t-2 border-l-2 border-cyan-400 pointer-events-none" />
+          <div className="absolute top-2 right-2 w-3.5 h-3.5 border-t-2 border-r-2 border-cyan-400 pointer-events-none" />
+          <div className="absolute bottom-2 left-2 w-3.5 h-3.5 border-b-2 border-l-2 border-cyan-400 pointer-events-none" />
+          <div className="absolute bottom-2 right-2 w-3.5 h-3.5 border-b-2 border-r-2 border-cyan-400 pointer-events-none" />
+
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
             <div className="flex items-start sm:items-center gap-4">
               <div className="relative shrink-0">
-                <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-cyan-400 via-sky-500 to-blue-600 flex items-center justify-center text-slate-950 shadow-xl shadow-cyan-500/30">
+                <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-cyan-400 via-sky-500 to-blue-600 flex items-center justify-center text-slate-950 shadow-xl shadow-cyan-500/40">
                   <Bot className="w-9 h-9 stroke-[2.2]" />
                 </div>
                 <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-emerald-500 border-2 border-slate-950 flex items-center justify-center" title="Agent Online & Autonomous">
@@ -416,7 +470,7 @@ export const AutonomousAgentExecutionCenter: React.FC<AutonomousAgentExecutionCe
                 </div>
               </div>
 
-              <div className="space-y-1">
+              <div className="space-y-1.5">
                 <div className="flex items-center gap-2.5 flex-wrap">
                   <span className="text-xl sm:text-2xl lg:text-3xl font-black text-white tracking-tight">
                     GOUSE AI: AUTONOMOUS AGENT
@@ -429,9 +483,33 @@ export const AutonomousAgentExecutionCenter: React.FC<AutonomousAgentExecutionCe
                   </span>
                 </div>
 
-                <p className="text-xs sm:text-sm text-cyan-200 font-mono tracking-tight font-medium">
-                  Principal Architect &amp; Engineering Direction: Ar. S. Gouse (+91 8073947241)
-                </p>
+                <div className="flex items-center gap-3 flex-wrap">
+                  <p className="text-xs sm:text-sm text-cyan-200 font-mono tracking-tight font-medium">
+                    Principal Architect &amp; Engineering Direction: Ar. S. Gouse (+91 8073947241)
+                  </p>
+
+                  {/* Speech Synthesis Directive Trigger */}
+                  <button
+                    type="button"
+                    onClick={handleSpeakAgentStatus}
+                    className={`px-2.5 py-1 rounded-lg border font-mono text-[11px] font-bold flex items-center gap-1.5 transition shadow-sm ${
+                      isSpeaking
+                        ? 'bg-cyan-500 text-slate-950 border-cyan-400 animate-pulse'
+                        : 'bg-slate-950/80 hover:bg-slate-800 text-cyan-300 border-cyan-500/40'
+                    }`}
+                    title="Listen to Autonomous Agent Voice Directive"
+                  >
+                    {isSpeaking ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5 text-cyan-400" />}
+                    <span>{isSpeaking ? 'Agent Speaking (Mute)' : 'Hear Agent Voice'}</span>
+                    {isSpeaking && (
+                      <div className="flex items-center gap-0.5 ml-1">
+                        <span className="w-1 h-2.5 bg-slate-950 animate-bounce" />
+                        <span className="w-1 h-3.5 bg-slate-950 animate-bounce delay-75" />
+                        <span className="w-1 h-2 bg-slate-950 animate-bounce delay-150" />
+                      </div>
+                    )}
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -502,6 +580,37 @@ export const AutonomousAgentExecutionCenter: React.FC<AutonomousAgentExecutionCe
             </p>
           </div>
 
+          {/* HIGH-TECH AGENT TELEMETRY HUD BAR */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 text-[11px] font-mono">
+            <div className="bg-slate-950/90 p-2.5 rounded-xl border border-cyan-800/50 flex flex-col justify-between">
+              <span className="text-slate-400 text-[10px]">NEURAL KERNEL</span>
+              <span className="text-cyan-300 font-bold flex items-center gap-1.5 mt-0.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-ping" />
+                ACTIVE v4.2
+              </span>
+            </div>
+            <div className="bg-slate-950/90 p-2.5 rounded-xl border border-slate-800 flex flex-col justify-between">
+              <span className="text-slate-400 text-[10px]">OPERATING LATENCY</span>
+              <span className="text-emerald-400 font-bold mt-0.5">11ms (Realtime)</span>
+            </div>
+            <div className="bg-slate-950/90 p-2.5 rounded-xl border border-slate-800 flex flex-col justify-between">
+              <span className="text-slate-400 text-[10px]">SUB-AGENTS</span>
+              <span className="text-cyan-300 font-bold mt-0.5">5/5 Armed</span>
+            </div>
+            <div className="bg-slate-950/90 p-2.5 rounded-xl border border-slate-800 flex flex-col justify-between">
+              <span className="text-slate-400 text-[10px]">ZERO-TRUST SEC</span>
+              <span className="text-emerald-400 font-bold mt-0.5">SHA-256 Armed</span>
+            </div>
+            <div className="bg-slate-950/90 p-2.5 rounded-xl border border-slate-800 flex flex-col justify-between">
+              <span className="text-slate-400 text-[10px]">DECISION CONFIDENCE</span>
+              <span className="text-cyan-300 font-bold mt-0.5">99.8% NBC 2016</span>
+            </div>
+            <div className="bg-slate-950/90 p-2.5 rounded-xl border border-slate-800 flex flex-col justify-between">
+              <span className="text-slate-400 text-[10px]">PRINCIPAL LEAD</span>
+              <span className="text-amber-300 font-bold mt-0.5 truncate">Ar. S. Gouse</span>
+            </div>
+          </div>
+
           {/* VIEW TAB 1: NATURAL LANGUAGE OBJECTIVE PROMPT & 4-STEP WORKFLOW */}
           {activeWorkflowTab === 'agent_core' && (
             <div className="space-y-4 pt-2">
@@ -541,6 +650,7 @@ export const AutonomousAgentExecutionCenter: React.FC<AutonomousAgentExecutionCe
               <div className="flex items-center gap-2 overflow-x-auto pb-1 text-xs font-mono">
                 <span className="text-slate-400 text-[10px] shrink-0">1-Touch Goals:</span>
                 {[
+                  'BIM & BOQ Agent Annual Subscription (₹1,500/Year)',
                   'Design 4BHK Turnkey Villa with locked BOQ',
                   'Find 0% Brokerage PG bed in HSR Layout',
                   'Sell 30x40 Land parcel with DTCP valuation',
@@ -1116,28 +1226,34 @@ export const AutonomousAgentExecutionCenter: React.FC<AutonomousAgentExecutionCe
             {/* Sub-Agent 1: BIM & Architecture */}
             <button
               type="button"
-              onClick={() => handleActionClick('sec-main-platform')}
+              onClick={() => {
+                if (onOpenBimSubscription) onOpenBimSubscription();
+                else handleActionClick('sec-main-platform');
+              }}
               className="p-3.5 rounded-2xl bg-slate-900/90 hover:bg-slate-850 border border-amber-500/30 hover:border-amber-400 text-left transition group space-y-2 shadow-lg"
             >
               <div className="flex items-center justify-between">
                 <span className="w-7 h-7 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center">
                   <Layers className="w-4 h-4" />
                 </span>
-                <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 font-bold">
-                  BIM ENGINE
+                <span className="text-[9px] font-mono px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-bold border border-amber-500/40">
+                  {getBimBoqSubscription().isSubscribed ? '✓ LICENSED' : '₹1,500 / YEAR'}
                 </span>
               </div>
               <div>
                 <h5 className="text-xs font-bold text-white group-hover:text-amber-300 transition">
-                  Architectural BIM Agent
+                  BIM &amp; BOQ Agent
                 </h5>
                 <p className="text-[10px] text-slate-400 mt-0.5 line-clamp-2">
-                  IS 456 Structural &amp; NBC 2016 Clash-Free Engineering.
+                  IS 456 Structural &amp; CPWD Rate Lock. Annual License: ₹1,500/yr.
                 </p>
               </div>
               <div className="text-[9px] font-mono text-amber-300/80 pt-1 border-t border-slate-800 flex items-center justify-between">
-                <span>Ar. S. Gouse</span>
-                <ArrowRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
+                <span>{getBimBoqSubscription().isSubscribed ? 'Ar. S. Gouse (Active)' : 'Accept License'}</span>
+                <span className="text-amber-400 font-bold underline flex items-center gap-0.5">
+                  <span>{getBimBoqSubscription().isSubscribed ? 'Manage' : 'Subscribe'}</span>
+                  <ArrowRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
+                </span>
               </div>
             </button>
 

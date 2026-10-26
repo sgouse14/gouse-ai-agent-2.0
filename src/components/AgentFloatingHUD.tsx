@@ -243,9 +243,9 @@ export const AgentFloatingHUD: React.FC<AgentFloatingHUDProps> = ({
                     <div>
                       <div className="font-bold text-xs text-amber-300 flex items-center gap-1.5">
                         <Layers className="w-3.5 h-3.5" />
-                        BIM &amp; Structural Sub-Agent
+                        BIM &amp; BOQ Agent (₹1,500/Yr)
                       </div>
-                      <p className="text-[10px] text-slate-400">IS 456 &amp; NBC 2016 Compliance Engine</p>
+                      <p className="text-[10px] text-slate-400">IS 456 Structural &amp; Dynamic BOQ • ₹1,500/Year</p>
                     </div>
                     <button
                       type="button"

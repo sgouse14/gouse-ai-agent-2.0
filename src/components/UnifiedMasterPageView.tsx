@@ -74,6 +74,7 @@ import { SmartHomeSkaAgent } from './SmartHomeSkaAgent';
 import { AutonomousAgentExecutionCenter } from './AutonomousAgentExecutionCenter';
 import { AgentDecisionTicker } from './AgentDecisionTicker';
 import { AgentFloatingHUD } from './AgentFloatingHUD';
+import { BimBoqSubscriptionModal, getBimBoqSubscription } from './BimBoqSubscriptionModal';
 
 // Import local image assets for media previews
 import villaExteriorImg from '../assets/images/bangalore_house_exterior_1790170528532.jpg';
@@ -211,6 +212,8 @@ export const UnifiedMasterPageView: React.FC<UnifiedMasterPageViewProps> = ({
   const [isBrokerAuthOpen, setIsBrokerAuthOpen] = useState(false);
   const [isGeneralAuthOpen, setIsGeneralAuthOpen] = useState(false);
   const [isSkaModalOpen, setIsSkaModalOpen] = useState(false);
+  const [isBimSubModalOpen, setIsBimSubModalOpen] = useState(false);
+  const [bimSubInfo, setBimSubInfo] = useState(getBimBoqSubscription());
 
   // Active items and handlers
   const currentBoqItems = boqItems || internalBoqItems;
@@ -567,50 +570,23 @@ export const UnifiedMasterPageView: React.FC<UnifiedMasterPageViewProps> = ({
           </div>
 
           {/* Direct In-Page Anchor Navigation */}
-          <nav className="flex items-center gap-2 sm:gap-3 text-xs font-semibold overflow-x-auto py-1 scrollbar-none">
+          <nav className="flex items-center gap-2 sm:gap-2.5 text-xs font-semibold overflow-x-auto py-1 scrollbar-none font-mono">
             <button
               type="button"
               onClick={() => scrollToSection('sec-main-platform')}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-cyan-500/15 text-cyan-300 hover:bg-cyan-500/25 border border-cyan-500/30 transition whitespace-nowrap"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500/15 text-amber-300 hover:bg-amber-500/25 border border-amber-500/30 transition whitespace-nowrap"
             >
-              <Cpu className="w-3.5 h-3.5 text-cyan-400" />
-              <span>Architectural Execution</span>
+              <Layers className="w-3.5 h-3.5 text-amber-400" />
+              <span>BIM &amp; BOQ Agent</span>
             </button>
 
             <button
               type="button"
               onClick={() => scrollToSection('sec-broker-command-center')}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-sky-500/20 text-sky-300 hover:bg-sky-500/30 border border-sky-500/40 font-bold transition whitespace-nowrap shadow-sm shadow-sky-500/20"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-sky-500/20 text-sky-300 hover:bg-sky-500/30 border border-sky-500/40 font-bold transition whitespace-nowrap shadow-sm shadow-sky-500/20"
             >
               <Building className="w-3.5 h-3.5 text-sky-400" />
-              <span>Broker Execution Center {isBrokerUser ? '(Active)' : '(Login)'}</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => scrollToSection('sec-social-media-hub')}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-rose-500/15 text-rose-300 hover:bg-rose-500/25 border border-rose-500/30 transition whitespace-nowrap"
-            >
-              <Film className="w-3.5 h-3.5 text-rose-400" />
-              <span>Social &amp; Media Hub</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => scrollToSection('sec-client-feedback')}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500/15 text-emerald-300 hover:bg-emerald-500/25 border border-emerald-500/30 transition whitespace-nowrap"
-            >
-              <Star className="w-3.5 h-3.5 text-emerald-400 fill-emerald-400" />
-              <span>Client Feedback</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => scrollToSection('sec-client-login')}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-purple-500/15 text-purple-300 hover:bg-purple-500/25 border border-purple-500/30 transition whitespace-nowrap"
-            >
-              <Lock className="w-3.5 h-3.5 text-purple-400" />
-              <span>Client Login</span>
+              <span>0% Broker Agent {isBrokerUser ? '(Armed)' : '(Unlock)'}</span>
             </button>
 
             <button
@@ -621,7 +597,34 @@ export const UnifiedMasterPageView: React.FC<UnifiedMasterPageViewProps> = ({
               title="Open Smart Home SKA (Supervisory Kontrol & Automation) Agent"
             >
               <Cpu className="w-3.5 h-3.5 text-cyan-400" />
-              <span>Smart Home SKA Agent</span>
+              <span>Smart Home SKA</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => scrollToSection('sec-social-media-hub')}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-rose-500/15 text-rose-300 hover:bg-rose-500/25 border border-rose-500/30 transition whitespace-nowrap"
+            >
+              <Film className="w-3.5 h-3.5 text-rose-400" />
+              <span>4K Lumion Agent</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => scrollToSection('sec-client-feedback')}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500/15 text-emerald-300 hover:bg-emerald-500/25 border border-emerald-500/30 transition whitespace-nowrap"
+            >
+              <Star className="w-3.5 h-3.5 text-emerald-400 fill-emerald-400" />
+              <span>Verified Audits</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => scrollToSection('sec-client-login')}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-purple-500/15 text-purple-300 hover:bg-purple-500/25 border border-purple-500/30 transition whitespace-nowrap"
+            >
+              <Lock className="w-3.5 h-3.5 text-purple-400" />
+              <span>Security Clearance</span>
             </button>
           </nav>
 
@@ -682,6 +685,7 @@ export const UnifiedMasterPageView: React.FC<UnifiedMasterPageViewProps> = ({
         onOpenBrokerCenter={() => scrollToSection('sec-broker-command-center')}
         onOpenSmartHomeSka={() => setIsSkaModalOpen(true)}
         onOpenClientPortal={onOpenClientDashboard}
+        onOpenBimSubscription={() => setIsBimSubModalOpen(true)}
       />
 
       {/* ========================================================================= */}
@@ -693,33 +697,51 @@ export const UnifiedMasterPageView: React.FC<UnifiedMasterPageViewProps> = ({
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
             <div className="space-y-2">
               <div className="flex items-center gap-2">
-                <span className="px-3 py-1 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 text-xs font-mono font-bold flex items-center gap-1.5">
-                  <Cpu className="w-3.5 h-3.5 text-cyan-400" />
-                  AUTONOMOUS OBJECTIVE 1: ARCHITECTURAL &amp; ENGINEERING EXECUTION
+                <span className="px-3 py-1 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 text-xs font-mono font-bold flex items-center gap-1.5">
+                  <Layers className="w-3.5 h-3.5 text-amber-400" />
+                  AGENT CHAMBER 01: ARCHITECTURAL BIM &amp; DYNAMIC BOQ SYNTHESIS
                 </span>
                 <span className="px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700 text-[11px] font-mono">
-                  ACTIVE AGENT WORKSPACE
+                  DIRECT EXECUTION
                 </span>
               </div>
               <h2 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-white tracking-tight">
-                Architectural Execution: Projects, Dynamic BOQ, Materials &amp; Autonomous Co-Pilot
+                Architectural Execution: Projects, Dynamic BOQ, Materials &amp; Structural Co-Pilot
               </h2>
               <p className="text-xs sm:text-sm text-slate-400 max-w-3xl leading-relaxed">
-                Autonomous architectural execution engine. Inspect 3D BIM models, simulate floor-by-floor takeoff items, review verified building material specifications, consult the verified AEC marketplace, or execute direct structural audits with Ar. S. Gouse.
+                Autonomous architectural execution chamber. Inspect 3D BIM models, simulate floor-by-floor takeoff items, review verified building material specifications, consult the verified AEC marketplace, or execute direct structural audits under Ar. S. Gouse (CA/2012/55190).
               </p>
             </div>
 
-            {/* Quick Modals Triggers */}
+            {/* Quick Modals Triggers & Subscription Pill */}
             <div className="flex items-center gap-2 flex-wrap">
+              <button
+                type="button"
+                onClick={() => setIsBimSubModalOpen(true)}
+                className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl border font-mono font-bold text-xs shadow-md transition ${
+                  bimSubInfo.isSubscribed
+                    ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 hover:bg-emerald-500/30'
+                    : 'bg-gradient-to-r from-amber-500 via-amber-400 to-amber-600 text-slate-950 border-amber-400 hover:from-amber-400 hover:to-amber-500 shadow-amber-500/20'
+                }`}
+                title="BIM & BOQ Agent Annual Subscription: ₹1,500/Year"
+              >
+                <Layers className={`w-3.5 h-3.5 ${bimSubInfo.isSubscribed ? 'text-emerald-400' : 'text-slate-950'}`} />
+                <span>
+                  {bimSubInfo.isSubscribed
+                    ? 'License Active (₹1,500/Yr Paid)'
+                    : 'Subscribe BIM & BOQ: ₹1,500/Yr'}
+                </span>
+              </button>
+
               <button
                 type="button"
                 onClick={() => {
                   if (onOpenWorkflowEngine) onOpenWorkflowEngine();
                   else setIsWorkflowEngineOpen(true);
                 }}
-                className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold text-xs shadow-md shadow-amber-500/20 transition"
+                className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-700 font-semibold text-xs transition"
               >
-                <Sparkles className="w-3.5 h-3.5 fill-slate-950" />
+                <Sparkles className="w-3.5 h-3.5 text-amber-400" />
                 <span>Workflow Engine</span>
               </button>
 
@@ -753,6 +775,42 @@ export const UnifiedMasterPageView: React.FC<UnifiedMasterPageViewProps> = ({
                 <span>Broker Login</span>
               </button>
             </div>
+          </div>
+
+          {/* BIM & BOQ AGENT ANNUAL SUBSCRIPTION (₹1,500 / YEAR) BANNER */}
+          <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-amber-950/40 via-slate-900 to-amber-950/30 border border-amber-500/40 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-3.5">
+              <div className="w-11 h-11 rounded-2xl bg-amber-500/20 text-amber-400 flex items-center justify-center shrink-0 border border-amber-500/40 shadow-md shadow-amber-500/20">
+                <Layers className="w-6 h-6 stroke-[2.2]" />
+              </div>
+              <div className="space-y-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h4 className="text-sm font-extrabold text-white tracking-tight">
+                    BIM &amp; BOQ Agent Annual Subscription: ₹1,500 / Year
+                  </h4>
+                  <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold border ${
+                    bimSubInfo.isSubscribed
+                      ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                      : 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                  }`}>
+                    {bimSubInfo.isSubscribed ? '✓ LICENSE ACTIVE (365 DAYS)' : 'ANNUAL PLAN: ₹1,500/YR'}
+                  </span>
+                </div>
+                <p className="text-xs text-slate-300">
+                  Full autonomous execution: Unlimited IS 456 clash-free BIM scans, dynamic floor-by-floor takeoff ledgers with CPWD locked rates, and lead architect clearance under Ar. S. Gouse.
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setIsBimSubModalOpen(true)}
+              className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black text-xs flex items-center gap-2 shadow-lg shadow-amber-500/25 transition shrink-0 uppercase tracking-wider font-mono"
+            >
+              <Sparkles className="w-3.5 h-3.5 fill-slate-950" />
+              <span>{bimSubInfo.isSubscribed ? 'View / Manage License' : 'Accept License (₹1,500/Yr)'}</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </button>
           </div>
 
           {!isStudioStaff ? (
@@ -1051,17 +1109,17 @@ export const UnifiedMasterPageView: React.FC<UnifiedMasterPageViewProps> = ({
               <div className="flex items-center gap-2">
                 <span className="px-3 py-1 rounded-full bg-sky-500/20 text-sky-300 border border-sky-500/40 text-xs font-mono font-bold flex items-center gap-1.5">
                   <Building className="w-3.5 h-3.5 text-sky-400" />
-                  PILLAR 2: GOUSE AI AGENT BROKER COMMAND CENTER
+                  AGENT CHAMBER 02: 0% BROKERAGE ASSET DISCOVERY &amp; E-LEASE ENGINE
                 </span>
                 <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[11px] font-mono">
                   0% BROKERAGE DIRECT
                 </span>
               </div>
               <h2 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-white tracking-tight">
-                Gouse AI Agent Broker: PG, Co-Living &amp; Rental House Command Center
+                0% Brokerage Property &amp; Land Chamber: Co-Living PG, Rental Flats &amp; Direct Owners
               </h2>
               <p className="text-xs sm:text-sm text-slate-400 max-w-3xl leading-relaxed">
-                Direct verified listings for co-living PG beds, rental flats &amp; independent villas, AI tenant-landlord matchmaker, automated digital lease agreements, and real estate yield ROI analytics.
+                Autonomous real estate acquisition chamber. Direct verified listings for co-living PG beds, rental flats &amp; independent villas, AI tenant-landlord matchmaker, automated Karnataka digital lease agreements, and real estate yield ROI analytics.
               </p>
             </div>
           </div>
@@ -1495,7 +1553,7 @@ export const UnifiedMasterPageView: React.FC<UnifiedMasterPageViewProps> = ({
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="px-3 py-1 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/40 text-xs font-mono font-bold flex items-center gap-1.5">
                   <Film className="w-3.5 h-3.5 text-rose-400" />
-                  PILLAR 3: SOCIAL &amp; MEDIA HUB
+                  AGENT CHAMBER 03: 4K LUMION &amp; 360° SPATIAL MEDIA SYNTHESIS
                 </span>
                 <span className="px-2.5 py-0.5 rounded-full bg-slate-800 text-rose-300 border border-slate-700 text-[11px] font-mono">
                   PHOTOS &amp; VIDEOS STUDIO
@@ -1506,15 +1564,12 @@ export const UnifiedMasterPageView: React.FC<UnifiedMasterPageViewProps> = ({
                 <span className="px-2.5 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30 text-[11px] font-mono">
                   360° SPATIAL TOUR &amp; WIPE
                 </span>
-                <span className="px-2.5 py-0.5 rounded-full bg-purple-500/15 text-purple-300 border border-purple-500/30 text-[11px] font-mono">
-                  AI REEL PRODUCER
-                </span>
               </div>
               <h2 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-white tracking-tight">
-                Social &amp; Media Hub: Photos, 4K Videos, 360° Tours &amp; Campaigns
+                Lumion &amp; Media Production Chamber: 4K Videos, 360° Tours &amp; Spatial Campaigns
               </h2>
               <p className="text-xs sm:text-sm text-slate-400 max-w-3xl leading-relaxed">
-                Centralized architectural media vault for high-resolution DSLR photography, 4K Lumion walkthrough videos, construction site drone reels, 360° spatial room navigator, interactive before/after construction wipe slider, and multi-channel marketing campaigns.
+                Autonomous media synthesis chamber for high-resolution DSLR photography, 4K Lumion walkthrough videos, construction site drone reels, 360° spatial room navigator, interactive before/after construction wipe slider, and multi-channel marketing campaigns.
               </p>
             </div>
 
@@ -1710,17 +1765,17 @@ export const UnifiedMasterPageView: React.FC<UnifiedMasterPageViewProps> = ({
               <div className="flex items-center gap-2">
                 <span className="px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-xs font-mono font-bold flex items-center gap-1.5">
                   <Star className="w-3.5 h-3.5 text-emerald-400 fill-emerald-400" />
-                  4.98 ★ VERIFIED CLIENT FEEDBACK
+                  AGENT CHAMBER 04: VERIFIED CLIENT STAKEHOLDER TELEMETRY &amp; RATINGS
                 </span>
                 <span className="px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700 text-[11px] font-mono">
-                  {feedbackList.length} CLIENT REVIEWS
+                  {feedbackList.length} VERIFIED AUDITS
                 </span>
               </div>
               <h2 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-white tracking-tight">
-                Client Project Feedback &amp; Stakeholder Testimonials
+                Verified Client Stakeholder Chamber: Direct Turnkey Project Audits &amp; Ratings
               </h2>
               <p className="text-xs sm:text-sm text-slate-400 max-w-2xl">
-                Real feedback from private villa owners, commercial developers, and institutional clients across Bangalore.
+                Cryptographically logged feedback and milestone sign-offs from private villa owners, commercial developers, and co-living operators across Bangalore.
               </p>
             </div>
 
@@ -1923,13 +1978,13 @@ export const UnifiedMasterPageView: React.FC<UnifiedMasterPageViewProps> = ({
           <div className="text-center space-y-2">
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/40 text-xs font-mono font-bold">
               <Lock className="w-3.5 h-3.5 text-purple-400" />
-              CLIENT LOGIN &amp; STAKEHOLDER GATEWAY
+              AGENT CHAMBER 05: CLIENT SECURITY CLEARANCE &amp; MULTI-ROLE ACCESS GATEWAY
             </div>
             <h2 className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-white tracking-tight">
-              Sign In to Your Client Project Portal
+              Client Security Clearance &amp; Stakeholder Gateway
             </h2>
             <p className="text-xs sm:text-sm text-slate-400 max-w-xl mx-auto">
-              Access your private project contracts, verified milestone completion approvals, shared high-resolution architectural drawings, and escrow payouts.
+              Cryptographically isolated client clearance. Access private BIM models, verified AI camera milestone approvals, legal lease agreements, and contractor escrow releases.
             </p>
           </div>
 
@@ -2184,6 +2239,16 @@ export const UnifiedMasterPageView: React.FC<UnifiedMasterPageViewProps> = ({
           </div>
         </div>
       )}
+
+      {/* ========================================================================= */}
+      {/* BIM & BOQ AGENT ANNUAL SUBSCRIPTION (₹1,500/YR) MODAL                     */}
+      {/* ========================================================================= */}
+      <BimBoqSubscriptionModal
+        isOpen={isBimSubModalOpen}
+        onClose={() => setIsBimSubModalOpen(false)}
+        onSubscriptionSuccess={() => setBimSubInfo(getBimBoqSubscription())}
+        currency={currency}
+      />
 
       {/* ========================================================================= */}
       {/* PERSISTENT AUTONOMOUS AI AGENT FLOATING HUD                               */}
