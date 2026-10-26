@@ -48,7 +48,7 @@
 
 ## CI automation
 
-Added `.github/workflows/shared-state-ci.yml` to run the complete test suite, client/server TypeScript checks, production build, and Docker image build on pull requests, pushes to the shared-state branch, and manual dispatch. The workflow has been committed, but its GitHub Actions result has not yet been observed; do not treat workflow creation as a successful CI run.
+Added `.github/workflows/shared-state-ci.yml` to run the complete test suite, client/server TypeScript checks, production build, and Docker image build on pull requests, pushes to the shared-state branch, and manual dispatch. The first run failed before dependency installation because the repo has no lockfile and the workflow initially used `npm ci` plus lockfile caching. The workflow now uses `npm install` without lockfile caching; the corrected run is pending. HTTP route integration tests were added to `npm test` and still need CI execution.
 
 ## Validation record
 
