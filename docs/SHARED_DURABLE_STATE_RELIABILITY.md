@@ -1,45 +1,50 @@
 # Shared Durable State and Reliability
 
-**Status:** incremental reliability work; not a production-readiness approval  
+**Status:** first shared-workspace API and client sync implementation added; full CI and cloud/staging validation still required. Not a production-readiness approval.  
 **Tracking issue:** [#3 — Implement shared durable state and reliability](https://github.com/sgouse14/gouse-ai-agent-2.0/issues/3)
 
-## What the uploaded project already has
+## Existing foundations
 
-- The application is a TypeScript/React client with an Express server.
-- The client uses Firebase Authentication. Protected API requests carry Firebase ID tokens, and the server verifies identity and checks the configured project-membership registry for project-scoped API routes.
-- Saqlain has a Firestore REST adapter using the runtime's attached cloud service identity, plus Firestore-backed audit, heartbeat, and task-queue components.
-- Firestore queue writes use document preconditions, bounded contention retries, and an idempotency record for enqueue operations.
-- File-based audit logs are hash-chained and validated on read; a Firestore audit chain has a compare-and-swap head.
+- TypeScript/React client with an Express server.
+- Firebase Authentication. Protected API requests carry Firebase ID tokens; the server verifies identity and checks configured project membership for project-scoped APIs.
+- Firestore REST adapter using the runtime's attached cloud service identity, plus Firestore-backed audit, heartbeat, and task-queue components.
+- Firestore queue writes use document preconditions and idempotency records.
+- File and Firestore audit logs have integrity verification.
 
-These facilities form a useful base, but they do not yet mean all application data is shared or durable.
+## Implemented in this branch (PR #5, not merged)
 
-## Incremental changes in this branch
+### Readiness
+- `GET /healthz` remains lightweight liveness.
+- `GET /readyz` checks the configured Saqlain audit backend and returns sanitized `503 not_ready` on failure.
+- File mode checks path access and the existing hash-chained audit log. Firestore mode checks project configuration, connectivity, and audit-chain readability.
 
-- `GET /healthz` remains a lightweight liveness response and does not claim dependencies are healthy.
-- `GET /readyz` is a separate readiness probe. It checks the configured Saqlain audit backend, verifies an existing file audit chain, checks basic file storage access in file mode, and probes Firestore connectivity and the Firestore audit chain in Firestore mode.
-- Readiness returns only a generic state and dependency category; it does not expose cloud errors, project secrets, or credentials.
-- Tests cover invalid backend configuration, missing audit configuration, inaccessible file paths, corrupted audit history, missing Firestore project configuration, and an injected Firestore probe failure.
+### Shared workspace API and browser synchronization
+- Added `GET /api/workspace-state/:domain` and `PUT /api/workspace-state/:domain`. These routes are mounted behind the existing Firebase token middleware and derive the storage owner from the server-verified Firebase UID; clients cannot choose an owner UID.
+- Initial domains are `projects`, `boqItems`, `professionals`, `enquiries`, and `preferences`.
+- Firestore documents are separated by UID and domain. Writes use Firestore update-time preconditions and an application version token; stale writes return `409` instead of silently replacing newer data.
+- Payloads are capped at 700,000 UTF-8 bytes per domain before persistence. This is an initial bounded-domain design, not a solution for unbounded project/BOQ histories; larger domains should move to record-level documents.
+- The React app attempts to load each shared domain on startup. If a domain is absent, it attempts an initial import from the existing local browser state. The localStorage data remains in place as a local recovery copy.
+- Before synchronization, the client saves a local snapshot. A Firebase UID marker prevents local data already associated with one user from being imported into another user's workspace on the same browser. A different UID starts from the default data and retains a UID-specific local backup when browser storage permits.
+- The UI reports whether the shared workspace is connected, syncing, local-only, or blocked by a concurrency conflict. If storage is unavailable, local edits remain in the browser and are explicitly not reported as shared.
 
-Configure `SAQLAIN_AUDIT_BACKEND=file` with `SAQLAIN_AUDIT_FILE` for a local file-backed environment, or `SAQLAIN_AUDIT_BACKEND=firestore` with `GOOGLE_CLOUD_PROJECT` or `FIREBASE_PROJECT_ID` and least-privilege runtime IAM for Firestore. Keep cloud credentials out of frontend `VITE_*` variables and do not commit secret values.
+## Important limits
 
-## Known gaps that remain open
+1. This implementation is user-scoped: it synchronizes the same user's data across their signed-in devices/instances. It does not yet implement collaborative project sharing between different users, even if project member metadata exists in the UI.
+2. The browser still retains localStorage copies and some other components keep their own local preferences/material state. This is a dual-write/migration stage, not a completed removal of browser storage.
+3. Each domain currently occupies one Firestore document with a 700,000-byte application cap. The app should move to per-record documents with parent ownership checks before large project files/BOQs exceed that bound.
+4. The client migration path and service tests are committed, but full TypeScript/build/CI execution and live Cloud Run/Firestore validation have not yet been verified for PR #5. Do not enable a production cutover until CI and staging checks pass.
+5. The periodic backup/recovery runtime still needs complete queue-driven enqueue/lock/execute/complete integration. Existing work covers queue backend selection for interrupted-task recovery and monitoring queue counts; it does not mean all backup execution uses the shared Firestore queue.
+6. Some rate limiting remains process-local. A successful readiness probe checks the configured Saqlain audit path, not every AI provider or every application dependency.
+7. Live Firestore IAM, multi-instance conflict behavior, API outage, migration rollback, backup/restore, and independent host-down alerting need staging validation.
 
-1. The main workspace state in `src/App.tsx`—projects, active project, BOQ items, professionals, and enquiries—is still stored in browser `localStorage`. Data is not yet synchronized through a shared server-side workspace API.
-2. Other components also write project-specific preferences and material data directly to `localStorage`; the full set of data domains needs to be inventoried before migration.
-3. The migration must preserve existing browser data, provide export/import and an idempotent cutover, and enforce server-side user/project ownership. Firebase sign-in alone does not provide workspace membership.
-4. A record-size and concurrency strategy is required; one large document per user is not an acceptable assumption for unbounded BOQ/project files. Updates should use per-record documents and version/precondition checks or another tested transaction pattern.
-5. The periodic backup/recovery runtime still needs complete queue-driven enqueue/lock/execute/complete integration. Existing work covers queue backend selection for interrupted-task recovery and monitoring counts; do not imply all backup execution is routed through the shared Firestore queue.
-6. Some rate limiting remains process-local and does not provide a shared quota across multiple instances.
-7. A successful readiness probe checks the configured Saqlain audit path, not every AI provider, every API, or the still-local browser workspace. Live Cloud Run/Firestore IAM and multi-instance failure tests must be run in staging before production use.
+## Next steps
 
-## Next delivery order
-
-1. Add a user-scoped workspace repository/API using the existing verified Firebase identity boundary and a provisioned shared data store.
-2. Add strict schema validation, document-level concurrency/version checks, user/project ownership tests, and storage-outage tests.
-3. Add a protected export/import migration for existing localStorage data. Keep the local copy intact until the imported data is verified and a rollback has been rehearsed.
-4. Move data domains incrementally instead of attempting a silent one-step switch; remove browser-only writes only after each domain has been validated.
-5. Finish end-to-end backup queue integration, shared rate limiting where required, staging IAM checks, backup/restore rehearsal, and CI.
+1. Run full tests, server/client TypeScript checks, production build, and Docker build on PR #5; fix every regression.
+2. Validate Firestore runtime IAM and multi-instance compare-and-swap behavior in staging, including outage and recovery.
+3. Test import from real legacy localStorage data, UID switching in the same browser, conflict handling, export/restore, and large-domain rejection.
+4. Split large domains into record-level documents before production-scale use and add collaborative project access only with explicit server-side membership checks.
+5. Finish end-to-end backup queue integration, shared rate limiting where required, GCS restore adapter, backup/restore rehearsal, and external host-down paging.
 
 ## Validation record
 
-The focused readiness tests have been run with Node's built-in test runner. Full dependency installation, the complete test suite, TypeScript checks, production build, Docker build, and live cloud integration have not been verified as part of this change. A passing unit test is not a substitute for CI or staging validation.
+Four readiness tests passed locally before the shared workspace API/client changes. New service tests cover user/domain isolation, optimistic concurrency conflicts, oversized data, and owner mismatch, but have not been executed in this environment. Full suite/typecheck/build and live cloud integration are **not yet verified**.
