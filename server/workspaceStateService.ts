@@ -22,8 +22,10 @@ export interface WorkspaceStateClient {
 }
 
 export class WorkspaceStateError extends Error {
-  constructor(public readonly code: 'not_found' | 'conflict' | 'invalid' | 'unavailable', message: string) {
+  readonly code: 'not_found' | 'conflict' | 'invalid' | 'unavailable';
+  constructor(code: 'not_found' | 'conflict' | 'invalid' | 'unavailable', message: string) {
     super(message);
+    this.code = code;
     this.name = 'WorkspaceStateError';
   }
 }
@@ -37,11 +39,19 @@ export function isWorkspaceStateDomain(value: unknown): value is WorkspaceStateD
 }
 
 export class WorkspaceStateService {
+  private readonly clientFactory: () => WorkspaceStateClient;
+  private readonly now: () => Date;
+  private readonly makeVersion: () => string;
+
   constructor(
-    private readonly clientFactory: () => WorkspaceStateClient = () => new SaqlainFirestoreRestClient(),
-    private readonly now: () => Date = () => new Date(),
-    private readonly makeVersion: () => string = () => randomUUID(),
-  ) {}
+    clientFactory: () => WorkspaceStateClient = () => new SaqlainFirestoreRestClient(),
+    now: () => Date = () => new Date(),
+    makeVersion: () => string = () => randomUUID(),
+  ) {
+    this.clientFactory = clientFactory;
+    this.now = now;
+    this.makeVersion = makeVersion;
+  }
 
   async read(uid: string, domain: WorkspaceStateDomain): Promise<{ data: unknown; version: string } | null> {
     if (!uid) throw new WorkspaceStateError('invalid', 'Verified user identity is required.');
