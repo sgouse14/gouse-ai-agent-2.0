@@ -184,6 +184,7 @@ export function App() {
   const workspaceLastSynced = useRef<Partial<Record<WorkspaceDomain, string>>>({});
   const workspaceWriteQueue = useRef<Promise<void>>(Promise.resolve());
   const workspaceWritesBlocked = useRef(false);
+  const signedInUid = firebaseAuth.currentUser?.uid ?? null;
 
   useEffect(() => {
     let cancelled = false;
@@ -195,7 +196,7 @@ export function App() {
         return fallback;
       }
     };
-    const currentUid = firebaseAuth.currentUser?.uid;
+    const currentUid = signedInUid;
     let previousOwnerUid: string | null = null;
     try { previousOwnerUid = localStorage.getItem('gouse_ai_workspace_owner_uid'); } catch { /* storage may be disabled */ }
     const storedLocalSnapshot: Record<WorkspaceDomain, unknown> = {
@@ -318,7 +319,7 @@ export function App() {
     setWorkspaceStatus('syncing');
     void synchronize();
     return () => { cancelled = true; };
-  }, [workspaceSyncAttempt]);
+  }, [workspaceSyncAttempt, signedInUid]);
 
   const queueWorkspaceWrite = (domain: WorkspaceDomain, data: unknown) => {
     if (!workspaceReady || workspaceStatus !== 'shared' || workspaceWritesBlocked.current) return;
