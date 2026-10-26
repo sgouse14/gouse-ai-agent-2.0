@@ -4,6 +4,7 @@ import { saqlainVerificationRouter } from './server/saqlainVerificationRoutes.ts
 import { saqlainGatekeeperRouter } from './server/saqlainGatekeeperRoutes.ts';
 import { saqlainHeartbeatRouter } from './server/saqlainHeartbeatRoutes.ts';
 import { saqlainTaskQueueRouter } from './server/saqlainTaskQueueRoutes.ts';
+import { createSaqlainAgentRegistryRouter } from './server/saqlainAgentRegistryRoutes.ts';
 import { createSaqlainSecuritySummaryHandler } from './server/saqlainSecuritySummaryRoutes.ts';
 import { saqlainWebsiteDiagnosticsHandler } from './server/saqlainWebsiteDiagnosticsRoutes.ts';
 
@@ -70,6 +71,9 @@ app.use('/api/security/gatekeeper', saqlainGatekeeperRouter);
 
 // Authenticated operator-only review and resolution for interrupted queue tasks.
 app.use('/api/security/task-queue', saqlainTaskQueueRouter);
+
+// Shared Firestore-backed agent registry; disabled until explicitly enabled and owner UID allowlist is configured.
+app.use('/api/security/agent-registry', createSaqlainAgentRegistryRouter());
 
 // Authenticated, rate-limited, audited agent heartbeat ingestion.
 app.use('/api/security/heartbeats', saqlainHeartbeatRouter);
