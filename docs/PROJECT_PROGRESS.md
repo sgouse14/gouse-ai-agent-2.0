@@ -16,6 +16,13 @@ Updated: 2026-10-26 (verified branch and CI refresh)
 - **Recent feature commits:** [`b8ebcc2`](https://github.com/sgouse14/gouse-ai-agent-2.0/commit/b8ebcc29c514ba07c00a746e6a961bdaf1cd0604) corrects progress date/PR status. Separate open PRs #7/#8 propose authenticated per-user Firestore workspace persistence, readiness endpoint, optimistic version conflicts, migration/recovery snapshots, and JSON backup export; do not count these as merged feature-branch code. Validate any additional UI/agent work in the broader repository against the feature branch and current PR diff before release.
 - **Main branch:** no merge of PR #6 and no production deployment.
 
+## Separate in-progress work — agent lifecycle and Gousiya (26 October 2026)
+
+- [ ] [PR #10](https://github.com/sgouse14/gouse-ai-agent-2.0/pull/10) remains open and draft, with head branch `feat/agent-lifecycle-gousiya-communication` targeting this feature branch. Its registry/workflow/API code is **not included in this branch** unless the PR is explicitly merged.
+- [x] PR #10 adds a Firestore-backed agent registry with a permanent issued-ID ledger and append-only audit events; it adds durable Gousiya workflow snapshots/events with optimistic concurrency and one-time approval-reference consumption; its intake/read API is authenticated and owner-scoped. These are PR claims and remain subject to the CI/staging gates below.
+- [ ] Latest inspected PR #10 CI run [#40289945968](https://github.com/sgouse14/gouse-ai-agent-2.0/actions/runs/40289945968) failed 1 of 289 tests: `Gousiya workflow API reads current state and append-only events without exposing transition endpoint` expected HTTP 200 but received 404 at `server/gousiyaWorkflowRoutes.test.ts:88`. The remaining 288 tests passed; TypeScript, production build, and Docker checks were skipped after the test failure.
+- [ ] Fix the owner-scope/read-route regression and rerun the complete test, TypeScript, production build, and Docker pipeline on PR #10 before considering merge. Live Firestore IAM, owner allowlist, multi-instance/replay behavior, and staged recovery validation also remain outstanding.
+
 ## Today — 26 October 2026: branch and CI verification
 
 - [x] Refreshed branch status against GitHub: current feature head is `b8ebcc29c514ba07c00a746e6a961bdaf1cd0604`.
