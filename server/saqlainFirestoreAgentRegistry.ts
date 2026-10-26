@@ -263,6 +263,7 @@ export class SaqlainFirestoreAgentRegistry {
         throw new Error('Stored agent record or concurrency token is invalid.');
       }
       const current = currentValue as unknown as DurableAgentRecord;
+      if (current.ownerUid !== actorUid) throw new Error('Only the owning agent owner can perform this lifecycle transition.');
       if (current.status === 'RETIRED') throw new Error('Retired agents cannot transition.');
       if (input.target === 'SUSPENDED' && current.status !== 'ACTIVE') throw new Error('Only active agents can be suspended.');
       if (input.target === 'ACTIVE' && current.status !== 'SUSPENDED') throw new Error('Only suspended agents can be reactivated.');
