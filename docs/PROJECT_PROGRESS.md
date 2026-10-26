@@ -15,8 +15,13 @@ Passing a test or changing code does not prove live deployment, production readi
 - **Agent lifecycle / Gousiya / Communication PR:** [#10](https://github.com/sgouse14/gouse-ai-agent-2.0/pull/10), draft, targeting `feature/saqlain-cyber-agent`.
 - Earlier drafts #5 and #7 are superseded and were not merged.
 - No merge or production deployment is represented by this progress page.
-- Latest observed PR #10 workflow (run #52) was cancelled during later edits. After those edits, run #66 was pending with no jobs visible yet. The latest complete revision therefore has **not yet demonstrated a complete green CI run**.
+- Latest observed PR #10 workflow **run #68 failed** in `server/gousiyaWorkflowRoutes.test.ts`: the workflow read/events test expected HTTP 200 but got HTTP 404. Because the test step failed, client/server TypeScript checks, production build, and Docker build were skipped. The latest revision therefore has **not demonstrated a complete green CI run**.
 - Earlier successful runs validate only their exact commits, not subsequent revisions.
+
+### Completion snapshot (checklist arithmetic only)
+
+- **65 checklist entries marked complete out of 126 total: approximately 52%.** This is a raw checkbox count, not a weighted project-completion score: tasks vary substantially in size, some milestones overlap, and several completed implementation items still require live staging validation.
+- **Production readiness remains incomplete.** The most important open items are current CI repair, staging Firebase/Firestore validation, end-to-end durable queue/recovery integration, backup/restore drills, and operational/security sign-off.
 
 ### Status key
 
@@ -66,7 +71,7 @@ Details: [Shared Durable State and Reliability](SHARED_DURABLE_STATE_RELIABILITY
 - [x] Added authenticated workflow intake/read API under `/api/security/gousiya/workflows`, with Firebase identity/account-status verification, server-side owner allowlist, creator-derived identity, and creator-scoped reads.
 - [x] Protected recovery transitions are not exposed publicly; approval/grant/verification flags are not accepted via an exposed client transition endpoint.
 - [x] Added store/API tests for restart reload, duplicate IDs, approval replay, stale concurrent updates, evidence gates, authentication, owner authorization, creator-only reads, and validation.
-- [ ] Resolve and verify latest server TypeScript, tests, production build, and Docker build on PR #10. CI run #50 previously failed on event type narrowing; a fix was committed. Run #52 was cancelled during subsequent edits; run #66 was pending with no jobs visible at last check.
+- [ ] Fix the current failing Gousiya workflow API test (run #68: expected HTTP 200 but received 404 in the workflow read/events test), then rerun the full tests, client/server TypeScript checks, production build, and Docker build. Earlier run #50 also exposed a server TypeScript event type-narrowing error which was patched; later changes still need complete validation.
 - [ ] Build trusted transition adapter that resolves approval/grant/verification signals from persisted verifier results and atomically commits transitions/audit before recovery.
 - [ ] Integrate actual grant consumption and staged recovery result; the store/API does not repair files or promote production data.
 - [ ] Exercise crash/restart, duplicate requests, parallel writers, approval replay, storage outage, and restore in staging.
