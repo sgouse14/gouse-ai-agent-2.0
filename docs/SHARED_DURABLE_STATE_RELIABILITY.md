@@ -1,6 +1,6 @@
 # Shared Durable State and Reliability
 
-**Status:** first shared-workspace API and client sync implementation added in [draft PR #7](https://github.com/sgouse14/gouse-ai-agent-2.0/pull/7); full CI and cloud/staging validation still required. Not a production-readiness approval.  
+**Status:** first shared-workspace API and client sync implementation added in [draft PR #8](https://github.com/sgouse14/gouse-ai-agent-2.0/pull/8); full CI and cloud/staging validation still required. Not a production-readiness approval.  
 **Tracking issue:** [#3 — Implement shared durable state and reliability](https://github.com/sgouse14/gouse-ai-agent-2.0/issues/3)
 
 ## Existing foundations
@@ -11,7 +11,7 @@
 - Firestore queue writes use document preconditions and idempotency records.
 - File and Firestore audit logs have integrity verification.
 
-## Implemented in this branch (PR #7, not merged)
+## Implemented in this branch (PR #8, not merged)
 
 ### Readiness
 - `GET /healthz` remains lightweight liveness.
@@ -33,14 +33,14 @@
 1. This implementation is user-scoped: it synchronizes the same user's data across their signed-in devices/instances. It does not yet implement collaborative project sharing between different users, even if project member metadata exists in the UI.
 2. The browser still retains localStorage copies and some other components keep their own local preferences/material state. This is a dual-write/migration stage, not a completed removal of browser storage.
 3. Each domain currently occupies one Firestore document with a 700,000-byte application cap. The app should move to per-record documents with parent ownership checks before large project files/BOQs exceed that bound.
-4. The client migration path and service tests are committed, but full TypeScript/build/CI execution and live Cloud Run/Firestore validation have not yet been verified for PR #5. Do not enable a production cutover until CI and staging checks pass.
+4. The client migration path and service tests are committed, but full TypeScript/build/CI execution and live Cloud Run/Firestore validation have not yet been verified for PR #8. Do not enable a production cutover until CI and staging checks pass.
 5. The periodic backup/recovery runtime still needs complete queue-driven enqueue/lock/execute/complete integration. Existing work covers queue backend selection for interrupted-task recovery and monitoring queue counts; it does not mean all backup execution uses the shared Firestore queue.
 6. Some rate limiting remains process-local. A successful readiness probe checks the configured Saqlain audit path, not every AI provider or every application dependency.
 7. Live Firestore IAM, multi-instance conflict behavior, API outage, migration rollback, backup/restore, and independent host-down alerting need staging validation.
 
 ## Next steps
 
-1. Run full tests, server/client TypeScript checks, production build, and Docker build on PR #7; fix every regression.
+1. Run full tests, server/client TypeScript checks, production build, and Docker build on PR #8; fix every regression.
 2. Validate Firestore runtime IAM and multi-instance compare-and-swap behavior in staging, including outage and recovery.
 3. Test import from real legacy localStorage data, UID switching in the same browser, conflict handling, export/restore, and large-domain rejection.
 4. Split large domains into record-level documents before production-scale use and add collaborative project access only with explicit server-side membership checks.
