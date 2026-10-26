@@ -161,3 +161,13 @@ test('agent ID rotates only after verified completion and retires the old ID ato
   assert.equal(typeof rotation?.currentBinaryIdHash, 'string');
   assert.equal(rotation?.previousBinaryIdHash === rotation?.currentBinaryIdHash, false);
 });
+
+
+test('registry refuses lifecycle mutation when the actor is not the stored owner', async () => {
+  const registry = makeRegistry();
+  await registry.register({ agentKey: 'agent-owner-only', actorUid: 'owner-a', reason: 'created' });
+  await assert.rejects(registry.suspend({
+    agentKey: 'agent-owner-only', actorUid: 'owner-b', reason: 'unauthorized change',
+  }), /owning agent owner/);
+  assert.equal((await registry.get('agent-owner-only'))?.status, 'ACTIVE');
+});
