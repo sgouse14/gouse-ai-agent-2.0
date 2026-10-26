@@ -65,24 +65,33 @@ Updated: 2026-10-26
 - [x] Connected the opt-in protected EMP telemetry adapter to monitoring snapshots; stale/future/unapproved readings trigger HOLD, and fresh WATCH findings produce warnings. No live trusted telemetry source is configured.
 - [x] [CI run #40172174991](https://github.com/sgouse14/gouse-ai-agent-2.0/actions/runs/40172174991) passed on commit `fae53738`: security tests, TypeScript checks, frontend/server production build, and Docker image build.
 
-### 26 October — durable-state and readiness follow-up (PR #5, not merged)
+### 26 October — durable-state and readiness implementation (PR #5, not merged)
 
-- [x] Added `GET /readyz` separately from `GET /healthz`; liveness remains a cheap response, while readiness checks the configured Saqlain audit-storage path.
-- [x] In file mode, readiness checks configuration, parent/path access, and validates the existing hash-chained audit history.
-- [x] In Firestore mode, readiness requires project configuration and checks connectivity/audit-chain verification; failures return a sanitized `503 not_ready` result without exposing provider errors.
-- [x] Added four focused readiness tests covering invalid backend configuration, missing file configuration/inaccessible path, corrupted audit history, and Firestore configuration/outage behavior.
+- [x] Added `GET /readyz` separately from `GET /healthz`; liveness remains lightweight, while readiness checks the configured Saqlain audit-storage path.
+- [x] In file mode, readiness checks configuration, path access, and the existing hash-chained audit history. In Firestore mode, readiness checks project configuration, connectivity, and audit-chain readability; failures return sanitized `503 not_ready`.
+- [x] Added four focused readiness tests.
+- [x] Added a user-scoped Firestore workspace service and authenticated `GET/PUT /api/workspace-state/:domain` routes for projects, BOQ items, professionals, enquiries, and preferences.
+- [x] Server derives ownership from the verified Firebase UID. Client-supplied owner IDs are not accepted as authority.
+- [x] Writes use Firestore update-time preconditions plus version tokens; stale updates return conflict instead of silently overwriting newer state.
+- [x] Added a 700,000-byte per-domain cap and tests for user/domain isolation, stale-write conflict, oversize rejection, and owner mismatch. These new workspace-service tests are written but have **not yet been executed**.
+- [x] Integrated initial client synchronization: load shared domains; initialize missing domains from existing browser data; retain localStorage as a recovery copy; save a pre-sync snapshot; and block writes after a concurrency conflict or storage failure.
+- [x] Added a Firebase UID marker so one user's existing browser data is not automatically imported into a different user's cloud workspace in the same browser; user-specific backup is attempted before switching.
+- [x] Added an explicit UI state for syncing, shared, local-only, and conflict conditions; local-only edits are not described as shared.
 - [x] Added `docs/SHARED_DURABLE_STATE_RELIABILITY.md` and updated this progress page.
-- [x] Focused readiness tests passed locally. This change still requires full PR CI and live cloud/staging validation.
+- [ ] Full test suite, client/server TypeScript checks, production build, Docker build, and PR CI for these newest workspace changes remain unverified.
+- [ ] Live Firestore IAM, multi-instance concurrency, outage/recovery, UID switching, migration rollback, and large-data tests remain required before production use.
 
 ## Still open — do not mark as complete
 
 ### Shared workspace state and identity
 
-- [ ] Projects, active project, BOQ items, professionals, enquiries, and some component data still use browser `localStorage`; they are not yet synchronized across devices/instances through a shared workspace API.
-- [ ] Inventory all localStorage consumers and specify schemas/ownership before migrating.
-- [ ] Implement a server-side workspace repository/API under verified Firebase identity with server-side user/project membership enforcement.
-- [ ] Add protected export/import and idempotent migration; preserve original browser data until import is verified and rollback rehearsed.
-- [ ] Add record-level optimistic concurrency/preconditions, transactional invariants, authorization tests, outage tests, restart persistence tests, and migration idempotency tests.
+- [ ] Run full CI and fix any failures from the newly added shared workspace API/client integration.
+- [ ] Validate Firestore IAM and multi-instance conflict handling, including two concurrent writers, outage, restart, and recovery.
+- [ ] Test the localStorage import path with real existing data, UID switching in the same browser, and a rehearsed export/rollback.
+- [ ] Inventory remaining component-level localStorage consumers (including project-specific preferences/material data) and migrate them deliberately.
+- [ ] Replace the initial one-document-per-domain layout with record-level documents for large projects/BOQs before reaching the 700,000-byte domain cap.
+- [ ] Implement collaborative project access between different Firebase users only after explicit server-side project membership/role enforcement is designed and tested.
+- [ ] Add automated API-route tests for unauthenticated requests, ownership boundaries, malformed/oversized bodies, and Firestore outages.
 
 ### Shared queue, backup, and reliability
 
