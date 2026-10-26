@@ -12,15 +12,15 @@ Updated: 2026-10-26 (verified branch and CI refresh)
 - **Latest verified branch CI (26 Oct):** [run #40282385363](https://github.com/sgouse14/gouse-ai-agent-2.0/actions/runs/40282385363) passed on head commit `b8ebcc29c514ba07c00a746e6a961bdaf1cd0604`: security tests, client TypeScript check, server authorization TypeScript check, frontend/server production build, and Docker image build all succeeded. Earlier [run #40280116735](https://github.com/sgouse14/gouse-ai-agent-2.0/actions/runs/40280116735) also passed on commit `02364edf`. The tested scope is code CI; live Firebase/Firestore/cloud staging validation is still outstanding.
 - **Feature branch:** `feature/saqlain-cyber-agent`
 - **Main feature PR:** [#6 — open, draft, not merged](https://github.com/sgouse14/gouse-ai-agent-2.0/pull/6), targeting `main`.
-- **Shared durable-state PRs:** [#7](https://github.com/sgouse14/gouse-ai-agent-2.0/pull/7) and [#8](https://github.com/sgouse14/gouse-ai-agent-2.0/pull/8) are merged into `feature/saqlain-cyber-agent` (their merge commits are `6c3eb519ffac84db2e734d6182283881f6976757` and `8f08586ee25280c17f876e5423e49245eccd8e6e`, respectively). PR #8 reports its own CI run #31 passed 273 tests, both TypeScript checks, production build, and Docker build; this does not replace live staging checks.
-- **Recent feature commits:** [`b8ebcc2`](https://github.com/sgouse14/gouse-ai-agent-2.0/commit/b8ebcc29c514ba07c00a746e6a961bdaf1cd0604) corrects progress date/PR status; the merged shared-state work adds authenticated per-user Firestore workspace persistence, readiness health endpoint, optimistic version conflicts, migration/recovery snapshots and JSON backup export. The repository also has a Smart Home SKA agent/HUD commit in earlier feature history; validate feature interactions before release.
+- **Shared durable-state follow-ups:** [PR #7](https://github.com/sgouse14/gouse-ai-agent-2.0/pull/7) and [PR #8](https://github.com/sgouse14/gouse-ai-agent-2.0/pull/8) are both still open, draft, and unmerged; they target `feature/saqlain-cyber-agent` and their workspace persistence code is **not included** in this feature branch until those PRs are merged. The PR metadata's `merge_commit_sha` is not proof of a merge; both PRs report `merged: false`. PR #8 describes CI run #31 as passing 273 tests, both TypeScript checks, production build, and Docker build; verify any newer workflow status before relying on it, and still perform live staging checks.
+- **Recent feature commits:** [`b8ebcc2`](https://github.com/sgouse14/gouse-ai-agent-2.0/commit/b8ebcc29c514ba07c00a746e6a961bdaf1cd0604) corrects progress date/PR status. Separate open PRs #7/#8 propose authenticated per-user Firestore workspace persistence, readiness endpoint, optimistic version conflicts, migration/recovery snapshots, and JSON backup export; do not count these as merged feature-branch code. Validate any additional UI/agent work in the broader repository against the feature branch and current PR diff before release.
 - **Main branch:** no merge of PR #6 and no production deployment.
 
 ## Today — 26 October 2026: branch and CI verification
 
 - [x] Refreshed branch status against GitHub: current feature head is `b8ebcc29c514ba07c00a746e6a961bdaf1cd0604`.
 - [x] Verified branch CI run #40282385363 succeeded for tests, client/server TypeScript checks, production build, and Docker image build.
-- [x] Verified shared workspace PRs #7 and #8 are merged into the feature branch; they are no longer pending follow-ups.
+- [x] Verified shared workspace PRs #7 and #8 are still open draft PRs targeting the feature branch; workspace-persistence work remains separate and is not included until merge.
 - [x] Recorded that PR #6 remains open and draft targeting `main`; no main-branch merge or production deploy occurred.
 - [ ] Confirm the merged shared-state changes against live Firebase/Firestore IAM, real multi-instance concurrency, outage/recovery, and restore drills in staging.
 - [ ] Re-run a current full CI run after any additional code change, and maintain the distinction between CI green and production readiness.
@@ -240,7 +240,7 @@ The following capabilities were requested for planning. They are **planned, not 
 ## Release boundary
 
 - PR #6 is the current open draft feature PR targeting `main`; PR #1 is closed and unmerged.
-- Shared-state PRs #7 and #8 are merged into the feature branch, not into `main`.
+- Shared-state PRs #7 and #8 remain separate open draft PRs targeting the feature branch; neither is merged.
 - `main` remains unchanged by this feature work.
 - Gousiya remains staging-only; no recovery output should be automatically promoted to production.
 - The EMP protector does not confirm that an EMP occurred and does not control physical equipment.
