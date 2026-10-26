@@ -8,8 +8,8 @@ Updated: 2026-10-26
 
 - **Saqlain implementation progress:** approximately 65% (the existing planning estimate; subjective, not code coverage).
 - **Overall release status:** not production-ready; no production deployment/approval is implied.
-- **Primary development branch:** `feature/saqlain-cyber-agent`; [PR #1](https://github.com/sgouse14/gouse-ai-agent-2.0/pull/1) is open and draft, targeting `main`.
-- **Durable-state/reliability follow-up:** [PR #5](https://github.com/sgouse14/gouse-ai-agent-2.0/pull/5) is open and draft, targeting `feature/saqlain-cyber-agent`; it has not been merged. `main` remains unchanged by that PR.
+- **Primary development branch:** `feature/saqlain-cyber-agent`; replacement [PR #6](https://github.com/sgouse14/gouse-ai-agent-2.0/pull/6) is open and draft, targeting `main`. The earlier PR #1 is closed and unmerged.
+- **Durable-state/reliability follow-up:** replacement [PR #7](https://github.com/sgouse14/gouse-ai-agent-2.0/pull/7) is open and draft, targeting `feature/saqlain-cyber-agent`; it has not been merged. Earlier PR #5 is closed and unmerged.
 - **Latest verified full CI for the main feature branch in the Oct 20–26 window:** [run #40172174991](https://github.com/sgouse14/gouse-ai-agent-2.0/actions/runs/40172174991), successful on 2026-10-25 at commit `fae53738`. This covered security tests, TypeScript checks, frontend/server production build, and Docker build for the code at that commit.
 - Full CI has **not** yet run successfully against the new PR #5 head. The focused readiness unit tests passed locally; dependency installation timed out in the authoring environment, so the full suite/typecheck/build and live cloud integration are not verified for PR #5.
 
@@ -65,7 +65,7 @@ Updated: 2026-10-26
 - [x] Connected the opt-in protected EMP telemetry adapter to monitoring snapshots; stale/future/unapproved readings trigger HOLD, and fresh WATCH findings produce warnings. No live trusted telemetry source is configured.
 - [x] [CI run #40172174991](https://github.com/sgouse14/gouse-ai-agent-2.0/actions/runs/40172174991) passed on commit `fae53738`: security tests, TypeScript checks, frontend/server production build, and Docker image build.
 
-### 26 October — durable-state and readiness implementation (PR #5, not merged)
+### 26 October — durable-state and readiness implementation (PR #7, not merged)
 
 - [x] Added `GET /readyz` separately from `GET /healthz`; liveness remains lightweight, while readiness checks the configured Saqlain audit-storage path.
 - [x] In file mode, readiness checks configuration, path access, and the existing hash-chained audit history. In Firestore mode, readiness checks project configuration, connectivity, and audit-chain readability; failures return sanitized `503 not_ready`.
@@ -116,7 +116,7 @@ Updated: 2026-10-26
 ## CI and release boundary
 
 - The latest **full passing CI evidence in this period** is run #40172174991 from 25 October on commit `fae53738`; this is not evidence that PR #5's new code has passed full CI.
-- PR #1 remains open and draft, based on `feature/saqlain-cyber-agent` targeting `main`.
-- PR #5 remains open and draft, based on `feat/shared-durable-state-reliability` targeting `feature/saqlain-cyber-agent`; it is not merged.
+- PR #6 is open and draft, based on `feature/saqlain-cyber-agent` targeting `main`; PR #1 is closed and unmerged.
+- PR #7 is open and draft, based on `feat/shared-durable-state-reliability` targeting `feature/saqlain-cyber-agent`; PR #5 is closed and unmerged.
 - Do not report the project as production-ready until the above shared workspace migration, deployment configuration, operational/staging checks, and required CI/review are completed.
 - EMP protector is advisory software, not a physical EMP detector or controller; there is no automatic physical containment or external retaliation.
