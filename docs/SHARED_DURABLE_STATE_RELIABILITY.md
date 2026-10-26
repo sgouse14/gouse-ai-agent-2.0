@@ -40,7 +40,7 @@
 
 ## Next steps
 
-1. Run full tests, server/client TypeScript checks, production build, and Docker build on PR #5; fix every regression.
+1. Run full tests, server/client TypeScript checks, production build, and Docker build on PR #7; fix every regression.
 2. Validate Firestore runtime IAM and multi-instance compare-and-swap behavior in staging, including outage and recovery.
 3. Test import from real legacy localStorage data, UID switching in the same browser, conflict handling, export/restore, and large-domain rejection.
 4. Split large domains into record-level documents before production-scale use and add collaborative project access only with explicit server-side membership checks.
@@ -48,4 +48,4 @@
 
 ## Validation record
 
-Eight focused backend unit tests passed locally: four readiness tests and four workspace-service tests covering user/domain isolation, optimistic concurrency conflicts, oversized data, and owner mismatch. The React integration and route wiring still have not passed a full typecheck/build/CI run. Full suite/typecheck/build and live cloud integration are **not yet verified**.
+Eight focused backend unit tests passed locally: four readiness tests and four workspace-service tests covering user/domain isolation, optimistic concurrency conflicts, oversized data, and owner mismatch. A server TypeScript check was attempted but could not start because this environment lacks `@types/node`; dependency installation/network access is unavailable here. The React integration and route wiring have not passed a full typecheck/build/CI run. Full suite/typecheck/build and live cloud integration are **not yet verified**.
