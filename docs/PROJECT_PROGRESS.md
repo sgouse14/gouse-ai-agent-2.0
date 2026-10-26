@@ -33,14 +33,13 @@ Updated: 2026-10-26
 
 ## Shared durable state and readiness — 26 October 2026 (PR #7, draft)
 
-- [x] Added `GET /readyz` separately from `GET /healthz`; liveness remains lightweight, while readiness checks the configured Saqlain audit-storage path.
-- [x] File-mode readiness checks configuration, path access, and the existing hash-chained audit history. Firestore-mode readiness checks project configuration, connectivity, and audit-chain readability; failures return sanitized `503 not_ready`.
-- [x] Added a user-scoped Firestore workspace service and authenticated `GET/PUT /api/workspace-state/:domain` routes for projects, BOQ items, professionals, enquiries, and preferences.
-- [x] Server-side ownership is derived from the verified Firebase UID; client-supplied owner IDs are not accepted as authority.
-- [x] Writes use Firestore update-time preconditions and version tokens; stale writes return conflict instead of silently overwriting newer state.
-- [x] Added a 700,000-byte per-domain cap and four service tests for user/domain isolation, stale-write conflicts, oversized data, and owner mismatch.
-- [x] Integrated initial client synchronization. Existing browser data seeds a missing shared domain; a pre-sync recovery snapshot is retained, and a Firebase UID marker prevents automatic import of one user's local data into another user's cloud workspace.
-- [x] Added an explicit UI state for syncing, shared, local-only, and conflict conditions, plus a user-triggered JSON export of local/recovery data.
+- [x] Added `GET /readyz` separately from `GET /healthz`; liveness remains lightweight, while readiness checks configured Saqlain audit storage.
+- [x] File readiness checks path access and the existing hash-chained audit history; Firestore readiness checks project configuration, connectivity, and audit-chain readability.
+- [x] Added authenticated, user-scoped Firestore workspace APIs for projects, BOQ items, professionals, enquiries, and preferences, deriving owner from the verified Firebase UID.
+- [x] Added version tokens and Firestore update-time preconditions; stale writes return a conflict instead of silently overwriting newer data.
+- [x] Added a 700,000-byte per-domain cap and four workspace-service tests for user/domain isolation, stale writes, oversize rejection, and owner mismatch.
+- [x] Added client startup synchronization and first-import behavior for missing server domains, retaining localStorage as recovery copy.
+- [x] Added a pre-sync recovery snapshot, Firebase UID marker to avoid importing one user's browser data into another user's workspace, sync/conflict status, and a user-triggered JSON backup export.
 - [x] Four readiness tests and four workspace-service tests passed locally (8 focused backend tests total).
 - [x] Added `docs/SHARED_DURABLE_STATE_RELIABILITY.md` describing the implementation and limits.
 - [ ] Full project tests, client/server TypeScript checks, production build, Docker build, route integration tests, and PR CI for these latest changes remain unverified.
@@ -247,8 +246,7 @@ The following capabilities were requested for planning. They are **planned, not 
 
 ## Release boundary
 
-- PR #6 is the replacement open draft targeting `main`; PR #1 is closed and unmerged.
-- PR #7 is the open draft for shared-state/readiness changes targeting `feature/saqlain-cyber-agent`; PR #5 is closed and unmerged.
+- PR #1 remains open and draft.
 - `main` remains unchanged.
 - Gousiya remains staging-only; no recovery output should be automatically promoted to production.
 - The EMP protector does not confirm that an EMP occurred and does not control physical equipment.
