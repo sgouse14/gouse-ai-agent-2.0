@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import express from 'express';
-import { createServer, type Server } from 'node:http';
+import type { Server } from 'node:http';
 import {
   createSaqlainAgentRegistryRouter,
   type AgentRegistryApi,
@@ -65,8 +65,8 @@ async function withServer(run: (baseUrl: string, registry: MemoryRegistry) => Pr
     getRegistry: () => registry,
     getOwnerUids: () => new Set(['owner-1', 'owner-2']),
   }));
-  const server: Server = createServer(app);
-  await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
+  const server: Server = app.listen(0, '127.0.0.1');
+  await new Promise<void>(resolve => server.listening ? resolve() : server.once('listening', resolve));
   const address = server.address();
   if (!address || typeof address === 'string') throw new Error('Test server did not bind a TCP port.');
   try { await run('http://127.0.0.1:' + address.port, registry); }
