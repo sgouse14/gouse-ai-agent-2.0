@@ -1,28 +1,62 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { mkdtemp, writeFile, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { checkSaqlainReadiness } from './saqlainReadiness.ts';
 
-// Pure readiness configuration policy; tests do not call cloud services.
-function readinessConfiguration(env: Record<string, string | undefined>) {
-  const mode = env.SAQLAIN_AUDIT_BACKEND?.trim().toLowerCase() || 'file';
-  if (mode !== 'file' && mode !== 'firestore') return { ready: false, dependency: 'configuration' };
-  if (mode === 'firestore') {
-    if (!(env.GOOGLE_CLOUD_PROJECT?.trim() || env.FIREBASE_PROJECT_ID?.trim())) return { ready: false, dependency: 'durable_storage' };
-    return { ready: true };
+test('readiness fails closed for invalid backend configuration', async () => {
+  assert.deepEqual(await checkSaqlainReadiness({
+    env: { SAQLAIN_AUDIT_BACKEND: 'memory' },
+  }), { ready: false, dependency: 'configuration' });
+});
+
+test('file readiness requires configured audit storage and writable parent', async () => {
+  assert.deepEqual(await checkSaqlainReadiness({
+    env: { SAQLAIN_AUDIT_BACKEND: 'file' },
+  }), { ready: false, dependency: 'audit_storage_configuration' });
+
+  const root = await mkdtemp(join(tmpdir(), 'saqlain-ready-'));
+  try {
+    assert.deepEqual(await checkSaqlainReadiness({
+      env: { SAQLAIN_AUDIT_BACKEND: 'file', SAQLAIN_AUDIT_FILE: join(root, 'audit.jsonl') },
+    }), { ready: true });
+
+    const notDirectory = join(root, 'ordinary-file');
+    await writeFile(notDirectory, 'not a directory');
+    assert.deepEqual(await checkSaqlainReadiness({
+      env: { SAQLAIN_AUDIT_BACKEND: 'file', SAQLAIN_AUDIT_FILE: join(notDirectory, 'audit.jsonl') },
+    }), { ready: false, dependency: 'durable_storage' });
+  } finally {
+    await rm(root, { recursive: true, force: true });
   }
-  if (!env.SAQLAIN_AUDIT_FILE?.trim()) return { ready: false, dependency: 'audit_storage_configuration' };
-  return { ready: true };
-}
-
-test('readiness fails closed for invalid backend configuration', () => {
-  assert.deepEqual(readinessConfiguration({ SAQLAIN_AUDIT_BACKEND: 'memory' }), { ready: false, dependency: 'configuration' });
 });
 
-test('file-backend readiness requires a configured durable audit path', () => {
-  assert.deepEqual(readinessConfiguration({ SAQLAIN_AUDIT_BACKEND: 'file' }), { ready: false, dependency: 'audit_storage_configuration' });
-  assert.deepEqual(readinessConfiguration({ SAQLAIN_AUDIT_BACKEND: 'file', SAQLAIN_AUDIT_FILE: '/var/lib/saqlain/audit.jsonl' }), { ready: true });
+test('file readiness rejects a corrupted audit chain', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'saqlain-audit-corrupt-'));
+  const auditPath = join(root, 'audit.jsonl');
+  try {
+    await writeFile(auditPath, '{"schemaVersion":1,"sequence":2,"recordHash":"broken"}\n');
+    assert.deepEqual(await checkSaqlainReadiness({
+      env: { SAQLAIN_AUDIT_BACKEND: 'file', SAQLAIN_AUDIT_FILE: auditPath },
+    }), { ready: false, dependency: 'durable_storage' });
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
 });
 
-test('Firestore readiness requires a project configuration', () => {
-  assert.deepEqual(readinessConfiguration({ SAQLAIN_AUDIT_BACKEND: 'firestore' }), { ready: false, dependency: 'durable_storage' });
-  assert.deepEqual(readinessConfiguration({ SAQLAIN_AUDIT_BACKEND: 'firestore', GOOGLE_CLOUD_PROJECT: 'saqlain-staging-123' }), { ready: true });
+test('Firestore readiness fails closed without project config or when a probe fails', async () => {
+  assert.deepEqual(await checkSaqlainReadiness({
+    env: { SAQLAIN_AUDIT_BACKEND: 'firestore' },
+  }), { ready: false, dependency: 'durable_storage' });
+
+  assert.deepEqual(await checkSaqlainReadiness({
+    env: { SAQLAIN_AUDIT_BACKEND: 'firestore', GOOGLE_CLOUD_PROJECT: 'saqlain-staging-123' },
+    firestoreProbe: async () => { throw new Error('simulated outage'); },
+  }), { ready: false, dependency: 'durable_storage' });
+
+  assert.deepEqual(await checkSaqlainReadiness({
+    env: { SAQLAIN_AUDIT_BACKEND: 'firestore', GOOGLE_CLOUD_PROJECT: 'saqlain-staging-123' },
+    firestoreProbe: async () => undefined,
+  }), { ready: true });
 });
