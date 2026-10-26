@@ -32,7 +32,7 @@ export async function writeWorkspaceDomain<T>(
   let response: Response;
   try {
     response = await apiFetch('/api/workspace-state/' + encodeURIComponent(domain), {
-      method: 'PUT',
+      method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ data, expectedVersion }),
     });
