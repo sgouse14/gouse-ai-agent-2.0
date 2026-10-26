@@ -119,6 +119,7 @@ export function transitionGousiyaRecoveryWorkflow(
   const actorId = requiredText(input.actorId, 'actorId', 128);
   const reason = requiredText(input.reason, 'reason', 2000);
   const evidenceId = input.evidenceId === undefined ? null : requiredText(input.evidenceId, 'evidenceId', 256);
+  let holdReturnStage = workflow.holdReturnStage;
   if (input.to === 'HOLD') holdReturnStage = workflow.stage;
   if (workflow.stage === 'HOLD' && input.to !== 'CLOSED' && input.to !== 'HOLD') {
     if (input.to !== workflow.holdReturnStage) {
@@ -127,7 +128,6 @@ export function transitionGousiyaRecoveryWorkflow(
     if (!evidenceId) throw new Error('Resuming a held workflow requires resolution evidence.');
     holdReturnStage = null;
   }
-  let holdReturnStage = workflow.holdReturnStage;
 
   if (input.to === 'SNAPSHOT_VALIDATED' && !evidenceId) {
     throw new Error('Snapshot validation requires a durable evidence reference.');
