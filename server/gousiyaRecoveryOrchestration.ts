@@ -119,6 +119,14 @@ export function transitionGousiyaRecoveryWorkflow(
   const actorId = requiredText(input.actorId, 'actorId', 128);
   const reason = requiredText(input.reason, 'reason', 2000);
   const evidenceId = input.evidenceId === undefined ? null : requiredText(input.evidenceId, 'evidenceId', 256);
+  if (input.to === 'HOLD') holdReturnStage = workflow.stage;
+  if (workflow.stage === 'HOLD' && input.to !== 'CLOSED' && input.to !== 'HOLD') {
+    if (input.to !== workflow.holdReturnStage) {
+      throw new Error('A held workflow may resume only at its recorded stage.');
+    }
+    if (!evidenceId) throw new Error('Resuming a held workflow requires resolution evidence.');
+    holdReturnStage = null;
+  }
   let holdReturnStage = workflow.holdReturnStage;
 
   if (input.to === 'SNAPSHOT_VALIDATED' && !evidenceId) {
@@ -135,14 +143,6 @@ export function transitionGousiyaRecoveryWorkflow(
   }
   if (input.to === 'VERIFIED' && (input.verificationPassed !== true || !evidenceId)) {
     throw new Error('Verification requires a passing trusted result and evidence reference.');
-  }
-  if (input.to === 'HOLD') holdReturnStage = workflow.stage;
-  if (workflow.stage === 'HOLD' && input.to !== 'CLOSED' && input.to !== 'HOLD') {
-    if (input.to !== workflow.holdReturnStage) {
-      throw new Error('A held workflow may resume only at its recorded stage.');
-    }
-    if (!evidenceId) throw new Error('Resuming a held workflow requires resolution evidence.');
-    holdReturnStage = null;
   }
   if (input.to === 'CLOSED' && workflow.stage !== 'VERIFIED' && !(workflow.stage === 'HOLD' && workflow.holdReturnStage === 'VERIFIED')) {
     throw new Error('Only a verified recovery workflow can be closed.');
