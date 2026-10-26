@@ -76,14 +76,14 @@ test('workspace HTTP routes enforce identity, validate requests, and protect ver
     assert.equal(invalidDomain.status, 400);
 
     const missingFields = await fetch(baseUrl + '/api/workspace-state/projects', {
-      method: 'PUT',
+      method: 'POST',
       headers: { Authorization: 'Bearer test-token', 'Content-Type': 'application/json' },
       body: JSON.stringify({ data: [] }),
     });
     assert.equal(missingFields.status, 400);
 
     const created = await fetch(baseUrl + '/api/workspace-state/projects', {
-      method: 'PUT',
+      method: 'POST',
       headers: { Authorization: 'Bearer test-token', 'Content-Type': 'application/json' },
       body: JSON.stringify({ data: [{ id: 'p1' }], expectedVersion: null }),
     });
@@ -99,7 +99,7 @@ test('workspace HTTP routes enforce identity, validate requests, and protect ver
     assert.deepEqual(await read.json(), { data: [{ id: 'p1' }], version: createdBody.version });
 
     const stale = await fetch(baseUrl + '/api/workspace-state/projects', {
-      method: 'PUT',
+      method: 'POST',
       headers: { Authorization: 'Bearer test-token', 'Content-Type': 'application/json' },
       body: JSON.stringify({ data: [{ id: 'stale' }], expectedVersion: null }),
     });
@@ -121,7 +121,7 @@ test('workspace HTTP routes return sanitized storage errors', async () => {
 test('workspace HTTP routes reject malformed JSON with a client error', async () => {
   await withServer(async baseUrl => {
     const response = await fetch(baseUrl + '/api/workspace-state/projects', {
-      method: 'PUT',
+      method: 'POST',
       headers: { Authorization: 'Bearer test-token', 'Content-Type': 'application/json' },
       body: '{"data":',
     });
