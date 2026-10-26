@@ -326,7 +326,11 @@ export function App() {
     setWorkspaceReady(false);
     setWorkspaceStatus('syncing');
     void synchronize();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+      // Prevent queued writes from one signed-in identity running after a user switch/unmount.
+      workspaceWritesBlocked.current = true;
+    };
   }, [workspaceSyncAttempt, signedInUid]);
 
   const queueWorkspaceWrite = (domain: WorkspaceDomain, data: unknown) => {
