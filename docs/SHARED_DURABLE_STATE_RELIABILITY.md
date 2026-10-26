@@ -46,6 +46,10 @@
 4. Split large domains into record-level documents before production-scale use and add collaborative project access only with explicit server-side membership checks.
 5. Finish end-to-end backup queue integration, shared rate limiting where required, GCS restore adapter, backup/restore rehearsal, and external host-down paging.
 
+## CI automation
+
+Added `.github/workflows/shared-state-ci.yml` to run the complete test suite, client/server TypeScript checks, production build, and Docker image build on pull requests, pushes to the shared-state branch, and manual dispatch. The workflow has been committed, but its GitHub Actions result has not yet been observed; do not treat workflow creation as a successful CI run.
+
 ## Validation record
 
 Eight focused backend unit tests passed locally: four readiness tests and four workspace-service tests covering user/domain isolation, optimistic concurrency conflicts, oversized data, and owner mismatch. A server TypeScript check was attempted but could not start because this environment lacks `@types/node`; dependency installation/network access is unavailable here. The React integration and route wiring have not passed a full typecheck/build/CI run. Full suite/typecheck/build and live cloud integration are **not yet verified**.
