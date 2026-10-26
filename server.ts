@@ -5,6 +5,7 @@ import { saqlainGatekeeperRouter } from './server/saqlainGatekeeperRoutes.ts';
 import { saqlainHeartbeatRouter } from './server/saqlainHeartbeatRoutes.ts';
 import { saqlainTaskQueueRouter } from './server/saqlainTaskQueueRoutes.ts';
 import { createSaqlainAgentRegistryRouter } from './server/saqlainAgentRegistryRoutes.ts';
+import { createGousiyaWorkflowRouter } from './server/gousiyaWorkflowRoutes.ts';
 import { createSaqlainSecuritySummaryHandler } from './server/saqlainSecuritySummaryRoutes.ts';
 import { saqlainWebsiteDiagnosticsHandler } from './server/saqlainWebsiteDiagnosticsRoutes.ts';
 
@@ -74,6 +75,9 @@ app.use('/api/security/task-queue', saqlainTaskQueueRouter);
 
 // Shared Firestore-backed agent registry; disabled until explicitly enabled and owner UID allowlist is configured.
 app.use('/api/security/agent-registry', createSaqlainAgentRegistryRouter());
+
+// Durable Gousiya workflow intake and read API. Protected recovery transitions remain server-internal.
+app.use('/api/security/gousiya/workflows', createGousiyaWorkflowRouter());
 
 // Authenticated, rate-limited, audited agent heartbeat ingestion.
 app.use('/api/security/heartbeats', saqlainHeartbeatRouter);
