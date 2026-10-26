@@ -62,7 +62,7 @@ function validateRecord(value: unknown): value is DurableAgentRecord {
     Number.isSafeInteger(r.completedTaskCount) && Number(r.completedTaskCount) >= 0 &&
     (r.status !== 'RETIRED' || r.ownerApproved === false);
 }
-function encodeFields(record: Record<string, unknown>) {
+function encodeFields(record: object) {
   return Object.fromEntries(Object.entries(record).map(([key, value]) => [key, encodeFirestoreValue(value)]));
 }
 function conflict(error: unknown): boolean {
@@ -266,7 +266,6 @@ export class SaqlainFirestoreAgentRegistry {
       if (current.status === 'RETIRED') throw new Error('Retired agents cannot transition.');
       if (input.target === 'SUSPENDED' && current.status !== 'ACTIVE') throw new Error('Only active agents can be suspended.');
       if (input.target === 'ACTIVE' && current.status !== 'SUSPENDED') throw new Error('Only suspended agents can be reactivated.');
-      if (input.target === 'RETIRED' && current.status === 'RETIRED') throw new Error('Agent is already retired.');
 
       const timestamp = this.now().toISOString();
       const updated: DurableAgentRecord = {
