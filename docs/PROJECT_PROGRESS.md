@@ -12,7 +12,7 @@ Updated: 2026-10-26
 - **Latest verified code CI:** [run #40172174991](https://github.com/sgouse14/gouse-ai-agent-2.0/actions/runs/40172174991) passed on commit `fae53738` on 2026-10-25. It passed security tests, both TypeScript checks, frontend/server production build, and Docker image build, including the optional off-host alert webhook and EMP telemetry integration.
 - **Feature branch:** `feature/saqlain-cyber-agent`
 - **Pull request:** [#6 — open and draft](https://github.com/sgouse14/gouse-ai-agent-2.0/pull/6). Previous PR #1 is closed and unmerged.
-- **Shared-state follow-up:** [PR #7](https://github.com/sgouse14/gouse-ai-agent-2.0/pull/7) is open and draft, targeting this feature branch; the shared-state changes are not yet included here.
+- **Shared-state follow-up:** [PR #8](https://github.com/sgouse14/gouse-ai-agent-2.0/pull/8) is open and draft, targeting this feature branch; the shared-state changes are not yet included here.
 - **Main branch:** unchanged; no merge performed.
 
 ## Work started — 21 October 2026
