@@ -94,7 +94,7 @@ function sendSafeError(res: Response, error: unknown): void {
     res.status(404).json({ error: 'Agent not found.' });
     return;
   }
-  if (/could not commit after repeated conflicts|could not commit after repeated conflicts|repeated conflicts|HTTP (429|500|502|503|504)|failed with HTTP (429|500|502|503|504)|timed out|network/i.test(message)) {
+  if (/could not commit after repeated conflicts|repeated conflicts|HTTP (401|403|429|500|502|503|504)|failed with HTTP (401|403|429|500|502|503|504)|timed out|network|not configured/i.test(message)) {
     res.status(503).json({ error: 'Agent registry is temporarily unavailable; retry later.' });
     return;
   }
@@ -121,8 +121,13 @@ export function createSaqlainAgentRegistryRouter(options: SaqlainAgentRegistryRo
     let identity: AgentRegistryIdentity;
     try {
       identity = await authenticate(token);
-    } catch {
-      res.status(401).json({ error: 'Firebase identity could not be verified.' });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '';
+      if (/not configured|required|service is unavailable|account status lookup failed|fetch failed|network|timed out|timeout/i.test(message)) {
+        res.status(503).json({ error: 'Agent registry identity verification is temporarily unavailable.' });
+      } else {
+        res.status(401).json({ error: 'Firebase identity could not be verified.' });
+      }
       return null;
     }
     if (!identity || typeof identity.uid !== 'string' || !identity.uid.trim() || identity.uid.length > 256) {
