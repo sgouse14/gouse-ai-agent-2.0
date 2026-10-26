@@ -20,10 +20,12 @@
 ## Priority 1 — Gousiya orchestration
 
 - Added a versioned state machine for incident intake, snapshot validation, dual approval, grant issuance, staged recovery, verification, hold, and closure.
-- Uses optimistic version checks to reject stale transitions.
-- Requires snapshot evidence, distinct owner/reviewer approval IDs, a trusted consumed-grant signal, and a passing verification reference.
+- Added `GousiyaFirestoreWorkflowStore` for shared durable workflow state, append-only transition events, and one-time approval-consumption records.
+- Workflow snapshots and event records are committed atomically with Firestore create/update preconditions; stale concurrent writes are rejected rather than overwritten.
+- Approval references are hashed into a dedicated ledger and consumed in the same atomic commit as grant issuance, preventing reuse across workflows.
+- Uses optimistic version checks to reject stale transitions and validates snapshot evidence, distinct owner/reviewer approval IDs, consumed-grant signals, and passing verification evidence.
 - Hold/resume is restricted to the stage recorded when the hold was entered.
-- The state machine does not repair files, consume grants itself, or promote staged data into production. A trusted caller must bind each supplied signal to persisted results and atomically save the new workflow record and audit event.
+- The store does not repair files, consume recovery grants itself, or promote staged data into production. A trusted caller must bind evidence and approval references to persisted verifier results.
 - Existing Gousiya emergency grant code still requires its configured signing secret, approver registry, grant store, and durable audit paths.
 
 ## Priority 1 — Communication Agent
@@ -35,7 +37,8 @@
 ## Validation gates
 
 - Registry and API tests cover atomic ledger/audit writes, state transitions, ID rotation/replay rejection, owner scoping, and fail-closed authentication.
+- Gousiya workflow-store tests cover restart reload, duplicate workflow creation, atomic approval consumption/replay rejection, stale concurrent transitions, and evidence-gated transitions.
 - Dedicated GitHub Actions workflow: `.github/workflows/agent-lifecycle-ci.yml`.
 - Must pass full automated tests, client/server TypeScript checks, production build, and Docker build.
 - Before enabling lifecycle management, set the required deployment environment and Firestore IAM permissions in a staging environment; confirm owner UID allowlist and rollback plan.
-- Before using Gousiya orchestration operationally, add an integration adapter that persists workflow transitions with audit atomically and derives evidence flags from trusted services rather than request payloads.
+- Before using Gousiya orchestration operationally, add and validate a narrowly scoped service/API adapter that authenticates callers and derives evidence flags from trusted services rather than request payloads; this storage layer alone does not authorize actors or execute recovery.
