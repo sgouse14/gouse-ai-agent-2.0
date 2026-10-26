@@ -134,7 +134,11 @@ export function createGousiyaWorkflowRouter(options: GousiyaWorkflowRouterOption
     if (!SAFE_ID.test(req.params.workflowId)) { res.status(400).json({ error: 'Safe workflowId is required.' }); return; }
     try {
       const workflow = await auth.store.get(req.params.workflowId);
-      if (!workflow || (workflow as { events?: Array<{ actorId?: unknown }> }).events?.[0]?.actorId !== auth.uid) {
+      if (!workflow) { res.status(404).json({ error: 'Workflow not found.' }); return; }
+      // Creator scope comes from the first immutable event in the append-only event store,
+      // not from an embedded snapshot that can be absent or stale in another store adapter.
+      const events = await auth.store.listEvents(req.params.workflowId);
+      if (events[0]?.actorId !== auth.uid) {
         res.status(404).json({ error: 'Workflow not found.' }); return;
       }
       res.setHeader('Cache-Control', 'no-store');
@@ -148,10 +152,12 @@ export function createGousiyaWorkflowRouter(options: GousiyaWorkflowRouterOption
     if (!SAFE_ID.test(req.params.workflowId)) { res.status(400).json({ error: 'Safe workflowId is required.' }); return; }
     try {
       const workflow = await auth.store.get(req.params.workflowId);
-      if (!workflow || (workflow as { events?: Array<{ actorId?: unknown }> }).events?.[0]?.actorId !== auth.uid) {
+      if (!workflow) { res.status(404).json({ error: 'Workflow not found.' }); return; }
+      const events = await auth.store.listEvents(req.params.workflowId);
+      // Return the same not-found response for missing and non-owned workflows to avoid enumeration.
+      if (events[0]?.actorId !== auth.uid) {
         res.status(404).json({ error: 'Workflow not found.' }); return;
       }
-      const events = await auth.store.listEvents(req.params.workflowId);
       res.setHeader('Cache-Control', 'no-store');
       res.json({ workflowId: req.params.workflowId, events });
     } catch (error) { sendStoreError(res, error); }
