@@ -2,236 +2,225 @@
 
 Updated: 2026-10-26
 
-## Status summary
+## Executive status
 
-**Active development — not production-ready.** Completed implementation and validation are recorded separately. Items in the remaining work queue are not marked complete until implemented, tested, and reviewed.
+**Active development — NOT production-ready.** This page consolidates completed implementation, observed test/CI results, configuration still required, and the remaining backlog across Saqlain, shared state, agent lifecycle, Gousiya, Communication Agent, website diagnostics, backup/monitoring, and EMP workstreams.
 
-- **Saqlain implementation progress:** approximately 65% (subjective planning estimate; not measured code coverage)
-- **Overall project completion / production readiness:** still in progress; do not treat these estimates as release approval.
-- Estimates are planning indicators, not measured code coverage or a precise issue-count calculation.
-- **Latest verified code CI:** [run #40172174991](https://github.com/sgouse14/gouse-ai-agent-2.0/actions/runs/40172174991) passed on commit `fae53738` on 2026-10-25. It passed security tests, both TypeScript checks, frontend/server production build, and Docker image build, including the optional off-host alert webhook and EMP telemetry integration.
-- **Feature branch:** `feature/saqlain-cyber-agent`
-- **Pull request:** [#6 — open and draft](https://github.com/sgouse14/gouse-ai-agent-2.0/pull/6). Previous PR #1 is closed and unmerged.
-- **Shared-state follow-up:** [PR #7](https://github.com/sgouse14/gouse-ai-agent-2.0/pull/7) is open and draft, targeting this feature branch; the shared-state changes are not yet included here.
-- **Main branch:** unchanged; no merge performed.
+Passing a test or changing code does not prove live deployment, production readiness, security certification, or physical-world protection.
 
-## Work started — 21 October 2026
+### Current pull requests and CI
 
-- [x] Secured the workspace-level Saqlain security-summary endpoint with recently authenticated, active Firebase identity verification and audit-before-response. Regression tests cover missing/malformed tokens, identity rejection, missing audit configuration, and audit write failure; the current branch CI has passed.
-- [x] Documented the required `SAQLAIN_AUDIT_FILE` setting in `.env.example`.
+- **Main Saqlain feature PR:** [#6](https://github.com/sgouse14/gouse-ai-agent-2.0/pull/6), draft, targeting `main`; earlier PR #1 is closed and unmerged.
+- **Shared durable-state PR:** [#8](https://github.com/sgouse14/gouse-ai-agent-2.0/pull/8), draft, targeting `feature/saqlain-cyber-agent`; it is a separate follow-up and is not automatically included in PR #10.
+- **Agent lifecycle / Gousiya / Communication PR:** [#10](https://github.com/sgouse14/gouse-ai-agent-2.0/pull/10), draft, targeting `feature/saqlain-cyber-agent`.
+- Earlier drafts #5 and #7 are superseded and were not merged.
+- No merge or production deployment is represented by this progress page.
+- Latest observed PR #10 workflow (run #52) was cancelled during later edits. After those edits, run #66 was pending with no jobs visible yet. The latest complete revision therefore has **not yet demonstrated a complete green CI run**.
+- Earlier successful runs validate only their exact commits, not subsequent revisions.
 
-## Stabilization progress — 24 October 2026
+### Status key
 
-- [x] Firestore queue task-state updates now require Firestore update-time metadata and fail closed if the metadata is missing; regression coverage added.
-- [x] Firestore enqueue now requires a stable idempotency key and atomically commits the task, sequence counter, and idempotency record. A retry for the same operator and payload returns the original task; mismatched payload/operator reuse is rejected.
-- [x] Added tests for sequential retries, concurrent retries using the same key, idempotency-key misuse, and missing update-time metadata.
-- [x] Updated the backup service to select the configured queue backend for startup interrupted-task recovery and monitoring queue counts. Firestore operations are awaited; the file-backed queue remains the file/local-mode default.
-- [x] Latest code CI passed in [run #40070558418](https://github.com/sgouse14/gouse-ai-agent-2.0/actions/runs/40070558418), commit `265fb184`: security tests, TypeScript checks, production build, and Docker build all passed.
-- [ ] End-to-end backup job enqueue/lock/complete through the shared Firestore queue remains incomplete. Current worker change aligns startup recovery and monitoring counts only.
-- [ ] Live Cloud Run/Firestore IAM, multi-instance concurrency, API outage, and recovery tests have not been run.
+- `[x]` Implemented with matching code/tests or a completed documented change.
+- `[ ]` Incomplete, awaiting review, awaiting actual validation, or still planned.
+- Configuration-dependent features remain unvalidated until a real environment is provisioned and tested.
 
-## Website Error Diagnostics — initial implementation (24 October 2026)
+---
 
-- [x] Added an initial read-only diagnostic service that can inspect a submitted page, detect common HTTP status problems, flag missing/empty HTML titles, and identify mixed-content references.
-- [x] Added bounded same-origin link/resource checks; discovered links/assets use HEAD, and cross-origin targets are not followed.
-- [x] Added DNS and request safeguards: exact public DNS hostnames, public IPv4-only resolution and pinned connections, rejected reserved/private targets, redirects constrained and revalidated, URL/header/body/time/concurrency limits.
-- [x] Added POST /api/website/diagnostics behind Firebase authentication and server-provisioned project membership.
-- [x] Added exact project-to-host allowlisting through SAQLAIN_WEBSITE_ALLOWED_HOSTS_JSON; wildcard hosts are rejected and missing/invalid configuration fails closed.
-- [x] Added audit-before-scan and audit-before-report behavior; audit failure denies the scan or withholds the report.
-- [x] Added tests for URL/IP validation, internal 404s, redirects, size limits, host authorization, authorization failures, and audit failures; added the tests to the standard test command.
-- [x] Each finding now includes an approval-gated repair proposal with steps, verification criteria, and rollback guidance; no remote change is applied automatically.
-- [x] Added a Website Error Diagnostics panel to the Saqlain Security view: URL input, result status, finding severity/evidence, proposed repair steps, verification criteria, rollback guidance, and scope limitations.
-- [x] Documented configuration, endpoint use, scope, limitations, and the future approval-gated repair workflow in docs/SAQLAIN_WEBSITE_DIAGNOSTICS.md.
-- [x] Full CI for the website diagnostics backend and security-view UI passed in [run #40072781250](https://github.com/sgouse14/gouse-ai-agent-2.0/actions/runs/40072781250), commit `433378b0`: security tests, TypeScript checks, frontend/server production build, and Docker image build all passed.
-- [ ] Live authorized staging-site validation is not yet performed.
-- [ ] Automatic repair is deliberately not implemented: the current endpoint only diagnoses and recommends fixes. A separate approved change adapter, explicit owner approval, verification, and rollback design are required before live changes.
+## 26 October 2026 — latest development increments
 
-## Priority 3 — backup, monitoring, and EMP operations (24 October 2026)
+### Shared durable state and readiness — [PR #8](https://github.com/sgouse14/gouse-ai-agent-2.0/pull/8)
 
-- [x] Monitoring now includes backup-cycle freshness and active-cycle age; a completed cycle older than 45 minutes or an active cycle exceeding 45 minutes is marked `FAILED`, and a missing last cycle without an active cycle is `HOLD`.
-- [x] Backup runtime exposes its current cycle start timestamp for monitoring and clears it on completion.
-- [x] Monitoring alerts and durable audit records include backup cycle age, in-progress duration, and most recent cycle status.
-- [x] Non-healthy monitoring cycles emit to the supervised service journal and support an injectable alert adapter with cycle-scoped idempotency keys; adapter failure holds the alert state and is audited.
-- [x] Added regression tests for stale completed cycles, partial cycles, stuck active cycles, and missing cycle state.
-- [x] Updated the backup deployment runbook with operational freshness thresholds and external paging requirements.
-- [x] Added a hardened example systemd unit with a dedicated service user, restart policy, read-only source/application paths, and explicit writable backup/queue/audit directories.
-- [ ] Thresholds need staging calibration based on measured cycle durations.
-- [x] Add a local read-only health freshness CLI and a five-minute systemd timer example that verifies the hash-chained audit log and monitoring cycle status.
-- [ ] External independent alerting/paging and process/host-down monitoring are not implemented by this change; a local timer cannot detect its own host outage.
-- [x] Added optional Google Cloud Storage off-site archival with bucket-versioning enforcement, create-only object preconditions, SHA-256/readback verification, and a completion marker written last; Cloud Run startup requires a configured archive bucket.
-- [x] Added integration tests proving that remote archive failure leaves the local snapshot intact but returns `HOLD`, while successful remote archive receipts are included in the durable backup audit.
-- [ ] Live GCS bucket/IAM validation, GCS restore adapter, and a supervised restore drill remain open.
-- [x] EMP resilience helper now requires owner-allowlisted source IDs and timestamped telemetry; stale, future, or unapproved-source observations return HOLD without scoring or physical action.
-- [x] Connect the EMP resilience helper to an optional protected local telemetry-file adapter and the monitoring collector, gated off by default. Exact owner-approved source IDs, file ownership/permissions, strict schema, and freshness checks are enforced in code.
-- [ ] Provision the real source allowlist and connect a trusted upstream collector that authenticates sensor provenance and writes snapshots atomically; no live telemetry source is configured.
-- [ ] Qualified site readiness assessments and independent recovery drills remain open; EMP remains an advisory module, not a physical detector.
+- [x] Added user-scoped Firestore shared workspace storage for projects, BOQ items, professionals, enquiries, and preferences.
+- [x] Added authenticated `GET` reads and versioned `POST` writes under `/api/workspace-state/:domain`, deriving ownership from verified Firebase UID.
+- [x] Added optimistic concurrency through Firestore preconditions/version tokens; stale writes return conflict instead of silently overwriting newer state.
+- [x] Added initial browser-state migration, pre-sync recovery snapshot, UID-switch isolation, local-only/conflict UI states, and user-triggered local JSON backup export.
+- [x] Added `/readyz` separately from lightweight `/healthz` liveness.
+- [x] Added workspace service/API tests for user/domain isolation, concurrency, size limits, auth, validation, malformed JSON, and storage failures.
+- [x] Earlier CI run #31 passed 273 tests, client/server TypeScript checks, production build, and Docker build for the commit it tested.
+- [ ] Revalidate the current revision and run live Cloud Run/Firestore IAM, multi-instance concurrency, outage/recovery, UID switch, migration rollback, and backup/restore scenarios.
+- [ ] Split large project/BOQ domains into record-level documents before production-scale use; current single-document domain cap is 700,000 bytes.
+- [ ] Implement cross-user collaboration explicitly; current sync is per Firebase UID, not collaborative sharing between users.
+- [ ] Inventory/migrate remaining component-level local state and rehearse recovery/rollback.
 
-## Previously completed — 20 October 2026
+Details: [Shared Durable State and Reliability](SHARED_DURABLE_STATE_RELIABILITY.md).
 
-### Security and governance
-- [x] Saqlain defensive security policy, protected-source/export boundaries, and blocks for destructive actions and external retaliation.
-- [x] Gatekeeper policy checks for identity, credentials, platform binding, and allowed scopes, with fail-closed behavior.
-- [x] Agent identity primitives: cryptographically random 128-bit binary IDs, stable agent keys, registration helpers, suspension/rotation helpers, current-ID checks, and no-reuse ledger contract.
-- [x] Verification chain with ordered 11-step review, evidence-backed checks, HOLD/re-review, rejection handling, and audit reconstruction.
-- [x] Scoped security policy for protected EMP-readiness assessments and internal agent communication.
+### Priority 1 — controlled agent creation and lifecycle — [PR #10](https://github.com/sgouse14/gouse-ai-agent-2.0/pull/10)
 
-### Task queue, backup, and recovery
-- [x] Task Queue Manager ownership/locking, timeout review, retry-safe requeue/fail decisions, and audit-before-mutation behavior.
-- [x] Single-host durable queue-store components and operator review controls.
-- [x] Four backup roles plus the Recovery Agent in a five-agent backup/recovery cycle.
-- [x] Dedicated Communication Agent added as a separate role in the six-role cycle; prepares sanitized cycle summaries and supports optional outbound status messages to operator-allowlisted remote-agent IDs.
-- [x] External messages are fixed-schema status envelopes only; sending requires trusted actor/project authorization, explicit approval, a configured transport adapter, and a successful pre-send audit record.
-- [x] Remote agents are not imported, invited, registered, provisioned, or granted Gouse AI access; no inbound remote-command path is added.
-- [x] SHA-256 backup manifests, traversal/symlink/special-file/duplicate-path checks, exclusive local snapshots, read-back verification, and tamper detection.
-- [x] Allowlisted read-only backup source adapter with bounded processing.
-- [x] In-process 30-minute backup/recovery scheduling, manual/start/stop controls, non-overlapping cycles, cycle IDs, and shutdown handling.
-- [x] Recovery rehearsal into separate staging; no overwriting originals and no automatic production promotion.
-- [x] Saqlain 30-minute monitoring runtime with health/hold/failure classification and fail-closed behavior on critical collector/audit failures.
+- [x] Added a shared Firestore-backed agent registry with per-agent records, a permanent issued-ID ledger, and append-only audit records.
+- [x] Registration, suspension, reactivation, retirement, and an internal task-completion ID-rotation operation use atomic commits and Firestore concurrency preconditions.
+- [x] Retired agent IDs remain in the no-reuse ledger; retired agents cannot be reactivated.
+- [x] Added owner-only `/api/security/agent-registry`. Firebase tokens/account status are verified server-side; owner privileges come from `SAQLAIN_AGENT_REGISTRY_OWNER_UIDS_JSON`, not request-body claims.
+- [x] Registry API remains disabled by default and requires explicit `SAQLAIN_AGENT_REGISTRY_ENABLED=true`.
+- [x] Added tests for lifecycle, atomic registry/audit/ledger operations, owner scoping, ID rotation/replay rejection, and fail-closed authentication.
+- [ ] Complete full CI on the current PR #10 head; earlier CI failed on server TypeScript issues before fixes were committed.
+- [ ] Provision/test Firebase project config, Web API key/account-status check, owner UID allowlist, Cloud Run identity, and least-privilege Firestore IAM in staging.
+- [ ] Connect ID rotation to a trusted queue/verifier integration so completion evidence cannot be asserted by a caller.
+- [ ] Add operational dashboard and staging multi-instance race/failure tests before enabling the registry.
 
-### Audit, identity, and emergency approval
-- [x] Hash-chained JSONL audit log, exclusive writer lock, fsync, history-integrity verification, and tamper detection.
-- [x] Firebase ID-token validation for signature, issuer, audience, expiry, recent authentication, account status, UID match, disabled users, and revocation boundary.
-- [x] Internal Gousiya approval issuer backed by a protected owner-managed role registry, signed short-lived scoped attestations, and audit-before-token-return.
-- [x] Approver registry file and parent-directory permission checks; no public approval or emergency-recovery HTTP endpoint.
-- [x] Gousiya short-lived single-use grants with durable locked/atomic single-host store and staging-only recovery rehearsal.
+### Priority 1 — expand Gousiya orchestration — [PR #10](https://github.com/sgouse14/gouse-ai-agent-2.0/pull/10)
 
-### EMP Attack Protector
-- [x] Layer 1 — resilience/readiness checklist for documented shielding/EMC assessment, surge protection, and offline backups.
-- [x] Layer 2 — reported-symptom triage for power loss, unexpected restarts, communications loss, unusual electrical damage, and multiple systems unavailable.
-- [x] Layer 3 — recovery readiness for runbook drills, spare hardware, and alternative communications.
-- [x] Defensive EMP incident-response plan for trusted reported attack/tampering indicators: preserve evidence, alert authorized operators, recommend approved local containment, use independent communications, verify offline backups, and recover only after approval.
-- [x] Explicit non-retaliation boundary: no reverse attack, external targeting, destructive response, or automatic containment; the module recommends defensive steps only.
-- [x] Server-side project-authorization callback and existing Saqlain policy check.
-- [x] Durable hash-chained audit; assessment output is withheld if audit persistence fails.
-- [x] Regression tests for ready/degraded states, reported observations, defensive response recommendations, non-retaliation constants, unknown threat indicators, authorization denial/errors, malformed input, and audit failure.
-- [x] Documented safety boundary: EMP protector is a software readiness/triage advisor, not a physical EMP detector and does not control hardware.
-
-### Testing, build, and documentation
-- [x] Regression tests for the Communication Agent and outbound communication boundary are included in the normal test command.
-- [x] GitHub Actions [run #39391310749](https://github.com/sgouse14/gouse-ai-agent-2.0/actions/runs/39391310749) passed on the pre-Communication-Agent code: 159 tests passed, 0 failed; TypeScript check, frontend/server production build, and Docker image build all succeeded.
-- [ ] Validate the newly authenticated Saqlain security-summary route and its regression tests through the full CI pipeline (security tests, TypeScript, production build, and Docker build).
-- [ ] Configure and stage-test actual approved recipient IDs and a trusted transport adapter before enabling external delivery; no real endpoint or credential is configured in this repository.
-- [x] Updated environment template and backup, monitoring, emergency recovery, EMP protection, production-readiness, and project-progress documentation.
-
-> Passing CI validates the tested code paths and build, not real-world physical EMP protection, production deployment, a penetration test, or security certification.
-
-## Remaining work queue — 24 October 2026 onward
-
-These are the next tasks and are **not yet complete**. Work should be implemented in small changes and revalidated after each meaningful step.
-
-### Priority 1 — identity, authorization, and approval configuration
-- [ ] Validate Firebase disabled-account and revoked-token behavior against the actual configured project.
-- [ ] Confirm real approver UID/role assignments and document the approval registry's add/remove/recovery process.
-- [ ] Set up production secret-manager integration and signing-key rotation/recovery procedures.
-- [x] Implement shared Firebase authentication on ordinary application API routes, a Google sign-in gate, server-side UID/project membership checks for project-scoped AI routes, API request ceilings, request-size limits, and regression tests. Configuration and staging validation remain open.
-- [ ] Provision `SAQLAIN_PROJECT_MEMBERSHIPS_JSON` with reviewed production Firebase UIDs/project IDs; test successful access and cross-project denial against the deployed Firebase project.
-- [ ] Validate distributed gateway/WAF rate limiting and proxy IP behavior in staging; built-in application counters are in-memory per process.
-
-### Priority 2 — shared durable state and reliability
-- [ ] Connect actual backup/recovery job enqueue, locking, completion, and restart reconciliation to the shared Firestore queue; current worker integration covers startup recovery and monitoring counts only.
-- [ ] Design and integrate transactional shared storage for agent identity records, issued-ID ledger, task queue, and emergency grants.
-- [ ] Add atomic grant consumption suitable for multi-instance deployments; retain single-host constraints until then.
-- [ ] Test concurrency, parallel replay, crashes, restarts, corruption, and reconciliation.
-- [ ] Add worker liveness checks and durable job/cycle state.
-
-### Priority 3 — backup, monitoring, and EMP operations
-- [x] Add an independent read-only audit freshness CLI that verifies the hash-chained audit log and fails when monitoring records are absent, stale, unhealthy, malformed, tampered, or mismatched.
-- [x] Add a dedicated systemd oneshot unit and five-minute timer example for the audit freshness check, with read-only filesystem access.
-- [x] Add an opt-in HTTPS off-host monitoring webhook adapter with exact hostname allowlisting, bearer authentication, redirect refusal, bounded timeout/payload, and per-cycle idempotency key.
-- [x] Integrate optional webhook delivery into the backup service while retaining local journal output; delivery failures remain auditable and escalate monitoring rather than appearing successful.
-- [x] Add webhook regression tests for HTTPS/hostname restrictions, payload schema, authentication and idempotency headers, redirects, timeout, failed responses, and opt-in configuration.
-- [x] Full CI for the alert webhook and EMP/health-check integration passed in [run #40172174991](https://github.com/sgouse14/gouse-ai-agent-2.0/actions/runs/40172174991), commit `fae53738`.
-- [x] Add an optional protected EMP telemetry file adapter with exact source allowlisting, strict schema/file permissions, timestamp freshness checks, and fail-closed behavior.
-- [x] Wire enabled EMP telemetry into the backup service monitoring snapshot; stale/future/unapproved readings trigger HOLD and fresh WATCH findings trigger WARNING. Monitoring polls every five minutes when this option is enabled.
-- [ ] Include the health-check unit and backup service in a provisioned staging host, verify supervisor restart/stop behavior, and assign an operations owner.
-- [ ] Configure and test independent off-host host-down monitoring and human paging; the local timer cannot detect an unavailable host from outside itself.
-- [ ] Configure trusted source roots and off-host/versioned backup storage; validate GCS bucket/IAM and run actual staging archive plus restore drills.
-- [ ] Connect a real, owner-managed telemetry collector and verify its source authentication, atomic file delivery, cadence, freshness thresholds, and alert escalation in staging. No live sensor source is configured.
-- [ ] Validate shielding/EMC, surge protection, power continuity, offline backups, spare hardware, and alternate communications with qualified site operators.
-- [ ] Conduct supervised recovery and restore drills; no automatic production promotion.
-
-### Priority 4 — audit and application-wide abuse controls
-- [ ] Replicate audit records off-host, preferably to immutable/WORM storage, with independent permissions, retention, alerts, and recovery procedures.
-- [ ] Add global/per-user/IP rate limits, request/replay controls, bounded concurrency, quotas, payload ceilings, and provider/network timeouts.
-- [ ] Complete external API/credential gateway behavior for issuance, rotation, revocation, scoped authorization, quota enforcement, and end-to-end integrations.
-- [ ] Configure the Communication Agent's remote-agent allowlist and vetted transport adapter, with endpoint-specific authentication, delivery receipts, rate limits, timeout/retry rules, and staging tests.
-
-### Priority 5 — production validation and sign-off
-- [ ] Deploy to a staging environment and run end-to-end integration tests.
-- [ ] Perform penetration testing, load/stress testing, and failure-injection tests (including disk-full, audit-lock, concurrent-cycle, and external-provider failures).
-- [ ] Review incident response, retention, alerting, and operator playbooks.
-- [ ] Complete a formal security review and production-readiness sign-off.
-
-**Planning note:** This is a prioritized next-day work queue, not a promise that every large integration or independent security review can be completed in one day. Anything not completed tomorrow stays open and is rescheduled honestly.
-
-## New roadmap added — 23 October 2026
-
-The following capabilities were requested for planning. They are **planned, not implemented**, and should be delivered in small, tested increments after the existing reliability priorities.
-
-### Priority 0 — finish and verify existing Saqlain work
-- [ ] Confirm the latest CI run remains green after any subsequent commits.
-- [ ] Finish connecting the backup worker and monitoring to the same Firestore-backed queue used by the operator routes.
-- [ ] Add and test idempotency for queue operations and retry paths.
-- [ ] Verify audit-backend selection, audit integrity, fail-closed behavior, and timeout/recovery transitions.
-- [ ] Review Cloud Run service identity and least-privilege Firestore IAM; run staging tests only when the environment is available.
-- [ ] Keep Gousiya emergency recovery behavior unchanged and add regression coverage where relevant.
-
-### Priority 1 — Saqlain website error detection and authorized repair
-- [ ] Start with read-only checks for observable HTTP errors, broken links, browser/JavaScript errors, and common configuration problems.
-- [ ] Produce evidence-based diagnosis and prioritized repair recommendations.
-- [ ] Generate proposed code/configuration fixes for owner review.
-- [ ] Require explicit authorization and approval before modifying a live website.
-- [ ] Test repairs in staging where possible; record changes and provide rollback/recovery guidance.
-- [ ] Limit checks and changes to websites and assets the operator is authorized to manage.
-
-### Priority 1 — new Website Safe Guard agent
-- [ ] Define a separate agent role for website health and defensive security checks.
-- [ ] Begin with authorized, read-only monitoring and common vulnerability/misconfiguration checks.
-- [ ] Report severity, evidence, and recommended remediation; alert approved operators about important findings.
-- [ ] Integrate findings with Saqlain through scoped, audited messages rather than duplicating all responsibilities.
-- [ ] Add approval gates for intrusive testing and any live changes.
-- [ ] Validate in an isolated staging/test environment before activation.
+- [x] Added a versioned recovery workflow state machine for intake, snapshot validation, approval, grant issuance, staged recovery, verification, hold, and closure.
+- [x] Added `GousiyaFirestoreWorkflowStore` for durable workflow snapshots, append-only events, and one-time approval-consumption records.
+- [x] Workflow state and event changes commit atomically with Firestore preconditions; stale concurrent updates are rejected.
+- [x] Approval IDs are hashed and consumed in the same commit as grant issuance to prevent cross-workflow replay.
+- [x] Added authenticated workflow intake/read API under `/api/security/gousiya/workflows`, with Firebase identity/account-status verification, server-side owner allowlist, creator-derived identity, and creator-scoped reads.
+- [x] Protected recovery transitions are not exposed publicly; approval/grant/verification flags are not accepted via an exposed client transition endpoint.
+- [x] Added store/API tests for restart reload, duplicate IDs, approval replay, stale concurrent updates, evidence gates, authentication, owner authorization, creator-only reads, and validation.
+- [ ] Resolve and verify latest server TypeScript, tests, production build, and Docker build on PR #10. CI run #50 previously failed on event type narrowing; a fix was committed. Run #52 was cancelled during subsequent edits; run #66 was pending with no jobs visible at last check.
+- [ ] Build trusted transition adapter that resolves approval/grant/verification signals from persisted verifier results and atomically commits transitions/audit before recovery.
+- [ ] Integrate actual grant consumption and staged recovery result; the store/API does not repair files or promote production data.
+- [ ] Exercise crash/restart, duplicate requests, parallel writers, approval replay, storage outage, and restore in staging.
 
 ### Priority 1 — improve the Communication Agent
-- [ ] Improve delivery acknowledgements, progress/status reporting, and clear failure responses.
-- [ ] Add bounded retries, duplicate-message protection, and escalation for unresolved failures.
-- [ ] Improve task context and handoffs between Gousiya, Saqlain, Website Safe Guard, and future agents.
-- [ ] Add priority handling for urgent security findings.
-- [ ] Audit important coordination events and apply access controls to sensitive message content.
-- [ ] Test with approved recipients and a vetted transport adapter; do not assume external delivery works until staging confirms it.
 
-### Priority 1 — expand Gousiya orchestration
-- [ ] Let Gousiya break larger requests into tasks, assign suitable agents, and track dependencies and completion.
-- [ ] Add conflict/duplicate-work prevention, bounded retries, and escalation for high-risk or unresolved work.
-- [ ] Validate agent results before reporting task completion.
-- [ ] Add a central view of agent health, active work, failures, and outstanding tasks.
-- [ ] Apply per-agent tool/resource permissions and retain human approval for high-impact actions.
-- [ ] Preserve Gousiya's existing emergency recovery behavior; do not allow automatic production promotion.
+- [x] Communication role exists separately from backup/recovery agents.
+- [x] Internal cycle reporter requires a fixed service identity and rejects empty/oversized result sets, malformed IDs/roles, and duplicate agent results.
+- [x] Reporting is sanitized and internal-only by default.
+- [x] Outbound status envelopes use a fixed schema and require approved recipients, authorization, policy approval, configured transport, and successful pre-send audit.
+- [x] Regression tests cover Communication Agent reporting and outbound security boundary.
+- [ ] Validate approved recipients and the real transport adapter in staging; no live external delivery credential or endpoint is configured here.
+- [ ] Add durable delivery receipts, idempotent message IDs, bounded retry/backoff, duplicate-delivery prevention, and escalation.
+- [ ] Correlate Gousiya handoffs and communication failures while enforcing access controls for sensitive content.
+- [ ] Add priority handling for urgent security findings without bypassing approvals.
 
-### Priority 1/2 — controlled agent creation and lifecycle management
-- [ ] Let Gousiya propose an agent from a capability gap, including purpose, instructions, tools, boundaries, and resource limits.
-- [ ] Check for duplicate or overlapping agents before creating a new one.
-- [ ] Register version, owner, permissions, and lifecycle state in a controlled registry.
-- [ ] Create and test agents in isolation; run functional and security checks before activation.
-- [ ] Require explicit approval for elevated permissions, sensitive-data access, and high-impact actions.
-- [ ] Support monitoring, pause/disable, updates, and rollback.
-- [ ] Prevent unbounded agent creation, resource consumption, and self-granted permissions.
+### CI automation
 
-**Proposed agent lifecycle:** Request → Design → Permission review → Isolated testing → Approval → Activation → Monitoring.
+- [x] `.github/workflows/shared-state-ci.yml` uses the committed `bun.lock` and runs tests, client/server TypeScript checks, production build, and Docker build.
+- [x] `.github/workflows/agent-lifecycle-ci.yml` runs the validation stack for the agent/Gousiya/Communication branch.
+- [ ] Confirm a successful complete workflow on the latest PR #10 head; previous commit results do not certify the current head.
 
-### Validation and end-of-day reporting
-- [ ] Run regression tests for agent coordination, permission boundaries, website authorization, and Gousiya recovery.
-- [ ] Record exact CI results, changed files/commits, and tests actually run.
-- [ ] Separate implemented features from design/documentation work and unverified cloud tasks.
-- [ ] Update progress estimates only from verified work; leave unfinished tasks open and reschedule them.
+---
 
-**Scope boundary:** These are roadmap items. They must not be reported as completed until code, tests, and required staging validation confirm the result. Avoid unrelated changes, unauthorized website testing, unapproved live repairs, and production deployment without approval.
+## Previously completed implementation milestones
+
+### Work started — 21 October 2026
+
+- [x] Secured workspace-level Saqlain security-summary endpoint with recently authenticated/active Firebase identity verification and audit-before-response.
+- [x] Added regression tests for missing/malformed tokens, identity rejection, absent audit configuration, and audit write failure.
+- [x] Documented `SAQLAIN_AUDIT_FILE` in `.env.example`.
+
+### Stabilization progress — 24 October 2026
+
+- [x] Firestore task-state updates require update-time metadata and fail closed if missing.
+- [x] Firestore enqueue uses stable idempotency keys and atomically commits task, sequence counter, and idempotency record.
+- [x] Retry behavior tested for sequential/concurrent same-key retry, mismatched payload/operator reuse, and missing update-time metadata.
+- [x] Backup service selects configured queue backend for startup interrupted-task recovery and monitoring counts.
+- [ ] End-to-end backup job enqueue/lock/execute/complete and restart reconciliation through the shared Firestore queue remain incomplete.
+- [ ] Live Firestore IAM, multi-instance race, API outage, and crash-recovery tests remain required.
+
+### Website Error Diagnostics — 24 October 2026
+
+- [x] Read-only diagnostics inspect common HTTP failures, missing/empty HTML titles, mixed-content references, and bounded same-origin links/resources.
+- [x] DNS/request safeguards include public IPv4-only resolution and pinned connections, private/reserved address rejection, redirect revalidation, and URL/header/body/time/concurrency bounds.
+- [x] `POST /api/website/diagnostics` uses Firebase auth and server-provisioned project membership.
+- [x] Exact project-to-host allowlisting through `SAQLAIN_WEBSITE_ALLOWED_HOSTS_JSON`; wildcard hosts are rejected and missing/invalid configuration fails closed.
+- [x] Audit-before-scan/report behavior and approval-gated repair proposals with verification/rollback guidance; no remote change is applied automatically.
+- [x] Added Saqlain Security UI panel and docs for configuration/scope/limitations.
+- [x] CI run #40072781250 passed the tested diagnostics backend/UI commit: tests, TypeScript, production build, and Docker build.
+- [ ] Live authorized staging-site validation remains open.
+- [ ] Approved live-repair adapter remains unimplemented and must be separately gated.
+
+### Priority 3 — backup, monitoring, EMP operations — 24–25 October
+
+- [x] Monitoring checks backup freshness and active-cycle age; stale/missing/stuck cycles become FAILED/HOLD.
+- [x] Backup runtime exposes cycle start/clears on completion and audits freshness, duration, and cycle state.
+- [x] Non-healthy cycles log to service journal and alert via injectable adapter with cycle-scoped idempotency; failures are audited and held.
+- [x] Runbook includes freshness thresholds and external paging requirements; systemd example uses a dedicated user/restart policy/read-only app/source paths.
+- [x] Added read-only audit/health freshness CLI and five-minute systemd timer example.
+- [x] Optional GCS off-site archive includes versioning enforcement, create-only preconditions, SHA-256/readback verification, and completion marker written last.
+- [ ] GCS IAM/live bucket validation, restore adapter, and supervised restore drill remain open.
+- [x] EMP resilience helper requires owner-allowlisted source IDs and timestamped telemetry; stale/future/unapproved observations HOLD without physical action.
+- [x] Optional protected telemetry-file adapter is gated off by default and validates source allowlist/schema/file permissions/freshness.
+- [ ] Trusted live telemetry collector, site readiness assessment, independent recovery drills, and physical validation remain open.
+- [ ] Local timer cannot detect its own host outage; independent off-host paging is required.
+- [x] Earlier CI run #40172174991 passed the tested alert-webhook and EMP/health integration commit; it does not validate later changes.
+
+### Security and recovery foundations — 20 October
+
+- [x] Saqlain defensive security policy, protected-source/export boundaries, and blocks for destructive actions/external retaliation.
+- [x] Gatekeeper identity, credential, platform-binding, and scope checks with fail-closed behavior.
+- [x] Agent identity primitives: cryptographically random 128-bit IDs, stable keys, lifecycle helpers, current-ID checks, and no-reuse contract.
+- [x] Ordered 11-step verification chain with evidence checks, HOLD/re-review, rejection handling, and audit reconstruction.
+- [x] Task Queue Manager ownership/locking, timeout review, retry-safe requeue/fail decisions, and audit-before-mutation.
+- [x] Five-agent backup/recovery cycle and separate Communication Agent.
+- [x] SHA-256 backup manifests, traversal/symlink/special-file/duplicate-path checks, exclusive snapshots, read-back verification, tamper detection, and bounded allowlisted source adapter.
+- [x] In-process 30-minute scheduler, non-overlapping cycles, cycle IDs, start/stop/manual controls, and shutdown handling.
+- [x] Recovery rehearsal uses separate staging; original files are not overwritten and production promotion is not automatic.
+- [x] Saqlain monitoring runtime and hash-chained JSONL audit with writer lock, fsync, integrity verification, and tamper detection.
+- [x] Firebase ID-token validation foundation covers signature, issuer, audience, expiry, recent authentication, account status, UID match, disabled users, and revocation boundary.
+- [x] Internal Gousiya approval issuer uses protected role registry, signed short-lived scoped attestations, and audit-before-token-return.
+- [x] Gousiya short-lived single-use grants with durable locked/atomic single-host store and staging-only rehearsal. This remains single-host, not a distributed transactional grant service.
+- [x] EMP checklist, symptom triage, recovery readiness, defensive response recommendations, no-retaliation boundary, authorization callback, durable audit, and regression tests.
+- [x] EMP module is a software readiness/triage advisor, not a physical detector and does not control hardware.
+
+Historical CI references include run #39391310749 (159 tests and then-current typecheck/build/Docker), #40172174991 (tested alert-webhook/EMP integration), #40072781250 (website diagnostics), and shared-state run #31 (273 tests/typecheck/build/Docker). These runs validate only the commits they tested.
+
+---
+
+## Remaining work queue — not complete until verified
+
+### Priority 0 — latest CI and stabilization
+
+- [ ] Obtain a full green CI result for current PR #10 head: tests, client/server TypeScript, production build, Docker.
+- [ ] Obtain a full green CI result for PR #8 current head if still active.
+- [ ] Review PR diffs and resolve security/type/test findings before marking either PR ready.
+- [ ] Re-run regression tests after lifecycle/workflow validation changes.
+- [ ] Keep `main` unchanged until human review and merge approval.
+
+### Priority 1 — agent lifecycle and Gousiya operations
+
+- [ ] Integrate verified task queue completion with trusted internal ID rotation.
+- [ ] Add least-privilege lifecycle roles/APIs if more than the initial owner-only service is required.
+- [ ] Verify disabled/revoked Firebase account behavior against the real project.
+- [ ] Provision owner allowlists, Firebase config, Cloud Run service identity, and Firestore IAM in staging; document rollback.
+- [ ] Connect durable Gousiya workflow storage to real grant issuance/consumption and staged recovery.
+- [ ] Derive approvals and verification statuses from trusted persisted results, never client-provided booleans.
+- [ ] Ensure crash recovery resumes deterministically with atomic state/audit records.
+- [ ] Add per-incident access roles, operation idempotency, status monitoring, and operator runbooks.
+- [ ] Keep production promotion manual and approval-gated.
+
+### Priority 2 — shared durable state and reliability
+
+- [ ] Connect backup/recovery enqueue, locking, execution, completion, and interrupted-job reconciliation to shared Firestore queue.
+- [ ] Migrate large project/BOQ domains to record-level/transactional storage before the 700,000-byte cap.
+- [ ] Implement cross-user collaboration only with explicit server-side project membership and role enforcement.
+- [ ] Inventory/migrate remaining component-level localStorage data.
+- [ ] Run Firestore IAM, multi-instance concurrency, outage/recovery, restart persistence, migration rollback, and backup/restore drills.
+- [ ] Add distributed rate limiting and robust worker liveness/durable cycle state.
+
+### Priority 2 — Communication Agent and Website Safe Guard
+
+- [ ] Configure real approved recipients/vetted transport; stage-test receipts, failures, bounded retries, duplicate sends, and timeouts.
+- [ ] Add durable outbox/idempotency and clear failure escalation.
+- [ ] Build Website Safe Guard as authorized read-only checks first, with scoped/audited handoff to Saqlain.
+- [ ] Require approval for intrusive testing and live repairs; preserve evidence, verification, and rollback.
+
+### Priority 3 — backup, monitoring, EMP
+
+- [ ] Calibrate cycle thresholds from staging measurements.
+- [ ] Implement off-host host-down monitoring and human paging.
+- [ ] Provision GCS bucket/versioning/IAM and run archive/restore drills.
+- [ ] Add trusted telemetry collection/provenance and verify cadence/freshness in staging.
+- [ ] Validate physical shielding/EMC, surge protection, power continuity, offline backups, spares, and alternate communications with qualified operators.
+- [ ] Conduct supervised recovery/restore drills without automatic production promotion.
+
+### Priority 4 — application-wide security and operations
+
+- [ ] Provision `SAQLAIN_PROJECT_MEMBERSHIPS_JSON` with reviewed production Firebase UIDs/project IDs; test valid access and cross-project denial.
+- [ ] Validate WAF/gateway rate limiting and proxy IP behavior; application counters are in-memory per process.
+- [ ] Configure production secret management and signing-key rotation/recovery.
+- [ ] Replicate immutable/off-host audit records with independent retention, access control, alerts, and recovery.
+- [ ] Complete scoped credential issuance/rotation/revocation, quotas, and end-to-end external integrations.
+- [ ] Perform penetration, load/stress, and failure-injection tests: disk full, audit lock, competing cycles, storage/provider/network failures.
+- [ ] Review incident response, operator playbooks, retention, alerting, and formal security sign-off.
+
+---
 
 ## Release boundary
 
-- PR #1 remains open and draft.
-- `main` remains unchanged.
-- Gousiya remains staging-only; no recovery output should be automatically promoted to production.
-- The EMP protector does not confirm that an EMP occurred and does not control physical equipment.
-- The local hash-chained audit log is not immutable against privileged OS users and is not replicated off-host yet.
-- Do not describe the whole project as production-ready until the application-wide security, deployment, reliability, staging, and review work above is completed and validated.
+- PRs #6, #8, and #10 are draft review branches; verify live GitHub state before merging.
+- No production deployment or merge is represented by this progress report.
+- Gousiya recovery remains staging-only; output is not automatically promoted into production.
+- Local hash-chained audit is not immutable against privileged OS users and is not yet replicated off-host.
+- Passing CI validates only the exact commit and paths run; it is not a penetration test, physical EMP protection, production deployment, or security certification.
+- Keep implemented, pending, and planned work separate; estimates must not be presented as measured coverage without evidence.
