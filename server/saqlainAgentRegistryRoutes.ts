@@ -48,6 +48,12 @@ function configuredAuthenticator(): AgentRegistryAuthenticator {
   });
 }
 
+let productionAuthenticator: AgentRegistryAuthenticator | undefined;
+async function authenticateWithConfiguredFirebase(token: string): Promise<AgentRegistryIdentity> {
+  productionAuthenticator ??= configuredAuthenticator();
+  return productionAuthenticator(token);
+}
+
 function configuredOwnerUids(): ReadonlySet<string> {
   let parsed: unknown;
   try {
@@ -102,7 +108,7 @@ function sendSafeError(res: Response, error: unknown): void {
  */
 export function createSaqlainAgentRegistryRouter(options: SaqlainAgentRegistryRouterOptions = {}) {
   const router = Router();
-  const authenticate = options.authenticateToken ?? configuredAuthenticator;
+  const authenticate = options.authenticateToken ?? authenticateWithConfiguredFirebase;
   const getRegistry = options.getRegistry ?? configuredRegistry;
   const getOwners = options.getOwnerUids ?? configuredOwnerUids;
 
