@@ -1,38 +1,50 @@
 # Gouse AI Agent 2.0 — Project Progress
 
-Updated: 2026-10-26 (verified branch and CI refresh)
+Updated: 2026-10-26 (full checklist count and PR/CI status refresh)
 
 ## Status summary
 
 **Active development — not production-ready.** Completed implementation and validation are recorded separately. Items in the remaining work queue are not marked complete until implemented, tested, and reviewed.
 
-- **Saqlain implementation progress:** approximately 65% (subjective planning estimate; not measured code coverage)
-- **Overall project completion / production readiness:** still in progress; do not treat these estimates as release approval.
-- Estimates are planning indicators, not measured code coverage or a precise issue-count calculation.
-- **Latest verified full CI on the feature branch (26 Oct):** [run #40291202351](https://github.com/sgouse14/gouse-ai-agent-2.0/actions/runs/40291202351) passed on documentation/status commit `e03920a49db3ab718782fc874d69fa47b95c8c0a`: security tests, client TypeScript, server authorization TypeScript, production build, and Docker image build succeeded. Subsequent edits to this progress file are documentation-only and trigger their own CI; the underlying branch code has not changed in those edits. Live Firebase/Firestore/cloud staging validation is still outstanding.
+- **Checklist completion (measured 26 Oct):** 80 checked / 160 tracked checklist items (**50% by checklist count**); 80 unchecked items (**50% remain**). This is a raw count of Markdown checkboxes in this document, not weighted project completion, code coverage, or production readiness.
+- **Saqlain implementation estimate:** approximately 65% (subjective planning estimate; not measured code coverage). Keep this separate from the checklist percentage.
+- **Overall project/production readiness:** still in progress; do not treat either estimate as release approval.
+- **Latest verified feature-branch CI:** [run #40291818355](https://github.com/sgouse14/gouse-ai-agent-2.0/actions/runs/40291818355) passed on documentation/status commit `c2ef4f84`: security tests, client/server TypeScript checks, frontend/server production build, and Docker image build all succeeded. Live Firebase/Firestore/cloud staging validation is still outstanding.
 - **Feature branch:** `feature/saqlain-cyber-agent`
 - **Main feature PR:** [#6 — open, draft, not merged](https://github.com/sgouse14/gouse-ai-agent-2.0/pull/6), targeting `main`.
-- **Shared durable-state follow-ups:** [PR #7](https://github.com/sgouse14/gouse-ai-agent-2.0/pull/7) and [PR #8](https://github.com/sgouse14/gouse-ai-agent-2.0/pull/8) remain open, draft, and unmerged; their code is **not included** in this feature branch. The newer clean PR #8 head `b9bdedea` passed full CI in [run #40285754004](https://github.com/sgouse14/gouse-ai-agent-2.0/actions/runs/40285754004): automated tests, client/server TypeScript, production build, and Docker build all succeeded. Live Cloud Run/Firestore staging checks remain outstanding. PR #7 is an older parallel draft with focused local tests documented but no independently verified full CI for its current head in this check; avoid merging both overlapping drafts without consolidating their changes.
+- **Shared durable-state PRs #7 and #8:** both are **closed without merging** (GitHub state `closed`, `merged=false`). Their changes therefore are **not included** in this feature branch. PR #8 head `b9bdedea` passed full CI in [run #40285754004](https://github.com/sgouse14/gouse-ai-agent-2.0/actions/runs/40285754004), but live Cloud Run/Firestore staging checks are open. PR #7 was the older overlapping draft; consolidate/reopen a single maintained PR only if this work is to be continued.
 - **Recent feature commits:** [`b8ebcc2`](https://github.com/sgouse14/gouse-ai-agent-2.0/commit/b8ebcc29c514ba07c00a746e6a961bdaf1cd0604) corrects progress date/PR status. Separate open PRs #7/#8 propose authenticated per-user Firestore workspace persistence, readiness endpoint, optimistic version conflicts, migration/recovery snapshots, and JSON backup export; do not count these as merged feature-branch code. Validate any additional UI/agent work in the broader repository against the feature branch and current PR diff before release.
 - **Main branch:** no merge of PR #6 and no production deployment.
 
 ## Separate in-progress work — agent lifecycle and Gousiya (26 October 2026)
 
-- [ ] [PR #10](https://github.com/sgouse14/gouse-ai-agent-2.0/pull/10) remains open and draft, with head branch `feat/agent-lifecycle-gousiya-communication` targeting this feature branch. Its registry/workflow/API code is **not included in this branch** unless the PR is explicitly merged.
+- [ ] [PR #10](https://github.com/sgouse14/gouse-ai-agent-2.0/pull/10) is **closed without merging** (GitHub state `closed`, `merged=false`), with head branch `feat/agent-lifecycle-gousiya-communication` targeting this feature branch. Its registry/workflow/API code is **not included in this branch**.
 - [x] PR #10 adds a Firestore-backed agent registry with a permanent issued-ID ledger and append-only audit events; it adds durable Gousiya workflow snapshots/events with optimistic concurrency and one-time approval-reference consumption; its intake/read API is authenticated and owner-scoped. These are PR claims and remain subject to the CI/staging gates below.
 - [x] Investigated PR #10 run [#40289945968](https://github.com/sgouse14/gouse-ai-agent-2.0/actions/runs/40289945968): 288 of 289 tests passed; the workflow owner-read test got HTTP 404 instead of 200 because the route relied on an embedded `events` array that the store interface does not require.
 - [x] Fixed creator scoping in [commit `253c9567`](https://github.com/sgouse14/gouse-ai-agent-2.0/commit/253c95675cf7d3c9f9cbf0a26cffb9189fa268c5): read ownership now derives from the first immutable append-only event returned by `listEvents`, and non-owner/missing workflows retain the same 404 response to avoid enumeration.
-- [x] Full CI for that PR #10 fix passed in [run #40291357773](https://github.com/sgouse14/gouse-ai-agent-2.0/actions/runs/40291357773): automated tests, client and server TypeScript checks, production build, and Docker image build all succeeded.
-- [ ] Live Firestore IAM, owner allowlist, multi-instance/replay behavior, and staged recovery validation also remain outstanding; PR #10 is still draft/open and must not be described as merged.
+- [x] Full CI for that PR #10 fix passed in [run #40291357773](https://github.com/sgouse14/gouse-ai-agent-2.0/actions/runs/40291357773): automated tests, client and server TypeScript checks, production build, and Docker image build all succeeded. This validates the PR's tested branch, not its integration into this feature branch.
+- [ ] Live Firestore IAM, owner allowlist, multi-instance/replay behavior, and staged recovery validation also remain outstanding; PR #10 is closed unmerged.
 
 ## Today — 26 October 2026: branch and CI verification
 
 - [x] Refreshed branch status against GitHub and separated code-verified commits from the later documentation-only progress refresh commits.
 - [x] Verified full CI in [run #40291202351](https://github.com/sgouse14/gouse-ai-agent-2.0/actions/runs/40291202351) passed tests, client/server TypeScript checks, production build, and Docker image build; [run #40282385363](https://github.com/sgouse14/gouse-ai-agent-2.0/actions/runs/40282385363) also passed on the earlier feature-code snapshot. This latest progress-log edit is documentation-only and has its own CI run.
-- [x] Verified shared workspace PRs #7 and #8 are open draft PRs targeting the feature branch; workspace persistence remains separate. PR #8 full CI passed on commit `b9bdedea`; live staging and restore checks remain open.
+- [x] Verified shared workspace PRs #7 and #8 were closed without merging; their work remains separate. PR #8 full CI passed on commit `b9bdedea`; live staging and restore checks remain open.
 - [x] Recorded that PR #6 remains open and draft targeting `main`; no main-branch merge or production deploy occurred.
 - [ ] Confirm the merged shared-state changes against live Firebase/Firestore IAM, real multi-instance concurrency, outage/recovery, and restore drills in staging.
 - [ ] Re-run a current full CI run after any additional code change, and maintain the distinction between CI green and production readiness.
+
+## Completion count — 26 October 2026
+
+Counting every Markdown task checkbox in this progress file (including roadmap items and validations):
+
+| Measure | Count | Share |
+|---|---:|---:|
+| Checked items | 80 | 50% |
+| Unchecked items | 80 | 50% |
+| Total checklist items | 160 | 100% |
+
+**Interpretation:** 80 checklist items are marked done and 80 remain unchecked. Because this count combines implementation work, planning/roadmap items, and staging/sign-off tasks, it is a checklist completion measure—not a claim that the software is 50% production-ready. Some completed implementation is recorded historically, while multiple separate PRs are now closed unmerged, so their code remains outside this branch.
 
 ## Work started — 21 October 2026
 
@@ -249,7 +261,7 @@ The following capabilities were requested for planning. They are **planned, not 
 ## Release boundary
 
 - PR #6 is the current open draft feature PR targeting `main`; PR #1 is closed and unmerged.
-- Shared-state PRs #7 and #8 remain separate open draft PRs targeting the feature branch; neither is merged.
+- Shared-state PRs #7 and #8 are closed unmerged; PR #10 is also closed unmerged. None of their changes is integrated into this feature branch.
 - `main` remains unchanged by this feature work.
 - Gousiya remains staging-only; no recovery output should be automatically promoted to production.
 - The EMP protector does not confirm that an EMP occurred and does not control physical equipment.
