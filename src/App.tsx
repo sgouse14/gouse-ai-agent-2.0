@@ -204,9 +204,23 @@ export function App() {
         currency: readLocal('gouse_ai_currency', currency),
       },
     };
+    // Keep a recoverable snapshot before any shared data can replace local state.
+    // This backup is deliberately retained after successful sync for manual recovery.
+    try {
+      localStorage.setItem('gouse_ai_local_backup_before_shared_sync', JSON.stringify({
+        savedAt: new Date().toISOString(),
+        domains: localSnapshot,
+      }));
+    } catch {
+      // Do not delete or clear the original domain keys if the backup cannot be written.
+    }
+    let sharedProjectIds = new Set(
+      (Array.isArray(localSnapshot.projects) ? localSnapshot.projects as Project[] : []).map((project) => project.id),
+    );
 
     const applyShared = (domain: WorkspaceDomain, data: unknown, version: string) => {
       if (domain === 'projects' && Array.isArray(data)) {
+        sharedProjectIds = new Set((data as Project[]).map((project) => project.id));
         setProjects(data as Project[]);
       } else if (domain === 'boqItems' && Array.isArray(data)) {
         setBoqItems(data as BOQItem[]);
@@ -216,7 +230,11 @@ export function App() {
         setEnquiries(data as MarketplaceEnquiry[]);
       } else if (domain === 'preferences' && data && typeof data === 'object') {
         const preferences = data as { activeProjectId?: unknown; currency?: unknown };
-        if (typeof preferences.activeProjectId === 'string') setActiveProjectId(preferences.activeProjectId);
+        if (typeof preferences.activeProjectId === 'string' && sharedProjectIds.has(preferences.activeProjectId)) {
+          setActiveProjectId(preferences.activeProjectId);
+        } else if (sharedProjectIds.size > 0) {
+          setActiveProjectId([...sharedProjectIds][0]);
+        }
         if (typeof preferences.currency === 'string' && ['INR', 'USD', 'EUR', 'GBP', 'AED'].includes(preferences.currency)) {
           setCurrency(preferences.currency as CurrencyCode);
         }
