@@ -17,6 +17,7 @@ import { Project, BOQItem, ProfessionalProfile, MarketplaceEnquiry, EnquiryStatu
 import { CurrencyCode } from './utils/formatters';
 import { ensureItemFloorBreakdown, DEFAULT_BUILDING_FLOORS } from './utils/floorTakeoffEngine';
 import { readWorkspaceDomain, writeWorkspaceDomain, WorkspaceApiError, type WorkspaceDomain } from './workspaceStateClient';
+import { firebaseAuth } from './firebase';
 
 export function App() {
   // Navigation
@@ -194,7 +195,10 @@ export function App() {
         return fallback;
       }
     };
-    const localSnapshot: Record<WorkspaceDomain, unknown> = {
+    const currentUid = firebaseAuth.currentUser?.uid;
+    let previousOwnerUid: string | null = null;
+    try { previousOwnerUid = localStorage.getItem('gouse_ai_workspace_owner_uid'); } catch { /* storage may be disabled */ }
+    const storedLocalSnapshot: Record<WorkspaceDomain, unknown> = {
       projects: readLocal('gouse_ai_projects', projects),
       boqItems: readLocal('gouse_ai_boq_items', boqItems),
       professionals: readLocal('gouse_ai_professionals', professionals),
@@ -204,15 +208,39 @@ export function App() {
         currency: readLocal('gouse_ai_currency', currency),
       },
     };
-    // Keep a recoverable snapshot before any shared data can replace local state.
-    // This backup is deliberately retained after successful sync for manual recovery.
+    const ownerMismatch = Boolean(currentUid && previousOwnerUid && currentUid !== previousOwnerUid);
+    const localSnapshot: Record<WorkspaceDomain, unknown> = ownerMismatch ? {
+      projects: INITIAL_PROJECTS,
+      boqItems: INITIAL_BOQ_ITEMS.map((item) => ensureItemFloorBreakdown(item, DEFAULT_BUILDING_FLOORS)),
+      professionals: INITIAL_PROFESSIONALS,
+      enquiries: INITIAL_ENQUIRIES,
+      preferences: { activeProjectId: INITIAL_PROJECTS[0]?.id ?? '', currency },
+    } : storedLocalSnapshot;
+
+    // Keep the pre-sync data in a UID-specific recovery snapshot. If a different
+    // Firebase user signs into this browser, never import the previous user's
+    // browser data into the new user's cloud workspace.
     try {
-      localStorage.setItem('gouse_ai_local_backup_before_shared_sync', JSON.stringify({
-        savedAt: new Date().toISOString(),
-        domains: localSnapshot,
-      }));
+      if (ownerMismatch && previousOwnerUid) {
+        localStorage.setItem('gouse_ai_local_backup_' + previousOwnerUid, JSON.stringify({
+          savedAt: new Date().toISOString(),
+          domains: storedLocalSnapshot,
+        }));
+        setProjects(INITIAL_PROJECTS);
+        setBoqItems(INITIAL_BOQ_ITEMS.map((item) => ensureItemFloorBreakdown(item, DEFAULT_BUILDING_FLOORS)));
+        setProfessionals(INITIAL_PROFESSIONALS);
+        setEnquiries(INITIAL_ENQUIRIES);
+        setActiveProjectId(INITIAL_PROJECTS[0]?.id ?? '');
+      } else {
+        localStorage.setItem('gouse_ai_local_backup_before_shared_sync', JSON.stringify({
+          savedAt: new Date().toISOString(),
+          ownerUid: currentUid ?? null,
+          domains: storedLocalSnapshot,
+        }));
+      }
+      if (currentUid) localStorage.setItem('gouse_ai_workspace_owner_uid', currentUid);
     } catch {
-      // Do not delete or clear the original domain keys if the backup cannot be written.
+      // Never delete original domain keys if the recovery snapshot cannot be written.
     }
     let sharedProjectIds = new Set(
       (Array.isArray(localSnapshot.projects) ? localSnapshot.projects as Project[] : []).map((project) => project.id),
