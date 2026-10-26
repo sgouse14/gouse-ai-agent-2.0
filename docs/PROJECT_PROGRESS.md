@@ -45,8 +45,9 @@ Updated: 2026-10-26
 - [x] Added `docs/SHARED_DURABLE_STATE_RELIABILITY.md` describing the implementation and limits.
 - [x] Added `.github/workflows/shared-state-ci.yml` to run all tests, client/server TypeScript checks, production build, and Docker build for pull requests and on demand.
 - [x] Fixed the initial workflow setup failure: the repo uses `bun.lock`, not an npm lockfile. CI now installs the committed dependency graph with `bun install --frozen-lockfile`.
-- [ ] The first CI run stopped at Node setup because npm lockfile caching was configured; the corrected Bun-based workflow run is pending.
-- [ ] Full project tests, client/server TypeScript checks, production build, Docker build, route integration tests, and PR CI on the GitHub runner remain unverified.
+- [x] The initial CI setup and server type errors were fixed; CI run #31 completed successfully across tests, both type checks, production build, and Docker build.
+- [x] Full CI run #31 passed on the shared-state branch: all 273 automated tests, client TypeScript check, server TypeScript check, production build, and Docker image build succeeded.
+- [ ] Live Cloud Run/Firestore IAM and multi-instance staging validation remain outstanding.
 - [ ] Live Firestore IAM, multi-instance concurrency, outage/recovery, UID-switching, migration rollback, and large-data validation remain required before production use.
 
 **Scope limits:** shared state is per Firebase user, not collaborative between different users. Each domain is currently a single Firestore document capped at 700,000 bytes; large project/BOQ data needs record-level storage. Browser localStorage remains as a recovery copy, and other component-level local data still needs inventory/migration.
