@@ -19,13 +19,15 @@ export interface DurableAgentRecord {
 }
 export interface DurableAgentAuditEvent {
   eventId: string;
-  eventType: 'REGISTERED' | 'SUSPENDED' | 'REACTIVATED' | 'RETIRED';
+  eventType: 'REGISTERED' | 'SUSPENDED' | 'REACTIVATED' | 'RETIRED' | 'ID_ROTATED';
   actorUid: string;
   agentKey: string;
   previousStatus: DurableAgentStatus | null;
   currentStatus: DurableAgentStatus;
   reason: string;
   occurredAt: string;
+  previousBinaryIdHash?: string;
+  currentBinaryIdHash?: string;
 }
 export interface FirestoreAgentRegistryOptions {
   client?: SaqlainFirestoreRestClient;
@@ -155,6 +157,84 @@ export class SaqlainFirestoreAgentRegistry {
       }
     }
     throw new Error('Agent registration could not commit after repeated conflicts.');
+  }
+
+  /**
+   * Internal-only credential rotation hook. The verified-completion flag must
+   * originate from the trusted queue/verifier service, never an HTTP request.
+   * The previous ID is permanently retired in the ledger in the same atomic
+   * Firestore commit as the new ID, agent record, and audit event.
+   */
+  async rotateAfterVerifiedTask(input: {
+    agentKey: string;
+    actorUid: string;
+    taskId: string;
+    presentedBinaryId: string;
+    taskCompletionVerified: boolean;
+  }): Promise<DurableAgentRecord> {
+    const agentKey = safeText(input.agentKey, 'agentKey', 128);
+    const actorUid = safeText(input.actorUid, 'actorUid', 256);
+    const taskId = safeText(input.taskId, 'taskId', 256);
+    if (!SAFE_ID.test(agentKey)) throw new Error('agentKey format is invalid.');
+    if (input.taskCompletionVerified !== true) throw new Error('Agent ID rotation requires verified task completion.');
+    if (typeof input.presentedBinaryId !== 'string' || !SAFE_BINARY_ID.test(input.presentedBinaryId)) {
+      throw new Error('Presented binary Agent ID is invalid.');
+    }
+
+    for (let attempt = 0; attempt < this.retries; attempt += 1) {
+      const currentDoc = await this.client.getDocument(this.collection, agentKey);
+      if (!currentDoc) throw new Error('Agent not found.');
+      const { _name: _name, _updateTime: updateTime, ...currentValue } = currentDoc;
+      if (!validateRecord(currentValue) || typeof updateTime !== 'string' || !updateTime) {
+        throw new Error('Stored agent record or concurrency token is invalid.');
+      }
+      const current = currentValue as unknown as DurableAgentRecord;
+      if (current.status !== 'ACTIVE' || !current.ownerApproved) {
+        throw new Error('Agent is not active and owner-approved.');
+      }
+      if (current.currentBinaryId !== input.presentedBinaryId) {
+        throw new Error('Presented binary Agent ID does not match the current ID.');
+      }
+
+      const previousLedgerId = 'issued-' + createHash('sha256').update(current.currentBinaryId).digest('hex');
+      const previousLedger = await this.client.getDocument(this.issuedIdsCollection, previousLedgerId);
+      if (!previousLedger || typeof previousLedger._updateTime !== 'string') {
+        throw new Error('Agent ID ledger is missing; rotation is blocked.');
+      }
+      const nextBinaryId = generateBinaryId();
+      const nextLedgerId = 'issued-' + createHash('sha256').update(nextBinaryId).digest('hex');
+      if (await this.client.getDocument(this.issuedIdsCollection, nextLedgerId)) continue;
+
+      const timestamp = this.now().toISOString();
+      const updated: DurableAgentRecord = {
+        ...current, currentBinaryId: nextBinaryId, updatedAt: timestamp,
+        completedTaskCount: current.completedTaskCount + 1,
+      };
+      const event = this.makeEvent(
+        'ID_ROTATED', actorUid, agentKey, current.status, current.status,
+        'Verified task completion; previous ID permanently retired.', timestamp,
+      );
+      event.previousBinaryIdHash = createHash('sha256').update(current.currentBinaryId).digest('hex');
+      event.currentBinaryIdHash = createHash('sha256').update(nextBinaryId).digest('hex');
+      try {
+        await this.client.commit([
+          { update: { name: this.client.documentName(this.collection, agentKey), fields: encodeFields(updated) }, currentDocument: { updateTime } },
+          { update: { name: this.client.documentName(this.issuedIdsCollection, previousLedgerId), fields: encodeFields({
+            binaryIdHash: previousLedgerId.slice(7), agentKey, issuedAt: current.createdAt,
+            retiredAt: timestamp, status: 'RETIRED',
+          }) }, currentDocument: { updateTime: String(previousLedger._updateTime) } },
+          { update: { name: this.client.documentName(this.issuedIdsCollection, nextLedgerId), fields: encodeFields({
+            binaryIdHash: nextLedgerId.slice(7), agentKey, issuedAt: timestamp, status: 'CURRENT',
+          }) }, currentDocument: { exists: false } },
+          { update: { name: this.client.documentName(this.auditCollection, event.eventId), fields: encodeFields(event) }, currentDocument: { exists: false } },
+        ]);
+        return updated;
+      } catch (error) {
+        if (conflict(error)) continue;
+        throw error;
+      }
+    }
+    throw new Error('Agent ID rotation could not commit after repeated conflicts.');
   }
 
   async suspend(input: { agentKey: string; actorUid: string; reason: string }): Promise<DurableAgentRecord> {
