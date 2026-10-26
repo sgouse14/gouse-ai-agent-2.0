@@ -89,9 +89,9 @@ export class SaqlainFirestoreAgentRegistry {
 
   constructor(options: FirestoreAgentRegistryOptions = {}) {
     this.client = options.client ?? new SaqlainFirestoreRestClient();
-    this.collection = safeCollection(options.collection ?? process.env.SAQLAIN_AGENT_REGISTRY_COLLECTION?.trim() || 'saqlainAgents', 'Agent registry');
-    this.issuedIdsCollection = safeCollection(options.issuedIdsCollection ?? process.env.SAQLAIN_AGENT_ISSUED_IDS_COLLECTION?.trim() || 'saqlainAgentIssuedIds', 'Agent ID ledger');
-    this.auditCollection = safeCollection(options.auditCollection ?? process.env.SAQLAIN_AGENT_AUDIT_COLLECTION?.trim() || 'saqlainAgentAudit', 'Agent audit');
+    this.collection = safeCollection(options.collection ?? (process.env.SAQLAIN_AGENT_REGISTRY_COLLECTION?.trim() || 'saqlainAgents'), 'Agent registry');
+    this.issuedIdsCollection = safeCollection(options.issuedIdsCollection ?? (process.env.SAQLAIN_AGENT_ISSUED_IDS_COLLECTION?.trim() || 'saqlainAgentIssuedIds'), 'Agent ID ledger');
+    this.auditCollection = safeCollection(options.auditCollection ?? (process.env.SAQLAIN_AGENT_AUDIT_COLLECTION?.trim() || 'saqlainAgentAudit'), 'Agent audit');
     this.retries = options.retries ?? 5;
     this.now = options.now ?? (() => new Date());
     if (!Number.isInteger(this.retries) || this.retries < 1 || this.retries > 20) throw new Error('Agent registry retry count is invalid.');
