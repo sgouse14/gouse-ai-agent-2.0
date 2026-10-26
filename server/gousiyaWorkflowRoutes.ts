@@ -134,9 +134,9 @@ export function createGousiyaWorkflowRouter(options: GousiyaWorkflowRouterOption
     if (!SAFE_ID.test(req.params.workflowId)) { res.status(400).json({ error: 'Safe workflowId is required.' }); return; }
     try {
       const workflow = await auth.store.get(req.params.workflowId);
-      // The first iteration restricts workflow access to configured owners globally.
-      // Per-incident membership checks must be added before broadening this allowlist.
-      if (!workflow) { res.status(404).json({ error: 'Workflow not found.' }); return; }
+      if (!workflow || (workflow as { events?: Array<{ actorId?: unknown }> }).events?.[0]?.actorId !== auth.uid) {
+        res.status(404).json({ error: 'Workflow not found.' }); return;
+      }
       res.setHeader('Cache-Control', 'no-store');
       res.json(workflow);
     } catch (error) { sendStoreError(res, error); }
@@ -148,7 +148,9 @@ export function createGousiyaWorkflowRouter(options: GousiyaWorkflowRouterOption
     if (!SAFE_ID.test(req.params.workflowId)) { res.status(400).json({ error: 'Safe workflowId is required.' }); return; }
     try {
       const workflow = await auth.store.get(req.params.workflowId);
-      if (!workflow) { res.status(404).json({ error: 'Workflow not found.' }); return; }
+      if (!workflow || (workflow as { events?: Array<{ actorId?: unknown }> }).events?.[0]?.actorId !== auth.uid) {
+        res.status(404).json({ error: 'Workflow not found.' }); return;
+      }
       const events = await auth.store.listEvents(req.params.workflowId);
       res.setHeader('Cache-Control', 'no-store');
       res.json({ workflowId: req.params.workflowId, events });
