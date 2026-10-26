@@ -26,15 +26,34 @@ function safeCollection(value: string, label: string): string {
 function fields(value: object): Record<string, ReturnType<typeof encodeFirestoreValue>> {
   return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, encodeFirestoreValue(item)]));
 }
+const WORKFLOW_STAGES = new Set([
+  'INTAKE', 'SNAPSHOT_VALIDATED', 'APPROVAL_PENDING', 'GRANT_ISSUED',
+  'RECOVERY_STAGED', 'VERIFICATION_PENDING', 'VERIFIED', 'HOLD', 'CLOSED',
+]);
+
 function validWorkflow(value: unknown): value is GousiyaRecoveryWorkflow {
   if (!value || typeof value !== 'object') return false;
   const v = value as Record<string, unknown>;
-  return typeof v.workflowId === 'string' && /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(v.workflowId) &&
-    typeof v.incidentId === 'string' && typeof v.stage === 'string' &&
-    Number.isSafeInteger(v.version) && Number(v.version) >= 1 &&
-    typeof v.createdAt === 'string' && Number.isFinite(Date.parse(v.createdAt)) &&
-    typeof v.updatedAt === 'string' && Number.isFinite(Date.parse(v.updatedAt)) &&
-    Array.isArray(v.events) && v.events.length > 0;
+  if (typeof v.workflowId !== 'string' || !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(v.workflowId) ||
+      typeof v.incidentId !== 'string' || !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(v.incidentId) ||
+      typeof v.stage !== 'string' || !WORKFLOW_STAGES.has(v.stage) ||
+      !Number.isSafeInteger(v.version) || Number(v.version) < 1 ||
+      typeof v.createdAt !== 'string' || !Number.isFinite(Date.parse(v.createdAt)) ||
+      typeof v.updatedAt !== 'string' || !Number.isFinite(Date.parse(v.updatedAt)) ||
+      !(v.holdReturnStage === null || (typeof v.holdReturnStage === 'string' && WORKFLOW_STAGES.has(v.holdReturnStage))) ||
+      !Array.isArray(v.events) || v.events.length !== Number(v.version)) return false;
+  return v.events.every((event: unknown, index: number) => {
+    if (!event || typeof event !== 'object') return false;
+    const e = event as Record<string, unknown>;
+    return (e.from === null || (typeof e.from === 'string' && WORKFLOW_STAGES.has(e.from))) &&
+      typeof e.to === 'string' && WORKFLOW_STAGES.has(e.to) &&
+      typeof e.actorId === 'string' && e.actorId.trim().length > 0 && e.actorId.length <= 128 &&
+      typeof e.reason === 'string' && e.reason.trim().length > 0 && e.reason.length <= 2000 &&
+      (e.evidenceId === null || (typeof e.evidenceId === 'string' && e.evidenceId.length <= 256)) &&
+      typeof e.at === 'string' && Number.isFinite(Date.parse(e.at)) &&
+      (index !== 0 || (e.from === null && e.to === 'INTAKE')) &&
+      (index === 0 || e.from === (v.events[index - 1] as Record<string, unknown>).to);
+  });
 }
 function conflict(error: unknown): boolean {
   return error instanceof Error && /HTTP (409|412)/.test(error.message);
@@ -103,7 +122,7 @@ export class GousiyaFirestoreWorkflowStore {
     const stored = await this.client.getDocument(this.workflows, id);
     if (!stored) return null;
     const workflow = stripMetadata(stored);
-    if (!validWorkflow(workflow)) throw new Error('Stored Gousiya workflow failed schema validation.');
+    if (!validWorkflow(workflow) || workflow.workflowId !== id) throw new Error('Stored Gousiya workflow failed schema validation.');
     return workflow as unknown as GousiyaRecoveryWorkflow;
   }
 
@@ -113,7 +132,7 @@ export class GousiyaFirestoreWorkflowStore {
     const stored = await this.client.getDocument(this.workflows, id);
     if (!stored) throw new Error('Workflow not found.');
     const { _name: _name, _updateTime: updateTime, ...record } = stored;
-    if (!validWorkflow(record) || typeof updateTime !== 'string' || !updateTime) {
+    if (!validWorkflow(record) || record.workflowId !== id || typeof updateTime !== 'string' || !updateTime) {
       throw new Error('Stored workflow or concurrency token is invalid.');
     }
     const current = record as unknown as GousiyaRecoveryWorkflow;
