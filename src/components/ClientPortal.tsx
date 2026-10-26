@@ -48,10 +48,14 @@ import {
   FileText,
   DollarSign,
   Maximize,
+  Cpu,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { CurrencyCode, formatCurrency } from '../utils/formatters';
+import { SmartHomeSkaAgent } from './SmartHomeSkaAgent';
+import { AgentFloatingHUD } from './AgentFloatingHUD';
+import { AgentDecisionTicker } from './AgentDecisionTicker';
 
 interface ClientPortalProps {
   isClientRestricted?: boolean;
@@ -85,7 +89,7 @@ export const ClientPortal: React.FC<ClientPortalProps> = ({
 
   // Demo Presentation Mode: 'video' | 'interactive'
   const [demoMode, setDemoMode] = useState<'video' | 'interactive'>('video');
-  const [activeInteractiveTab, setActiveInteractiveTab] = useState<'clash' | 'boq' | 'site_cam' | 'marketplace' | 'yield'>('clash');
+  const [activeInteractiveTab, setActiveInteractiveTab] = useState<'clash' | 'boq' | 'site_cam' | 'marketplace' | 'yield' | 'smart_home_ska'>('clash');
 
   // Video Demo Player State
   const [isPlaying, setIsPlaying] = useState<boolean>(true);
@@ -209,7 +213,7 @@ export const ClientPortal: React.FC<ClientPortalProps> = ({
       title: 'Asset Yield & Rental ROI',
       tag: 'CAPITAL RETURNS',
       duration: '01:05',
-      timeRange: [84, 100],
+      timeRange: [67, 83],
       headline: 'Maximizing Real Estate Rental Yield per Sq.Ft',
       narration:
         'For property developers and luxury investors, our co-living and rental optimization tool models room layouts, dual-key partitions, and amenities to maximize projected annual yields by up to 14.8%.',
@@ -219,6 +223,25 @@ export const ClientPortal: React.FC<ClientPortalProps> = ({
         traditionalYield: '3.8% p.a.',
         optimizedYield: '11.4% - 13.9% p.a.',
         capitalPayback: '6.8 Years (Turnkey)',
+      },
+    },
+    {
+      id: 'ch-ska',
+      number: '06',
+      title: 'Smart Home SKA Agent',
+      tag: 'AUTONOMIC IOT & ENERGY',
+      duration: '01:20',
+      timeRange: [83, 100],
+      headline: 'Supervisory Kontrol & Automation (SKA) IoT Orchestration',
+      narration:
+        'The SKA Autonomic Agent supervises 48 smart home nodes. From DALI-2 warm dimming and Daikin VRV climate to rooftop solar net-metering and cryptographic Matter smart deadbolts, your turnkey home runs seamlessly.',
+      mockScreen: {
+        type: 'ska_iot',
+        badge: 'SKA-7 Autonomic Core: Synchronized',
+        nodesOnline: 48,
+        solarGen: '+7.4 kW Solar PV',
+        gridStatus: 'BESCOM Net Export (+4.58 kW)',
+        securityState: 'Matter Cryptographic Locked',
       },
     },
   ];
@@ -520,6 +543,9 @@ For inquiries or project bookings, contact Principal Architect Ar. S. Gouse at s
           </div>
         </div>
       </div>
+
+      {/* Real-Time Autonomous Agent Execution & Decisions Ticker */}
+      <AgentDecisionTicker />
 
       {/* 2. MAIN HEADER NAVIGATION BAR */}
       <header className="bg-slate-950/90 border-b border-slate-800 backdrop-blur-md sticky top-10 z-40">
@@ -1092,6 +1118,43 @@ For inquiries or project bookings, contact Principal Architect Ar. S. Gouse at s
                       </div>
                     </div>
                   )}
+
+                  {currentChapter.id === 'ch-ska' && (
+                    <div className="p-5 rounded-2xl bg-slate-900/90 border border-cyan-500/40 shadow-xl max-w-3xl mx-auto space-y-4">
+                      <div className="flex items-center justify-between border-b border-slate-800 pb-2.5">
+                        <div className="flex items-center gap-2 text-xs font-mono text-cyan-300">
+                          <Cpu className="w-4 h-4 text-cyan-400 animate-pulse" />
+                          <span>Smart Home SKA Autonomic Core (Matter &amp; KNX Telemetry)</span>
+                        </div>
+                        <span className="text-xs font-mono text-emerald-400 font-bold bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/30">
+                          48 Nodes Synchronized • 0ms Latency
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
+                        <div className="p-3 rounded-xl bg-slate-950 border border-slate-800">
+                          <div className="text-[10px] font-mono text-amber-400">Rooftop Solar PV</div>
+                          <div className="text-base font-bold font-mono text-white mt-1">+7.4 kW</div>
+                          <div className="text-[10px] text-slate-500 mt-0.5">Mono-PERC Array</div>
+                        </div>
+                        <div className="p-3 rounded-xl bg-slate-950 border border-slate-800">
+                          <div className="text-[10px] font-mono text-sky-400">Active Load</div>
+                          <div className="text-base font-bold font-mono text-white mt-1">2.82 kW</div>
+                          <div className="text-[10px] text-slate-500 mt-0.5">Daikin VRV Inverter</div>
+                        </div>
+                        <div className="p-3 rounded-xl bg-slate-950 border border-emerald-500/40">
+                          <div className="text-[10px] font-mono text-emerald-400 font-semibold">Net BESCOM Export</div>
+                          <div className="text-base font-bold font-mono text-emerald-400 mt-1">+4.58 kW</div>
+                          <div className="text-[10px] text-emerald-300/80 mt-0.5">Green Energy Credits</div>
+                        </div>
+                        <div className="p-3 rounded-xl bg-slate-950 border border-cyan-500/40">
+                          <div className="text-[10px] font-mono text-cyan-300">SKA Smart Lock</div>
+                          <div className="text-base font-bold font-mono text-white mt-1">Armed</div>
+                          <div className="text-[10px] text-cyan-400 mt-0.5">Matter Cryptographic</div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Subtitles & Presenter Narration Box */}
@@ -1263,6 +1326,25 @@ For inquiries or project bookings, contact Principal Architect Ar. S. Gouse at s
                 >
                   <TrendingUp className="w-4 h-4" />
                   <span>5. Asset Yield Simulator</span>
+                </button>
+
+                <button
+                  type="button"
+                  id="tab-interactive-smart-home-ska"
+                  onClick={() => setActiveInteractiveTab('smart_home_ska')}
+                  className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold transition shrink-0 ${
+                    activeInteractiveTab === 'smart_home_ska'
+                      ? 'bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-bold shadow-md shadow-cyan-500/25 ring-2 ring-cyan-400'
+                      : 'bg-slate-900 text-slate-400 hover:text-white border border-slate-800'
+                  }`}
+                >
+                  <Cpu className="w-4 h-4 text-cyan-400" />
+                  <span>6. Smart Home SKA Agent</span>
+                  <span className={`text-[10px] font-mono px-1.5 py-0.2 rounded ${
+                    activeInteractiveTab === 'smart_home_ska' ? 'bg-black/30 text-cyan-200' : 'bg-cyan-500/20 text-cyan-300'
+                  }`}>
+                    SKA IoT
+                  </span>
                 </button>
               </div>
 
@@ -1639,6 +1721,18 @@ For inquiries or project bookings, contact Principal Architect Ar. S. Gouse at s
                       </div>
                     </div>
                   </div>
+                </div>
+              )}
+
+              {/* Tab 6: Smart Home SKA Agent */}
+              {activeInteractiveTab === 'smart_home_ska' && (
+                <div className="space-y-6">
+                  <SmartHomeSkaAgent
+                    onOpenConsultation={() => {
+                      const el = document.getElementById('consultation-form');
+                      el?.scrollIntoView({ behavior: 'smooth' });
+                    }}
+                  />
                 </div>
               )}
             </div>
@@ -2018,6 +2112,11 @@ For inquiries or project bookings, contact Principal Architect Ar. S. Gouse at s
           </div>
         </div>
       </footer>
+
+      {/* Autonomous AI Agent Persistent Floating HUD */}
+      <AgentFloatingHUD
+        architectPhone="+91 80739 47241"
+      />
     </div>
   );
 };

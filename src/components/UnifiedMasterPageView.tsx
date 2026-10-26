@@ -47,6 +47,7 @@ import {
   Film,
   Play,
   Image as ImageIcon,
+  Cpu,
 } from 'lucide-react';
 import {
   Project,
@@ -69,6 +70,10 @@ import { MarketplaceView } from './MarketplaceView';
 import { SpecialistChatView } from './SpecialistChatView';
 import { SocialMediaStudio } from './SocialMediaStudio';
 import { SocialMediaHubPage } from './SocialMediaHubPage';
+import { SmartHomeSkaAgent } from './SmartHomeSkaAgent';
+import { AutonomousAgentExecutionCenter } from './AutonomousAgentExecutionCenter';
+import { AgentDecisionTicker } from './AgentDecisionTicker';
+import { AgentFloatingHUD } from './AgentFloatingHUD';
 
 // Import local image assets for media previews
 import villaExteriorImg from '../assets/images/bangalore_house_exterior_1790170528532.jpg';
@@ -205,6 +210,7 @@ export const UnifiedMasterPageView: React.FC<UnifiedMasterPageViewProps> = ({
   const [isSiteCameraOpen, setIsSiteCameraOpen] = useState(false);
   const [isBrokerAuthOpen, setIsBrokerAuthOpen] = useState(false);
   const [isGeneralAuthOpen, setIsGeneralAuthOpen] = useState(false);
+  const [isSkaModalOpen, setIsSkaModalOpen] = useState(false);
 
   // Active items and handlers
   const currentBoqItems = boqItems || internalBoqItems;
@@ -548,14 +554,14 @@ export const UnifiedMasterPageView: React.FC<UnifiedMasterPageViewProps> = ({
             <div>
               <div className="flex items-center gap-2">
                 <span className="font-extrabold tracking-tight text-white text-base sm:text-lg">
-                  GOUSE <span className="text-amber-400">AI</span> AGENT
+                  GOUSE <span className="text-cyan-400">AI</span> AUTONOMOUS AGENT
                 </span>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                  ALL-IN-ONE
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/40">
+                  AUTONOMOUS EXECUTION
                 </span>
               </div>
               <p className="text-[10px] text-slate-400 font-mono tracking-tight hidden sm:block">
-                Architectural Platform • Broker Command Center • Social Media Hub • Client Feedback
+                Proactive Objective Management • Autonomous Architectural &amp; Real Estate Execution
               </p>
             </div>
           </div>
@@ -565,10 +571,10 @@ export const UnifiedMasterPageView: React.FC<UnifiedMasterPageViewProps> = ({
             <button
               type="button"
               onClick={() => scrollToSection('sec-main-platform')}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500/15 text-amber-300 hover:bg-amber-500/25 border border-amber-500/30 transition whitespace-nowrap"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-cyan-500/15 text-cyan-300 hover:bg-cyan-500/25 border border-cyan-500/30 transition whitespace-nowrap"
             >
-              <Building2 className="w-3.5 h-3.5 text-amber-400" />
-              <span>Main Platform</span>
+              <Cpu className="w-3.5 h-3.5 text-cyan-400" />
+              <span>Architectural Execution</span>
             </button>
 
             <button
@@ -577,7 +583,7 @@ export const UnifiedMasterPageView: React.FC<UnifiedMasterPageViewProps> = ({
               className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-sky-500/20 text-sky-300 hover:bg-sky-500/30 border border-sky-500/40 font-bold transition whitespace-nowrap shadow-sm shadow-sky-500/20"
             >
               <Building className="w-3.5 h-3.5 text-sky-400" />
-              <span>Broker Command Center {isBrokerUser ? '(Active)' : '(Login)'}</span>
+              <span>Broker Execution Center {isBrokerUser ? '(Active)' : '(Login)'}</span>
             </button>
 
             <button
@@ -605,6 +611,17 @@ export const UnifiedMasterPageView: React.FC<UnifiedMasterPageViewProps> = ({
             >
               <Lock className="w-3.5 h-3.5 text-purple-400" />
               <span>Client Login</span>
+            </button>
+
+            <button
+              type="button"
+              id="nav-btn-smart-home-ska-agent"
+              onClick={() => setIsSkaModalOpen(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-cyan-500/20 text-cyan-300 hover:bg-cyan-500/30 border border-cyan-500/40 transition whitespace-nowrap shadow-sm"
+              title="Open Smart Home SKA (Supervisory Kontrol & Automation) Agent"
+            >
+              <Cpu className="w-3.5 h-3.5 text-cyan-400" />
+              <span>Smart Home SKA Agent</span>
             </button>
           </nav>
 
@@ -651,87 +668,21 @@ export const UnifiedMasterPageView: React.FC<UnifiedMasterPageViewProps> = ({
       </header>
 
       {/* ========================================================================= */}
-      {/* HERO BANNER: UNIFIED MASTER PLATFORM HUB                                  */}
+      {/* 0.5. REAL-TIME AUTONOMOUS DECISION STREAM TICKER                          */}
       {/* ========================================================================= */}
-      <div className="bg-gradient-to-b from-slate-900/80 via-slate-950 to-slate-950 border-b border-slate-800 py-8 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-7xl mx-auto space-y-6">
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-            <div className="space-y-3 max-w-3xl">
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="px-3 py-1 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 text-xs font-mono font-bold flex items-center gap-1.5">
-                  <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-                  ALL-IN-ONE MASTER PLATFORM
-                </span>
-                <span className="px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700 text-xs font-mono">
-                  Principal Architect: Ar. S. Gouse
-                </span>
-                <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 text-[11px] font-mono">
-                  0% BROKERAGE DIRECT
-                </span>
-              </div>
-              <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black text-white tracking-tight leading-tight">
-                Gouse AI Agent: Master Platform &amp; Command Center
-              </h1>
-              <p className="text-xs sm:text-sm text-slate-400 leading-relaxed">
-                Complete integrated architecture, dynamic floor-by-floor BOQ costing, building material specifications, verified AEC marketplace, PG/co-living &amp; rental brokerage command center, and client project portal.
-              </p>
-            </div>
+      <AgentDecisionTicker onSelectAction={(sec) => scrollToSection(sec)} />
 
-            {/* Quick 4-Pillar Jump Cards */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 lg:w-auto shrink-0 text-left">
-              <button
-                type="button"
-                onClick={() => scrollToSection('sec-main-platform')}
-                className="p-3.5 rounded-2xl bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 transition text-left group"
-              >
-                <div className="w-8 h-8 rounded-lg bg-amber-500/20 flex items-center justify-center text-amber-400 mb-1.5">
-                  <Building2 className="w-4 h-4" />
-                </div>
-                <div className="text-xs font-bold text-white group-hover:text-amber-300">1. Main Platform</div>
-                <div className="text-[11px] text-slate-400">BIM, BOQ &amp; Materials</div>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => scrollToSection('sec-broker-command-center')}
-                className="p-3.5 rounded-2xl bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/30 transition text-left group shadow-sm shadow-sky-500/20"
-              >
-                <div className="w-8 h-8 rounded-lg bg-sky-500/20 flex items-center justify-center text-sky-400 mb-1.5">
-                  <Building className="w-4 h-4" />
-                </div>
-                <div className="text-xs font-bold text-white group-hover:text-sky-300">
-                  2. Broker Center {isBrokerUser ? '✓' : '(Login)'}
-                </div>
-                <div className="text-[11px] text-slate-400">PGs &amp; Rental Houses</div>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => scrollToSection('sec-social-media-hub')}
-                className="p-3.5 rounded-2xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 transition text-left group"
-              >
-                <div className="w-8 h-8 rounded-lg bg-rose-500/20 flex items-center justify-center text-rose-400 mb-1.5">
-                  <Film className="w-4 h-4" />
-                </div>
-                <div className="text-xs font-bold text-white group-hover:text-rose-300">3. Photos &amp; Videos</div>
-                <div className="text-[11px] text-slate-400">4K Media Hub</div>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => scrollToSection('sec-client-feedback')}
-                className="p-3.5 rounded-2xl bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 transition text-left group"
-              >
-                <div className="w-8 h-8 rounded-lg bg-emerald-500/20 flex items-center justify-center text-emerald-400 mb-1.5">
-                  <Star className="w-4 h-4 fill-emerald-400" />
-                </div>
-                <div className="text-xs font-bold text-white group-hover:text-emerald-300">4. Client Feedback</div>
-                <div className="text-[11px] text-slate-400">4.98★ Testimonials</div>
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
+      {/* ========================================================================= */}
+      {/* AUTONOMOUS AI AGENT EXECUTION CENTER (NOT GENERIC PLATFORM)               */}
+      {/* ========================================================================= */}
+      <AutonomousAgentExecutionCenter
+        activeProject={activeProject}
+        onNavigateSection={scrollToSection}
+        onOpenSocialHub={handleOpenSocialHub}
+        onOpenBrokerCenter={() => scrollToSection('sec-broker-command-center')}
+        onOpenSmartHomeSka={() => setIsSkaModalOpen(true)}
+        onOpenClientPortal={onOpenClientDashboard}
+      />
 
       {/* ========================================================================= */}
       {/* 1. MAIN STUDIO PLATFORM: ARCHITECTURAL, BIM, BOQ & ENGINEERING WORKSPACE   */}
@@ -742,19 +693,19 @@ export const UnifiedMasterPageView: React.FC<UnifiedMasterPageViewProps> = ({
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
             <div className="space-y-2">
               <div className="flex items-center gap-2">
-                <span className="px-3 py-1 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 text-xs font-mono font-bold flex items-center gap-1.5">
-                  <Building2 className="w-3.5 h-3.5 text-amber-400" />
-                  PILLAR 1: MAIN ARCHITECTURAL &amp; ENGINEERING PLATFORM
+                <span className="px-3 py-1 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 text-xs font-mono font-bold flex items-center gap-1.5">
+                  <Cpu className="w-3.5 h-3.5 text-cyan-400" />
+                  AUTONOMOUS OBJECTIVE 1: ARCHITECTURAL &amp; ENGINEERING EXECUTION
                 </span>
                 <span className="px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700 text-[11px] font-mono">
-                  LIVE STUDIO WORKSPACE
+                  ACTIVE AGENT WORKSPACE
                 </span>
               </div>
               <h2 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-white tracking-tight">
-                Main Platform: Projects, Dynamic BOQ, Materials &amp; AI Co-Pilot
+                Architectural Execution: Projects, Dynamic BOQ, Materials &amp; Autonomous Co-Pilot
               </h2>
               <p className="text-xs sm:text-sm text-slate-400 max-w-3xl leading-relaxed">
-                Full-featured architectural studio suite. Inspect 3D BIM models, simulate floor-by-floor takeoff items, review verified building material specifications, consult the verified AEC marketplace, chat with the specialist co-pilot, or launch social campaigns.
+                Autonomous architectural execution engine. Inspect 3D BIM models, simulate floor-by-floor takeoff items, review verified building material specifications, consult the verified AEC marketplace, or execute direct structural audits with Ar. S. Gouse.
               </p>
             </div>
 
@@ -2191,6 +2142,58 @@ export const UnifiedMasterPageView: React.FC<UnifiedMasterPageViewProps> = ({
       {isGeneralAuthOpen && (
         <AuthModal />
       )}
+
+      {/* SMART HOME SKA AGENT MODAL */}
+      {isSkaModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
+          <div className="relative w-full max-w-5xl rounded-3xl bg-slate-950 border border-cyan-500/40 p-4 sm:p-6 shadow-2xl my-6 space-y-4 max-h-[92vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 flex items-center justify-center">
+                  <Cpu className="w-5 h-5 animate-pulse" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white tracking-tight flex items-center gap-2">
+                    <span>Smart Home SKA Agent Control Center</span>
+                    <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-cyan-500/20 text-cyan-300 border border-cyan-500/40">
+                      CLIENT PREVIEW
+                    </span>
+                  </h3>
+                  <p className="text-xs text-slate-400">
+                    Matter • KNX • DALI-2 • Solar Grid &amp; Daikin VRV IoT Supervisory Agent
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setIsSkaModalOpen(false)}
+                className="p-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white transition border border-slate-700"
+              >
+                ✕ Close
+              </button>
+            </div>
+
+            <SmartHomeSkaAgent
+              activeProject={activeProject}
+              onOpenConsultation={() => {
+                setIsSkaModalOpen(false);
+                scrollToSection('sec-client-login');
+              }}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* PERSISTENT AUTONOMOUS AI AGENT FLOATING HUD                               */}
+      {/* ========================================================================= */}
+      <AgentFloatingHUD
+        onOpenSkaAgent={() => setIsSkaModalOpen(true)}
+        onOpenSocialHub={handleOpenSocialHub}
+        onNavigateSection={(sec) => scrollToSection(sec)}
+        architectPhone="+91 80739 47241"
+      />
     </div>
   );
 };

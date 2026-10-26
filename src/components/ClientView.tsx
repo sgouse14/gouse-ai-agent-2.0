@@ -43,11 +43,16 @@ import {
   Shield,
   Play,
   Maximize2,
+  Cpu,
+  Zap,
+  Sun,
+  Moon,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { Project, ProjectMilestone, ProjectStatusUpdate, SharedDocument } from '../types';
 import { CurrencyCode, formatCurrency } from '../utils/formatters';
 import { SiteVisitCameraModal } from './SiteVisitCameraModal';
+import { SmartHomeSkaAgent } from './SmartHomeSkaAgent';
 
 interface ClientViewProps {
   projects: Project[];
@@ -125,8 +130,8 @@ export const ClientView: React.FC<ClientViewProps> = ({
     return assignedProjects.find((p) => p.id === selectedProjId) || assignedProjects[0] || null;
   }, [assignedProjects, selectedProjId]);
 
-  // Active view tab inside Client View: 'dashboard' | 'milestones' | 'updates' | 'documents' | 'team'
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'milestones' | 'updates' | 'documents' | 'team'>('dashboard');
+  // Active view tab inside Client View: 'dashboard' | 'milestones' | 'updates' | 'documents' | 'team' | 'smart_home_ska'
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'milestones' | 'updates' | 'documents' | 'team' | 'smart_home_ska'>('dashboard');
 
   // Site Camera in Dashboard
   const [isSiteCameraModalOpen, setIsSiteCameraModalOpen] = useState<boolean>(false);
@@ -729,6 +734,23 @@ Bangalore, India • Contact: sgouse14@gmail.com
               <Users className="w-4 h-4" />
               <span>Design Team &amp; Contacts</span>
             </button>
+
+            <button
+              id="tab-client-smart-home-ska"
+              type="button"
+              onClick={() => setActiveTab('smart_home_ska')}
+              className={`flex items-center gap-2 px-4 py-2.5 text-xs font-semibold transition border-b-2 whitespace-nowrap ${
+                activeTab === 'smart_home_ska'
+                  ? 'border-cyan-400 text-cyan-300 bg-cyan-500/10'
+                  : 'border-transparent text-slate-400 hover:text-white'
+              }`}
+            >
+              <Cpu className="w-4 h-4 text-cyan-400" />
+              <span>Smart Home SKA Agent</span>
+              <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
+                SKA IoT AGENT
+              </span>
+            </button>
           </div>
         </div>
       </div>
@@ -1155,6 +1177,99 @@ Bangalore, India • Contact: sgouse14@gmail.com
                       Send
                     </button>
                   </form>
+                </div>
+              </div>
+            </div>
+
+            {/* 3.5 SMART HOME SKA AGENT: AUTONOMIC IOT & ENERGY CONTROL HUB */}
+            <div className="p-6 rounded-3xl bg-gradient-to-r from-slate-900 via-cyan-950/40 to-slate-900 border border-cyan-500/40 shadow-2xl space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-3 border-b border-slate-800">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-cyan-500 to-blue-700 flex items-center justify-center text-white shadow-lg shadow-cyan-500/20 shrink-0">
+                    <Cpu className="w-6 h-6 animate-pulse" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-base font-bold text-white tracking-tight">
+                        Smart Home SKA Agent Control Center
+                      </h3>
+                      <span className="px-2.5 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 text-[10px] font-mono font-bold uppercase">
+                        48 NODES ONLINE
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-300 mt-0.5">
+                      Supervisory Kontrol &amp; Automation (SKA) engine • Matter, KNX, DALI-2, Daikin VRV, &amp; Solar PV orchestration.
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  id="btn-dashboard-open-smart-home-ska"
+                  onClick={() => setActiveTab('smart_home_ska')}
+                  className="px-4 py-2 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-bold text-xs flex items-center gap-2 shadow-lg shadow-cyan-500/20 transition group shrink-0"
+                >
+                  <Cpu className="w-4 h-4 group-hover:scale-110 transition-transform" />
+                  <span>Launch Full SKA Control Center</span>
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+
+              {/* Quick Telemetry & Status Strips */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div className="p-3 rounded-xl bg-slate-950/80 border border-slate-800 space-y-1">
+                  <span className="text-[10px] font-mono text-amber-400 block">ROOFTOP SOLAR PV</span>
+                  <span className="text-sm font-bold text-white font-mono">+7.4 kW Peak</span>
+                  <span className="text-[10px] text-slate-400 block">10 kW Mono-PERC</span>
+                </div>
+
+                <div className="p-3 rounded-xl bg-slate-950/80 border border-slate-800 space-y-1">
+                  <span className="text-[10px] font-mono text-sky-400 block">ACTIVE LOAD</span>
+                  <span className="text-sm font-bold text-white font-mono">2.82 kW In Use</span>
+                  <span className="text-[10px] text-slate-400 block">VRV + DALI Lighting</span>
+                </div>
+
+                <div className="p-3 rounded-xl bg-slate-950/80 border border-slate-800 space-y-1">
+                  <span className="text-[10px] font-mono text-emerald-400 block">BESCOM NET EXPORT</span>
+                  <span className="text-sm font-bold text-emerald-400 font-mono">+4.58 kW Grid Feed</span>
+                  <span className="text-[10px] text-slate-400 block">Zero Electricity Bill</span>
+                </div>
+
+                <div className="p-3 rounded-xl bg-slate-950/80 border border-slate-800 space-y-1">
+                  <span className="text-[10px] font-mono text-cyan-400 block">SKA SMART LOCKS</span>
+                  <span className="text-sm font-bold text-white font-mono">Perimeter Armed</span>
+                  <span className="text-[10px] text-emerald-400 block">Matter Cryptographic</span>
+                </div>
+              </div>
+
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2 text-xs">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-slate-400 text-[11px] font-mono">1-Touch Quick Scenes:</span>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('smart_home_ska')}
+                    className="px-2.5 py-1 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[11px] font-semibold transition"
+                  >
+                    Welcome Home
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('smart_home_ska')}
+                    className="px-2.5 py-1 rounded-lg bg-purple-500/10 hover:bg-purple-500/20 text-purple-300 border border-purple-500/30 text-[11px] font-semibold transition"
+                  >
+                    Cinema Blackout
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('smart_home_ska')}
+                    className="px-2.5 py-1 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 text-[11px] font-semibold transition"
+                  >
+                    Good Night Armed
+                  </button>
+                </div>
+
+                <div className="text-[11px] text-slate-400 font-mono">
+                  Engineered by Ar. S. Gouse (+91 8073947241)
                 </div>
               </div>
             </div>
@@ -2020,6 +2135,18 @@ Bangalore, India • Contact: sgouse14@gmail.com
                 </div>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* ============================================================== */}
+        {/* TAB 5: SMART HOME SKA AGENT (AUTONOMIC IOT CONTROL CENTER)      */}
+        {/* ============================================================== */}
+        {activeTab === 'smart_home_ska' && (
+          <div className="space-y-6">
+            <SmartHomeSkaAgent
+              activeProject={activeProject}
+              onOpenConsultation={() => setActiveTab('team')}
+            />
           </div>
         )}
       </div>

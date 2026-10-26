@@ -19,6 +19,7 @@ import { ClientView } from './components/ClientView';
 import { PlatformDemo } from './components/PlatformDemo';
 import { UnifiedMasterPageView } from './components/UnifiedMasterPageView';
 import { SocialMediaHubPage } from './components/SocialMediaHubPage';
+import { AgentFloatingHUD } from './components/AgentFloatingHUD';
 import { useAuth } from './context/AuthContext';
 import { Sparkles, LogIn, UserPlus, ArrowLeft } from 'lucide-react';
 import {
@@ -805,6 +806,11 @@ export function App() {
           </div>
         </div>
       </footer>
+
+      {/* Autonomous AI Agent Persistent Floating HUD */}
+      <AgentFloatingHUD
+        architectPhone="+91 80739 47241"
+      />
     </div>
   );
 }
