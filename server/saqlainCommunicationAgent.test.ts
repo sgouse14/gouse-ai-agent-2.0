@@ -49,3 +49,19 @@ test('communication summary never copies raw agent exception messages into the r
   assert.doesNotMatch(result.summary, /private-key|\/tmp/);
   assert.equal(result.report?.overall, 'ATTENTION_REQUIRED');
 });
+
+
+test('communication requires the fixed internal actor and at least one bounded result', () => {
+  assert.equal(prepareSaqlainCommunication({ ...base, actorId: 'user-controlled-actor' }).status, 'HOLD');
+  assert.equal(prepareSaqlainCommunication({ ...base, priorResults: [] }).status, 'HOLD');
+  assert.equal(prepareSaqlainCommunication({ ...base, priorResults: Array.from({ length: 501 }, (_, i) => ({
+    agentId: 'agent-' + i, role: 'BACKUP', status: 'VERIFIED' as const,
+  })) }).status, 'HOLD');
+});
+
+test('communication holds duplicate agent results rather than inflating the report', () => {
+  const duplicate = { agentId: 'agent-duplicate', role: 'BACKUP', status: 'VERIFIED' as const };
+  const result = prepareSaqlainCommunication({ ...base, priorResults: [duplicate, duplicate] });
+  assert.equal(result.status, 'HOLD');
+  assert.match(result.summary, /duplicate/);
+});
