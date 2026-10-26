@@ -30,6 +30,23 @@ Updated: 2026-10-26
 - [ ] End-to-end backup job enqueue/lock/complete through the shared Firestore queue remains incomplete. Current worker change aligns startup recovery and monitoring counts only.
 - [ ] Live Cloud Run/Firestore IAM, multi-instance concurrency, API outage, and recovery tests have not been run.
 
+
+## Shared durable state and readiness — 26 October 2026 (replacement draft PR)
+
+- [x] Added `GET /readyz` separately from `GET /healthz`; liveness remains lightweight, while readiness checks configured Saqlain audit storage.
+- [x] File readiness checks path access and the existing hash-chained audit history; Firestore readiness checks project configuration, connectivity, and audit-chain readability.
+- [x] Added authenticated, user-scoped Firestore workspace APIs for projects, BOQ items, professionals, enquiries, and preferences, deriving owner from the verified Firebase UID.
+- [x] Added version tokens and Firestore update-time preconditions; stale writes return a conflict instead of silently overwriting newer data.
+- [x] Added a 700,000-byte per-domain cap and four workspace-service tests for user/domain isolation, stale writes, oversize rejection, and owner mismatch.
+- [x] Added client startup synchronization and first-import behavior for missing server domains, retaining localStorage as recovery copy.
+- [x] Added a pre-sync recovery snapshot, Firebase UID marker to avoid importing one user's browser data into another user's workspace, sync/conflict status, and a user-triggered JSON backup export.
+- [x] Four readiness tests and four workspace-service tests passed locally (8 focused backend tests total).
+- [x] Added `docs/SHARED_DURABLE_STATE_RELIABILITY.md` describing the implementation and limits.
+- [ ] Full project tests, client/server TypeScript checks, production build, Docker build, route integration tests, and PR CI remain unverified.
+- [ ] Live Firestore IAM, multi-instance concurrency, outage/recovery, UID-switching, migration rollback, and large-data validation remain required before production use.
+
+**Scope limits:** shared state is per Firebase user, not collaborative between different users. Each domain is currently a single Firestore document capped at 700,000 bytes; large project/BOQ data needs record-level storage. Browser localStorage remains as a recovery copy, and other component-level local data still needs inventory/migration.
+
 ## Website Error Diagnostics — initial implementation (24 October 2026)
 
 - [x] Added an initial read-only diagnostic service that can inspect a submitted page, detect common HTTP status problems, flag missing/empty HTML titles, and identify mixed-content references.
