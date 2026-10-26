@@ -129,3 +129,35 @@ test('concurrent lifecycle updates use Firestore update-time preconditions', asy
   assert.equal(results.filter(result => result.status === 'rejected').length, 1);
   assert.equal((await registry.get('agent-race'))?.status, 'SUSPENDED');
 });
+
+
+test('agent ID rotates only after verified completion and retires the old ID atomically', async () => {
+  const client = new MemoryClient();
+  const registry = makeRegistry(client);
+  const original = await registry.register({
+    agentKey: 'agent-rotate', actorUid: 'owner-1', reason: 'registration approved',
+  });
+  await assert.rejects(registry.rotateAfterVerifiedTask({
+    agentKey: original.agentKey, actorUid: 'saqlain-queue-manager', taskId: 'task-001',
+    presentedBinaryId: original.currentBinaryId, taskCompletionVerified: false,
+  }), /verified task completion/);
+  const rotated = await registry.rotateAfterVerifiedTask({
+    agentKey: original.agentKey, actorUid: 'saqlain-queue-manager', taskId: 'task-001',
+    presentedBinaryId: original.currentBinaryId, taskCompletionVerified: true,
+  });
+  assert.notEqual(rotated.currentBinaryId, original.currentBinaryId);
+  assert.equal(rotated.completedTaskCount, 1);
+  await assert.rejects(registry.rotateAfterVerifiedTask({
+    agentKey: original.agentKey, actorUid: 'saqlain-queue-manager', taskId: 'task-002',
+    presentedBinaryId: original.currentBinaryId, taskCompletionVerified: true,
+  }), /does not match/);
+  const ledger = await client.listDocuments('saqlainAgentIssuedIds');
+  assert.equal(ledger.length, 2);
+  assert.equal(ledger.filter(record => record.status === 'RETIRED').length, 1);
+  assert.equal(ledger.filter(record => record.status === 'CURRENT').length, 1);
+  const events = await client.listDocuments('saqlainAgentAudit');
+  const rotation = events.find(event => event.eventType === 'ID_ROTATED');
+  assert.equal(typeof rotation?.previousBinaryIdHash, 'string');
+  assert.equal(typeof rotation?.currentBinaryIdHash, 'string');
+  assert.equal(rotation?.previousBinaryIdHash === rotation?.currentBinaryIdHash, false);
+});
