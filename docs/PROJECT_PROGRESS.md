@@ -77,6 +77,8 @@ Updated: 2026-10-26
 - [x] Integrated initial client synchronization: load shared domains; initialize missing domains from existing browser data; retain localStorage as a recovery copy; save a pre-sync snapshot; and block writes after a concurrency conflict or storage failure.
 - [x] Added a Firebase UID marker so one user's existing browser data is not automatically imported into a different user's cloud workspace in the same browser; user-specific backup is attempted before switching.
 - [x] Added an explicit UI state for syncing, shared, local-only, and conflict conditions; local-only edits are not described as shared.
+- [x] Added a user-triggered JSON backup export containing current local data and available recovery snapshots.
+- [x] Ran the focused readiness and workspace-service unit tests locally: 8 tests passed in total (4 readiness + 4 workspace-service tests).
 - [x] Added `docs/SHARED_DURABLE_STATE_RELIABILITY.md` and updated this progress page.
 - [ ] Full test suite, client/server TypeScript checks, production build, Docker build, and PR CI for these newest workspace changes remain unverified.
 - [ ] Live Firestore IAM, multi-instance concurrency, outage/recovery, UID switching, migration rollback, and large-data tests remain required before production use.
