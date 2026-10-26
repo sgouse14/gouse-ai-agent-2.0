@@ -42,7 +42,8 @@ Updated: 2026-10-26
 - [x] Added a pre-sync recovery snapshot, Firebase UID marker to avoid importing one user's browser data into another user's workspace, sync/conflict status, and a user-triggered JSON backup export.
 - [x] Four readiness tests and four workspace-service tests passed locally (8 focused backend tests total).
 - [x] Added `docs/SHARED_DURABLE_STATE_RELIABILITY.md` describing the implementation and limits.
-- [ ] Full project tests, client/server TypeScript checks, production build, Docker build, route integration tests, and PR CI remain unverified.
+- [x] Added `.github/workflows/shared-state-ci.yml` to run `npm ci`, all tests, client/server TypeScript checks, production build, and Docker build for pull requests and on demand.
+- [ ] Full project tests, client/server TypeScript checks, production build, Docker build, route integration tests, and PR CI on the GitHub runner remain unverified.
 - [ ] Live Firestore IAM, multi-instance concurrency, outage/recovery, UID-switching, migration rollback, and large-data validation remain required before production use.
 
 **Scope limits:** shared state is per Firebase user, not collaborative between different users. Each domain is currently a single Firestore document capped at 700,000 bytes; large project/BOQ data needs record-level storage. Browser localStorage remains as a recovery copy, and other component-level local data still needs inventory/migration.
