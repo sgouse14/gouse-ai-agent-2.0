@@ -1,6 +1,6 @@
 # Shared Durable State and Reliability
 
-**Status:** first shared-workspace API and client sync implementation added; full CI and cloud/staging validation still required. Not a production-readiness approval.  
+**Status:** first shared-workspace API and client sync implementation added in [draft PR #7](https://github.com/sgouse14/gouse-ai-agent-2.0/pull/7); full CI and cloud/staging validation still required. Not a production-readiness approval.  
 **Tracking issue:** [#3 — Implement shared durable state and reliability](https://github.com/sgouse14/gouse-ai-agent-2.0/issues/3)
 
 ## Existing foundations
@@ -11,7 +11,7 @@
 - Firestore queue writes use document preconditions and idempotency records.
 - File and Firestore audit logs have integrity verification.
 
-## Implemented in this branch (PR #5, not merged)
+## Implemented in this branch (PR #7, not merged)
 
 ### Readiness
 - `GET /healthz` remains lightweight liveness.
