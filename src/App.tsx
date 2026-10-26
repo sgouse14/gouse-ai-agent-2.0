@@ -490,7 +490,7 @@ export function App() {
       link.href = url;
       link.download = 'gouse-ai-workspace-backup-' + new Date().toISOString().replace(/[:.]/g, '-') + '.json';
       link.click();
-      URL.revokeObjectURL(url);
+      window.setTimeout(() => URL.revokeObjectURL(url), 1_000);
     } catch {
       setWorkspaceStatus('local-only');
     }
