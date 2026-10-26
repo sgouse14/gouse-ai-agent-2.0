@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Header } from './components/Header';
 import { Navigation, TabType } from './components/Navigation';
 import { ProjectsView } from './components/ProjectsView';
@@ -16,6 +16,7 @@ import {
 import { Project, BOQItem, ProfessionalProfile, MarketplaceEnquiry, EnquiryStatus } from './types';
 import { CurrencyCode } from './utils/formatters';
 import { ensureItemFloorBreakdown, DEFAULT_BUILDING_FLOORS } from './utils/floorTakeoffEngine';
+import { readWorkspaceDomain, writeWorkspaceDomain, WorkspaceApiError, type WorkspaceDomain } from './workspaceStateClient';
 
 export function App() {
   // Navigation
@@ -173,6 +174,137 @@ export function App() {
     localStorage.setItem('gouse_ai_enquiries', JSON.stringify(enquiries));
   }, [enquiries]);
 
+  // Shared workspace sync preserves the browser copy as a recoverable local backup.
+  // Existing local data is imported only when the matching server domain is absent.
+  const [workspaceStatus, setWorkspaceStatus] = useState<'syncing' | 'shared' | 'local-only' | 'conflict'>('syncing');
+  const [workspaceReady, setWorkspaceReady] = useState(false);
+  const [workspaceSyncAttempt, setWorkspaceSyncAttempt] = useState(0);
+  const workspaceVersions = useRef<Partial<Record<WorkspaceDomain, string | null>>>({});
+  const workspaceLastSynced = useRef<Partial<Record<WorkspaceDomain, string>>>({});
+  const workspaceWriteQueue = useRef<Promise<void>>(Promise.resolve());
+  const workspaceWritesBlocked = useRef(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    const readLocal = <T,>(key: string, fallback: T): T => {
+      try {
+        const value = localStorage.getItem(key);
+        return value === null ? fallback : JSON.parse(value) as T;
+      } catch {
+        return fallback;
+      }
+    };
+    const localSnapshot: Record<WorkspaceDomain, unknown> = {
+      projects: readLocal('gouse_ai_projects', projects),
+      boqItems: readLocal('gouse_ai_boq_items', boqItems),
+      professionals: readLocal('gouse_ai_professionals', professionals),
+      enquiries: readLocal('gouse_ai_enquiries', enquiries),
+      preferences: {
+        activeProjectId: readLocal('gouse_ai_active_project_id', activeProjectId),
+        currency: readLocal('gouse_ai_currency', currency),
+      },
+    };
+
+    const applyShared = (domain: WorkspaceDomain, data: unknown, version: string) => {
+      if (domain === 'projects' && Array.isArray(data)) {
+        setProjects(data as Project[]);
+      } else if (domain === 'boqItems' && Array.isArray(data)) {
+        setBoqItems(data as BOQItem[]);
+      } else if (domain === 'professionals' && Array.isArray(data)) {
+        setProfessionals(data as ProfessionalProfile[]);
+      } else if (domain === 'enquiries' && Array.isArray(data)) {
+        setEnquiries(data as MarketplaceEnquiry[]);
+      } else if (domain === 'preferences' && data && typeof data === 'object') {
+        const preferences = data as { activeProjectId?: unknown; currency?: unknown };
+        if (typeof preferences.activeProjectId === 'string') setActiveProjectId(preferences.activeProjectId);
+        if (typeof preferences.currency === 'string' && ['INR', 'USD', 'EUR', 'GBP', 'AED'].includes(preferences.currency)) {
+          setCurrency(preferences.currency as CurrencyCode);
+        }
+      } else {
+        throw new WorkspaceApiError('unavailable', 'Shared workspace data has an unexpected shape.');
+      }
+      workspaceVersions.current[domain] = version;
+      workspaceLastSynced.current[domain] = JSON.stringify(data);
+    };
+
+    const synchronize = async () => {
+      try {
+        const domains: WorkspaceDomain[] = ['projects', 'boqItems', 'professionals', 'enquiries', 'preferences'];
+        for (const domain of domains) {
+          let remote = await readWorkspaceDomain<unknown>(domain);
+          if (cancelled) return;
+          if (!remote) {
+            try {
+              const created = await writeWorkspaceDomain(domain, localSnapshot[domain], null);
+              remote = { data: localSnapshot[domain], version: created.version };
+            } catch (error) {
+              if (!(error instanceof WorkspaceApiError) || error.code !== 'conflict') throw error;
+              remote = await readWorkspaceDomain<unknown>(domain);
+              if (!remote) throw error;
+            }
+          }
+          if (!Array.isArray(remote.data) && domain !== 'preferences') {
+            throw new WorkspaceApiError('unavailable', 'Shared workspace data has an unexpected shape.');
+          }
+          applyShared(domain, remote.data, remote.version);
+        }
+        if (cancelled) return;
+        workspaceWritesBlocked.current = false;
+        setWorkspaceStatus('shared');
+      } catch (error) {
+        if (cancelled) return;
+        workspaceWritesBlocked.current = true;
+        setWorkspaceStatus(error instanceof WorkspaceApiError && error.code === 'conflict' ? 'conflict' : 'local-only');
+      } finally {
+        if (!cancelled) setWorkspaceReady(true);
+      }
+    };
+
+    setWorkspaceReady(false);
+    setWorkspaceStatus('syncing');
+    void synchronize();
+    return () => { cancelled = true; };
+  }, [workspaceSyncAttempt]);
+
+  const queueWorkspaceWrite = (domain: WorkspaceDomain, data: unknown) => {
+    if (!workspaceReady || workspaceStatus !== 'shared' || workspaceWritesBlocked.current) return;
+    const serialized = JSON.stringify(data);
+    if (workspaceLastSynced.current[domain] === serialized) return;
+    workspaceWriteQueue.current = workspaceWriteQueue.current.then(async () => {
+      if (workspaceWritesBlocked.current) return;
+      try {
+        const expectedVersion = workspaceVersions.current[domain];
+        const result = await writeWorkspaceDomain(domain, data, expectedVersion ?? null);
+        workspaceVersions.current[domain] = result.version;
+        workspaceLastSynced.current[domain] = serialized;
+      } catch (error) {
+        workspaceWritesBlocked.current = true;
+        setWorkspaceStatus(error instanceof WorkspaceApiError && error.code === 'conflict' ? 'conflict' : 'local-only');
+      }
+    });
+  };
+
+  useEffect(() => {
+    try { localStorage.setItem('gouse_ai_currency', JSON.stringify(currency)); } catch { /* local backup is best-effort */ }
+    queueWorkspaceWrite('projects', projects);
+  }, [projects, workspaceReady, workspaceStatus]);
+
+  useEffect(() => {
+    queueWorkspaceWrite('boqItems', boqItems);
+  }, [boqItems, workspaceReady, workspaceStatus]);
+
+  useEffect(() => {
+    queueWorkspaceWrite('professionals', professionals);
+  }, [professionals, workspaceReady, workspaceStatus]);
+
+  useEffect(() => {
+    queueWorkspaceWrite('enquiries', enquiries);
+  }, [enquiries, workspaceReady, workspaceStatus]);
+
+  useEffect(() => {
+    queueWorkspaceWrite('preferences', { activeProjectId, currency });
+  }, [activeProjectId, currency, workspaceReady, workspaceStatus]);
+
   // Project Handlers
   const handleUpdateProject = (updated: Project) => {
     setProjects((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
@@ -286,6 +418,24 @@ export function App() {
 
       {/* Navigation Bar */}
       <Navigation activeTab={activeTab} onSelectTab={setActiveTab} />
+
+      {/* Shared-state status is explicit; local edits remain in browser storage if sync fails. */}
+      <div className={`relative z-10 px-4 py-2 text-xs border-b ${workspaceStatus === 'shared' ? 'border-emerald-900 bg-emerald-950/50 text-emerald-200' : workspaceStatus === 'syncing' ? 'border-slate-700 bg-slate-900 text-slate-300' : 'border-amber-800 bg-amber-950/60 text-amber-100'}`}>
+        <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-2">
+          <span>
+            {workspaceStatus === 'shared' && 'Shared workspace connected. Browser storage is retained as a local recovery copy.'}
+            {workspaceStatus === 'syncing' && 'Connecting to shared workspace and preserving local data…'}
+            {workspaceStatus === 'local-only' && 'Shared workspace unavailable. Changes are saved locally and are not confirmed as shared.'}
+            {workspaceStatus === 'conflict' && 'Another session changed shared data. Local changes are preserved; reload shared data before continuing edits.'}
+          </span>
+          {(workspaceStatus === 'local-only' || workspaceStatus === 'conflict') && (
+            <button type="button" className="rounded border border-current px-2 py-1 hover:bg-white/10" onClick={() => {
+              workspaceWritesBlocked.current = false;
+              setWorkspaceSyncAttempt((attempt) => attempt + 1);
+            }}>Retry / reload shared data</button>
+          )}
+        </div>
+      </div>
 
       {/* Workspace Content Router */}
       <main className="flex-1 pb-16 relative z-10">
