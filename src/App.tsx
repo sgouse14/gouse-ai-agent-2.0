@@ -216,7 +216,15 @@ export function App() {
       professionals: INITIAL_PROFESSIONALS,
       enquiries: INITIAL_ENQUIRIES,
       preferences: { activeProjectId: INITIAL_PROJECTS[0]?.id ?? '', currency },
-    } : storedLocalSnapshot;
+    } : {
+      // Migrate the app's normalized in-memory state; the untouched raw browser
+      // values remain in the backup snapshot above for recovery.
+      projects,
+      boqItems,
+      professionals,
+      enquiries,
+      preferences: { activeProjectId, currency },
+    };
 
     // Keep the pre-sync data in a UID-specific recovery snapshot. If a different
     // Firebase user signs into this browser, never import the previous user's
