@@ -28,6 +28,18 @@ Updated: 2026-10-25
 - [x] Latest code CI passed in [run #40070558418](https://github.com/sgouse14/gouse-ai-agent-2.0/actions/runs/40070558418), commit `265fb184`: security tests, TypeScript checks, production build, and Docker build all passed.
 - [ ] End-to-end backup job enqueue/lock/complete through the shared Firestore queue remains incomplete. Current worker change aligns startup recovery and monitoring counts only.
 - [ ] Live Cloud Run/Firestore IAM, multi-instance concurrency, API outage, and recovery tests have not been run.
+## Shared durable state and readiness — 26 October 2026
+
+- [x] Added `GET /readyz` as a distinct dependency-aware check; `/healthz` remains a liveness-only endpoint.
+- [x] Readiness checks the configured Saqlain audit backend, including file access and audit-chain verification in file mode or Firestore connectivity/audit-chain verification in Firestore mode.
+- [x] Added focused tests for invalid backend configuration, missing audit configuration, inaccessible file paths, corrupted audit history, missing Firestore project configuration, and simulated Firestore failure.
+- [ ] Main workspace state in `src/App.tsx` (projects, active project, BOQ items, professionals, and enquiries) is still browser `localStorage`; it is not yet shared across devices/instances.
+- [ ] Inventory and migrate the remaining component-level localStorage data, with verified export/import, idempotent cutover, user/project ownership, record-level concurrency, and rollback.
+- [ ] Complete queue-driven backup/recovery execution and shared rate limiting; existing queue integration still has documented gaps.
+- [ ] Full project tests/type-check/build and live Cloud Run/Firestore multi-instance validation remain required before promotion.
+- [x] Detailed status and next steps documented in [Shared Durable State and Reliability](SHARED_DURABLE_STATE_RELIABILITY.md).
+
+
 
 ## Website Error Diagnostics — initial implementation (24 October 2026)
 
