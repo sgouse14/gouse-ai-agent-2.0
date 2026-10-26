@@ -41,4 +41,6 @@
 - Dedicated GitHub Actions workflow: `.github/workflows/agent-lifecycle-ci.yml`.
 - Must pass full automated tests, client/server TypeScript checks, production build, and Docker build.
 - Before enabling lifecycle management, set the required deployment environment and Firestore IAM permissions in a staging environment; confirm owner UID allowlist and rollback plan.
-- Before using Gousiya orchestration operationally, add and validate a narrowly scoped service/API adapter that authenticates callers and derives evidence flags from trusted services rather than request payloads; this storage layer alone does not authorize actors or execute recovery.
+- Added an authenticated workflow intake/read API at `/api/security/gousiya/workflows`, with Firebase ID-token and account-status verification, a server-configured owner UID allowlist, creator-scoped reads, and no-store responses.
+- The public API intentionally exposes creation and read/event inspection only. It does not expose transitions that could accept client-supplied approval, grant-consumption, or verification flags.
+- Still required before operational recovery: a narrowly scoped trusted transition adapter that derives evidence and approval claims from persisted verifier results, plus staging IAM/configuration review. This API does not execute recovery.
