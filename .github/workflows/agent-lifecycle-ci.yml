@@ -1,0 +1,53 @@
+name: Agent lifecycle, Gousiya orchestration, and communication CI
+
+on:
+  push:
+    branches:
+      - feat/agent-lifecycle-gousiya-communication
+  pull_request:
+    branches:
+      - feature/saqlain-cyber-agent
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: agent-lifecycle-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install locked dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Run automated tests
+        run: npm test
+
+      - name: Check client TypeScript
+        run: npm run typecheck
+
+      - name: Check server TypeScript
+        run: npm run typecheck:server
+
+      - name: Build production assets and server
+        run: npm run build
+
+      - name: Build Docker image
+        run: docker build -t gouse-ai-agent:agent-lifecycle .
