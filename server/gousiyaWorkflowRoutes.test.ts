@@ -87,6 +87,10 @@ test('Gousiya workflow API reads current state and append-only events without ex
     });
     assert.equal(get.status, 200);
     assert.equal((await get.json() as { stage: string }).stage, 'INTAKE');
+    const foreignRead = await fetch(base + '/api/security/gousiya/workflows/workflow-read', {
+      headers: { authorization: 'Bearer workflow-other-token-123456789012' },
+    });
+    assert.equal(foreignRead.status, 404);
     const events = await fetch(base + '/api/security/gousiya/workflows/workflow-read/events', {
       headers: { authorization: owner },
     });
