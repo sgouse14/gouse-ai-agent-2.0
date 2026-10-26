@@ -41,8 +41,11 @@ Updated: 2026-10-26
 - [x] Added client startup synchronization and first-import behavior for missing server domains, retaining localStorage as recovery copy.
 - [x] Added a pre-sync recovery snapshot, Firebase UID marker to avoid importing one user's browser data into another user's workspace, sync/conflict status, and a user-triggered JSON backup export.
 - [x] Four readiness tests and four workspace-service tests passed locally (8 focused backend tests total).
+- [x] Added HTTP integration tests for workspace authentication, request validation, reads/writes, stale-write conflicts, malformed JSON, and sanitized storage failures; these are included in `npm test` but await the next CI execution.
 - [x] Added `docs/SHARED_DURABLE_STATE_RELIABILITY.md` describing the implementation and limits.
-- [x] Added `.github/workflows/shared-state-ci.yml` to run `npm ci`, all tests, client/server TypeScript checks, production build, and Docker build for pull requests and on demand.
+- [x] Added `.github/workflows/shared-state-ci.yml` to run all tests, client/server TypeScript checks, production build, and Docker build for pull requests and on demand.
+- [x] Fixed the initial workflow setup failure: the repo has no npm lockfile, so the workflow now uses `npm install` and does not configure lockfile-based caching.
+- [ ] The first CI run stopped at Node setup because of the missing lockfile; the corrected workflow has been committed and its next run is pending.
 - [ ] Full project tests, client/server TypeScript checks, production build, Docker build, route integration tests, and PR CI on the GitHub runner remain unverified.
 - [ ] Live Firestore IAM, multi-instance concurrency, outage/recovery, UID-switching, migration rollback, and large-data validation remain required before production use.
 
