@@ -461,6 +461,41 @@ export function App() {
     setActiveTab('marketplace');
   };
 
+  const exportLocalWorkspaceBackup = () => {
+    try {
+      const readRaw = (key: string) => {
+        const value = localStorage.getItem(key);
+        if (value === null) return null;
+        try { return JSON.parse(value) as unknown; } catch { return value; }
+      };
+      const uid = firebaseAuth.currentUser?.uid ?? null;
+      const backup = {
+        schemaVersion: 1,
+        exportedAt: new Date().toISOString(),
+        ownerUid: uid,
+        currentLocalData: {
+          projects: readRaw('gouse_ai_projects'),
+          activeProjectId: readRaw('gouse_ai_active_project_id'),
+          boqItems: readRaw('gouse_ai_boq_items'),
+          professionals: readRaw('gouse_ai_professionals'),
+          enquiries: readRaw('gouse_ai_enquiries'),
+          currency: readRaw('gouse_ai_currency'),
+        },
+        preSyncRecoverySnapshot: readRaw('gouse_ai_local_backup_before_shared_sync'),
+        uidSpecificRecoverySnapshot: uid ? readRaw('gouse_ai_local_backup_' + uid) : null,
+      };
+      const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'gouse-ai-workspace-backup-' + new Date().toISOString().replace(/[:.]/g, '-') + '.json';
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      setWorkspaceStatus('local-only');
+    }
+  };
+
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-amber-500/30 selection:text-amber-200">
       {/* Drafting Grid Canvas Background */}
@@ -495,12 +530,15 @@ export function App() {
             {workspaceStatus === 'local-only' && 'Shared workspace unavailable. Changes are saved locally and are not confirmed as shared.'}
             {workspaceStatus === 'conflict' && 'Another session changed shared data. Local changes are preserved; reload shared data before continuing edits.'}
           </span>
-          {(workspaceStatus === 'local-only' || workspaceStatus === 'conflict') && (
-            <button type="button" className="rounded border border-current px-2 py-1 hover:bg-white/10" onClick={() => {
-              workspaceWritesBlocked.current = false;
-              setWorkspaceSyncAttempt((attempt) => attempt + 1);
-            }}>Retry / reload shared data</button>
-          )}
+          <div className="flex flex-wrap gap-2">
+            <button type="button" className="rounded border border-current px-2 py-1 hover:bg-white/10" onClick={exportLocalWorkspaceBackup}>Export local backup</button>
+            {(workspaceStatus === 'local-only' || workspaceStatus === 'conflict') && (
+              <button type="button" className="rounded border border-current px-2 py-1 hover:bg-white/10" onClick={() => {
+                workspaceWritesBlocked.current = false;
+                setWorkspaceSyncAttempt((attempt) => attempt + 1);
+              }}>Retry / reload shared data</button>
+            )}
+          </div>
         </div>
       </div>
 
