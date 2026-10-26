@@ -14,7 +14,7 @@ export interface AgentIdentityRecord {
 }
 
 export interface AgentIdentityAuditEvent {
-  event: "REGISTERED" | "ID_ROTATED" | "SUSPENDED" | "REACTIVATED";
+  event: "REGISTERED" | "ID_ROTATED" | "SUSPENDED" | "REACTIVATED" | "RETIRED";
   agentKey: string;
   previousBinaryId: string | null;
   currentBinaryId: string | null;
@@ -58,7 +58,7 @@ export function registerAgent(
   input: { agentKey: string; ownerApproved: boolean },
   now = new Date()
 ): AgentIdentityRecord {
-  if (!input.agentKey.trim()) throw new Error("agentKey is required.");
+  if (!isSafeAgentKey(input.agentKey)) throw new Error("agentKey must be a safe 1-128 character identifier.");
   if (!input.ownerApproved) throw new Error("Owner approval is required to register an agent.");
   if (state.agents.has(input.agentKey)) throw new Error("agentKey is already registered.");
 
@@ -104,7 +104,7 @@ export function rotateAgentIdAfterVerifiedTask(
   },
   now = new Date()
 ): AgentIdentityRecord {
-  if (!input.taskId.trim()) throw new Error("taskId is required.");
+  if (!isSafeLifecycleText(input.taskId, 256)) throw new Error("taskId is required and must be at most 256 characters.");
   if (!input.taskCompletionVerified) {
     throw new Error("Agent ID rotation requires verified task completion.");
   }
@@ -153,7 +153,8 @@ export function suspendAgent(
 ): AgentIdentityRecord {
   const current = state.agents.get(agentKey);
   if (!current) throw new Error("Unknown agent.");
-  if (!reason.trim()) throw new Error("A suspension reason is required.");
+  if (current.status !== "ACTIVE") throw new Error("Only active agents can be suspended.");
+  if (!isSafeLifecycleText(reason, 2000)) throw new Error("A suspension reason of at most 2000 characters is required.");
 
   const updated = { ...current, status: "SUSPENDED" as const };
   state.agents.set(agentKey, updated);
@@ -179,3 +180,83 @@ export const SAQLAIN_AGENT_ID_POLICY = Object.freeze({
   durableAtomicPersistenceRequired: true,
   gatekeeperMaySelfApprove: false,
 });
+
+
+/**
+ * Reactivation is a privileged lifecycle operation. The caller must derive
+ * ownerApproved from a trusted server-side authorization/approval record,
+ * never from an untrusted request body.
+ */
+export function reactivateAgent(
+  state: AgentIdentityState,
+  input: { agentKey: string; ownerApproved: boolean; reason: string },
+  now = new Date()
+): AgentIdentityRecord {
+  const current = state.agents.get(input.agentKey);
+  if (!current) throw new Error("Unknown agent.");
+  if (current.status !== "SUSPENDED") throw new Error("Only suspended agents can be reactivated.");
+  if (!input.ownerApproved) throw new Error("Owner approval is required to reactivate an agent.");
+  if (!isSafeLifecycleText(input.reason, 2000)) throw new Error("A reactivation reason of at most 2000 characters is required.");
+
+  const updated: AgentIdentityRecord = { ...current, status: "ACTIVE", ownerApproved: true };
+  state.agents.set(input.agentKey, updated);
+  state.auditEvents.push({
+    event: "REACTIVATED",
+    agentKey: input.agentKey,
+    previousBinaryId: current.currentBinaryId,
+    currentBinaryId: current.currentBinaryId,
+    taskId: null,
+    timestamp: now.toISOString(),
+    reason: input.reason.trim(),
+  });
+  return { ...updated };
+}
+
+/** Retirement is terminal: IDs stay in the no-reuse ledger and cannot be reactivated. */
+export function retireAgent(
+  state: AgentIdentityState,
+  input: { agentKey: string; reason: string },
+  now = new Date()
+): AgentIdentityRecord {
+  const current = state.agents.get(input.agentKey);
+  if (!current) throw new Error("Unknown agent.");
+  if (current.status === "RETIRED") throw new Error("Agent is already retired.");
+  if (!isSafeLifecycleText(input.reason, 2000)) throw new Error("A retirement reason of at most 2000 characters is required.");
+
+  const updated: AgentIdentityRecord = { ...current, status: "RETIRED", ownerApproved: false };
+  state.agents.set(input.agentKey, updated);
+  state.issuedIds.add(current.currentBinaryId);
+  state.auditEvents.push({
+    event: "RETIRED",
+    agentKey: input.agentKey,
+    previousBinaryId: current.currentBinaryId,
+    currentBinaryId: current.currentBinaryId,
+    taskId: null,
+    timestamp: now.toISOString(),
+    reason: input.reason.trim(),
+  });
+  return { ...updated };
+}
+
+/** Queue/dispatch guard: only the current binary ID of an active approved agent is eligible. */
+export function isAgentEligibleForWork(
+  state: AgentIdentityState,
+  input: { agentKey: string; presentedBinaryId: string }
+): boolean {
+  const agent = state.agents.get(input.agentKey);
+  return Boolean(
+    agent &&
+    agent.status === "ACTIVE" &&
+    agent.ownerApproved &&
+    agent.currentBinaryId === input.presentedBinaryId &&
+    /^[01]{128}$/.test(input.presentedBinaryId)
+  );
+}
+
+function isSafeAgentKey(value: unknown): value is string {
+  return typeof value === "string" && /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(value);
+}
+
+function isSafeLifecycleText(value: unknown, maxLength: number): value is string {
+  return typeof value === "string" && value.trim().length > 0 && value.length <= maxLength;
+}
