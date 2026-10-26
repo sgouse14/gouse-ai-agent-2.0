@@ -6,6 +6,7 @@ import { saqlainHeartbeatRouter } from './server/saqlainHeartbeatRoutes.ts';
 import { saqlainTaskQueueRouter } from './server/saqlainTaskQueueRoutes.ts';
 import { createSaqlainSecuritySummaryHandler } from './server/saqlainSecuritySummaryRoutes.ts';
 import { saqlainWebsiteDiagnosticsHandler } from './server/saqlainWebsiteDiagnosticsRoutes.ts';
+import { workspaceStateRouter } from './server/workspaceStateRoutes.ts';
 
 import path from 'path';
 import fs from 'fs';
@@ -79,6 +80,9 @@ app.use('/api/security/verification', saqlainVerificationRouter);
 
 // Application API boundary: Firebase identity, server-managed project membership, and provider quotas.
 app.use(createApplicationSecurityMiddleware());
+
+// Shared workspace data is scoped to the verified Firebase UID; writes use Firestore preconditions.
+app.use('/api/workspace-state', workspaceStateRouter);
 
 // Read-only, project-authorized website diagnostics; host allowlist and audit must be configured.
 app.post('/api/website/diagnostics', saqlainWebsiteDiagnosticsHandler);
