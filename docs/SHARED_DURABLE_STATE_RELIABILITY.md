@@ -23,7 +23,8 @@
 - Initial domains are `projects`, `boqItems`, `professionals`, `enquiries`, and `preferences`.
 - Firestore documents are separated by UID and domain. Writes use Firestore update-time preconditions and an application version token; stale writes return `409` instead of silently replacing newer data.
 - Payloads are capped at 700,000 UTF-8 bytes per domain before persistence. This is an initial bounded-domain design, not a solution for unbounded project/BOQ histories; larger domains should move to record-level documents.
-- The React app attempts to load each shared domain on startup. If a domain is absent, it attempts an initial import from the existing local browser state. The localStorage data remains in place as a local recovery copy.
+- The React app attempts to load each shared domain on startup. If a domain is absent, it attempts an initial import from the normalized in-memory browser state. The localStorage data remains in place as a local recovery copy.
+- Before sync, the app retains a snapshot; a visible **Export local backup** action downloads current local data and available recovery snapshots as JSON.
 - Before synchronization, the client saves a local snapshot. A Firebase UID marker prevents local data already associated with one user from being imported into another user's workspace on the same browser. A different UID starts from the default data and retains a UID-specific local backup when browser storage permits.
 - The UI reports whether the shared workspace is connected, syncing, local-only, or blocked by a concurrency conflict. If storage is unavailable, local edits remain in the browser and are explicitly not reported as shared.
 
@@ -47,4 +48,4 @@
 
 ## Validation record
 
-Four readiness tests passed locally before the shared workspace API/client changes. New service tests cover user/domain isolation, optimistic concurrency conflicts, oversized data, and owner mismatch, but have not been executed in this environment. Full suite/typecheck/build and live cloud integration are **not yet verified**.
+Eight focused backend unit tests passed locally: four readiness tests and four workspace-service tests covering user/domain isolation, optimistic concurrency conflicts, oversized data, and owner mismatch. The React integration and route wiring still have not passed a full typecheck/build/CI run. Full suite/typecheck/build and live cloud integration are **not yet verified**.
