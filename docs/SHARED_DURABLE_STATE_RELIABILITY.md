@@ -21,7 +21,7 @@
 ### Shared workspace API and browser synchronization
 - Added `GET /api/workspace-state/:domain` and `PUT /api/workspace-state/:domain`. These routes are mounted behind the existing Firebase token middleware and derive the storage owner from the server-verified Firebase UID; clients cannot choose an owner UID.
 - Initial domains are `projects`, `boqItems`, `professionals`, `enquiries`, and `preferences`.
-- Firestore documents are separated by UID and domain. Writes use Firestore update-time preconditions and an application version token; stale writes return `409` instead of silently replacing newer data.
+- Firestore documents are separated by UID and domain. Writes use POST with Firestore update-time preconditions and an application version token; stale writes return `409` instead of silently replacing newer data.
 - Payloads are capped at 700,000 UTF-8 bytes per domain before persistence. This is an initial bounded-domain design, not a solution for unbounded project/BOQ histories; larger domains should move to record-level documents.
 - The React app attempts to load each shared domain on startup. If a domain is absent, it attempts an initial import from the normalized in-memory browser state. The localStorage data remains in place as a local recovery copy.
 - Before sync, the app retains a snapshot; a visible **Export local backup** action downloads current local data and available recovery snapshots as JSON.
