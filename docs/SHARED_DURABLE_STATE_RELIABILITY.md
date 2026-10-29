@@ -1,6 +1,6 @@
 # Shared Durable State and Reliability
 
-**Status:** first shared-workspace API and client sync implementation added in [draft PR #8](https://github.com/sgouse14/gouse-ai-agent-2.0/pull/8); full CI and cloud/staging validation still required. Not a production-readiness approval.  
+**Status:** shared-workspace API and client sync are consolidated in [draft PR #13](https://github.com/sgouse14/gouse-ai-agent-2.0/pull/13). Full CI passed on consolidated code, including follow-up Firebase session/UID-switch safeguards. Cloud staging and live Firestore validation remain required; this is not a production-readiness approval.  
 **Tracking issue:** [#3 — Implement shared durable state and reliability](https://github.com/sgouse14/gouse-ai-agent-2.0/issues/3)
 
 ## Existing foundations
@@ -19,7 +19,7 @@
 - File mode checks path access and the existing hash-chained audit log. Firestore mode checks project configuration, connectivity, and audit-chain readability.
 
 ### Shared workspace API and browser synchronization
-- Added `GET /api/workspace-state/:domain` and `PUT /api/workspace-state/:domain`. These routes are mounted behind the existing Firebase token middleware and derive the storage owner from the server-verified Firebase UID; clients cannot choose an owner UID.
+- Added `GET /api/workspace-state/:domain` and `POST /api/workspace-state/:domain`. These routes are mounted behind the existing Firebase token middleware and derive the storage owner from the server-verified Firebase UID; clients cannot choose an owner UID.
 - Initial domains are `projects`, `boqItems`, `professionals`, `enquiries`, and `preferences`.
 - Firestore documents are separated by UID and domain. Writes use POST with Firestore update-time preconditions and an application version token; stale writes return `409` instead of silently replacing newer data.
 - Payloads are capped at 700,000 UTF-8 bytes per domain before persistence. This is an initial bounded-domain design, not a solution for unbounded project/BOQ histories; larger domains should move to record-level documents.
@@ -33,7 +33,7 @@
 1. This implementation is user-scoped: it synchronizes the same user's data across their signed-in devices/instances. It does not yet implement collaborative project sharing between different users, even if project member metadata exists in the UI.
 2. The browser still retains localStorage copies and some other components keep their own local preferences/material state. This is a dual-write/migration stage, not a completed removal of browser storage.
 3. Each domain currently occupies one Firestore document with a 700,000-byte application cap. The app should move to per-record documents with parent ownership checks before large project files/BOQs exceed that bound.
-4. The client migration path and service tests are committed, but full TypeScript/build/CI execution and live Cloud Run/Firestore validation have not yet been verified for PR #8. Do not enable a production cutover until CI and staging checks pass.
+4. The client migration path, UID-switch safeguards, and service tests are committed. Full tests, client/server TypeScript checks, production build, and Docker build passed in [shared-state CI #40841898050](https://github.com/sgouse14/gouse-ai-agent-2.0/actions/runs/40841898050) and [agent lifecycle CI #40841897977](https://github.com/sgouse14/gouse-ai-agent-2.0/actions/runs/40841897977). Live Cloud Run/Firestore validation has not been done. Do not enable a production cutover until staging checks pass.
 5. The periodic backup/recovery runtime still needs complete queue-driven enqueue/lock/execute/complete integration. Existing work covers queue backend selection for interrupted-task recovery and monitoring queue counts; it does not mean all backup execution uses the shared Firestore queue.
 6. Some rate limiting remains process-local. A successful readiness probe checks the configured Saqlain audit path, not every AI provider or every application dependency.
 7. Live Firestore IAM, multi-instance conflict behavior, API outage, migration rollback, backup/restore, and independent host-down alerting need staging validation.
@@ -52,4 +52,4 @@ Added `.github/workflows/shared-state-ci.yml` to run the complete test suite, cl
 
 ## Validation record
 
-CI run #31 passed all 273 automated tests, client TypeScript, server TypeScript, production build, and Docker image build. Live Cloud Run/Firestore IAM, multi-instance concurrency, outage/recovery, UID-switching, migration rollback, and large-data validation remain **not yet verified**.
+Consolidated CI passed on commit `da7cfa00`: [shared-state CI #40841898050](https://github.com/sgouse14/gouse-ai-agent-2.0/actions/runs/40841898050) and [agent lifecycle CI #40841897977](https://github.com/sgouse14/gouse-ai-agent-2.0/actions/runs/40841897977). Both workflows passed tests, client/server TypeScript, production build, and Docker image build. Live Cloud Run/Firestore IAM, multi-instance concurrency, outage/recovery, UID-switching in a real browser, migration rollback, and large-data validation remain **not yet verified**.
