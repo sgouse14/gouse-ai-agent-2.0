@@ -17,6 +17,7 @@ import { Project, BOQItem, ProfessionalProfile, MarketplaceEnquiry, EnquiryStatu
 import { CurrencyCode } from './utils/formatters';
 import { ensureItemFloorBreakdown, DEFAULT_BUILDING_FLOORS } from './utils/floorTakeoffEngine';
 import { readWorkspaceDomain, writeWorkspaceDomain, WorkspaceApiError, type WorkspaceDomain } from './workspaceStateClient';
+import { onAuthStateChanged } from 'firebase/auth';
 import { firebaseAuth } from './firebase';
 
 export function App() {
@@ -184,7 +185,13 @@ export function App() {
   const workspaceLastSynced = useRef<Partial<Record<WorkspaceDomain, string>>>({});
   const workspaceWriteQueue = useRef<Promise<void>>(Promise.resolve());
   const workspaceWritesBlocked = useRef(false);
-  const signedInUid = firebaseAuth.currentUser?.uid ?? null;
+  // Firebase restores persisted sessions asynchronously. Subscribe so workspace
+  // sync follows sign-in/sign-out even when no other App state changes.
+  const [signedInUid, setSignedInUid] = useState<string | null>(() => firebaseAuth.currentUser?.uid ?? null);
+
+  useEffect(() => onAuthStateChanged(firebaseAuth, (user) => {
+    setSignedInUid(user?.uid ?? null);
+  }), []);
 
   useEffect(() => {
     let cancelled = false;
