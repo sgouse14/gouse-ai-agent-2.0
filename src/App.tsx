@@ -305,14 +305,17 @@ export function App() {
         const domains: WorkspaceDomain[] = ['projects', 'boqItems', 'professionals', 'enquiries', 'preferences'];
         for (const domain of domains) {
           let remote = await readWorkspaceDomain<unknown>(domain);
-          if (cancelled) return;
+          if (cancelled || firebaseAuth.currentUser?.uid !== currentUid) return;
           if (!remote) {
             try {
+              if (cancelled || firebaseAuth.currentUser?.uid !== currentUid) return;
               const created = await writeWorkspaceDomain(domain, localSnapshot[domain], null);
+              if (cancelled || firebaseAuth.currentUser?.uid !== currentUid) return;
               remote = { data: localSnapshot[domain], version: created.version };
             } catch (error) {
               if (!(error instanceof WorkspaceApiError) || error.code !== 'conflict') throw error;
               remote = await readWorkspaceDomain<unknown>(domain);
+              if (cancelled || firebaseAuth.currentUser?.uid !== currentUid) return;
               if (!remote) throw error;
             }
           }
@@ -344,17 +347,22 @@ export function App() {
   }, [workspaceSyncAttempt, signedInUid, authReady]);
 
   const queueWorkspaceWrite = (domain: WorkspaceDomain, data: unknown) => {
-    if (!workspaceReady || workspaceStatus !== 'shared' || workspaceWritesBlocked.current) return;
+    const ownerUid = signedInUid;
+    if (!ownerUid || firebaseAuth.currentUser?.uid !== ownerUid ||
+        !workspaceReady || workspaceStatus !== 'shared' || workspaceWritesBlocked.current) return;
     const serialized = JSON.stringify(data);
     if (workspaceLastSynced.current[domain] === serialized) return;
     workspaceWriteQueue.current = workspaceWriteQueue.current.then(async () => {
-      if (workspaceWritesBlocked.current) return;
+      // Old queued edits must never be sent using a later user's Firebase session.
+      if (workspaceWritesBlocked.current || firebaseAuth.currentUser?.uid !== ownerUid) return;
       try {
         const expectedVersion = workspaceVersions.current[domain];
         const result = await writeWorkspaceDomain(domain, data, expectedVersion ?? null);
+        if (firebaseAuth.currentUser?.uid !== ownerUid) return;
         workspaceVersions.current[domain] = result.version;
         workspaceLastSynced.current[domain] = serialized;
       } catch (error) {
+        if (firebaseAuth.currentUser?.uid !== ownerUid) return;
         workspaceWritesBlocked.current = true;
         setWorkspaceStatus(error instanceof WorkspaceApiError && error.code === 'conflict' ? 'conflict' : 'local-only');
       }
