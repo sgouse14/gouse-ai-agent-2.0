@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - feat/agent-lifecycle-gousiya-communication
+      - integration/consolidated-unfinished-work
   pull_request:
     branches:
       - feature/saqlain-cyber-agent
