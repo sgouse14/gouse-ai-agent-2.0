@@ -1,6 +1,6 @@
 # Agent lifecycle, Gousiya orchestration, and Communication Agent
 
-**Status:** implementation draft in [PR #10](https://github.com/sgouse14/gouse-ai-agent-2.0/pull/10). Not merged and not production-ready.
+**Status:** consolidated implementation draft in [PR #13](https://github.com/sgouse14/gouse-ai-agent-2.0/pull/13), which targets `feature/saqlain-cyber-agent` and does not target `main`. Full CI passed on code commit `da7cfa00` in [agent lifecycle CI #40841897977](https://github.com/sgouse14/gouse-ai-agent-2.0/actions/runs/40841897977) and [shared-state CI #40841898050](https://github.com/sgouse14/gouse-ai-agent-2.0/actions/runs/40841898050). Not production-ready; live staging/IAM validation remains outstanding.
 
 ## Priority 1 — controlled agent lifecycle
 
