@@ -1,6 +1,6 @@
 # Gouse AI Agent 2.0 — Project Progress
 
-Updated: 2026-10-26 (full checklist count and PR/CI status refresh)
+Updated: 2026-10-29 (integration consolidation status; CI pending)
 
 ## Status summary
 
@@ -9,16 +9,16 @@ Updated: 2026-10-26 (full checklist count and PR/CI status refresh)
 - **Checklist completion (measured 26 Oct):** 85 checked / 160 tracked checklist items (**53% by checklist count**); 75 unchecked items (**47% remain**). This is a raw count of Markdown checkboxes in this document, not weighted project completion, code coverage, or production readiness.
 - **Saqlain implementation estimate:** approximately 65% (subjective planning estimate; not measured code coverage). Keep this separate from the checklist percentage.
 - **Overall project/production readiness:** still in progress; do not treat either estimate as release approval.
-- **Latest verified full feature-branch CI:** [run #40291818355](https://github.com/sgouse14/gouse-ai-agent-2.0/actions/runs/40291818355) passed on documentation/status commit `c2ef4f84`: security tests, client/server TypeScript checks, production build, and Docker image build all succeeded. Later commits only refresh documentation/status, with separate CI runs; the current revision's check should be treated as pending until GitHub reports success. Live Firebase/Firestore/cloud staging validation is still outstanding.
+- **Latest verified feature-branch CI:** [run #40292901724](https://github.com/sgouse14/gouse-ai-agent-2.0/actions/runs/40292901724) passed on feature-branch commit `4e3597f6`. The new integration branch has separate current CI runs in progress; do not treat the earlier feature-branch result as validation of the consolidated code. Live Firebase/Firestore/cloud staging validation remains outstanding.
 - **Feature branch:** `feature/saqlain-cyber-agent`
 - **Main feature PR:** [#6 — open, draft, not merged](https://github.com/sgouse14/gouse-ai-agent-2.0/pull/6), targeting `main`.
-- **Shared durable-state PRs #7 and #8:** both are **closed without merging** (GitHub state `closed`, `merged=false`). Their changes therefore are **not included** in this feature branch. PR #8 head `b9bdedea` passed full CI in [run #40285754004](https://github.com/sgouse14/gouse-ai-agent-2.0/actions/runs/40285754004), but live Cloud Run/Firestore staging checks are open. PR #7 was the older overlapping draft; consolidate/reopen a single maintained PR only if this work is to be continued.
-- **Recent feature history:** branch commit [`f5da7b9`](https://github.com/sgouse14/gouse-ai-agent-2.0/commit/f5da7b90e5e2279c2dda2dadd1f4be129cce6e8f) adds the Smart Home SKA Agent/HUD and related UI components. Shared workspace persistence was developed in PRs #7/#8, and agent lifecycle/Gousiya workflow persistence was developed in PR #10; those PRs are now closed without merge, so their changes are not integrated into this feature branch. Their CI results are recorded separately below. Validate integration before release.
+- **Shared durable-state PRs #7 and #8:** both remain **closed without merging**. Their code is now being consolidated on `integration/consolidated-unfinished-work`, using PR #8's clean implementation rather than combining overlapping PR #7 and #8.
+- **Consolidation branch:** `integration/consolidated-unfinished-work` now contains the workspace persistence code from PR #8 and agent lifecycle/Gousiya modules from PR #10, with `server.ts` route wiring and an expanded combined test command. Draft [PR #13](https://github.com/sgouse14/gouse-ai-agent-2.0/pull/13) targets `feature/saqlain-cyber-agent` only. CI and integration review are pending; no merge to `main` or deployment.
 - **Main branch:** no merge of PR #6 and no production deployment.
 
 ## Separate, unmerged implementation work — agent lifecycle and Gousiya (26 October 2026)
 
-- **PR #10 status:** [PR #10](https://github.com/sgouse14/gouse-ai-agent-2.0/pull/10) is **closed without merging** (GitHub state `closed`, `merged=false`), with head branch `feat/agent-lifecycle-gousiya-communication` targeting this feature branch. Its registry/workflow/API code is **not included in this branch**.
+- **PR #10 status:** [PR #10](https://github.com/sgouse14/gouse-ai-agent-2.0/pull/10) remains **closed without merging**. Its registry/workflow/API code is now copied into `integration/consolidated-unfinished-work`; it is not yet merged into `feature/saqlain-cyber-agent`.
 - [x] PR #10 adds a Firestore-backed agent registry with a permanent issued-ID ledger and append-only audit events; it adds durable Gousiya workflow snapshots/events with optimistic concurrency and one-time approval-reference consumption; its intake/read API is authenticated and owner-scoped. These are PR claims and remain subject to the CI/staging gates below.
 - [x] Investigated PR #10 run [#40289945968](https://github.com/sgouse14/gouse-ai-agent-2.0/actions/runs/40289945968): 288 of 289 tests passed; the workflow owner-read test got HTTP 404 instead of 200 because the route relied on an embedded `events` array that the store interface does not require.
 - [x] Fixed creator scoping in [commit `253c9567`](https://github.com/sgouse14/gouse-ai-agent-2.0/commit/253c95675cf7d3c9f9cbf0a26cffb9189fa268c5): read ownership now derives from the first immutable append-only event returned by `listEvents`, and non-owner/missing workflows retain the same 404 response to avoid enumeration.
@@ -33,6 +33,15 @@ Updated: 2026-10-26 (full checklist count and PR/CI status refresh)
 - [x] Recorded that PR #6 remains open and draft targeting `main`; no main-branch merge or production deploy occurred.
 - [ ] Validate the shared-state changes from closed PR #8 before reopening/consolidating a single maintained PR: check live Firebase/Firestore IAM, multi-instance concurrency, outage/recovery, and restore drills in staging.
 - [ ] Re-run a current full CI run after any additional code change, and maintain the distinction between CI green and production readiness.
+
+## Integration consolidation — 29 October 2026
+
+- The integration branch includes the clean shared workspace state service/routes/client, readiness checks, and regression tests from PR #8.
+- The integration branch also includes the Firestore-backed agent registry, owner-scoped registry routes, Gousiya workflow store/routes/recovery orchestration, communication-agent updates, and regression tests from PR #10.
+- `server.ts` is wired to the new routes and `/readyz`; `package.json` now includes workspace and agent lifecycle tests in the standard test command.
+- CI workflows were updated to run on this integration branch. Current runs: [shared-state CI #40837644513](https://github.com/sgouse14/gouse-ai-agent-2.0/actions/runs/40837644513) and [agent lifecycle CI #40837644515](https://github.com/sgouse14/gouse-ai-agent-2.0/actions/runs/40837644515). Results must be refreshed after completion; earlier canceled run #40837634535 was superseded by the latest push.
+- Draft [PR #13](https://github.com/sgouse14/gouse-ai-agent-2.0/pull/13) is the single consolidated review target into `feature/saqlain-cyber-agent`. Temporary staging PRs #11 and #12 were closed without merging.
+- This integration is not production-ready until CI is green and the combined branch is reviewed. Live Firebase/Firestore IAM, owner allowlists, multi-instance concurrency, outage/recovery, restore drills, and production sign-off remain outstanding.
 
 ## Completion count — 26 October 2026
 
