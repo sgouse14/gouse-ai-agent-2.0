@@ -6,7 +6,7 @@ Updated: 2026-10-29 (consolidation, auth-boundary hardening, and CI verification
 
 **Active development — not production-ready.** Completed implementation and validation are recorded separately. Items in the remaining work queue are not marked complete until implemented, tested, and reviewed.
 
-- **Checklist completion (measured 26 Oct):** 85 checked / 160 tracked checklist items (**53% by checklist count**); 75 unchecked items (**47% remain**). This is a raw count of Markdown checkboxes in this document, not weighted project completion, code coverage, or production readiness.
+- **Checklist completion (measured 29 Oct):** 90 checked / 167 tracked checklist items (**54% by checklist count**); 77 unchecked items (**46% remain**). This is a raw count of Markdown checkboxes in this document, not weighted project completion, code coverage, or production readiness.
 - **Saqlain implementation estimate:** approximately 65% (subjective planning estimate; not measured code coverage). Keep this separate from the checklist percentage.
 - **Overall project/production readiness:** still in progress; do not treat either estimate as release approval.
 - **Latest verified feature-branch CI:** [run #40292901724](https://github.com/sgouse14/gouse-ai-agent-2.0/actions/runs/40292901724) passed on feature-branch commit `4e3597f6`. The consolidated code passed both full CI workflows on commit `7d67cd8c`: [shared-state CI #40837983989](https://github.com/sgouse14/gouse-ai-agent-2.0/actions/runs/40837983989) and [agent lifecycle CI #40837991870](https://github.com/sgouse14/gouse-ai-agent-2.0/actions/runs/40837991870), including tests, client/server TypeScript, production build, and Docker build. The current progress refresh is documentation-only. Live Firebase/Firestore/cloud staging validation remains outstanding.
@@ -53,17 +53,17 @@ Updated: 2026-10-29 (consolidation, auth-boundary hardening, and CI verification
 - [ ] Still required: run the full workflows against the latest documentation/configuration commit, then test UID switching and migration/restore in a real browser against staging Firebase/Firestore.
 - [ ] Do not enable the new lifecycle APIs until staging IAM, explicit owner UID allowlists, multi-instance/replay tests, and operational recovery approval are complete.
 
-## Completion count — 26 October 2026
+## Completion count — 29 October 2026
 
-Counting every Markdown task checkbox in this progress file (including roadmap items and validations):
+Counting every Markdown task checkbox in this progress file (including roadmap items and validations), including the integration hardening follow-up:
 
 | Measure | Count | Share |
 |---|---:|---:|
-| Checked items | 85 | 53% |
-| Unchecked items | 75 | 47% |
-| Total checklist items | 160 | 100% |
+| Checked items | 90 | 54% |
+| Unchecked items | 77 | 46% |
+| Total checklist items | 167 | 100% |
 
-**Interpretation:** 85 checklist items are marked done and 75 remain unchecked. Because this count combines implementation work, planning/roadmap items, and staging/sign-off tasks, it is a checklist completion measure—not a claim that the software is 53% production-ready. Some completed implementation is recorded historically, while multiple separate PRs are now closed unmerged, so their code remains outside this branch.
+**Interpretation:** 90 checklist items are marked done and 77 remain unchecked. Because this count combines implementation work, planning/roadmap items, and staging/sign-off tasks, it is a checklist completion measure—not a claim that the software is 54% production-ready. Some completed implementation is recorded historically, while multiple separate PRs are now closed unmerged, so their code remains outside this branch.
 
 ## Work started — 21 October 2026
 
