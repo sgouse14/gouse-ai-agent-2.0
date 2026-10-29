@@ -1,24 +1,24 @@
 # Gouse AI Agent 2.0 — Project Progress
 
-Updated: 2026-10-26 (full checklist count and PR/CI status refresh)
+Updated: 2026-10-29 (consolidation, auth-boundary hardening, and CI verification)
 
 ## Status summary
 
 **Active development — not production-ready.** Completed implementation and validation are recorded separately. Items in the remaining work queue are not marked complete until implemented, tested, and reviewed.
 
-- **Checklist completion (measured 26 Oct):** 85 checked / 160 tracked checklist items (**53% by checklist count**); 75 unchecked items (**47% remain**). This is a raw count of Markdown checkboxes in this document, not weighted project completion, code coverage, or production readiness.
+- **Checklist completion (measured 29 Oct):** 90 checked / 167 tracked checklist items (**54% by checklist count**); 77 unchecked items (**46% remain**). This is a raw count of Markdown checkboxes in this document, not weighted project completion, code coverage, or production readiness.
 - **Saqlain implementation estimate:** approximately 65% (subjective planning estimate; not measured code coverage). Keep this separate from the checklist percentage.
 - **Overall project/production readiness:** still in progress; do not treat either estimate as release approval.
-- **Latest verified full feature-branch CI:** [run #40291818355](https://github.com/sgouse14/gouse-ai-agent-2.0/actions/runs/40291818355) passed on documentation/status commit `c2ef4f84`: security tests, client/server TypeScript checks, production build, and Docker image build all succeeded. Later commits only refresh documentation/status, with separate CI runs; the current revision's check should be treated as pending until GitHub reports success. Live Firebase/Firestore/cloud staging validation is still outstanding.
+- **Latest verified feature-branch CI:** [run #40292901724](https://github.com/sgouse14/gouse-ai-agent-2.0/actions/runs/40292901724) passed on feature-branch commit `4e3597f6`. The consolidated code passed both full CI workflows on commit `7d67cd8c`: [shared-state CI #40837983989](https://github.com/sgouse14/gouse-ai-agent-2.0/actions/runs/40837983989) and [agent lifecycle CI #40837991870](https://github.com/sgouse14/gouse-ai-agent-2.0/actions/runs/40837991870), including tests, client/server TypeScript, production build, and Docker build. The current progress refresh is documentation-only. Live Firebase/Firestore/cloud staging validation remains outstanding.
 - **Feature branch:** `feature/saqlain-cyber-agent`
 - **Main feature PR:** [#6 — open, draft, not merged](https://github.com/sgouse14/gouse-ai-agent-2.0/pull/6), targeting `main`.
-- **Shared durable-state PRs #7 and #8:** both are **closed without merging** (GitHub state `closed`, `merged=false`). Their changes therefore are **not included** in this feature branch. PR #8 head `b9bdedea` passed full CI in [run #40285754004](https://github.com/sgouse14/gouse-ai-agent-2.0/actions/runs/40285754004), but live Cloud Run/Firestore staging checks are open. PR #7 was the older overlapping draft; consolidate/reopen a single maintained PR only if this work is to be continued.
-- **Recent feature history:** branch commit [`f5da7b9`](https://github.com/sgouse14/gouse-ai-agent-2.0/commit/f5da7b90e5e2279c2dda2dadd1f4be129cce6e8f) adds the Smart Home SKA Agent/HUD and related UI components. Shared workspace persistence was developed in PRs #7/#8, and agent lifecycle/Gousiya workflow persistence was developed in PR #10; those PRs are now closed without merge, so their changes are not integrated into this feature branch. Their CI results are recorded separately below. Validate integration before release.
+- **Shared durable-state PRs #7 and #8:** both remain **closed without merging**. Their code is now being consolidated on `integration/consolidated-unfinished-work`, using PR #8's clean implementation rather than combining overlapping PR #7 and #8.
+- **Consolidation branch:** `integration/consolidated-unfinished-work` now contains the workspace persistence code from PR #8 and agent lifecycle/Gousiya modules from PR #10, with `server.ts` route wiring and an expanded combined test command. Draft [PR #13](https://github.com/sgouse14/gouse-ai-agent-2.0/pull/13) targets `feature/saqlain-cyber-agent` only. CI and integration review are pending; no merge to `main` or deployment.
 - **Main branch:** no merge of PR #6 and no production deployment.
 
 ## Separate, unmerged implementation work — agent lifecycle and Gousiya (26 October 2026)
 
-- **PR #10 status:** [PR #10](https://github.com/sgouse14/gouse-ai-agent-2.0/pull/10) is **closed without merging** (GitHub state `closed`, `merged=false`), with head branch `feat/agent-lifecycle-gousiya-communication` targeting this feature branch. Its registry/workflow/API code is **not included in this branch**.
+- **PR #10 status:** [PR #10](https://github.com/sgouse14/gouse-ai-agent-2.0/pull/10) remains **closed without merging**. Its registry/workflow/API code is now copied into `integration/consolidated-unfinished-work`; it is not yet merged into `feature/saqlain-cyber-agent`.
 - [x] PR #10 adds a Firestore-backed agent registry with a permanent issued-ID ledger and append-only audit events; it adds durable Gousiya workflow snapshots/events with optimistic concurrency and one-time approval-reference consumption; its intake/read API is authenticated and owner-scoped. These are PR claims and remain subject to the CI/staging gates below.
 - [x] Investigated PR #10 run [#40289945968](https://github.com/sgouse14/gouse-ai-agent-2.0/actions/runs/40289945968): 288 of 289 tests passed; the workflow owner-read test got HTTP 404 instead of 200 because the route relied on an embedded `events` array that the store interface does not require.
 - [x] Fixed creator scoping in [commit `253c9567`](https://github.com/sgouse14/gouse-ai-agent-2.0/commit/253c95675cf7d3c9f9cbf0a26cffb9189fa268c5): read ownership now derives from the first immutable append-only event returned by `listEvents`, and non-owner/missing workflows retain the same 404 response to avoid enumeration.
@@ -34,17 +34,36 @@ Updated: 2026-10-26 (full checklist count and PR/CI status refresh)
 - [ ] Validate the shared-state changes from closed PR #8 before reopening/consolidating a single maintained PR: check live Firebase/Firestore IAM, multi-instance concurrency, outage/recovery, and restore drills in staging.
 - [ ] Re-run a current full CI run after any additional code change, and maintain the distinction between CI green and production readiness.
 
-## Completion count — 26 October 2026
+## Integration consolidation — 29 October 2026
 
-Counting every Markdown task checkbox in this progress file (including roadmap items and validations):
+- The integration branch includes the clean shared workspace state service/routes/client, readiness checks, and regression tests from PR #8.
+- The integration branch also includes the Firestore-backed agent registry, owner-scoped registry routes, Gousiya workflow store/routes/recovery orchestration, communication-agent updates, and regression tests from PR #10.
+- `server.ts` is wired to the new routes and `/readyz`; `package.json` now includes workspace and agent lifecycle tests in the standard test command.
+- CI workflows were updated to run on this integration branch. Both full CI workflows passed on consolidated code commit `da7cfa00`: [shared-state CI #40841898050](https://github.com/sgouse14/gouse-ai-agent-2.0/actions/runs/40841898050) and [agent lifecycle CI #40841897977](https://github.com/sgouse14/gouse-ai-agent-2.0/actions/runs/40841897977), including the combined automated test suite, client/server TypeScript checks, production build, and Docker image build. The later documentation/configuration head `edeba9fa` also passed both workflows in [run #40842281519](https://github.com/sgouse14/gouse-ai-agent-2.0/actions/runs/40842281519) and [run #40842281668](https://github.com/sgouse14/gouse-ai-agent-2.0/actions/runs/40842281668).
+- Draft [PR #13](https://github.com/sgouse14/gouse-ai-agent-2.0/pull/13) is the single consolidated review target into `feature/saqlain-cyber-agent`. Temporary staging PRs #11 and #12 were closed without merging.
+- This integration is not production-ready until CI is green and the combined branch is reviewed. Live Firebase/Firestore IAM, owner allowlists, multi-instance concurrency, outage/recovery, restore drills, and production sign-off remain outstanding.
+
+## Integration hardening follow-up — 29 October 2026
+
+- [x] Reviewed shared workspace account-boundary behavior after initial consolidation and added a Firebase `onAuthStateChanged` subscription so sync waits for persisted-session restoration and reacts to sign-in/sign-out.
+- [x] Prevented sign-out or UID changes from retaining the previous user's workspace in active React state; preserved a UID-specific local recovery snapshot when browser storage allows.
+- [x] Guarded sync and queued writes against a stale Firebase UID so queued edits from one account are not intentionally sent using a later account's session.
+- [x] Added disabled-by-default agent registry and Gousiya workflow API settings and owner UID allowlist placeholders to `.env.example`; the APIs remain disabled unless explicitly enabled.
+- [x] Passed both full CI workflows after the code hardening: [shared-state CI #40841898050](https://github.com/sgouse14/gouse-ai-agent-2.0/actions/runs/40841898050) and [agent lifecycle CI #40841897977](https://github.com/sgouse14/gouse-ai-agent-2.0/actions/runs/40841897977).
+- [ ] Still required: run the full workflows against the latest documentation/configuration commit, then test UID switching and migration/restore in a real browser against staging Firebase/Firestore.
+- [ ] Do not enable the new lifecycle APIs until staging IAM, explicit owner UID allowlists, multi-instance/replay tests, and operational recovery approval are complete.
+
+## Completion count — 29 October 2026
+
+Counting every Markdown task checkbox in this progress file (including roadmap items and validations), including the integration hardening follow-up:
 
 | Measure | Count | Share |
 |---|---:|---:|
-| Checked items | 85 | 53% |
-| Unchecked items | 75 | 47% |
-| Total checklist items | 160 | 100% |
+| Checked items | 90 | 54% |
+| Unchecked items | 77 | 46% |
+| Total checklist items | 167 | 100% |
 
-**Interpretation:** 85 checklist items are marked done and 75 remain unchecked. Because this count combines implementation work, planning/roadmap items, and staging/sign-off tasks, it is a checklist completion measure—not a claim that the software is 53% production-ready. Some completed implementation is recorded historically, while multiple separate PRs are now closed unmerged, so their code remains outside this branch.
+**Interpretation:** 90 checklist items are marked done and 77 remain unchecked. Because this count combines implementation work, planning/roadmap items, and staging/sign-off tasks, it is a checklist completion measure—not a claim that the software is 54% production-ready. Some completed implementation is recorded historically, while multiple separate PRs are now closed unmerged, so their code remains outside this branch.
 
 ## Work started — 21 October 2026
 

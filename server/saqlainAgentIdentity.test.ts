@@ -4,6 +4,9 @@ import {
   registerAgent,
   rotateAgentIdAfterVerifiedTask,
   suspendAgent,
+  reactivateAgent,
+  retireAgent,
+  isAgentEligibleForWork,
   type AgentIdentityState,
 } from "./saqlainAgentIdentity.ts";
 
@@ -98,4 +101,40 @@ test("previous ID is rejected after rotation", () => {
     taskId: "task-006",
     taskCompletionVerified: true,
   }), /does not match/);
+});
+
+
+test("suspended agents are ineligible for dispatch until explicitly reactivated with approval", () => {
+  const state = makeState();
+  const agent = registerAgent(state, { agentKey: "agent-lifecycle", ownerApproved: true });
+  assert.equal(isAgentEligibleForWork(state, { agentKey: agent.agentKey, presentedBinaryId: agent.currentBinaryId }), true);
+  suspendAgent(state, agent.agentKey, "incident review");
+  assert.equal(isAgentEligibleForWork(state, { agentKey: agent.agentKey, presentedBinaryId: agent.currentBinaryId }), false);
+  assert.throws(() => reactivateAgent(state, { agentKey: agent.agentKey, ownerApproved: false, reason: "review complete" }), /Owner approval/);
+  const active = reactivateAgent(state, { agentKey: agent.agentKey, ownerApproved: true, reason: "review complete" });
+  assert.equal(active.status, "ACTIVE");
+  assert.equal(isAgentEligibleForWork(state, { agentKey: agent.agentKey, presentedBinaryId: agent.currentBinaryId }), true);
+  assert.deepEqual(state.auditEvents.slice(-2).map(event => event.event), ["SUSPENDED", "REACTIVATED"]);
+});
+
+test("retirement is terminal and permanently disables dispatch", () => {
+  const state = makeState();
+  const agent = registerAgent(state, { agentKey: "agent-retire", ownerApproved: true });
+  const retired = retireAgent(state, { agentKey: agent.agentKey, reason: "replaced by approved successor" });
+  assert.equal(retired.status, "RETIRED");
+  assert.equal(retired.ownerApproved, false);
+  assert.equal(state.issuedIds.has(agent.currentBinaryId), true);
+  assert.equal(isAgentEligibleForWork(state, { agentKey: agent.agentKey, presentedBinaryId: agent.currentBinaryId }), false);
+  assert.throws(() => reactivateAgent(state, { agentKey: agent.agentKey, ownerApproved: true, reason: "try again" }), /Only suspended agents/);
+  assert.throws(() => retireAgent(state, { agentKey: agent.agentKey, reason: "duplicate" }), /already retired/);
+});
+
+test("lifecycle operations reject repeated invalid transitions and unsafe identifiers", () => {
+  const state = makeState();
+  assert.throws(() => registerAgent(state, { agentKey: "../unsafe", ownerApproved: true }), /safe/);
+  const agent = registerAgent(state, { agentKey: "agent-transition", ownerApproved: true });
+  assert.throws(() => suspendAgent(state, agent.agentKey, " "), /reason/);
+  suspendAgent(state, agent.agentKey, "incident");
+  assert.throws(() => suspendAgent(state, agent.agentKey, "again"), /Only active/);
+  assert.throws(() => reactivateAgent(state, { agentKey: agent.agentKey, ownerApproved: true, reason: " " }), /reason/);
 });

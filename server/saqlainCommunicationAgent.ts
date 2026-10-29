@@ -42,8 +42,8 @@ export interface SaqlainCommunicationOutcome {
  */
 export function prepareSaqlainCommunication(input: SaqlainCommunicationInput): SaqlainCommunicationOutcome {
   if (!input || typeof input !== 'object') return { status: 'HOLD', summary: 'Communication held: invalid input.' };
-  if (typeof input.actorId !== 'string' || !input.actorId.trim() || input.actorId.length > 128) {
-    return { status: 'HOLD', summary: 'Communication held: invalid internal actor identity.' };
+  if (input.actorId !== 'saq-communication-agent') {
+    return { status: 'HOLD', summary: 'Communication held: fixed internal actor identity is required.' };
   }
   if (typeof input.projectId !== 'string' || !input.projectId.trim() || input.projectId.length > 200) {
     return { status: 'HOLD', summary: 'Communication held: project scope is required.' };
@@ -51,8 +51,8 @@ export function prepareSaqlainCommunication(input: SaqlainCommunicationInput): S
   if (typeof input.cycleId !== 'string' || !/^saqlain-cycle-[0-9a-f-]{36}$/i.test(input.cycleId)) {
     return { status: 'HOLD', summary: 'Communication held: invalid cycle identifier.' };
   }
-  if (!Array.isArray(input.priorResults)) {
-    return { status: 'HOLD', summary: 'Communication held: cycle results are unavailable.' };
+  if (!Array.isArray(input.priorResults) || input.priorResults.length < 1 || input.priorResults.length > 500) {
+    return { status: 'HOLD', summary: 'Communication held: cycle results are empty or exceed the supported limit.' };
   }
 
   const policy = evaluateSaqlainAction({
@@ -67,11 +67,14 @@ export function prepareSaqlainCommunication(input: SaqlainCommunicationInput): S
   let verified = 0;
   let held = 0;
   let failed = 0;
+  const seenAgentIds = new Set<string>();
   for (const result of input.priorResults) {
-    if (!result || typeof result.agentId !== 'string' || !result.agentId.trim() ||
-      !['VERIFIED', 'HOLD', 'FAILED'].includes(result.status)) {
-      return { status: 'HOLD', summary: 'Communication held: malformed agent result.' };
+    if (!result || typeof result.agentId !== 'string' || !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(result.agentId) ||
+      !['VERIFIED', 'HOLD', 'FAILED'].includes(result.status) || typeof result.role !== 'string' ||
+      !result.role.trim() || result.role.length > 100 || seenAgentIds.has(result.agentId)) {
+      return { status: 'HOLD', summary: 'Communication held: malformed or duplicate agent result.' };
     }
+    seenAgentIds.add(result.agentId);
     if (result.status === 'VERIFIED') verified += 1;
     else if (result.status === 'HOLD') held += 1;
     else failed += 1;
