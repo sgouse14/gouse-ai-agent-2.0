@@ -216,7 +216,7 @@ export function App() {
         currency: readLocal('gouse_ai_currency', currency),
       },
     };
-    const ownerMismatch = Boolean(currentUid && previousOwnerUid && currentUid !== previousOwnerUid);
+    const ownerMismatch = Boolean(previousOwnerUid && currentUid !== previousOwnerUid);
     const localSnapshot: Record<WorkspaceDomain, unknown> = ownerMismatch ? {
       projects: INITIAL_PROJECTS,
       boqItems: INITIAL_BOQ_ITEMS.map((item) => ensureItemFloorBreakdown(item, DEFAULT_BUILDING_FLOORS)),
