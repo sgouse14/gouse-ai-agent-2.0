@@ -188,12 +188,15 @@ export function App() {
   // Firebase restores persisted sessions asynchronously. Subscribe so workspace
   // sync follows sign-in/sign-out even when no other App state changes.
   const [signedInUid, setSignedInUid] = useState<string | null>(() => firebaseAuth.currentUser?.uid ?? null);
+  const [authReady, setAuthReady] = useState(false);
 
   useEffect(() => onAuthStateChanged(firebaseAuth, (user) => {
     setSignedInUid(user?.uid ?? null);
+    setAuthReady(true);
   }), []);
 
   useEffect(() => {
+    if (!authReady) return;
     let cancelled = false;
     const readLocal = <T,>(key: string, fallback: T): T => {
       try {
@@ -338,7 +341,7 @@ export function App() {
       // Prevent queued writes from one signed-in identity running after a user switch/unmount.
       workspaceWritesBlocked.current = true;
     };
-  }, [workspaceSyncAttempt, signedInUid]);
+  }, [workspaceSyncAttempt, signedInUid, authReady]);
 
   const queueWorkspaceWrite = (domain: WorkspaceDomain, data: unknown) => {
     if (!workspaceReady || workspaceStatus !== 'shared' || workspaceWritesBlocked.current) return;
