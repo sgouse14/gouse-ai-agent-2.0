@@ -1,6 +1,6 @@
 # Gouse AI Agent 2.0 — Project Progress
 
-Updated: 2026-10-29 (integration consolidation and CI verification)
+Updated: 2026-10-29 (consolidation, auth-boundary hardening, and CI verification)
 
 ## Status summary
 
@@ -42,6 +42,16 @@ Updated: 2026-10-29 (integration consolidation and CI verification)
 - CI workflows were updated to run on this integration branch. Both full CI workflows passed on consolidated code commit `7d67cd8c`: [shared-state CI #40837983989](https://github.com/sgouse14/gouse-ai-agent-2.0/actions/runs/40837983989) and [agent lifecycle CI #40837991870](https://github.com/sgouse14/gouse-ai-agent-2.0/actions/runs/40837991870), including the combined automated test suite, client/server TypeScript checks, production build, and Docker image build. Earlier canceled runs were superseded by these successful runs.
 - Draft [PR #13](https://github.com/sgouse14/gouse-ai-agent-2.0/pull/13) is the single consolidated review target into `feature/saqlain-cyber-agent`. Temporary staging PRs #11 and #12 were closed without merging.
 - This integration is not production-ready until CI is green and the combined branch is reviewed. Live Firebase/Firestore IAM, owner allowlists, multi-instance concurrency, outage/recovery, restore drills, and production sign-off remain outstanding.
+
+## Integration hardening follow-up — 29 October 2026
+
+- [x] Reviewed shared workspace account-boundary behavior after initial consolidation and added a Firebase `onAuthStateChanged` subscription so sync waits for persisted-session restoration and reacts to sign-in/sign-out.
+- [x] Prevented sign-out or UID changes from retaining the previous user's workspace in active React state; preserved a UID-specific local recovery snapshot when browser storage allows.
+- [x] Guarded sync and queued writes against a stale Firebase UID so queued edits from one account are not intentionally sent using a later account's session.
+- [x] Added disabled-by-default agent registry and Gousiya workflow API settings and owner UID allowlist placeholders to `.env.example`; the APIs remain disabled unless explicitly enabled.
+- [x] Passed both full CI workflows after the code hardening: [shared-state CI #40841898050](https://github.com/sgouse14/gouse-ai-agent-2.0/actions/runs/40841898050) and [agent lifecycle CI #40841897977](https://github.com/sgouse14/gouse-ai-agent-2.0/actions/runs/40841897977).
+- [ ] Still required: run the full workflows against the latest documentation/configuration commit, then test UID switching and migration/restore in a real browser against staging Firebase/Firestore.
+- [ ] Do not enable the new lifecycle APIs until staging IAM, explicit owner UID allowlists, multi-instance/replay tests, and operational recovery approval are complete.
 
 ## Completion count — 26 October 2026
 
