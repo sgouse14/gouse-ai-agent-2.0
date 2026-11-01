@@ -36,6 +36,7 @@ import {
   FileDown,
   HardHat,
   Activity,
+  Newspaper,
 } from 'lucide-react';
 import { BOQItem, Project, MarketplaceEnquiry, BuildingFloor, FloorWiseTotal } from '../types';
 import { formatCurrency, CurrencyCode } from '../utils/formatters';
@@ -43,6 +44,7 @@ import { BOQDistributionAnalytics } from './BOQDistributionAnalytics';
 import { getItemComponentFractions } from '../utils/boqDistribution';
 import { MarketPriceAutoUpdateModal } from './MarketPriceAutoUpdateModal';
 import { BOQRealTimePriceMonitor } from './BOQRealTimePriceMonitor';
+import { BimBoqMaterialNewsWire } from './BimBoqMaterialNewsWire';
 import { AreaTakeoffAutoUpdateModal } from './AreaTakeoffAutoUpdateModal';
 import { LabourCostBreakdownModal } from './LabourCostBreakdownModal';
 import {
@@ -467,6 +469,8 @@ export const BOQView: React.FC<BOQViewProps> = ({
 
   // Real-Time Marketplace Price Monitor state
   const [showPriceMonitor, setShowPriceMonitor] = useState<boolean>(true);
+  // Daily Construction Material News Wire state
+  const [showMaterialNews, setShowMaterialNews] = useState<boolean>(true);
 
   // Building Floors & Level Breakdown States
   const [floors, setFloors] = useState<BuildingFloor[]>(() => {
@@ -1185,6 +1189,31 @@ Contact: ${enquiryClientPhone}`,
             </span>
           </button>
 
+          {/* Daily Material News Button */}
+          <button
+            id="btn-toggle-material-news"
+            type="button"
+            onClick={() => setShowMaterialNews((prev) => !prev)}
+            className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition border ${
+              showMaterialNews
+                ? 'bg-amber-400 text-slate-950 border-amber-300 font-bold shadow-sm'
+                : 'bg-slate-800 hover:bg-slate-700 text-amber-300 border-amber-500/30'
+            }`}
+            title="Daily Construction Material News & Spot Rates Bulletin"
+          >
+            <Newspaper className="w-3.5 h-3.5" />
+            <span>Daily Material News</span>
+            <span
+              className={`px-1.5 py-0.5 rounded-full font-mono text-[10px] font-bold ${
+                showMaterialNews
+                  ? 'bg-slate-950 text-amber-300'
+                  : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+              }`}
+            >
+              LIVE
+            </span>
+          </button>
+
           {/* Calibrate to Market Price Button */}
           <button
             id="btn-calibrate-market-rate"
@@ -1199,97 +1228,7 @@ Contact: ${enquiryClientPhone}`,
             <span>Set Market Rate / sq.ft</span>
           </button>
 
-          {/* Quick Audit Button */}
-          <button
-            id="btn-quick-audit"
-            onClick={() => {
-              const nextState = !isAuditActive;
-              setIsAuditActive(nextState);
-              if (!nextState) {
-                setAuditFilterOnlyIssues(false);
-              }
-            }}
-            className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition border ${
-              isAuditActive
-                ? totalAuditIssues > 0
-                  ? 'bg-red-500/20 text-red-200 border-red-500 ring-1 ring-red-500/50 shadow-sm'
-                  : 'bg-emerald-500/20 text-emerald-300 border-emerald-500 ring-1 ring-emerald-500/50'
-                : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700'
-            }`}
-            title="Run logic check for missing rates or mismatched units"
-          >
-            {isAuditActive && totalAuditIssues > 0 ? (
-              <ShieldAlert className="w-3.5 h-3.5 text-red-400 animate-pulse" />
-            ) : isAuditActive ? (
-              <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-            ) : (
-              <ShieldAlert className="w-3.5 h-3.5 text-amber-400" />
-            )}
-            <span>Quick Audit</span>
-            {totalAuditIssues > 0 ? (
-              <span
-                className={`px-1.5 py-0.5 rounded-full font-mono text-[10px] font-bold ${
-                  isAuditActive
-                    ? 'bg-red-500 text-white'
-                    : 'bg-red-500/20 text-red-300 border border-red-500/40'
-                }`}
-              >
-                {totalAuditIssues}
-              </span>
-            ) : isAuditActive ? (
-              <span className="text-[10px] text-emerald-400 font-bold">✓ Pass</span>
-            ) : null}
-          </button>
-
-          {/* BOQ Cost Distribution: Materials, Labor & Overheads Button */}
-          <button
-            id="btn-toggle-cost-distribution"
-            onClick={() => setIsDistributionOpen(!isDistributionOpen)}
-            className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition border ${
-              isDistributionOpen
-                ? 'bg-sky-500 text-slate-950 border-sky-400 shadow-sm font-bold'
-                : 'bg-slate-800 hover:bg-slate-700 text-sky-300 border-sky-500/30'
-            }`}
-            title="Display current BOQ distribution by category like materials, labor, and overheads with real data"
-          >
-            <PieChartIcon className="w-3.5 h-3.5" />
-            <span>Cost Distribution</span>
-            <span
-              className={`px-1.5 py-0.5 rounded-full font-mono text-[10px] font-bold ${
-                isDistributionOpen ? 'bg-slate-950 text-sky-400' : 'bg-sky-500/20 text-sky-300'
-              }`}
-            >
-              Mat/Lab/Ovh
-            </span>
-          </button>
-
-          {/* Automatic Quantities & Market Prices with Area Button */}
-          <button
-            id="btn-toolbar-area-market-sync"
-            onClick={() => setIsAreaMarketModalOpen(true)}
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold transition shadow-sm"
-            title="Automatic data update for all Material Quantities with Area and live Market Prices"
-          >
-            <Zap className="w-3.5 h-3.5 fill-slate-950" />
-            <span>Auto-Update (Area & Market)</span>
-            <span className="px-1.5 py-0.5 rounded-full font-mono text-[10px] font-extrabold bg-slate-950 text-amber-300">
-              Area+Rates
-            </span>
-          </button>
-
-          {/* Automatic Market Price Update Button */}
-          <button
-            id="btn-toolbar-market-price-update"
-            onClick={() => setIsMarketModalOpen(true)}
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-gradient-to-r from-amber-500/20 via-amber-500/10 to-amber-500/20 text-amber-300 border border-amber-500/40 hover:bg-amber-500/30 text-xs font-semibold transition shadow-sm"
-            title="Automatic data update for Schedule of Rates & Quantities based on live market prices"
-          >
-            <Zap className="w-3.5 h-3.5 text-amber-400" />
-            <span>Market Rates Sync</span>
-            <span className="px-1.5 py-0.5 rounded-full font-mono text-[10px] font-bold bg-amber-500/30 text-amber-200">
-              Auto
-            </span>
-          </button>
+          {/* Detailed Labour Cost Breakdown Button */}
 
           {/* Detailed Labour Cost Breakdown Button */}
           <button
@@ -1417,6 +1356,18 @@ Contact: ${enquiryClientPhone}`,
           currency={currency}
           onUpdateItemRate={handleUpdateItemRateFromMonitor}
           onUpdateMultipleItemRates={handleUpdateMultipleItemRatesFromMonitor}
+        />
+      )}
+
+      {/* BIM & BOQ AGENT: DAILY MATERIAL NEWS WIRE */}
+      {showMaterialNews && (
+        <BimBoqMaterialNewsWire
+          onLockMaterialRate={(newsItem) => {
+            setMarketUpdateBanner({
+              message: `Locked ${newsItem.categoryLabel} rate from Daily Material News (${newsItem.currentMandiRate})!`,
+              submessage: newsItem.boqRecommendation,
+            });
+          }}
         />
       )}
 
@@ -2248,170 +2199,6 @@ Contact: ${enquiryClientPhone}`,
         </div>
       )}
 
-      {/* QUICK AUDIT BANNER & CONTROL BAR */}
-      {isAuditActive && (
-        <div
-          id="quick-audit-status-panel"
-          className={`p-4 rounded-xl border transition-all ${
-            totalAuditIssues > 0
-              ? 'bg-red-950/25 border-red-500/60 shadow-md shadow-red-950/50'
-              : 'bg-emerald-950/25 border-emerald-500/60 shadow-sm'
-          }`}
-        >
-          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-            <div className="flex items-start gap-3.5">
-              <div
-                className={`p-2.5 rounded-lg shrink-0 mt-0.5 ${
-                  totalAuditIssues > 0
-                    ? 'bg-red-500/20 text-red-400 border border-red-500/40'
-                    : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40'
-                }`}
-              >
-                {totalAuditIssues > 0 ? (
-                  <ShieldAlert className="w-5 h-5 text-red-400 animate-pulse" />
-                ) : (
-                  <CheckCircle2 className="w-5 h-5 text-emerald-400" />
-                )}
-              </div>
-
-              <div className="space-y-1.5">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span
-                    className={`text-[11px] font-bold uppercase tracking-wider font-mono px-2 py-0.5 rounded ${
-                      totalAuditIssues > 0
-                        ? 'bg-red-500/20 text-red-300 border border-red-500/40'
-                        : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
-                    }`}
-                  >
-                    BOQ Quality & Logic Audit
-                  </span>
-                  <span className="text-xs text-white font-semibold">
-                    {totalAuditIssues > 0
-                      ? `${totalAuditIssues} issue${totalAuditIssues > 1 ? 's' : ''} detected across ${itemsWithIssuesCount} line item${itemsWithIssuesCount > 1 ? 's' : ''}`
-                      : `Audit Passed — All ${items.length} line items have valid rates and compliant units`}
-                  </span>
-                </div>
-
-                <p className="text-xs text-slate-300 leading-relaxed max-w-2xl">
-                  {totalAuditIssues > 0
-                    ? 'Line items with missing unit rates (₹0) or mismatched engineering units are highlighted in red below. Directly edit the rate or unit to resolve them in real time.'
-                    : 'All line items meet architectural specification standards with positive unit pricing, non-zero quantities, and appropriate engineering units of measurement.'}
-                </p>
-
-                {/* Issue Breakdown Badges */}
-                {totalAuditIssues > 0 && (
-                  <div className="flex items-center gap-2 pt-1 flex-wrap text-[11px] font-mono">
-                    {missingRatesCount > 0 && (
-                      <span className="px-2 py-0.5 rounded bg-red-500/20 text-red-300 border border-red-500/40 font-semibold">
-                        • {missingRatesCount} Missing Rate{missingRatesCount > 1 ? 's' : ''} (₹0)
-                      </span>
-                    )}
-                    {mismatchedUnitsCount > 0 && (
-                      <span className="px-2 py-0.5 rounded bg-red-500/20 text-red-300 border border-red-500/40 font-semibold">
-                        • {mismatchedUnitsCount} Mismatched Unit{mismatchedUnitsCount > 1 ? 's' : ''}
-                      </span>
-                    )}
-                    {zeroQuantitiesCount > 0 && (
-                      <span className="px-2 py-0.5 rounded bg-red-500/20 text-red-300 border border-red-500/40 font-semibold">
-                        • {zeroQuantitiesCount} Zero / Negative Quantity
-                      </span>
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Audit Control Action Buttons */}
-            <div className="flex flex-wrap items-center gap-2 shrink-0">
-              {totalAuditIssues > 0 && (
-                <button
-                  id="btn-audit-toggle-filter"
-                  onClick={() => setAuditFilterOnlyIssues(!auditFilterOnlyIssues)}
-                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-mono font-semibold transition border ${
-                    auditFilterOnlyIssues
-                      ? 'bg-red-500 text-slate-950 border-red-400 font-bold shadow'
-                      : 'bg-slate-900 hover:bg-slate-800 text-red-300 border-red-500/40'
-                  }`}
-                >
-                  <Filter className="w-3.5 h-3.5" />
-                  <span>{auditFilterOnlyIssues ? 'Showing Flagged Only' : `Filter Flagged (${itemsWithIssuesCount})`}</span>
-                </button>
-              )}
-
-              {mismatchedUnitsCount > 0 && (
-                <button
-                  id="btn-audit-autofix-units"
-                  onClick={handleAutoFixAuditIssues}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 text-xs font-semibold transition"
-                  title="Automatically convert mismatched units to standard engineering units"
-                >
-                  <Wrench className="w-3.5 h-3.5 text-amber-400" />
-                  <span>Auto-Fix Units</span>
-                </button>
-              )}
-
-              {/* Quick simulation button so user can test audit highlights anytime */}
-              <button
-                id="btn-audit-simulate-issue"
-                onClick={handleInjectSampleAuditIssue}
-                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-700 text-xs font-mono transition"
-                title="Inject a test draft item with rate=0 and unit mismatch to verify audit highlights"
-              >
-                <span>+ Test Issue</span>
-              </button>
-
-              {/* Dismiss Audit Banner */}
-              <button
-                id="btn-close-audit"
-                onClick={() => {
-                  setIsAuditActive(false);
-                  setAuditFilterOnlyIssues(false);
-                }}
-                className="px-2.5 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white border border-slate-700 text-xs transition"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* BOQ COST DISTRIBUTION: MATERIALS, LABOR & OVERHEADS (REAL DATA) */}
-      {isDistributionOpen ? (
-        <BOQDistributionAnalytics
-          items={items}
-          currency={currency}
-          contingencyPercent={contingencyPercent}
-          areaSqFt={areaSqFt}
-          onClose={() => setIsDistributionOpen(false)}
-        />
-      ) : (
-        <div className="p-3.5 rounded-xl bg-slate-900 border border-slate-800 hover:border-sky-500/40 transition flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 shadow-sm">
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-sky-500/10 border border-sky-500/20 text-sky-400 shrink-0">
-              <PieChartIcon className="w-4 h-4" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-semibold text-white">BOQ Cost Distribution: Materials, Labor & Overheads</span>
-                <span className="text-[10px] bg-sky-500/20 text-sky-300 px-1.5 py-0.2 rounded font-mono font-bold">Real Data Breakdown</span>
-              </div>
-              <p className="text-[11px] text-slate-400">
-                Live distribution breakdown across direct materials, craft labor, equipment, and contractor overheads.
-              </p>
-            </div>
-          </div>
-          <button
-            id="btn-expand-distribution"
-            onClick={() => setIsDistributionOpen(true)}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-sky-500/20 hover:bg-sky-500/30 text-sky-300 border border-sky-500/40 text-xs font-semibold transition shrink-0 self-start sm:self-auto"
-          >
-            <PieChartIcon className="w-3.5 h-3.5" />
-            <span>Open Cost Distribution</span>
-          </button>
-        </div>
-      )}
-
       {/* SECTION: FLOOR-WISE BREAKDOWN & LEVEL NAVIGATION */}
       <div id="section-floor-wise-schedule" className="space-y-4">
         <FloorWiseSummaryCards
@@ -2630,16 +2417,6 @@ Contact: ${enquiryClientPhone}`,
               </span>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <button
-              id="btn-schedule-quick-area-market-sync"
-              onClick={() => setIsAreaMarketModalOpen(true)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold transition shadow-sm"
-            >
-              <Zap className="w-3.5 h-3.5 fill-slate-950" />
-              <span>Update All Quantities with Area & Market</span>
-            </button>
-          </div>
         </div>
 
         <div className="p-3 bg-slate-950/80 border-b border-slate-800 flex items-center justify-between flex-wrap gap-2">
@@ -2652,30 +2429,9 @@ Contact: ${enquiryClientPhone}`,
                 Filtered: {filterCategory}
               </span>
             )}
-            {isAuditActive && (
-              <span
-                className={`text-[10px] px-2 py-0.5 rounded font-mono font-bold border flex items-center gap-1 ${
-                  totalAuditIssues > 0
-                    ? 'bg-red-500/20 text-red-300 border-red-500/50'
-                    : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/50'
-                }`}
-              >
-                {totalAuditIssues > 0 ? (
-                  <>
-                    <AlertTriangle className="w-3 h-3 text-red-400" />
-                    <span>Audit Mode: {totalAuditIssues} Issue{totalAuditIssues > 1 ? 's' : ''} Flagged in Red</span>
-                  </>
-                ) : (
-                  <>
-                    <CheckCircle2 className="w-3 h-3 text-emerald-400" />
-                    <span>Audit Mode: Clean</span>
-                  </>
-                )}
-              </span>
-            )}
           </div>
 
-          {/* Schedule Market Price Auto-Update Controls */}
+          {/* Schedule Specification & Regional Hub Selectors */}
           <div className="flex items-center gap-2 flex-wrap">
             {/* Region selector */}
             <div className="flex items-center gap-1 bg-slate-900 border border-slate-700/80 rounded-lg px-2 py-1 text-[11px] font-mono text-slate-300">
@@ -2685,7 +2441,7 @@ Contact: ${enquiryClientPhone}`,
                 value={activeMarketRegion}
                 onChange={(e) => setActiveMarketRegion(e.target.value as MarketRegion)}
                 className="bg-transparent text-amber-300 focus:outline-none cursor-pointer text-xs"
-                title="Select geographical pricing hub for live market rates"
+                title="Select geographical pricing hub"
               >
                 {MARKET_REGIONS.map((r) => (
                   <option key={r.id} value={r.id} className="bg-slate-900 text-white">
@@ -2708,39 +2464,6 @@ Contact: ${enquiryClientPhone}`,
               <option value="Premium" className="bg-slate-900">Premium</option>
               <option value="Luxury" className="bg-slate-900">Luxury</option>
             </select>
-
-            {/* Auto-Update Quantities with Area & Market Price */}
-            <button
-              id="btn-auto-update-quantities-area-market"
-              onClick={() => setIsAreaMarketModalOpen(true)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold transition shadow-sm"
-              title="Automatic data update: All Material Quantities with Area & Live Market Prices"
-            >
-              <Zap className="w-3.5 h-3.5 fill-slate-950" />
-              <span>Update Quantities (Area) & Market</span>
-            </button>
-
-            {/* 1-Click Auto-Update Rates to Market Price */}
-            <button
-              id="btn-auto-update-all-items-market"
-              onClick={handleQuickUpdateAllToMarket}
-              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/30 text-xs font-medium transition"
-              title="Automatically update all line items in the Schedule of Rates & Quantities based on live market price"
-            >
-              <Zap className="w-3 h-3 text-amber-400" />
-              <span>Rates Only</span>
-            </button>
-
-            {/* Open Detailed Comparison & Selective Update Modal */}
-            <button
-              id="btn-open-market-comparison-modal"
-              onClick={() => setIsMarketModalOpen(true)}
-              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 text-xs font-medium transition"
-              title="Open full side-by-side market comparison and selective calibration"
-            >
-              <Sliders className="w-3 h-3" />
-              <span>Comparison</span>
-            </button>
           </div>
         </div>
 
@@ -2790,58 +2513,12 @@ Contact: ${enquiryClientPhone}`,
                       </td>
                       <td className="py-2.5 px-4">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <div className={`font-medium ${hasAuditError ? 'text-red-100 font-semibold' : 'text-slate-200'}`}>
+                          <div className="font-medium text-slate-200">
                             {item.name}
                           </div>
-                          {hasAuditError && (
-                            <span className="shrink-0 px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-red-500/25 text-red-300 border border-red-500/50">
-                              AUDIT ISSUE
-                            </span>
-                          )}
                         </div>
                         {item.notes && (
                           <div className="text-[11px] text-slate-400 italic mt-0.5">{item.notes}</div>
-                        )}
-                        {/* Real-data cost distribution components */}
-                        {item.quantity * item.rate > 0 && (
-                          <div className="mt-1 flex items-center gap-2 text-[10px] font-mono">
-                            {(() => {
-                              const fracs = getItemComponentFractions(item);
-                              return (
-                                <>
-                                  <span className="text-sky-400" title="Direct Materials Fraction">
-                                    Mat: {(fracs.materialFrac * 100).toFixed(0)}%
-                                  </span>
-                                  <span className="text-slate-600">•</span>
-                                  <span className="text-amber-400" title="Direct Labor Fraction">
-                                    Lab: {(fracs.laborFrac * 100).toFixed(0)}%
-                                  </span>
-                                  <span className="text-slate-600">•</span>
-                                  <span className="text-purple-400" title="Equipment Fraction">
-                                    Eq: {(fracs.equipmentFrac * 100).toFixed(0)}%
-                                  </span>
-                                  <span className="text-slate-600">•</span>
-                                  <span className="text-rose-400" title="Site Overheads & Margin Fraction">
-                                    Ovh: {(fracs.overheadFrac * 100).toFixed(0)}%
-                                  </span>
-                                </>
-                              );
-                            })()}
-                          </div>
-                        )}
-                        {/* Audit issue details badge */}
-                        {hasAuditError && audit?.issues && audit.issues.length > 0 && (
-                          <div className="mt-1.5 flex flex-wrap gap-1.5">
-                            {audit.issues.map((issue, idx) => (
-                              <span
-                                key={idx}
-                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-mono font-semibold bg-red-500/20 text-red-300 border border-red-500/40"
-                              >
-                                <AlertTriangle className="w-3 h-3 text-red-400 shrink-0" />
-                                <span>{issue.message}</span>
-                              </span>
-                            ))}
-                          </div>
                         )}
                       </td>
                       <td className="py-2.5 px-3">
@@ -2995,14 +2672,6 @@ Contact: ${enquiryClientPhone}`,
                       </td>
                       <td className="py-2.5 px-3 text-center">
                         <div className="flex items-center justify-center gap-1">
-                          <button
-                            type="button"
-                            onClick={() => handleUpdateSingleItemToMarket(item.id)}
-                            className="text-slate-500 hover:text-amber-400 transition p-1"
-                            title={`Sync to live market rate (₹${itemMarketMatches[item.id]?.marketRate.toLocaleString() || 'Market'})`}
-                          >
-                            <Zap className="w-3.5 h-3.5" />
-                          </button>
                           <button
                             onClick={() => handleDeleteItem(item.id)}
                             className="text-slate-500 hover:text-red-400 transition p-1"

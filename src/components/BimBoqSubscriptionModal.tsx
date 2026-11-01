@@ -295,6 +295,10 @@ Thank you for trusting Gouse AI Autonomous Execution Agent.`;
             </div>
             <div className="flex items-start gap-2 text-slate-200">
               <Check className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+              <span>Live Daily Material News Wire &amp; Spot Mandi Rate Lock</span>
+            </div>
+            <div className="flex items-start gap-2 text-slate-200">
+              <Check className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
               <span>CoA Ar. S. Gouse (CA/2012/55190) Professional Guidance</span>
             </div>
           </div>

@@ -14,13 +14,21 @@ import {
 export interface AgentDecisionItem {
   id: string;
   timestamp: string;
-  agentType: 'BIM' | 'BROKER' | 'SKA_IOT' | 'CYBER_SEC' | 'BOQ';
+  agentType: 'BIM' | 'BROKER' | 'SKA_IOT' | 'CYBER_SEC' | 'BOQ' | 'DAILY_MAT';
   decision: string;
   status: 'EXECUTED' | 'MITIGATED' | 'AUTONOMOUS';
   metric: string;
 }
 
 const DEFAULT_DECISIONS: AgentDecisionItem[] = [
+  {
+    id: 'dec-0',
+    timestamp: '00:01s ago',
+    agentType: 'DAILY_MAT',
+    decision: 'Daily Material Mandi Update: Tata Tiscon Fe550D dipped -1.38% to ₹64,200/MT; UltraTech 53G @ ₹395/bag locked to project BOQ.',
+    status: 'EXECUTED',
+    metric: 'Spot Mandi: -1.38% Dip',
+  },
   {
     id: 'dec-1',
     timestamp: '00:02s ago',
@@ -91,6 +99,8 @@ export const AgentDecisionTicker: React.FC<{
         return 'bg-sky-500/20 text-sky-300 border-sky-500/40';
       case 'BOQ':
         return 'bg-purple-500/20 text-purple-300 border-purple-500/40';
+      case 'DAILY_MAT':
+        return 'bg-amber-400/25 text-amber-300 border-amber-400/50';
       default:
         return 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40';
     }

@@ -48,6 +48,7 @@ import {
   Play,
   Image as ImageIcon,
   Cpu,
+  Truck,
 } from 'lucide-react';
 import {
   Project,
@@ -591,6 +592,16 @@ export const UnifiedMasterPageView: React.FC<UnifiedMasterPageViewProps> = ({
 
             <button
               type="button"
+              onClick={() => scrollToSection('sec-autonomous-agent')}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-400/20 text-amber-300 hover:bg-amber-400/30 border border-amber-400/40 transition whitespace-nowrap"
+            >
+              <Truck className="w-3.5 h-3.5 text-amber-400" />
+              <span>Daily Materials</span>
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+            </button>
+
+            <button
+              type="button"
               id="nav-btn-smart-home-ska-agent"
               onClick={() => setIsSkaModalOpen(true)}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-cyan-500/20 text-cyan-300 hover:bg-cyan-500/30 border border-cyan-500/40 transition whitespace-nowrap shadow-sm"
@@ -678,15 +689,17 @@ export const UnifiedMasterPageView: React.FC<UnifiedMasterPageViewProps> = ({
       {/* ========================================================================= */}
       {/* AUTONOMOUS AI AGENT EXECUTION CENTER (NOT GENERIC PLATFORM)               */}
       {/* ========================================================================= */}
-      <AutonomousAgentExecutionCenter
-        activeProject={activeProject}
-        onNavigateSection={scrollToSection}
-        onOpenSocialHub={handleOpenSocialHub}
-        onOpenBrokerCenter={() => scrollToSection('sec-broker-command-center')}
-        onOpenSmartHomeSka={() => setIsSkaModalOpen(true)}
-        onOpenClientPortal={onOpenClientDashboard}
-        onOpenBimSubscription={() => setIsBimSubModalOpen(true)}
-      />
+      <div id="sec-autonomous-agent" className="scroll-mt-16">
+        <AutonomousAgentExecutionCenter
+          activeProject={activeProject}
+          onNavigateSection={scrollToSection}
+          onOpenSocialHub={handleOpenSocialHub}
+          onOpenBrokerCenter={() => scrollToSection('sec-broker-command-center')}
+          onOpenSmartHomeSka={() => setIsSkaModalOpen(true)}
+          onOpenClientPortal={onOpenClientDashboard}
+          onOpenBimSubscription={() => setIsBimSubModalOpen(true)}
+        />
+      </div>
 
       {/* ========================================================================= */}
       {/* 1. MAIN STUDIO PLATFORM: ARCHITECTURAL, BIM, BOQ & ENGINEERING WORKSPACE   */}

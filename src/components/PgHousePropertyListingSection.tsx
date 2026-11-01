@@ -52,11 +52,20 @@ import houseExteriorImg from '../assets/images/bangalore_house_exterior_17901705
 import apartmentTowerImg from '../assets/images/mantri_premero_tower_1790170972037.jpg';
 import floorVillaImg from '../assets/images/bangalore_builder_proj2_1790170907606.jpg';
 
+import {
+  ListingLanguage,
+  LISTING_LANGUAGES,
+  t,
+  getLocalizedPgListing,
+} from '../utils/listingTranslations';
+
 export interface PgHousePropertyListingSectionProps {
   project?: Project;
   onUpdateProject?: (updated: Project) => void;
   currency?: CurrencyCode;
   mode?: 'pg' | 'rent_house' | 'all';
+  language?: ListingLanguage;
+  onLanguageChange?: (lang: ListingLanguage) => void;
 }
 
 // Preset image library for fast selection
@@ -823,7 +832,46 @@ export const PgHousePropertyListingSection: React.FC<PgHousePropertyListingSecti
   onUpdateProject,
   currency = 'INR',
   mode = 'all',
+  language: propLanguage,
+  onLanguageChange,
 }) => {
+  // Trilingual Listing Language Support (English, Hindi, Kannada)
+  const [internalLanguage, setInternalLanguage] = useState<ListingLanguage>(() => {
+    try {
+      const saved = localStorage.getItem('gouse_listing_language');
+      if (saved === 'hi' || saved === 'kn' || saved === 'en') return saved;
+    } catch {}
+    return 'en';
+  });
+
+  const activeLanguage = propLanguage || internalLanguage;
+
+  const handleSelectLanguage = (lang: ListingLanguage) => {
+    setInternalLanguage(lang);
+    try {
+      localStorage.setItem('gouse_listing_language', lang);
+      window.dispatchEvent(new Event('gouse_language_changed'));
+    } catch {}
+    if (onLanguageChange) onLanguageChange(lang);
+  };
+
+  useEffect(() => {
+    const handleStorageChange = () => {
+      try {
+        const saved = localStorage.getItem('gouse_listing_language');
+        if (saved === 'hi' || saved === 'kn' || saved === 'en') {
+          setInternalLanguage(saved);
+        }
+      } catch {}
+    };
+    window.addEventListener('gouse_language_changed', handleStorageChange);
+    window.addEventListener('storage', handleStorageChange);
+    return () => {
+      window.removeEventListener('gouse_language_changed', handleStorageChange);
+      window.removeEventListener('storage', handleStorageChange);
+    };
+  }, []);
+
   // Helper classifiers
   const isPgItem = (item: CompletePropertyListing) =>
     item.propertyType === 'PG / Co-Living Facility' || item.propertyType === 'Hybrid PG & House';
@@ -1303,6 +1351,47 @@ export const PgHousePropertyListingSection: React.FC<PgHousePropertyListingSecti
   return (
     <div className="space-y-6">
       {/* ========================================================================= */}
+      {/* TRILINGUAL LANGUAGE SWITCHER: ENGLISH • हिन्दी (HINDI) • ಕನ್ನಡ (KANNADA)  */}
+      {/* ========================================================================= */}
+      <div className="bg-gradient-to-r from-slate-900 via-indigo-950/40 to-slate-900 border border-amber-500/30 p-3.5 rounded-2xl flex flex-wrap items-center justify-between gap-3 shadow-xl">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center font-bold text-sm shrink-0">
+            🌐
+          </div>
+          <div>
+            <div className="text-xs font-black text-white flex items-center gap-2">
+              <span>{t('languageSelectorLabel', activeLanguage)}</span>
+              <span className="text-[10px] font-mono text-amber-300 bg-amber-500/15 px-2 py-0.5 rounded-full border border-amber-500/30 font-bold">
+                English • हिन्दी • ಕನ್ನಡ
+              </span>
+            </div>
+            <p className="text-[11px] text-slate-300">
+              {t('trilingualSupportNote', activeLanguage)}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-1.5 bg-slate-950 p-1.5 rounded-xl border border-slate-800">
+          {LISTING_LANGUAGES.map((lang) => (
+            <button
+              key={lang.code}
+              type="button"
+              onClick={() => handleSelectLanguage(lang.code)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
+                activeLanguage === lang.code
+                  ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 shadow-md font-extrabold ring-1 ring-amber-300'
+                  : 'text-slate-300 hover:text-white hover:bg-slate-800'
+              }`}
+            >
+              <span>{lang.flag}</span>
+              <span>{lang.nativeLabel}</span>
+              {lang.code !== 'en' && <span className="text-[10px] opacity-75">({lang.label})</span>}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* ========================================================================= */}
       {/* 0. DEDICATED CATEGORY SWITCHER: SEPARATE PG & RENT HOUSE                  */}
       {/* ========================================================================= */}
       <div className="bg-slate-900 border border-slate-800 p-2.5 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-3 shadow-xl">
@@ -1325,7 +1414,7 @@ export const PgHousePropertyListingSection: React.FC<PgHousePropertyListingSecti
             }`}
           >
             <Building className="w-4 h-4" />
-            <span>🏢 PG &amp; Co-Living Hostels</span>
+            <span>🏢 {t('pgColiving', activeLanguage)}</span>
             <span className={`text-[11px] font-mono px-2 py-0.5 rounded-full font-extrabold ${
               currentCategoryTab === 'pg' ? 'bg-slate-950/20 text-slate-950' : 'bg-amber-500/20 text-amber-300'
             }`}>
@@ -1351,7 +1440,7 @@ export const PgHousePropertyListingSection: React.FC<PgHousePropertyListingSecti
             }`}
           >
             <Home className="w-4 h-4" />
-            <span>🏡 Rent House &amp; Independent Flats</span>
+            <span>🏡 {t('rentalHouses', activeLanguage)}</span>
             <span className={`text-[11px] font-mono px-2 py-0.5 rounded-full font-extrabold ${
               currentCategoryTab === 'rent_house' ? 'bg-slate-950/20 text-slate-950' : 'bg-emerald-500/20 text-emerald-300'
             }`}>
@@ -1391,30 +1480,40 @@ export const PgHousePropertyListingSection: React.FC<PgHousePropertyListingSecti
             <span>Active {currentCategoryTab === 'pg' ? 'PG Facilities' : 'Rental Properties'}:</span>
           </span>
 
-          {visibleListings.map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              onClick={() => {
-                setActiveListingId(item.id);
-                persistListingToProject(item);
-              }}
-              className={`px-3 py-1.5 rounded-xl text-xs font-semibold shrink-0 transition flex items-center gap-1.5 ${
-                activeListingId === item.id
-                  ? currentCategoryTab === 'pg'
-                    ? 'bg-amber-500 text-slate-950 font-bold shadow-md shadow-amber-500/20'
-                    : 'bg-emerald-500 text-slate-950 font-bold shadow-md shadow-emerald-500/20'
-                  : 'bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800'
-              }`}
-            >
-              <span>{item.name}</span>
-              <span className="text-[10px] opacity-75 font-mono">
-                {currentCategoryTab === 'pg'
-                  ? `(${item.rooms.length} Suites)`
-                  : `(${item.bhkConfig || `${item.rooms.length} Rooms`})`}
-              </span>
-            </button>
-          ))}
+          {visibleListings.map((item) => {
+            const itemLoc = getLocalizedPgListing(
+              item.id,
+              activeLanguage,
+              item.name,
+              item.locationAddress,
+              item.foodType,
+              item.zone
+            );
+            return (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => {
+                  setActiveListingId(item.id);
+                  persistListingToProject(item);
+                }}
+                className={`px-3 py-1.5 rounded-xl text-xs font-semibold shrink-0 transition flex items-center gap-1.5 ${
+                  activeListingId === item.id
+                    ? currentCategoryTab === 'pg'
+                      ? 'bg-amber-500 text-slate-950 font-bold shadow-md shadow-amber-500/20'
+                      : 'bg-emerald-500 text-slate-950 font-bold shadow-md shadow-emerald-500/20'
+                    : 'bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800'
+                }`}
+              >
+                <span>{itemLoc.title}</span>
+                <span className="text-[10px] opacity-75 font-mono">
+                  {currentCategoryTab === 'pg'
+                    ? `(${item.rooms.length} Suites)`
+                    : `(${item.bhkConfig || `${item.rooms.length} Rooms`})`}
+                </span>
+              </button>
+            );
+          })}
         </div>
 
         <div className="text-xs text-slate-400 font-mono hidden md:block shrink-0">
@@ -1425,45 +1524,57 @@ export const PgHousePropertyListingSection: React.FC<PgHousePropertyListingSecti
       {/* ========================================================================= */}
       {/* 1. TOP HEADER & DIRECT ACTION BAR                                         */}
       {/* ========================================================================= */}
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-          <div className="space-y-2">
-            <div className="flex flex-wrap items-center gap-2">
-              {currentCategoryTab === 'pg' ? (
-                <span className="bg-rose-500/20 text-rose-300 border border-rose-500/40 text-[11px] font-mono px-2.5 py-0.5 rounded-full font-bold flex items-center gap-1">
-                  <CheckCircle className="w-3.5 h-3.5" />
-                  🏢 VERIFIED PG &amp; CO-LIVING
-                </span>
-              ) : (
-                <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[11px] font-mono px-2.5 py-0.5 rounded-full font-bold flex items-center gap-1">
-                  <CheckCircle className="w-3.5 h-3.5" />
-                  🏡 VERIFIED INDEPENDENT HOUSE &amp; FLAT
-                </span>
-              )}
-              <span className="bg-teal-500/20 text-teal-300 border border-teal-500/40 text-[11px] font-mono px-2.5 py-0.5 rounded-full font-semibold">
-                {activeListing.bbmpApprovalKhata}
-              </span>
-              <span className="bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[11px] font-mono px-2.5 py-0.5 rounded-full font-semibold">
-                ZERO BROKERAGE
-              </span>
-              {currentCategoryTab === 'rent_house' && activeListing.bhkConfig && (
-                <span className="bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 text-[11px] font-mono px-2.5 py-0.5 rounded-full font-bold">
-                  {activeListing.bhkConfig}
-                </span>
-              )}
-            </div>
+      {(() => {
+        const localizedActiveListing = getLocalizedPgListing(
+          activeListing.id,
+          activeLanguage,
+          activeListing.name,
+          activeListing.locationAddress,
+          activeListing.foodType,
+          activeListing.zone
+        );
 
-            <h1 className="text-xl sm:text-2xl lg:text-3xl font-extrabold text-white tracking-tight">
-              {activeListing.name}
-            </h1>
+        return (
+          <div className="space-y-4">
+            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl">
+              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                <div className="space-y-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    {currentCategoryTab === 'pg' ? (
+                      <span className="bg-rose-500/20 text-rose-300 border border-rose-500/40 text-[11px] font-mono px-2.5 py-0.5 rounded-full font-bold flex items-center gap-1">
+                        <CheckCircle className="w-3.5 h-3.5" />
+                        🏢 {t('verifiedTitle', activeLanguage)}
+                      </span>
+                    ) : (
+                      <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[11px] font-mono px-2.5 py-0.5 rounded-full font-bold flex items-center gap-1">
+                        <CheckCircle className="w-3.5 h-3.5" />
+                        🏡 {t('verifiedTitle', activeLanguage)}
+                      </span>
+                    )}
+                    <span className="bg-teal-500/20 text-teal-300 border border-teal-500/40 text-[11px] font-mono px-2.5 py-0.5 rounded-full font-semibold">
+                      {activeListing.bbmpApprovalKhata}
+                    </span>
+                    <span className="bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[11px] font-mono px-2.5 py-0.5 rounded-full font-semibold">
+                      {t('zeroBrokerageBadge', activeLanguage)}
+                    </span>
+                    {currentCategoryTab === 'rent_house' && activeListing.bhkConfig && (
+                      <span className="bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 text-[11px] font-mono px-2.5 py-0.5 rounded-full font-bold">
+                        {activeListing.bhkConfig}
+                      </span>
+                    )}
+                  </div>
 
-            <div className="flex flex-wrap items-center gap-4 text-xs sm:text-sm text-slate-300">
-              <span className="flex items-center gap-1.5 text-amber-400 font-medium">
-                <MapPin className="w-4 h-4 text-rose-400 shrink-0" />
-                {activeListing.locationAddress}
-              </span>
-              <span className="text-slate-500">•</span>
-              <span className="text-slate-300 font-semibold">{activeListing.totalFloors}</span>
+                  <h1 className="text-xl sm:text-2xl lg:text-3xl font-extrabold text-white tracking-tight">
+                    {localizedActiveListing.title}
+                  </h1>
+
+                  <div className="flex flex-wrap items-center gap-4 text-xs sm:text-sm text-slate-300">
+                    <span className="flex items-center gap-1.5 text-amber-400 font-medium">
+                      <MapPin className="w-4 h-4 text-rose-400 shrink-0" />
+                      {localizedActiveListing.subtitle}
+                    </span>
+                    <span className="text-slate-500">•</span>
+                    <span className="text-slate-300 font-semibold">{activeListing.totalFloors}</span>
               <span className="text-slate-500">•</span>
               {currentCategoryTab === 'pg' ? (
                 <>
@@ -1617,6 +1728,32 @@ export const PgHousePropertyListingSection: React.FC<PgHousePropertyListingSecti
           </div>
         )}
       </div>
+
+      {/* Trilingual Verified Highlights Card */}
+      {localizedActiveListing.highlights && localizedActiveListing.highlights.length > 0 && (
+        <div className="p-4 rounded-2xl bg-gradient-to-r from-amber-950/40 via-slate-900 to-indigo-950/40 border border-amber-500/30 space-y-2.5 shadow-md">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 text-xs font-bold text-amber-300 font-mono">
+              <Sparkles className="w-4 h-4 text-amber-400" />
+              <span>{t('verifiedTitle', activeLanguage)} • {t('zeroBrokerageBadge', activeLanguage)}</span>
+            </div>
+            <span className="text-[10px] font-mono px-2.5 py-0.5 rounded-full bg-slate-950 text-amber-300 border border-amber-500/30 font-bold">
+              {LISTING_LANGUAGES.find((l) => l.code === activeLanguage)?.nativeLabel} ({LISTING_LANGUAGES.find((l) => l.code === activeLanguage)?.label})
+            </span>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+            {localizedActiveListing.highlights.map((hl, idx) => (
+              <div key={idx} className="p-2.5 rounded-xl bg-slate-950/80 border border-slate-800/80 flex items-start gap-2">
+                <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                <span className="text-slate-200 leading-snug">{hl}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+})()}
 
       {/* ========================================================================= */}
       {/* 2. VISUAL PHOTO SHOWCASE (5-TILE MOSAIC + LIGHTBOX + ADD IMAGE CTA)       */}
@@ -2198,6 +2335,16 @@ export const PgHousePropertyListingSection: React.FC<PgHousePropertyListingSecti
             </div>
 
             <div className="space-y-3 text-xs">
+              <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-200">
+                <div className="font-bold flex items-center gap-1.5 text-xs text-amber-300">
+                  <Check className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>{t('foodIncluded', activeLanguage)}</span>
+                </div>
+                <div className="text-[11px] text-slate-200 mt-1 font-medium">
+                  {getLocalizedPgListing(activeListing.id, activeLanguage, activeListing.name, activeListing.locationAddress, activeListing.foodType, activeListing.zone).foodDescription}
+                </div>
+              </div>
+
               <div className="p-3 rounded-xl bg-slate-950/70 border border-slate-800/80 flex items-start gap-3">
                 <div className="p-2 rounded-lg bg-amber-500/10 text-amber-400 font-bold shrink-0">
                   07:30 - 09:30
@@ -2235,8 +2382,8 @@ export const PgHousePropertyListingSection: React.FC<PgHousePropertyListingSecti
               </div>
 
               <div className="p-2.5 rounded-xl bg-slate-950 border border-slate-800/80 text-[11px] text-slate-400 flex items-center justify-between">
-                <span>Notice Period: <strong>{activeListing.noticePeriodDays} Days</strong></span>
-                <span>Gate Closing: <strong>{activeListing.gateClosingTime}</strong></span>
+                <span>{t('noticePeriod', activeLanguage)}: <strong className="text-white">{activeListing.noticePeriodDays} Days</strong></span>
+                <span>{t('gateClosing', activeLanguage)}: <strong className="text-white">{activeListing.gateClosingTime}</strong></span>
               </div>
             </div>
           </div>

@@ -37,6 +37,12 @@ import {
   Users,
 } from 'lucide-react';
 import { CurrencyCode, formatCurrency } from '../utils/formatters';
+import {
+  ListingLanguage,
+  LISTING_LANGUAGES,
+  t,
+  getLocalizedBuyListing,
+} from '../utils/listingTranslations';
 
 // Local High-Resolution Project Assets
 import villaExteriorImg from '../assets/images/bangalore_house_exterior_1790170528532.jpg';
