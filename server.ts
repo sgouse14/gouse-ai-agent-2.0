@@ -6,6 +6,9 @@ import { saqlainHeartbeatRouter } from './server/saqlainHeartbeatRoutes.ts';
 import { saqlainTaskQueueRouter } from './server/saqlainTaskQueueRoutes.ts';
 import { createSaqlainSecuritySummaryHandler } from './server/saqlainSecuritySummaryRoutes.ts';
 import { saqlainWebsiteDiagnosticsHandler } from './server/saqlainWebsiteDiagnosticsRoutes.ts';
+import { workspaceStateRouter } from './server/workspaceStateRoutes.ts';
+import { createSaqlainAgentRegistryRouter } from './server/saqlainAgentRegistryRoutes.ts';
+import { createGousiyaWorkflowRouter } from './server/gousiyaWorkflowRoutes.ts';
 
 import path from 'path';
 import fs from 'fs';
@@ -71,6 +74,12 @@ app.use('/api/security/gatekeeper', saqlainGatekeeperRouter);
 // Authenticated operator-only review and resolution for interrupted queue tasks.
 app.use('/api/security/task-queue', saqlainTaskQueueRouter);
 
+// Shared Firestore-backed agent registry; disabled until explicitly enabled and owner UID allowlist is configured.
+app.use('/api/security/agent-registry', createSaqlainAgentRegistryRouter());
+
+// Durable Gousiya workflow intake and read API. Protected recovery transitions remain server-internal.
+app.use('/api/security/gousiya/workflows', createGousiyaWorkflowRouter());
+
 // Authenticated, rate-limited, audited agent heartbeat ingestion.
 app.use('/api/security/heartbeats', saqlainHeartbeatRouter);
 
@@ -80,6 +89,9 @@ app.use('/api/security/verification', saqlainVerificationRouter);
 // Application API boundary: Firebase identity, server-managed project membership, and provider quotas.
 app.use(createApplicationSecurityMiddleware());
 
+// Shared workspace data is scoped to the verified Firebase UID; writes use Firestore preconditions.
+app.use('/api/workspace-state', workspaceStateRouter);
+
 // Read-only, project-authorized website diagnostics; host allowlist and audit must be configured.
 app.post('/api/website/diagnostics', saqlainWebsiteDiagnosticsHandler);
 
@@ -87,9 +99,21 @@ app.post('/api/website/diagnostics', saqlainWebsiteDiagnosticsHandler);
 // active Firebase identity and successful durable audit before returning any report.
 app.post('/api/security/saqlain/summary', createSaqlainSecuritySummaryHandler());
 
-// Health endpoints for Cloud Run container probes and load balancers
+// Liveness is intentionally cheap and does not depend on external storage.
 app.get('/healthz', (_req, res) => {
   res.status(200).send('OK');
+});
+
+// Readiness checks the selected durable audit backend and fails closed if it cannot be verified.
+app.get('/readyz', async (_req, res) => {
+  try {
+    const { checkSaqlainReadiness } = await import('./server/saqlainReadiness.ts');
+    const result = await checkSaqlainReadiness();
+    if (result.ready) res.status(200).json({ status: 'ready' });
+    else res.status(503).json({ status: 'not_ready', dependency: result.dependency });
+  } catch {
+    res.status(503).json({ status: 'not_ready', dependency: 'durable_storage' });
+  }
 });
 
 app.get('/ping', (_req, res) => {
