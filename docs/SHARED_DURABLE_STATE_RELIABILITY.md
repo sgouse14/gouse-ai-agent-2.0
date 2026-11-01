@@ -11,7 +11,7 @@
 - Firestore queue writes use document preconditions and idempotency records.
 - File and Firestore audit logs have integrity verification.
 
-## Implemented in this branch (PR #8, not merged)
+## Implemented in the consolidated branch (PR #13, draft; not merged)
 
 ### Readiness
 - `GET /healthz` remains lightweight liveness.
@@ -40,16 +40,18 @@
 
 ## Next steps
 
-1. Run full tests, server/client TypeScript checks, production build, and Docker build on PR #8; fix every regression.
-2. Validate Firestore runtime IAM and multi-instance compare-and-swap behavior in staging, including outage and recovery.
-3. Test import from real legacy localStorage data, UID switching in the same browser, conflict handling, export/restore, and large-domain rejection.
-4. Split large domains into record-level documents before production-scale use and add collaborative project access only with explicit server-side membership checks.
-5. Finish end-to-end backup queue integration, shared rate limiting where required, GCS restore adapter, backup/restore rehearsal, and external host-down paging.
+1. Provision a dedicated staging Firebase project and Firestore database; configure the server and browser Firebase project IDs consistently, and provision a least-privilege Cloud Run runtime service identity. Do not use service-account key files.
+2. Configure `FIREBASE_PROJECT_ID`, `FIREBASE_WEB_API_KEY`, `GOOGLE_CLOUD_PROJECT`, and an approved `SAQLAIN_PROJECT_MEMBERSHIPS_JSON` mapping through the deployment secret/configuration manager. Verify the runtime can access only the required Firestore collections.
+3. In staging only, configure explicit owner UID allowlists for the agent registry and Gousiya workflow APIs. Keep both enable flags false until owner identities, collection names, IAM, and rollback procedures have been reviewed; enable one API at a time for controlled tests.
+4. Run two independent application instances against the same staging database. Verify create/update preconditions, stale-version `409` responses, duplicate workflow creation, permanent agent-ID non-reuse, and single-use approval consumption under concurrent requests.
+5. In a real browser, test first-time legacy localStorage import, sign-out, switching from user A to user B in the same browser, delayed Firebase session restoration, offline/API outage, conflict recovery, JSON export, and restore. Confirm user A's queued changes never reach user B's workspace.
+6. Verify `/healthz` and `/readyz` separately; test Firestore outage and recovery, audit-chain failure, backup/restore, and external host-down paging. Record evidence and rollback results before any production decision.
+7. Before production-scale use, split large domains into record-level documents and implement collaborative project access only with explicit server-side membership checks. Complete end-to-end backup queue integration, shared rate limiting where required, GCS restore adapter, and a backup/restore rehearsal.
 
 ## CI automation
 
-Added `.github/workflows/shared-state-ci.yml` to run the complete test suite, client/server TypeScript checks, production build, and Docker image build on pull requests, pushes to the shared-state branch, and manual dispatch. The first run failed before dependency installation because setup-node was configured to cache a missing npm lockfile. The repository does have a committed `bun.lock`, so CI now uses `oven-sh/setup-bun` and `bun install --frozen-lockfile` to install the locked dependencies. CI run #31 completed successfully: 273 tests passed, client and server TypeScript checks passed, production build passed, and Docker image build passed. HTTP route integration tests were added to `npm test` and still need CI execution.
+Added `.github/workflows/shared-state-ci.yml` to run the complete test suite, client/server TypeScript checks, production build, and Docker image build on pull requests, pushes to the shared-state branch, and manual dispatch. The first run failed before dependency installation because setup-node was configured to cache a missing npm lockfile. The repository does have a committed `bun.lock`, so CI now uses `oven-sh/setup-bun` and `bun install --frozen-lockfile` to install the locked dependencies. Consolidated CI runs [#40842514148](https://github.com/sgouse14/gouse-ai-agent-2.0/actions/runs/40842514148) and [#40842514147](https://github.com/sgouse14/gouse-ai-agent-2.0/actions/runs/40842514147) passed on the current code/documentation head at that time: automated tests, client/server TypeScript checks, production build, and Docker image build. Re-run CI after any subsequent edits.
 
 ## Validation record
 
-Consolidated CI passed on commit `da7cfa00`: [shared-state CI #40841898050](https://github.com/sgouse14/gouse-ai-agent-2.0/actions/runs/40841898050) and [agent lifecycle CI #40841897977](https://github.com/sgouse14/gouse-ai-agent-2.0/actions/runs/40841897977). Both workflows passed tests, client/server TypeScript, production build, and Docker image build. Live Cloud Run/Firestore IAM, multi-instance concurrency, outage/recovery, UID-switching in a real browser, migration rollback, and large-data validation remain **not yet verified**.
+Latest full CI before this documentation refresh passed on commit `8b06e6bb`: [shared-state CI #40842514148](https://github.com/sgouse14/gouse-ai-agent-2.0/actions/runs/40842514148) and [agent lifecycle CI #40842514147](https://github.com/sgouse14/gouse-ai-agent-2.0/actions/runs/40842514147). Both workflows passed tests, client/server TypeScript, production build, and Docker image build. Live Cloud Run/Firestore IAM, multi-instance concurrency, outage/recovery, UID-switching in a real browser, migration rollback, and large-data validation remain **not yet verified**.
