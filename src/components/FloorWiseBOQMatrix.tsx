@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { BOQItem, BuildingFloor, FloorWiseTotal } from '../types';
 import { formatCurrency, CurrencyCode } from '../utils/formatters';
 import {
@@ -26,6 +26,12 @@ import {
   ExternalLink,
   ShieldAlert,
   Percent,
+  HardHat,
+  Zap,
+  Wrench,
+  Hammer,
+  PieChart,
+  RefreshCw,
 } from 'lucide-react';
 import { ItemAuditStatus } from './BOQView';
 import { exportBOQToExcel, exportBOQToExcelCSV } from '../utils/excelExport';
@@ -35,6 +41,11 @@ import {
   SNK_BASIC_MATERIAL_PRICES,
   SNK_PAYMENT_MILESTONES,
 } from '../data/snkQuotationFormat';
+import {
+  LABOUR_SCHEDULE_BENCHMARKS,
+  matchItemToLabourTrade,
+  calculateLabourScheduleForArea,
+} from '../utils/labourRateEngine';
 
 interface FloorWiseBOQMatrixProps {
   items: BOQItem[];
@@ -49,6 +60,8 @@ interface FloorWiseBOQMatrixProps {
   onDeleteItem: (itemId: string) => void;
   onOpenItemDistribution: (item: BOQItem) => void;
   onApplySNKFormat?: () => void;
+  onSyncMarketRates?: () => void;
+  onOpenCostDistribution?: () => void;
 }
 
 export const FloorWiseBOQMatrix: React.FC<FloorWiseBOQMatrixProps> = ({
@@ -64,6 +77,8 @@ export const FloorWiseBOQMatrix: React.FC<FloorWiseBOQMatrixProps> = ({
   onDeleteItem,
   onOpenItemDistribution,
   onApplySNKFormat,
+  onSyncMarketRates,
+  onOpenCostDistribution,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
@@ -71,17 +86,10 @@ export const FloorWiseBOQMatrix: React.FC<FloorWiseBOQMatrixProps> = ({
   const [snkActiveTab, setSnkActiveTab] = useState<'prices' | 'area' | 'milestones' | 'specs'>('prices');
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [rateSyncFeedback, setRateSyncFeedback] = useState<string | null>(null);
+  const [showLabourInSOR, setShowLabourInSOR] = useState<boolean>(true);
+  const [selectedLabourTradeId, setSelectedLabourTradeId] = useState<string>('all');
 
   const categories = Array.from(new Set(items.map((i) => i.category || 'General')));
-
-  const filteredItems = items.filter((item) => {
-    const matchesSearch =
-      !searchQuery ||
-      item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (item.notes && item.notes.toLowerCase().includes(searchQuery.toLowerCase()));
-    const matchesCategory = selectedCategory === 'all' || item.category === selectedCategory;
-    return matchesSearch && matchesCategory;
-  });
 
   // Calculate building totals
   const buildingSubtotal = floorTotals.reduce((sum, f) => sum + f.subtotal, 0);
@@ -89,6 +97,26 @@ export const FloorWiseBOQMatrix: React.FC<FloorWiseBOQMatrixProps> = ({
   const grandTotal = buildingSubtotal + contingencyAmount;
   const totalAreaSqFt = floors.reduce((sum, f) => sum + f.areaSqFt, 0);
   const overallRatePerSqFt = totalAreaSqFt > 0 ? Math.round(grandTotal / totalAreaSqFt) : 0;
+
+  // Calculate project labour schedule totals
+  const labourSchedule = useMemo(() => {
+    return calculateLabourScheduleForArea(totalAreaSqFt || 1000, 'avg');
+  }, [totalAreaSqFt]);
+
+  const filteredItems = items.filter((item) => {
+    const matchesSearch =
+      !searchQuery ||
+      item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (item.notes && item.notes.toLowerCase().includes(searchQuery.toLowerCase()));
+    const matchesCategory = selectedCategory === 'all' || item.category === selectedCategory;
+    
+    if (selectedLabourTradeId !== 'all') {
+      const trade = matchItemToLabourTrade(item);
+      if (!trade || trade.id !== selectedLabourTradeId) return false;
+    }
+
+    return matchesSearch && matchesCategory;
+  });
 
   // Check if active project matches SNK Area Concept (3,599 sq.ft)
   const isSNKAreaConceptActive = Math.abs(totalAreaSqFt - 3599) < 20;
@@ -493,7 +521,33 @@ export const FloorWiseBOQMatrix: React.FC<FloorWiseBOQMatrixProps> = ({
             <span>of {items.length} items</span>
           </div>
 
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {onOpenCostDistribution && (
+              <button
+                type="button"
+                id="btn-matrix-cost-distribution"
+                onClick={onOpenCostDistribution}
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 font-semibold text-xs transition border border-amber-500/40"
+                title="View Cost Distribution analytics (Materials, Labor, Equipment, Overheads)"
+              >
+                <PieChart className="w-3 h-3 text-amber-400" />
+                <span>Cost Distribution</span>
+              </button>
+            )}
+
+            {onSyncMarketRates && (
+              <button
+                type="button"
+                id="btn-matrix-sync-market-rates"
+                onClick={onSyncMarketRates}
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 font-semibold text-xs transition border border-emerald-500/40"
+                title="Synchronize line items with prevailing regional market rates"
+              >
+                <RefreshCw className="w-3 h-3 text-emerald-400" />
+                <span>Market Rate Sync</span>
+              </button>
+            )}
+
             <button
               type="button"
               id="btn-matrix-export-excel"
@@ -537,16 +591,102 @@ export const FloorWiseBOQMatrix: React.FC<FloorWiseBOQMatrixProps> = ({
         </div>
       </div>
 
+      {/* 3.1. Direct Civil Labour in Schedule of Rates (SOR) Specifications Quick Bar */}
+      <div className="p-3.5 bg-gradient-to-r from-amber-950/40 via-slate-950 to-slate-900 border-b border-amber-500/30 flex flex-col gap-2.5">
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <div className="flex items-center gap-2">
+            <div className="w-7 h-7 rounded-lg bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400 shrink-0">
+              <HardHat className="w-4 h-4" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-white font-mono uppercase tracking-wider">
+                  Labour in Schedule of Rates (SOR) Specifications
+                </span>
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-bold">
+                  CPWD &amp; IS 456 Norms
+                </span>
+              </div>
+              <span className="text-[11px] text-slate-400 block">
+                Total Built-up Area: <strong className="text-slate-200">{totalAreaSqFt.toLocaleString()} sq.ft</strong> • Est. Civil Labour Component: <strong className="text-amber-300">₹{labourSchedule.totalAvg.toLocaleString()}</strong> ({grandTotal > 0 ? Math.round((labourSchedule.totalAvg / grandTotal) * 100) : 34}% of building total)
+              </span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setSelectedLabourTradeId('all')}
+              className={`text-[10px] font-mono px-2.5 py-1 rounded-lg transition font-semibold ${
+                selectedLabourTradeId === 'all'
+                  ? 'bg-amber-500 text-slate-950 font-bold shadow'
+                  : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700'
+              }`}
+            >
+              All Trades (11)
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowLabourInSOR(!showLabourInSOR)}
+              className="text-[10px] font-mono px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-amber-300 border border-slate-700 transition flex items-center gap-1 font-bold"
+              title="Toggle Direct Labour Column inside Schedule of Rates (SOR) Specifications table"
+            >
+              <HardHat className="w-3 h-3 text-amber-400" />
+              <span>{showLabourInSOR ? 'Hide Labour Col' : 'Show Labour in SOR'}</span>
+            </button>
+          </div>
+        </div>
+
+        {/* 11 Civil Labour Trade Benchmarks interactive strip */}
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none text-[10px] font-mono">
+          <span className="text-slate-400 font-bold text-[9px] uppercase tracking-wider shrink-0 pl-0.5 flex items-center gap-1">
+            <span>Trade Benchmarks:</span>
+          </span>
+          {LABOUR_SCHEDULE_BENCHMARKS.map((trade) => {
+            const isSelected = selectedLabourTradeId === trade.id;
+            return (
+              <button
+                key={trade.id}
+                type="button"
+                onClick={() => setSelectedLabourTradeId(isSelected ? 'all' : trade.id)}
+                className={`px-2.5 py-1 rounded-lg border transition whitespace-nowrap flex items-center gap-1.5 shrink-0 ${
+                  isSelected
+                    ? 'bg-amber-500 text-slate-950 font-bold border-amber-400 shadow-md ring-1 ring-amber-400'
+                    : 'bg-slate-900/90 hover:bg-slate-800/90 text-slate-300 border-slate-700/80'
+                }`}
+                title={`${trade.trade}: ${trade.description} | Min ${trade.rateMin} - Max ${trade.rateMax} (Avg ${trade.rateAvg})`}
+              >
+                <span className={isSelected ? 'text-slate-950' : 'text-amber-400'}>
+                  {trade.trade.split(' ')[0]}
+                </span>
+                <span className={`px-1 py-0.2 rounded font-extrabold ${isSelected ? 'bg-slate-950 text-amber-300' : 'bg-slate-800 text-emerald-400'}`}>
+                  {trade.rateDisplay}
+                </span>
+                <span className="text-[9px] opacity-75">
+                  ({Math.round(trade.defaultLaborShare * 100)}%)
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
       {/* 4. Main Floor-Wise Matrix Table */}
       <div className="overflow-x-auto">
         <table className="w-full text-left border-collapse text-xs">
           <thead>
             {/* Super-Header for Levels */}
             <tr className="border-b border-slate-800 bg-slate-950 font-mono text-[11px] text-slate-400">
-              <th colSpan={4} className="py-2.5 px-3 text-left border-r border-slate-800/80">
-                <span className="text-slate-300 font-semibold uppercase tracking-wider">
-                  Schedule of Rates (SOR) Specifications
-                </span>
+              <th colSpan={showLabourInSOR ? 5 : 4} className="py-2.5 px-3 text-left border-r border-slate-800/80 bg-slate-950">
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <span className="text-slate-200 font-bold uppercase tracking-wider flex items-center gap-1.5 font-mono text-[11px]">
+                    <HardHat className="w-4 h-4 text-amber-400" />
+                    Schedule of Rates (SOR) Specifications
+                  </span>
+                  <span className="text-[10px] font-mono text-emerald-300 bg-emerald-500/15 border border-emerald-500/30 px-2 py-0.5 rounded font-bold">
+                    Direct Civil Labour Wage Rates Active
+                  </span>
+                </div>
               </th>
               <th
                 colSpan={floors.length}
@@ -565,7 +705,15 @@ export const FloorWiseBOQMatrix: React.FC<FloorWiseBOQMatrixProps> = ({
             <tr className="border-b border-slate-800 bg-slate-900/90 font-mono text-[11px] text-slate-300 sticky top-0 z-10 shadow-sm">
               <th className="py-3 px-3 w-10 text-center font-bold">#</th>
               <th className="py-3 px-3 min-w-[260px] font-bold">Item Description & Work Stage</th>
-              <th className="py-3 px-2 w-20 text-center font-bold">Unit</th>
+              <th className="py-3 px-2 w-16 text-center font-bold">Unit</th>
+              {showLabourInSOR && (
+                <th className="py-3 px-2.5 w-36 text-right font-bold bg-amber-500/10 text-amber-300 border-r border-slate-800/80 font-mono">
+                  <div className="flex items-center justify-end gap-1">
+                    <HardHat className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Labour SOR Rate</span>
+                  </div>
+                </th>
+              )}
               <th className="py-3 px-2 w-24 text-right font-bold border-r border-slate-800/80">Unit Rate (Excl. GST)</th>
 
               {/* Individual Floor Columns with Area Concept Metrics */}
@@ -608,7 +756,7 @@ export const FloorWiseBOQMatrix: React.FC<FloorWiseBOQMatrixProps> = ({
           <tbody className="divide-y divide-slate-800/60 font-sans">
             {filteredItems.length === 0 ? (
               <tr>
-                <td colSpan={7 + floors.length} className="py-12 text-center text-slate-400 text-xs">
+                <td colSpan={(showLabourInSOR ? 8 : 7) + floors.length} className="py-12 text-center text-slate-400 text-xs">
                   No matching schedule items found.
                 </td>
               </tr>
@@ -617,6 +765,9 @@ export const FloorWiseBOQMatrix: React.FC<FloorWiseBOQMatrixProps> = ({
                 const audit = isAuditActive ? auditResults[item.id] : null;
                 const hasAuditError = isAuditActive && !!audit?.hasIssues;
                 const breakdown = item.floorBreakdown || {};
+                const matchedTrade = matchItemToLabourTrade(item);
+                const laborShare = matchedTrade ? matchedTrade.defaultLaborShare : (item.laborComponent || 0.3);
+                const unitLabourCost = Math.round(item.rate * laborShare);
 
                 return (
                   <tr
@@ -644,6 +795,12 @@ export const FloorWiseBOQMatrix: React.FC<FloorWiseBOQMatrixProps> = ({
                         <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-300 border border-amber-500/20">
                           {item.category}
                         </span>
+                        {matchedTrade && (
+                          <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-500/30 flex items-center gap-1 font-semibold">
+                            <HardHat className="w-2.5 h-2.5 text-amber-400" />
+                            <span>Labour: {matchedTrade.trade} ({matchedTrade.rateDisplay})</span>
+                          </span>
+                        )}
                         {hasAuditError && (
                           <span className="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-red-500/20 text-red-300 border border-red-500/40">
                             AUDIT
@@ -662,6 +819,32 @@ export const FloorWiseBOQMatrix: React.FC<FloorWiseBOQMatrixProps> = ({
                       {item.unit}
                     </td>
 
+                    {/* Direct Labour SOR Rate Column */}
+                    {showLabourInSOR && (
+                      <td className="py-2 px-2.5 text-right border-r border-slate-800/80 bg-amber-500/5 font-mono">
+                        {matchedTrade ? (
+                          <div className="flex flex-col items-end">
+                            <div className="flex items-center gap-1 font-bold text-amber-300 text-[11px]">
+                              <span>{matchedTrade.rateDisplay}</span>
+                            </div>
+                            <span className="text-[9px] text-slate-300 font-medium truncate max-w-[125px]" title={matchedTrade.trade}>
+                              {matchedTrade.trade} ({Math.round(laborShare * 100)}%)
+                            </span>
+                            <span className="text-[9px] text-emerald-400 font-semibold">
+                              ≈ ₹{unitLabourCost.toLocaleString()}/unit
+                            </span>
+                          </div>
+                        ) : (
+                          <div className="flex flex-col items-end text-slate-500 text-[10px]">
+                            <span>Civil Labour</span>
+                            <span className="text-[9px] text-slate-400">
+                              ≈ ₹{unitLabourCost.toLocaleString()}/unit (30%)
+                            </span>
+                          </div>
+                        )}
+                      </td>
+                    )}
+
                     {/* Unit Rate */}
                     <td className="py-2.5 px-2 text-right border-r border-slate-800/80">
                       <div className="flex items-center justify-end gap-1">
@@ -674,6 +857,11 @@ export const FloorWiseBOQMatrix: React.FC<FloorWiseBOQMatrixProps> = ({
                           className="w-20 bg-slate-950/70 border border-slate-700/80 rounded px-1.5 py-1 text-right font-mono text-xs text-amber-300 font-semibold focus:outline-none focus:border-amber-500"
                         />
                       </div>
+                      {showLabourInSOR && (
+                        <div className="text-[9px] font-mono text-slate-400 mt-0.5 text-right">
+                          Lab: ₹{unitLabourCost.toLocaleString()} ({Math.round(laborShare * 100)}%)
+                        </div>
+                      )}
                     </td>
 
                     {/* Floor Columns with Inline Editable Quantity Inputs */}
@@ -757,7 +945,7 @@ export const FloorWiseBOQMatrix: React.FC<FloorWiseBOQMatrixProps> = ({
           <tfoot className="border-t-2 border-slate-700 font-mono text-xs">
             {/* 1. Floor Subtotals */}
             <tr className="bg-slate-950/90 border-b border-slate-800 text-slate-200">
-              <td colSpan={4} className="py-3 px-3 font-bold text-left border-r border-slate-800">
+              <td colSpan={showLabourInSOR ? 5 : 4} className="py-3 px-3 font-bold text-left border-r border-slate-800">
                 <span className="text-amber-400 uppercase tracking-wider text-[11px]">
                   Floor Level Subtotal
                 </span>
@@ -788,7 +976,7 @@ export const FloorWiseBOQMatrix: React.FC<FloorWiseBOQMatrixProps> = ({
 
             {/* 2. Floor Slab Area & % */}
             <tr className="bg-slate-900/60 border-b border-slate-800 text-slate-300">
-              <td colSpan={4} className="py-2.5 px-3 text-left border-r border-slate-800 text-[11px]">
+              <td colSpan={showLabourInSOR ? 5 : 4} className="py-2.5 px-3 text-left border-r border-slate-800 text-[11px]">
                 Built-Up Slab Area (sq.ft)
               </td>
               {floors.map((floor) => (
@@ -813,7 +1001,7 @@ export const FloorWiseBOQMatrix: React.FC<FloorWiseBOQMatrixProps> = ({
 
             {/* 3. Cost Per Sq.Ft by Floor */}
             <tr className="bg-slate-950/80 border-b border-slate-800 text-slate-300">
-              <td colSpan={4} className="py-2.5 px-3 text-left border-r border-slate-800 text-[11px]">
+              <td colSpan={showLabourInSOR ? 5 : 4} className="py-2.5 px-3 text-left border-r border-slate-800 text-[11px]">
                 Level Unit Rate per Sq.Ft
               </td>
               {floors.map((floor) => {
@@ -838,7 +1026,7 @@ export const FloorWiseBOQMatrix: React.FC<FloorWiseBOQMatrixProps> = ({
 
             {/* 4. Contingency Allowance */}
             <tr className="bg-slate-900/40 border-b border-slate-800 text-slate-300">
-              <td colSpan={4} className="py-2 px-3 text-left border-r border-slate-800 text-[11px]">
+              <td colSpan={showLabourInSOR ? 5 : 4} className="py-2 px-3 text-left border-r border-slate-800 text-[11px]">
                 Contingency & Price Escalation ({contingencyPercent}%)
               </td>
               {floors.map((floor) => {
@@ -859,7 +1047,7 @@ export const FloorWiseBOQMatrix: React.FC<FloorWiseBOQMatrixProps> = ({
 
             {/* 5. Grand Total - COST EXCLUDING GST */}
             <tr className="bg-amber-500/10 text-slate-100 font-bold text-sm">
-              <td colSpan={4} className="py-3.5 px-3 text-left border-r border-slate-800 uppercase tracking-wider text-amber-400">
+              <td colSpan={showLabourInSOR ? 5 : 4} className="py-3.5 px-3 text-left border-r border-slate-800 uppercase tracking-wider text-amber-400">
                 <div className="flex items-center gap-2 flex-wrap">
                   <span>Grand Total Estimate</span>
                   <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-amber-500 text-slate-950 font-black">

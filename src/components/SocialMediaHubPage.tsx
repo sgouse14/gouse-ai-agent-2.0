@@ -27,7 +27,7 @@ export const SocialMediaHubPage: React.FC<SocialMediaHubPageProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-700 hover:border-slate-600 text-xs font-semibold transition group shadow-sm"
+              className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-700 hover:border-slate-600 text-xs font-semibold transition group whitespace-nowrap shrink-0"
               title="Return to Main Portal"
             >
               <ArrowLeft className="w-4 h-4 text-slate-400 group-hover:-translate-x-0.5 transition-transform" />
@@ -37,20 +37,20 @@ export const SocialMediaHubPage: React.FC<SocialMediaHubPageProps> = ({
             <div className="h-5 w-px bg-slate-800 hidden sm:block" />
 
             <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-rose-500 to-pink-600 flex items-center justify-center text-white shadow-md shadow-rose-500/25">
-                <Film className="w-4 h-4 stroke-[2.5]" />
+              <div className="w-9 h-9 rounded-lg bg-slate-900 border border-slate-700 flex items-center justify-center text-amber-300">
+                <Film className="w-4 h-4 stroke-[2.2]" />
               </div>
               <div>
                 <div className="flex items-center gap-2">
-                  <span className="font-extrabold text-white text-base tracking-tight">
-                    SOCIAL &amp; MEDIA HUB
+                  <span className="font-bold text-white text-sm sm:text-base tracking-tight">
+                    REALSTATE MEDIA
                   </span>
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-rose-500/20 text-rose-300 border border-rose-500/40">
-                    PHOTOS &amp; VIDEOS
+                  <span className="text-xs font-medium text-amber-300 hidden sm:inline">
+                    · Instagram &amp; Facebook Studio
                   </span>
                 </div>
-                <p className="text-[10px] text-slate-400 font-mono tracking-tight hidden md:block">
-                  Centralized 4K Renders • Drone Reels • Lumion Walkthroughs • AI Copywriting
+                <p className="text-[11px] text-slate-400 hidden md:block">
+                  Real Estate · Architects · Builders · Material Suppliers · Clients — Post Projects &amp; Reviews
                 </p>
               </div>
             </div>
@@ -59,8 +59,8 @@ export const SocialMediaHubPage: React.FC<SocialMediaHubPageProps> = ({
           <div className="flex items-center gap-3 flex-wrap">
             {/* Project Selector */}
             {projects.length > 1 && onSelectProject && (
-              <div className="flex items-center gap-2 bg-slate-900 border border-slate-800 rounded-xl px-2.5 py-1">
-                <Building className="w-3.5 h-3.5 text-rose-400" />
+              <div className="flex items-center gap-2 bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1">
+                <Building className="w-3.5 h-3.5 text-amber-300" />
                 <select
                   value={activeProject.id}
                   onChange={(e) => onSelectProject(e.target.value)}
@@ -79,7 +79,7 @@ export const SocialMediaHubPage: React.FC<SocialMediaHubPageProps> = ({
               <button
                 type="button"
                 onClick={onOpenWorkflowEngine}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-300 font-bold text-xs transition"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-700 text-amber-300 font-semibold text-xs transition whitespace-nowrap shrink-0"
               >
                 <Sparkles className="w-3.5 h-3.5 text-amber-400" />
                 <span className="hidden sm:inline">Workflow Engine</span>
@@ -89,7 +89,7 @@ export const SocialMediaHubPage: React.FC<SocialMediaHubPageProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-1.5 rounded-xl bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 text-white font-bold text-xs shadow-md shadow-rose-600/20 transition"
+              className="px-4 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-600 text-white font-semibold text-xs transition whitespace-nowrap shrink-0"
             >
               Close Hub
             </button>

@@ -53,6 +53,7 @@ import { Project, ProjectMilestone, ProjectStatusUpdate, SharedDocument } from '
 import { CurrencyCode, formatCurrency } from '../utils/formatters';
 import { SiteVisitCameraModal } from './SiteVisitCameraModal';
 import { SmartHomeSkaAgent } from './SmartHomeSkaAgent';
+import { AVATARS, PROJECT_MEDIA } from '../utils/mediaAssets';
 
 interface ClientViewProps {
   projects: Project[];
@@ -314,7 +315,7 @@ Council of Architecture Registration: CA/2012/55190`;
     slab: {
       name: 'Deck Cam 01 (Level 2 Slab)',
       location: 'South-East Cantilever Slab Zone',
-      image: 'https://images.unsplash.com/photo-1541888946425-d0fbb186c5f9?auto=format&fit=crop&w=1200&q=80',
+      image: PROJECT_MEDIA.siteRccFraming,
       specs: 'Fe550D Rebar spacing 150mm c/c • M30 Ready-mix Slump 110mm • Curing Hydration: 96%',
       badge: 'STRUCTURAL REBAR: VERIFIED',
       time: 'Live • 1080p AI Stream',
@@ -322,7 +323,7 @@ Council of Architecture Registration: CA/2012/55190`;
     crane: {
       name: 'Crane Cam 02 (360° Aerial)',
       location: 'Tower Crane Jib Mast',
-      image: 'https://images.unsplash.com/photo-1503387762-592deb58ef4e?auto=format&fit=crop&w=1200&q=80',
+      image: PROJECT_MEDIA.builderProj1,
       specs: 'Boundary setbacks 3.5m compliant • Heavy vehicle access clear • Wind speed: 12 km/h',
       badge: 'PERIMETER SAFETY: CLEAR',
       time: 'Live • 4K AI Stream',
@@ -330,7 +331,7 @@ Council of Architecture Registration: CA/2012/55190`;
     entrance: {
       name: 'Gate Cam 03 (Logistics Intake)',
       location: 'Main North Gate Access Bay',
-      image: 'https://images.unsplash.com/photo-1581094794329-c8112a89af12?auto=format&fit=crop&w=1200&q=80',
+      image: PROJECT_MEDIA.builderProj3,
       specs: 'Ready-mix concrete mixer delivery #88492 • Weighbridge verified • Digital QA tag active',
       badge: 'LOGISTICS DISPATCH: ON-TIME',
       time: 'Live • 1080p AI Stream',
@@ -775,8 +776,8 @@ Bangalore, India • Contact: sgouse14@gmail.com
                     <span className="px-2.5 py-0.5 rounded-full text-[11px] font-mono font-semibold bg-amber-500/20 text-amber-300 border border-amber-500/40">
                       CLIENT INVESTOR HUB
                     </span>
-                    <span className="px-2.5 py-0.5 rounded-full text-[11px] font-mono text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 flex items-center gap-1.5">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                    <span className="px-2.5 py-0.5 rounded text-[11px] font-mono text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
                       Live Synchronized
                     </span>
                   </div>
@@ -1017,8 +1018,8 @@ Bangalore, India • Contact: sgouse14@gmail.com
                     <div>
                       <h3 className="text-sm font-bold text-white flex items-center gap-2">
                         <span>Live AI Site Camera Feed</span>
-                        <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono bg-rose-500/20 text-rose-300 border border-rose-500/30">
-                          <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-ping" />
+                        <span className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-mono bg-rose-500/20 text-rose-300 border border-rose-500/30">
+                          <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
                           LIVE
                         </span>
                       </h3>
@@ -1061,7 +1062,7 @@ Bangalore, India • Contact: sgouse14@gmail.com
                   {/* Top HUD Badges */}
                   <div className="absolute top-3 left-3 right-3 flex items-center justify-between text-[11px] font-mono">
                     <div className="flex items-center gap-2 bg-slate-950/80 backdrop-blur-md px-2.5 py-1 rounded-lg border border-slate-700/60 text-slate-200">
-                      <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                      <span className="w-2 h-2 rounded-full bg-emerald-400" />
                       <span>{cameraAnglePresets[dashboardCameraAngle].name}</span>
                     </div>
 
@@ -1186,7 +1187,7 @@ Bangalore, India • Contact: sgouse14@gmail.com
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-3 border-b border-slate-800">
                 <div className="flex items-center gap-3">
                   <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-cyan-500 to-blue-700 flex items-center justify-center text-white shadow-lg shadow-cyan-500/20 shrink-0">
-                    <Cpu className="w-6 h-6 animate-pulse" />
+                    <Cpu className="w-6 h-6" />
                   </div>
                   <div>
                     <div className="flex items-center gap-2">
@@ -1318,7 +1319,7 @@ Bangalore, India • Contact: sgouse14@gmail.com
                       <div className="flex items-center justify-between text-[11px] font-mono">
                         <span className="text-slate-500">STAGE 0{idx + 1}</span>
                         {isCompleted && <span className="text-emerald-400 font-bold">DONE ✓</span>}
-                        {isInProgress && <span className="text-amber-400 font-bold animate-pulse">ACTIVE ►</span>}
+                        {isInProgress && <span className="text-amber-400 font-bold">ACTIVE ►</span>}
                         {isUpcoming && <span className="text-slate-500">QUEUED</span>}
                       </div>
 
@@ -1498,7 +1499,7 @@ Bangalore, India • Contact: sgouse14@gmail.com
                   <h3 className="text-base font-bold text-white">Dedicated Architectural &amp; Structural Leadership</h3>
                 </div>
                 <div className="text-xs text-emerald-400 font-mono flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                  <span className="w-2 h-2 rounded-full bg-emerald-400" />
                   <span>Principal Office Available (9:00 AM - 7:00 PM IST)</span>
                 </div>
               </div>
@@ -1508,7 +1509,7 @@ Bangalore, India • Contact: sgouse14@gmail.com
                 <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
                   <div className="flex items-center gap-3">
                     <img
-                      src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=600&q=80"
+                      src={AVATARS.principal}
                       alt="Ar. S. Gouse"
                       className="w-11 h-11 rounded-xl object-cover border border-amber-500/40"
                     />
@@ -1540,7 +1541,7 @@ Bangalore, India • Contact: sgouse14@gmail.com
                 <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
                   <div className="flex items-center gap-3">
                     <img
-                      src="https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=600&q=80"
+                      src={AVATARS.structuralEngineer}
                       alt="Er. Rajesh Kumar"
                       className="w-11 h-11 rounded-xl object-cover border border-slate-700"
                     />
@@ -1572,7 +1573,7 @@ Bangalore, India • Contact: sgouse14@gmail.com
                 <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
                   <div className="flex items-center gap-3">
                     <img
-                      src="https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=600&q=80"
+                      src={AVATARS.seniorArchitect}
                       alt="Priya Nair"
                       className="w-11 h-11 rounded-xl object-cover border border-slate-700"
                     />
@@ -2046,7 +2047,7 @@ Bangalore, India • Contact: sgouse14@gmail.com
               <div className="p-5 rounded-2xl bg-slate-900 border border-slate-800 space-y-4">
                 <div className="flex items-center gap-3">
                   <img
-                    src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=300&q=80"
+                    src={AVATARS.principal}
                     alt="Ar. S. Gouse"
                     className="w-14 h-14 rounded-2xl object-cover border border-amber-500/40"
                   />
@@ -2077,7 +2078,7 @@ Bangalore, India • Contact: sgouse14@gmail.com
               <div className="p-5 rounded-2xl bg-slate-900 border border-slate-800 space-y-4">
                 <div className="flex items-center gap-3">
                   <img
-                    src="https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=300&q=80"
+                    src={AVATARS.structuralEngineer}
                     alt="Er. Rajesh Kumar"
                     className="w-14 h-14 rounded-2xl object-cover border border-slate-700"
                   />
@@ -2108,7 +2109,7 @@ Bangalore, India • Contact: sgouse14@gmail.com
               <div className="p-5 rounded-2xl bg-slate-900 border border-slate-800 space-y-4">
                 <div className="flex items-center gap-3">
                   <img
-                    src="https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?auto=format&fit=crop&w=300&q=80"
+                    src={AVATARS.qsDirector}
                     alt="Amit Verma"
                     className="w-14 h-14 rounded-2xl object-cover border border-slate-700"
                   />

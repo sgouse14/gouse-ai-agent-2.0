@@ -250,15 +250,10 @@ export const BOQDistributionAnalytics: React.FC<BOQDistributionAnalyticsProps> =
           <div className="p-2.5 rounded-xl bg-sky-500/20 border border-sky-500/40 text-sky-400 shrink-0">
             <PieChartIcon className="w-5 h-5" />
           </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h3 className="text-base font-bold text-white font-serif-classic">
-                BOQ Cost Distribution: Materials, Labor & Overheads
+            <div>
+              <h3 className="text-base font-bold text-white tracking-tight">
+                BOQ Cost Distribution: Materials, Labor &amp; Overheads
               </h3>
-              <span className="text-[10px] bg-sky-500/20 text-sky-300 border border-sky-500/40 px-2 py-0.5 rounded-full font-mono font-bold">
-                Real Data Analysis
-              </span>
-            </div>
             <p className="text-xs text-slate-400">
               Live quantitative distribution calculated across {items.length} BOQ line items for {areaSqFt.toLocaleString()} sq.ft plinth.
             </p>

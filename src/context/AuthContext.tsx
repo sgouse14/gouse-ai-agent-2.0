@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { UserProfile, UserRole } from '../types';
+import { AVATARS } from '../utils/mediaAssets';
 
 export const INITIAL_USERS: UserProfile[] = [
   {
@@ -7,7 +8,7 @@ export const INITIAL_USERS: UserProfile[] = [
     name: 'Gouse AI',
     email: 'sgouse14@gmail.com',
     role: 'owner',
-    avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=600&q=80',
+    avatarUrl: AVATARS.principal,
     company: 'Gouse Architecture & Construction Intelligence',
     department: 'Executive Leadership & Principal Architecture',
     phone: '+91 80739 47241',
@@ -21,7 +22,7 @@ export const INITIAL_USERS: UserProfile[] = [
     name: 'Ar. Priya Sharma',
     email: 'priya.sharma@gouseai.com',
     role: 'architect',
-    avatarUrl: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=600&q=80',
+    avatarUrl: AVATARS.seniorArchitect,
     company: 'Studio Vellum & Associates',
     department: 'Architectural Planning & Sustainability (LEED AP)',
     phone: '+91 98450 12890',
@@ -35,7 +36,7 @@ export const INITIAL_USERS: UserProfile[] = [
     name: 'Er. Rajesh Kumar',
     email: 'rajesh.kumar@gouseai.com',
     role: 'structural_engineer',
-    avatarUrl: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=600&q=80',
+    avatarUrl: AVATARS.structuralEngineer,
     company: 'Apex Structural Consultants',
     department: 'RCC & Steel Structural Engineering (IS 456 / IS 1893)',
     phone: '+91 80412 89001',
@@ -49,7 +50,7 @@ export const INITIAL_USERS: UserProfile[] = [
     name: 'Amit Verma (QS)',
     email: 'amit.verma@gouseai.com',
     role: 'quantity_surveyor',
-    avatarUrl: 'https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?auto=format&fit=crop&w=600&q=80',
+    avatarUrl: AVATARS.qsDirector,
     company: 'Precision Cost Engineers',
     department: 'BOQ Audits, CPWD Schedule of Rates & Cost Optimization',
     phone: '+91 98112 34567',
@@ -63,7 +64,7 @@ export const INITIAL_USERS: UserProfile[] = [
     name: 'Sameer Khan',
     email: 'sameer.khan@prestigeheights.com',
     role: 'client',
-    avatarUrl: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?auto=format&fit=crop&w=600&q=80',
+    avatarUrl: AVATARS.principal,
     company: 'Prestige Urban Ventures Pvt Ltd',
     department: 'Property Development & Asset Investment',
     phone: '+91 99001 88234',
@@ -77,7 +78,7 @@ export const INITIAL_USERS: UserProfile[] = [
     name: 'Arun Patel',
     email: 'arun.patel@patelbuildtech.com',
     role: 'contractor',
-    avatarUrl: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=600&q=80',
+    avatarUrl: AVATARS.structuralEngineer,
     company: 'Patel BuildTech Turnkey EPC',
     department: 'Civil Construction & Site Execution',
     phone: '+91 94250 55667',
@@ -91,7 +92,7 @@ export const INITIAL_USERS: UserProfile[] = [
     name: 'Aarav Sharma',
     email: 'aarav.sharma@techblr.com',
     role: 'tenant',
-    avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=600&q=80',
+    avatarUrl: AVATARS.seniorArchitect,
     company: 'Fintech Solutions Bangalore',
     department: 'Software Engineer • Prospective PG / Rental Tenant',
     phone: '+91 98860 41239',
@@ -105,7 +106,7 @@ export const INITIAL_USERS: UserProfile[] = [
     name: 'Vikramaditya Reddy',
     email: 'vikram.reddy@blrproperties.in',
     role: 'property_owner',
-    avatarUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=600&q=80',
+    avatarUrl: AVATARS.structuralEngineer,
     company: 'Reddy Living & Estates',
     department: 'Property Owner / Landlord (Indiranagar & HSR Layout)',
     phone: '+91 98440 22319',
@@ -119,7 +120,7 @@ export const INITIAL_USERS: UserProfile[] = [
     name: 'Sneha Kulkarni',
     email: 'sneha.kulkarni@gousebroker.com',
     role: 'broker_agent',
-    avatarUrl: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?auto=format&fit=crop&w=600&q=80',
+    avatarUrl: AVATARS.qsDirector,
     company: 'Gouse AI Broker Network',
     department: 'Certified Real Estate Broker • East Bangalore Cluster',
     phone: '+91 99801 77654',
@@ -288,16 +289,16 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
 
     const roleAvatars: Record<UserRole, string> = {
-      owner: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=600&q=80',
-      architect: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=600&q=80',
-      structural_engineer: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=600&q=80',
-      mep_engineer: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=600&q=80',
-      quantity_surveyor: 'https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?auto=format&fit=crop&w=600&q=80',
-      contractor: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=600&q=80',
-      client: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?auto=format&fit=crop&w=600&q=80',
-      broker_agent: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?auto=format&fit=crop&w=600&q=80',
-      property_owner: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=600&q=80',
-      tenant: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=600&q=80',
+      owner: AVATARS.principal,
+      architect: AVATARS.seniorArchitect,
+      structural_engineer: AVATARS.structuralEngineer,
+      mep_engineer: AVATARS.seniorArchitect,
+      quantity_surveyor: AVATARS.qsDirector,
+      contractor: AVATARS.structuralEngineer,
+      client: AVATARS.principal,
+      broker_agent: AVATARS.qsDirector,
+      property_owner: AVATARS.structuralEngineer,
+      tenant: AVATARS.seniorArchitect,
     };
 
     const newUser: UserProfile = {

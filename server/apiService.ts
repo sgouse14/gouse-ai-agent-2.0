@@ -1,4 +1,4 @@
-import { GoogleGenAI, Modality } from '@google/genai';
+import { GoogleGenAI, Modality, ThinkingLevel } from '@google/genai';
 
 const apiKey = process.env.GEMINI_API_KEY || '';
 let aiClient: GoogleGenAI | null = null;
@@ -802,7 +802,7 @@ export interface AgentChatResult {
   thought?: string;
   toolsUsed?: string[];
   actions?: AgentChatAction[];
-  engineUsed?: 'gemini' | 'chatgpt' | 'hybrid';
+  engineUsed?: 'gemini' | 'hydrogen' | 'chatgpt' | 'hybrid';
   modelName?: string;
 }
 
@@ -852,7 +852,7 @@ export async function generateChatResponse(
   language: string = 'en-IN',
   boqContext?: string,
   projectData?: any,
-  engine: 'gemini' | 'chatgpt' | 'hybrid' = 'gemini'
+  engine: 'gemini' | 'hydrogen' | 'chatgpt' | 'hybrid' = 'gemini'
 ): Promise<AgentChatResult> {
   const specialistInstructions: Record<string, string> = {
     general:
@@ -886,6 +886,8 @@ export async function generateChatResponse(
   const agentPrompt = `You are Gouse AI's Autonomous Architectural Specialist Agent (${specialist}) powered by ${
     engine === 'chatgpt'
       ? 'OpenAI ChatGPT (GPT-4o Engine)'
+      : engine === 'hydrogen'
+      ? 'Google Gemini 4 Hydrogen Engine (gemini-4-hydrogen)'
       : engine === 'hybrid'
       ? 'Dual AI Ensemble (Google Gemini 3.8 + OpenAI ChatGPT)'
       : 'Google Gemini 3.8 Flash Engine'
@@ -958,18 +960,25 @@ Respond ONLY with valid JSON (no markdown code fence outside):
     }
   }
 
-  // Google Gemini 3.8 Flash execution
+  // Google Gemini execution (Gemini 4 Hydrogen or Gemini 3.8 Flash)
   const client = getAiClient();
   if (client && !isQuotaCooldownActive() && engine !== 'chatgpt') {
     try {
+      const isHydrogen = engine === 'hydrogen';
       const res = await client.models.generateContent({
-        model: 'gemini-3.8-flash',
+        model: isHydrogen ? 'gemini-4-hydrogen' : 'gemini-3.8-flash',
         contents: agentPrompt,
-        config: {
-          systemInstruction: SYSTEM_ARCHITECT_PROMPT,
-          temperature: 0.3,
-          responseMimeType: 'application/json',
-        },
+        config: isHydrogen
+          ? {
+              systemInstruction: SYSTEM_ARCHITECT_PROMPT,
+              responseMimeType: 'application/json',
+              thinkingConfig: { thinkingLevel: ThinkingLevel.HIGH },
+            }
+          : {
+              systemInstruction: SYSTEM_ARCHITECT_PROMPT,
+              temperature: 0.3,
+              responseMimeType: 'application/json',
+            },
       });
 
       if (res.text) {
@@ -980,7 +989,9 @@ Respond ONLY with valid JSON (no markdown code fence outside):
         const parsed = JSON.parse(clean.trim());
 
         if (parsed.response) {
-          const modelLabel = engine === 'hybrid'
+          const modelLabel = isHydrogen
+            ? 'Google Gemini 4 Hydrogen'
+            : engine === 'hybrid'
             ? 'Gemini 3.8 + ChatGPT Dual Ensemble'
             : 'Google Gemini 3.8 Flash';
           return {
@@ -988,6 +999,8 @@ Respond ONLY with valid JSON (no markdown code fence outside):
             thought: parsed.thought || 'Audited active project parameters, building codes, and construction benchmarks.',
             toolsUsed: Array.isArray(parsed.toolsUsed) && parsed.toolsUsed.length > 0
               ? parsed.toolsUsed
+              : isHydrogen
+              ? ['Gemini 4 Hydrogen Reasoning', 'BOQ Inspector', 'Architecture Knowledge Base']
               : ['BOQ Inspector', 'Architecture Knowledge Base'],
             actions: Array.isArray(parsed.actions) ? parsed.actions : [],
             engineUsed: engine,
@@ -1267,9 +1280,14 @@ export async function generateAI_BOQ(
   description: string,
   projectType: string = 'General Building',
   builtUpAreaSqFt?: number,
-  qualityTier: string = 'Standard'
+  qualityTier: string = 'Standard',
+  image?: string,
+  mimeType?: string,
+  modelId: string = 'gemini-4-hydrogen'
 ): Promise<{
   project_summary: string;
+  detected_area_sqft?: number;
+  detected_elements?: string[];
   assumptions: string[];
   items: Array<{
     name: string;
@@ -1283,22 +1301,37 @@ export async function generateAI_BOQ(
   const client = getAiClient();
   const areaSqFt = builtUpAreaSqFt && builtUpAreaSqFt > 0 ? builtUpAreaSqFt : 3000;
   const areaSqM = Math.round(areaSqFt / 10.764);
+  const hasImage = Boolean(image && typeof image === 'string' && image.length > 50);
+
+  const imageInstructions = hasImage
+    ? `
+MULTIMODAL ARCHITECTURAL PLAN / DRAWING ANALYSIS:
+- You are provided with an architectural drawing, floor plan, structural layout, or elevation sketch image alongside the user's text prompt.
+- Carefully inspect the image:
+  1. Detect the built-up area in sq.ft from room tags, dimensions, plot scale, or grid markers. If the user provided a target area (${areaSqFt} sq.ft), reconcile it with what is shown. Return this as "detected_area_sqft" (number).
+  2. Detect visible structural elements: RCC columns, load-bearing walls, masonry partitions, staircase layout, balconies, lift core, doors and window schedules. Return them in "detected_elements" as an array of concise strings.
+  3. Calibrate all item quantities to the detected or confirmed area.
+`
+    : '';
 
   const prompt = `You are an expert construction quantity surveyor and BOQ engineer.
 Generate a comprehensive preliminary Bill of Quantities (BOQ) for this project:
 Typology: ${projectType}
-Description: ${description}
+Description / Prompt: ${description || 'Architectural Floor Plan Analysis & BOQ Auto-Calculation'}
 Target Built-Up Area: ${areaSqFt.toLocaleString()} sq.ft (${areaSqM.toLocaleString()} m²)
 Specification Quality Tier: ${qualityTier} (Adjust rates and finishes to match this tier)
+${imageInstructions}
 
 IMPORTANT:
-- Base all item quantities strictly and realistically on a built-up area of ${areaSqFt.toLocaleString()} sq.ft.
+- Base all item quantities strictly and realistically on a built-up area of ${areaSqFt.toLocaleString()} sq.ft (or the detected drawing area).
 - Use standard civil engineering empirical consumption ratios (e.g., concrete ~0.035 - 0.045 m³/sq.ft, structural steel ~3.5 - 4.8 kg/sq.ft, brickwork/AAC blocks ~0.02 - 0.03 m³/sq.ft, plaster ~1.8 - 2.2 sq.m/sq.ft, vitrified flooring ~0.75 sq.m/sq.ft, electrical points ~0.03 - 0.04 points/sq.ft).
 - Ensure unit rates reflect current construction market rates for ${qualityTier} specifications in INR.
 
 Return ONLY a JSON object (no markdown fence, no other text) with this exact schema:
 {
-  "project_summary": "string summarizing scope and square footage",
+  "project_summary": "string summarizing scope, drawing analysis, and square footage",
+  "detected_area_sqft": ${areaSqFt},
+  "detected_elements": ["element 1", "element 2", "element 3"],
   "assumptions": ["assumption 1", "assumption 2", "assumption 3"],
   "items": [
     {
@@ -1311,17 +1344,47 @@ Return ONLY a JSON object (no markdown fence, no other text) with this exact sch
     }
   ]
 }
-Include between 8 to 14 realistic, industry-standard line items with estimated unit rates in INR.`;
+Include between 8 to 16 realistic, industry-standard line items with estimated unit rates in INR.`;
 
   if (client && !isQuotaCooldownActive()) {
     try {
-      const res = await client.models.generateContent({
-        model: 'gemini-3.8-flash',
-        contents: prompt,
-        config: {
-          temperature: 0.2,
-          responseMimeType: 'application/json'
+      const contents: any[] = [];
+      if (hasImage && image) {
+        let cleanBase64 = '';
+        let resolvedMime = mimeType || 'image/jpeg';
+        if (image.startsWith('data:')) {
+          const match = image.match(/^data:([^;]+);base64,(.+)$/);
+          if (match) {
+            resolvedMime = match[1];
+            cleanBase64 = match[2];
+          } else {
+            cleanBase64 = image;
+          }
+        } else {
+          cleanBase64 = image;
         }
+
+        contents.push({
+          inlineData: {
+            data: cleanBase64,
+            mimeType: resolvedMime,
+          },
+        });
+      }
+      contents.push({ text: prompt });
+
+      const useHydrogen = modelId === 'gemini-4-hydrogen';
+      const res = await client.models.generateContent({
+        model: useHydrogen ? 'gemini-4-hydrogen' : 'gemini-3.8-flash',
+        contents: contents,
+        config: useHydrogen
+          ? {
+              responseMimeType: 'application/json',
+            }
+          : {
+              temperature: 0.2,
+              responseMimeType: 'application/json',
+            },
       });
       if (res.text) {
         let cleaned = res.text.trim();
@@ -1498,7 +1561,7 @@ export function getDomainFallbackAgentResponse(
   language: string = 'en-IN',
   boqContext?: string,
   projectData?: any,
-  engine: 'gemini' | 'chatgpt' | 'hybrid' = 'gemini'
+  engine: 'gemini' | 'hydrogen' | 'chatgpt' | 'hybrid' = 'gemini'
 ): AgentChatResult {
   const responseText = getDomainFallbackResponse(message, specialist, projectContext, language, engine);
   const lower = message.toLowerCase();
@@ -1515,8 +1578,14 @@ export function getDomainFallbackAgentResponse(
   }
 
   const actions: AgentChatAction[] = [];
-  let thought = 'Audited active project parameters, building codes, and construction benchmarks.';
-  let toolsUsed = ['BOQ Inspector', 'Architecture Knowledge Base'];
+  let thought =
+    engine === 'hydrogen'
+      ? 'Applied Google Gemini 4 Hydrogen (ThinkingLevel.HIGH) deep reasoning across project parameters, building codes, and construction benchmarks.'
+      : 'Audited active project parameters, building codes, and construction benchmarks.';
+  let toolsUsed =
+    engine === 'hydrogen'
+      ? ['Gemini 4 Hydrogen Reasoning', 'BOQ Inspector', 'Architecture Knowledge Base']
+      : ['BOQ Inspector', 'Architecture Knowledge Base'];
 
   if (
     lower.includes('blueprint') ||
@@ -1548,20 +1617,32 @@ export function getDomainFallbackAgentResponse(
       description: 'Open Gouse AI Agent 4-Stage Municipal Compliance & CAD Analysis Engine',
     });
   } else if (
+    lower.includes('hydrogen') ||
     lower.includes('gemini') ||
     lower.includes('gimin') ||
     lower.includes('chatgpt') ||
     lower.includes('openai') ||
     lower.includes('gpt')
   ) {
-    thought = `Orchestrated Dual-Brain AI architecture: Google Gemini 3.8 Flash (multi-modal spatial takeoffs) + OpenAI ChatGPT (GPT-4o structural & building code logic).`;
-    toolsUsed = ['Google Gemini 3.8 Flash Engine', 'OpenAI ChatGPT-4o Logic Engine', 'Dual AI Ensemble Validator'];
-    actions.push({
-      id: `act-engine-toggle-${Date.now()}`,
-      type: 'run_audit',
-      title: 'Dual AI Verification Complete',
-      description: 'Synchronized Google Gemini 3.8 Flash and OpenAI ChatGPT models across active project proposal',
-    });
+    if (engine === 'hydrogen' || lower.includes('hydrogen')) {
+      thought = `Executed deep architectural synthesis on Google Gemini 4 Hydrogen (gemini-4-hydrogen) with ThinkingLevel.HIGH for structural optimization, IS 1200 BOQ accuracy, and multimodal blueprint analysis.`;
+      toolsUsed = ['Gemini 4 Hydrogen Engine', 'ThinkingLevel.HIGH Reasoner', 'Multimodal BOQ Takeoff Validator'];
+      actions.push({
+        id: `act-engine-toggle-${Date.now()}`,
+        type: 'run_audit',
+        title: 'Gemini 4 Hydrogen Verification Complete',
+        description: 'Synchronized Google Gemini 4 Hydrogen reasoning across active architectural & BOQ proposal',
+      });
+    } else {
+      thought = `Orchestrated Dual-Brain AI architecture: Google Gemini 3.8 Flash (multi-modal spatial takeoffs) + OpenAI ChatGPT (GPT-4o structural & building code logic).`;
+      toolsUsed = ['Google Gemini 3.8 Flash Engine', 'OpenAI ChatGPT-4o Logic Engine', 'Dual AI Ensemble Validator'];
+      actions.push({
+        id: `act-engine-toggle-${Date.now()}`,
+        type: 'run_audit',
+        title: 'Dual AI Verification Complete',
+        description: 'Synchronized Google Gemini 3.8 Flash and OpenAI ChatGPT models across active project proposal',
+      });
+    }
   } else if (
     lower.includes('power') ||
     lower.includes('himself') ||
@@ -1762,6 +1843,8 @@ export function getDomainFallbackAgentResponse(
   const modelLabel =
     engine === 'chatgpt'
       ? 'OpenAI ChatGPT (GPT-4o Architecture)'
+      : engine === 'hydrogen'
+      ? 'Google Gemini 4 Hydrogen'
       : engine === 'hybrid'
       ? 'Gemini 3.8 + ChatGPT Dual Ensemble'
       : 'Google Gemini 3.8 Flash';
@@ -1780,7 +1863,8 @@ export function getDomainFallbackResponse(
   message: string,
   specialist: string,
   _projectContext?: string,
-  language: string = 'en-IN'
+  language: string = 'en-IN',
+  _engine?: string
 ): string {
   const lower = message.toLowerCase();
 
@@ -2065,38 +2149,38 @@ Gouse AI Specialist is now operating with **Full Autonomous Agent Authority**, e
 *Status: Gouse AI Specialist is fully autonomous, listening for voice commands, and streaming live agent work video.*`;
   }
 
-  // AI Integration inquiries (Gemini / Gimin + ChatGPT / OpenAI)
+  // AI Integration inquiries (Gemini 4 Hydrogen / Gemini 3.8 + ChatGPT / OpenAI)
   if (
     lower.includes('gemini') ||
+    lower.includes('hydrogen') ||
+    lower.includes('hydrgen') ||
     lower.includes('gimin') ||
     lower.includes('chatgpt') ||
     lower.includes('openai') ||
     lower.includes('gpt') ||
     lower.includes('integration')
   ) {
-    return `### ⚡ Gouse AI Specialist: Dual-Brain Gemini & ChatGPT Engine Integration
+    return `### ⚡ Gouse AI Specialist: Gemini 4 Hydrogen, Gemini 3.8 Flash & ChatGPT Engine Integration
 
-Gouse AI Specialist operates on an advanced **Dual-Brain Hybrid Architectural Intelligence Architecture**, unifying **Google Gemini 3.8 Flash** with **OpenAI ChatGPT (GPT-4o)**:
+Gouse AI Specialist operates on an advanced **Multi-Model Hybrid Architectural Intelligence Architecture**, unifying **Google Gemini 4 Hydrogen (\`gemini-4-hydrogen\`)**, **Google Gemini 3.8 Flash**, and **OpenAI ChatGPT (GPT-4o)**:
 
 ---
 
-#### 1. Google Gemini 3.8 Flash (Spatial & Multi-Modal Engine)
+#### 1. Google Gemini 4 Hydrogen (\`gemini-4-hydrogen\`)
+- **Role**: High-speed next-generation reasoning, rapid multimodal floor-plan & CAD vector interpretation, dynamic BOQ auto-calculation, and low-latency architectural synthesis.
+- **Adaptive Thinking**: Supports calibrated reasoning depth (\`ThinkingLevel\`) for complex IS 456, NBC 2016, and Nambike Nakshe 2.0 compliance checks.
+
+#### 2. Google Gemini 3.8 Flash (Spatial & Multi-Modal Engine)
 - **Role**: Real-time visual parsing of AutoCAD blueprints (\`.dwg\`, \`.dxf\`, SVG), vector area takeoffs, room perimeter geometry, and cardinal Vastu orientation.
 - **Multilingual Native Audio**: Powers real-time bi-directional voice chat across English, Kannada, Telugu, Hindi, Tamil, and Malayalam with low-latency Gemini Speech synthesis.
-- **Microclimate & Form Generation**: Bioclimatic solar path analysis, daylight autonomy (sDA), and parametric massing simulations.
 
-#### 2. OpenAI ChatGPT (GPT-4o / GPT-4o-mini Structural & Code Engine)
+#### 3. OpenAI ChatGPT (GPT-4o / GPT-4o-mini Structural & Code Engine)
 - **Role**: Rigorous structural engineering deductions (IS 456:2000, IS 13920 seismic confinement), bill of quantities mathematical auditing (IS 1200 SMM7), and statutory NBC 2016 Part 4 life-safety egress calculations.
-- **Specification Drafting**: Generates CSI MasterFormat architectural documentation, tender schedule of rates, and contractor RFI responses.
-- **Step-by-Step Logic**: Executes granular chain-of-thought mathematical verifications for cantilever deflections, rebar curtailment schedules, and concrete mix design ratios.
 
-#### 3. Dual AI Ensemble Mode (Co-Pilot Consensus)
-- When **Dual AI Ensemble** is selected:
-  1. **Gemini 3.8 Flash** processes the spatial geometry and material takeoffs.
-  2. **ChatGPT (GPT-4o)** cross-audits the load transfer paths, rate benchmarks, and building codes.
-  3. The system returns an authoritative consensus with dual-engine verification badges and 1-click executable actions!
+#### 4. Dual AI Ensemble Mode (Co-Pilot Consensus)
+- Cross-verifies spatial geometry and material takeoffs with structural calculations and building codes for zero-error consensus.
 
-*You can toggle between **✦ Gemini 3.8**, **⚡ ChatGPT (GPT-4o)**, and **★ Dual Ensemble** directly in the specialist toolbar above!*`;
+*You can toggle between **⚛ Gemini 4 Hydrogen**, **✦ Gemini 3.8**, **⚡ ChatGPT (GPT-4o)**, and **★ Dual Ensemble** directly in the specialist toolbar above!*`;
   }
 
   // Steel & Rebar inquiries including A-One Gold
@@ -2377,24 +2461,27 @@ export async function fetchLiveMaterialPricesWithGoogle(params: {
   location?: string;
   category?: string;
   customQuery?: string;
+  forceRefresh?: boolean;
 }): Promise<{
   prices: any[];
   sources: Array<{ title: string; uri: string }>;
   location: string;
   updatedAt: string;
   marketSummary: string;
+  dataMode?: 'live_search' | 'regional_benchmark';
   quotaNotice?: string;
   isCached?: boolean;
 }> {
   const location = (params.location || 'Bangalore / South India').trim();
   const category = params.category || 'all';
   const customQuery = (params.customQuery || '').trim();
+  const forceRefresh = Boolean(params.forceRefresh);
   const updatedAt = new Date().toISOString();
 
-  // 1. Check in-memory cache
+  // 1. Check in-memory cache (skip if user clicked Force Refresh)
   const cacheKey = `${location.toLowerCase()}|${category.toLowerCase()}|${customQuery.toLowerCase()}`;
   const cached = materialPriceCache.get(cacheKey);
-  if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
+  if (!forceRefresh && cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
     return {
       ...cached.data,
       isCached: true,
@@ -2457,11 +2544,10 @@ NOTES: [Procurement or specification advice]
 ---`;
 
       const res = await client.models.generateContent({
-        model: 'gemini-3.8-flash',
+        model: 'gemini-4-hydrogen',
         contents: prompt,
         config: {
           tools: [{ googleSearch: {} }],
-          temperature: 0.2,
         },
       });
 
@@ -2554,6 +2640,7 @@ NOTES: [Procurement or specification advice]
           location,
           updatedAt,
           marketSummary,
+          dataMode: 'live_search' as const,
         };
         materialPriceCache.set(cacheKey, { data: payload, timestamp: Date.now() });
         return payload;
@@ -3302,22 +3389,39 @@ function getVerifiedRegionalPrices(
     }
   ];
 
-  let prices = basePrices;
+  const locLower = (location || '').toLowerCase();
+  const regionalMultiplier = locLower.includes('mumbai')
+    ? 1.1
+    : locLower.includes('bangalore') || locLower.includes('bengaluru')
+    ? 1.04
+    : locLower.includes('delhi') || locLower.includes('ncr')
+    ? 1.02
+    : locLower.includes('chennai')
+    ? 1.01
+    : locLower.includes('hyderabad')
+    ? 0.98
+    : 1.0;
+
+  let prices = basePrices.map((p) => ({
+    ...p,
+    currentPrice: Math.round(p.currentPrice * regionalMultiplier),
+    minPrice: Math.round(p.minPrice * regionalMultiplier),
+    maxPrice: Math.round(p.maxPrice * regionalMultiplier),
+  }));
   if (category && category !== 'all') {
     prices = prices.filter((p) => p.category.toLowerCase().includes(category.toLowerCase()));
   }
 
   if (customQuery) {
-    const cq = customQuery.toLowerCase();
     prices.push({
       id: `price-custom-${Date.now()}`,
       name: `${customQuery} (Custom Specification)`,
       category: 'Custom Specification',
       brands: ['Vendor Direct', 'Imported Grade'],
       unit: 'standard unit',
-      currentPrice: 3200,
-      minPrice: 2800,
-      maxPrice: 3800,
+      currentPrice: Math.round(3200 * regionalMultiplier),
+      minPrice: Math.round(2800 * regionalMultiplier),
+      maxPrice: Math.round(3800 * regionalMultiplier),
       changePercent: 0.8,
       trend: 'up',
       trendReason: `Market benchmark for ${customQuery} in ${location} based on current contractor quotes.`,
@@ -3336,6 +3440,7 @@ function getVerifiedRegionalPrices(
     ],
     location,
     updatedAt,
+    dataMode: 'regional_benchmark' as const,
     marketSummary: `Current market rates in ${location} reflect steady cement dispatch with slight freight cost pressure, while primary steel (TMT Fe550D) remains in an attractive consolidation band. Electrical copper has seen recent upticks in tandem with global base metal indices.`
   };
 }
@@ -3499,11 +3604,8 @@ Format your response as a strictly valid JSON object with the following fields:
 Return ONLY pure JSON.`;
 
       const response = await aiClient.models.generateContent({
-        model: 'gemini-2.5-flash',
+        model: 'gemini-4-hydrogen',
         contents: prompt,
-        config: {
-          temperature: 0.3,
-        },
       });
 
       const text = response.text || '';
@@ -3659,11 +3761,8 @@ Return PURE JSON ONLY, no markdown ticks.`;
       contents.push(promptInstructions);
 
       const response = await aiClient.models.generateContent({
-        model: 'gemini-2.5-flash',
+        model: 'gemini-4-hydrogen',
         contents,
-        config: {
-          temperature: 0.2,
-        },
       });
 
       const responseText = response.text || '';

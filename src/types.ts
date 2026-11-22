@@ -393,7 +393,7 @@ export interface ChatMessage {
   agentThought?: string;
   agentToolsUsed?: string[];
   agentActions?: AgentAction[];
-  aiEngine?: 'gemini' | 'chatgpt' | 'hybrid';
+  aiEngine?: 'gemini' | 'hydrogen' | 'chatgpt' | 'hybrid';
   modelName?: string;
 }
 

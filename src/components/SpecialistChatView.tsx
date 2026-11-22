@@ -71,6 +71,7 @@ import {
   TrendingDown,
   DollarSign,
   Clock,
+  Atom,
 } from 'lucide-react';
 import { SpecialistType, ChatMessage, Project, BOQItem, AgentAction } from '../types';
 
@@ -1536,7 +1537,7 @@ export const SpecialistChatView: React.FC<SpecialistChatViewProps> = ({
 }) => {
   const [selectedSpecialist, setSelectedSpecialist] = useState<SpecialistType>('general');
   const [selectedLanguage, setSelectedLanguage] = useState('en-IN');
-  const [selectedEngine, setSelectedEngine] = useState<'gemini' | 'chatgpt' | 'hybrid'>('gemini');
+  const [selectedEngine, setSelectedEngine] = useState<'gemini' | 'hydrogen' | 'chatgpt' | 'hybrid'>('gemini');
   const [inputMessage, setInputMessage] = useState('');
   const [isListening, setIsListening] = useState(false);
   const [voiceTranscript, setVoiceTranscript] = useState('');
@@ -3014,7 +3015,7 @@ ${autonomousPowerActive ? '*Autonomous Agent Status: All price hedge actions are
   };
 
   // Send Chat Message
-  const handleSendMessage = async (textToSend?: string, customEngine?: 'gemini' | 'chatgpt' | 'hybrid') => {
+  const handleSendMessage = async (textToSend?: string, customEngine?: 'gemini' | 'hydrogen' | 'chatgpt' | 'hybrid') => {
     const query = (textToSend || inputMessage).trim();
     if (!query || isLoading) return;
 
@@ -3112,7 +3113,7 @@ ${autonomousPowerActive ? '*Autonomous Agent Status: All price hedge actions are
         agentToolsUsed: data.toolsUsed,
         agentActions: data.actions,
         aiEngine: data.engineUsed || engineToUse,
-        modelName: data.modelName || (engineToUse === 'chatgpt' ? 'OpenAI ChatGPT (GPT-4o)' : engineToUse === 'hybrid' ? 'Gemini 3.8 + ChatGPT Dual Ensemble' : 'Google Gemini 3.8 Flash'),
+        modelName: data.modelName || (engineToUse === 'chatgpt' ? 'OpenAI ChatGPT (GPT-4o)' : engineToUse === 'hydrogen' ? 'Google Gemini 4 Hydrogen' : engineToUse === 'hybrid' ? 'Gemini 3.8 + ChatGPT Dual Ensemble' : 'Google Gemini 3.8 Flash'),
       };
 
       setMessages((prev) => [...prev, aiMsg]);
@@ -3293,7 +3294,7 @@ For **${activeProject.name || 'this proposal'}** (${activeProject.projectType ||
         specialist: selectedSpecialist,
         language: selectedLanguage,
         aiEngine: engineToUse,
-        modelName: engineToUse === 'chatgpt' ? 'OpenAI ChatGPT (GPT-4o)' : engineToUse === 'hybrid' ? 'Gemini 3.8 + ChatGPT Dual Ensemble' : 'Google Gemini 3.8 Flash',
+        modelName: engineToUse === 'chatgpt' ? 'OpenAI ChatGPT (GPT-4o)' : engineToUse === 'hydrogen' ? 'Google Gemini 4 Hydrogen' : engineToUse === 'hybrid' ? 'Gemini 3.8 + ChatGPT Dual Ensemble' : 'Google Gemini 3.8 Flash',
         agentThought: fallbackThought,
         agentToolsUsed: fallbackTools,
         agentActions: fallbackActions,
@@ -3350,45 +3351,36 @@ For **${activeProject.name || 'this proposal'}** (${activeProject.projectType ||
         </div>
       )}
 
-      {/* Header */}
-      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 border-b border-slate-800 pb-4">
-        <div>
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-xs uppercase tracking-wider font-mono text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20 font-bold flex items-center gap-1">
-              <Sparkles className="w-3 h-3 text-amber-400" />
-              Gouse AI Specialist
-            </span>
-            <span className="text-xs text-slate-400 font-mono flex items-center gap-1">
-              Gemini 3.8 Flash + Multi-Modal TTS
-            </span>
-            <span className="text-xs text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20 font-mono">
-              25+ Languages Supported
-            </span>
+      {/* Executive Header */}
+      <div className="rounded-xl bg-slate-900 border border-slate-800 p-5 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2 flex-wrap text-xs text-slate-400">
+            <span className="text-amber-400 font-medium">Gouse AI Specialist</span>
+            <span aria-hidden="true">·</span>
+            <span>Gemini 4 Hydrogen &amp; 3.8 Flash</span>
+            <span aria-hidden="true">·</span>
+            <span>25+ Languages</span>
           </div>
-          <h2 className="text-2xl font-bold tracking-tight text-white mt-1.5">
-            Gouse AI • Autonomous Architectural Specialist
-          </h2>
-          <p className="text-xs text-slate-400">
-            Consult Gouse AI across multi-disciplinary architectural disciplines with transparent reasoning, tool execution, and 1-click project BOQ proposals.
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white">
+            Autonomous Architectural Specialist
+          </h1>
+          <p className="text-xs sm:text-sm text-slate-400">
+            Consult across structural, bylaw, bioclimatic, and QS disciplines with transparent tool execution and direct BOQ sync.
           </p>
         </div>
 
-        {/* Global Voice & Audio Controls & Gouse AI Agent Quick Launch */}
-        <div className="flex items-center gap-2 flex-wrap">
-          {/* Gouse AI Agent Platform Engine Button */}
+        {/* Global Voice & Audio Controls & CAD Workflow Quick Launch */}
+        <div className="flex items-center gap-2 flex-wrap shrink-0">
           {onOpenWorkflowEngine && (
             <button
               id="btn-agent-open-gouse-ai-agent"
               type="button"
               onClick={onOpenWorkflowEngine}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-mono transition bg-gradient-to-r from-amber-500/20 via-emerald-500/15 to-slate-900 border-amber-500/40 text-amber-300 hover:border-amber-400 hover:text-white shadow-sm"
-              title="Open Gouse AI Agent (4-Stage Pipeline, Rating 9.8/10)"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition bg-slate-950 border-slate-800 text-amber-300 hover:border-amber-500/40 hover:text-white whitespace-nowrap"
+              title="Open 4-Stage CAD & BOQ Workflow Engine"
             >
               <Zap className="w-3.5 h-3.5 text-amber-400" />
-              <span className="font-bold">Gouse AI Agent</span>
-              <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                9.8/10
-              </span>
+              <span>CAD Workflow Engine</span>
             </button>
           )}
 
@@ -3470,96 +3462,61 @@ For **${activeProject.name || 'this proposal'}** (${activeProject.projectType ||
       </div>
 
       {/* Gouse AI Specialist Studio Mode Selector */}
-      <div className="flex items-center gap-2 p-1.5 bg-slate-950/80 border border-slate-800 rounded-xl overflow-x-auto scrollbar-none">
+      <div className="flex items-center gap-1.5 p-1.5 bg-slate-900 border border-slate-800 rounded-xl overflow-x-auto scrollbar-none">
         <button
           id="tab-gui-solver"
           type="button"
           onClick={() => setStudioTab('gui_solver')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-xs font-semibold transition whitespace-nowrap ${
+          className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold transition whitespace-nowrap ${
             studioTab === 'gui_solver'
-              ? 'bg-amber-500 text-slate-950 font-bold shadow-md shadow-amber-500/10'
-              : 'text-slate-300 hover:text-white hover:bg-slate-900 border border-transparent'
+              ? 'bg-amber-500 text-slate-950 font-bold'
+              : 'text-slate-300 hover:text-white hover:bg-slate-800'
           }`}
         >
-          <Sliders className="w-4 h-4" />
-          <span>Architecture GUI Solver</span>
-          <span
-            className={`text-[10px] font-mono px-1.5 py-0.5 rounded-full ${
-              studioTab === 'gui_solver'
-                ? 'bg-slate-950 text-amber-300'
-                : unresolvedCount > 0
-                ? 'bg-red-500/20 text-red-300 border border-red-500/30'
-                : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-            }`}
-          >
-            {unresolvedCount > 0 ? `${unresolvedCount} Issues` : '✓ 100% Solved'}
-          </span>
+          <Sliders className="w-3.5 h-3.5" />
+          <span>Architecture GUI Solver ({unresolvedCount > 0 ? `${unresolvedCount} Open` : 'Solved'})</span>
         </button>
 
         <button
           id="tab-cad-canvas"
           type="button"
           onClick={() => setStudioTab('cad_canvas')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-xs font-semibold transition whitespace-nowrap ${
+          className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold transition whitespace-nowrap ${
             studioTab === 'cad_canvas'
-              ? 'bg-amber-500 text-slate-950 font-bold shadow-md shadow-amber-500/10'
-              : 'text-slate-300 hover:text-white hover:bg-slate-900 border border-transparent'
+              ? 'bg-amber-500 text-slate-950 font-bold'
+              : 'text-slate-300 hover:text-white hover:bg-slate-800'
           }`}
         >
-          <Grid className="w-4 h-4" />
-          <span>Interactive Blueprint CAD Canvas</span>
-          <span
-            className={`text-[10px] font-mono px-1.5 py-0.5 rounded-full ${
-              studioTab === 'cad_canvas' ? 'bg-slate-950 text-amber-300' : 'bg-slate-800 text-slate-400'
-            }`}
-          >
-            2D Spatial Floor Plan
-          </span>
+          <Grid className="w-3.5 h-3.5" />
+          <span>2D CAD Blueprint Canvas</span>
         </button>
 
         <button
           id="tab-agent-mesh"
           type="button"
           onClick={() => setStudioTab('agent_mesh')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-xs font-semibold transition whitespace-nowrap ${
+          className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold transition whitespace-nowrap ${
             studioTab === 'agent_mesh'
-              ? 'bg-amber-500 text-slate-950 font-bold shadow-md shadow-amber-500/10'
-              : 'text-slate-300 hover:text-white hover:bg-slate-900 border border-transparent'
+              ? 'bg-amber-500 text-slate-950 font-bold'
+              : 'text-slate-300 hover:text-white hover:bg-slate-800'
           }`}
         >
-          <Network className="w-4 h-4" />
-          <span>Agent Workface & Mesh</span>
-          <span
-            className={`text-[10px] font-mono px-1.5 py-0.5 rounded-full flex items-center gap-1 ${
-              studioTab === 'agent_mesh'
-                ? 'bg-slate-950 text-amber-300'
-                : 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'
-            }`}
-          >
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-            7 Agents Live
-          </span>
+          <Network className="w-3.5 h-3.5" />
+          <span>Agent Mesh (7 Active)</span>
         </button>
 
         <button
           id="tab-chat-voice"
           type="button"
           onClick={() => setStudioTab('chat_voice')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-xs font-semibold transition whitespace-nowrap ${
+          className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold transition whitespace-nowrap ${
             studioTab === 'chat_voice'
-              ? 'bg-amber-500 text-slate-950 font-bold shadow-md shadow-amber-500/10'
-              : 'text-slate-300 hover:text-white hover:bg-slate-900 border border-transparent'
+              ? 'bg-amber-500 text-slate-950 font-bold'
+              : 'text-slate-300 hover:text-white hover:bg-slate-800'
           }`}
         >
-          <Mic className="w-4 h-4" />
-          <span>Voice & Specialist Chat</span>
-          <span
-            className={`text-[10px] font-mono px-1.5 py-0.5 rounded-full ${
-              studioTab === 'chat_voice' ? 'bg-slate-950 text-amber-300' : 'bg-slate-800 text-slate-400'
-            }`}
-          >
-            25+ Languages
-          </span>
+          <Mic className="w-3.5 h-3.5" />
+          <span>Voice &amp; Specialist Chat</span>
         </button>
       </div>
 
@@ -5874,8 +5831,8 @@ For **${activeProject.name || 'this proposal'}** (${activeProject.projectType ||
                   <Network className="w-3 h-3 text-amber-400" />
                   Gouse AI Multi-Agent Ecosystem
                 </span>
-                <span className="text-xs font-mono text-emerald-400 flex items-center gap-1">
-                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                <span className="text-xs font-mono text-emerald-400 flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400" />
                   7 Agents Synchronized
                 </span>
               </div>
@@ -5922,7 +5879,7 @@ For **${activeProject.name || 'this proposal'}** (${activeProject.projectType ||
                 Connected Specialized AI Agents (7 Live Nodes)
               </span>
               <span className="text-[11px] font-mono text-emerald-400">
-                Gemini 3.8 Flash • High-Speed IPC
+                Gemini 4 Hydrogen &amp; 3.8 Flash · High-Speed IPC
               </span>
             </div>
 
@@ -6040,7 +5997,7 @@ For **${activeProject.name || 'this proposal'}** (${activeProject.projectType ||
 
                     <div className="pt-2.5 border-t border-slate-800/80 flex items-center justify-between text-[10px] font-mono text-slate-400">
                       <span className="flex items-center gap-1.5 text-emerald-400 font-semibold">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
                         {ag.status}
                       </span>
                       <span className="text-slate-500">{ag.metrics}</span>
@@ -6128,7 +6085,7 @@ For **${activeProject.name || 'this proposal'}** (${activeProject.projectType ||
                         <Icon className="w-4 h-4" />
                       </div>
                       {isSelected && (
-                        <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                        <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
                       )}
                     </div>
                     <div>
@@ -6147,10 +6104,10 @@ For **${activeProject.name || 'this proposal'}** (${activeProject.projectType ||
             </div>
           </div>
 
-          {/* AI Model Architecture Switcher (Google Gemini 3.8 Flash vs OpenAI ChatGPT GPT-4o vs Dual Ensemble) */}
+          {/* AI Model Architecture Switcher (Gemini 4 Hydrogen vs Gemini 3.8 Flash vs OpenAI ChatGPT GPT-4o vs Dual Ensemble) */}
           <div className="bg-slate-950/90 border border-slate-800 rounded-xl p-3 flex flex-col md:flex-row md:items-center justify-between gap-3 shadow-lg">
             <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-500/20 via-slate-900 to-emerald-500/20 border border-slate-700 flex items-center justify-center shrink-0">
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-500/20 via-cyan-500/15 to-emerald-500/20 border border-slate-700 flex items-center justify-center shrink-0">
                 <Cpu className="w-4 h-4 text-amber-400" />
               </div>
               <div>
@@ -6158,12 +6115,14 @@ For **${activeProject.name || 'this proposal'}** (${activeProject.projectType ||
                   <span className="text-xs font-mono font-bold uppercase tracking-wider text-white">
                     Gouse AI Engine Architecture
                   </span>
-                  <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                    Gemini + ChatGPT Integrated
+                  <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
+                    Gemini 4 Hydrogen + 3.8 + ChatGPT
                   </span>
                 </div>
                 <p className="text-[11px] text-slate-400 font-mono">
-                  {selectedEngine === 'gemini'
+                  {selectedEngine === 'hydrogen'
+                    ? 'Google Gemini 4 Hydrogen (gemini-4-hydrogen) • Next-gen adaptive reasoning, multimodal CAD & BOQ synthesis'
+                    : selectedEngine === 'gemini'
                     ? 'Google Gemini 3.8 Flash • Multi-modal CAD visual parsing, high-speed inference & native voice'
                     : selectedEngine === 'chatgpt'
                     ? 'OpenAI ChatGPT (GPT-4o) • Granular structural engineering logic, NBC 2016 Part 4 & BOQ math'
@@ -6172,7 +6131,21 @@ For **${activeProject.name || 'this proposal'}** (${activeProject.projectType ||
               </div>
             </div>
 
-            <div className="flex items-center gap-1.5 bg-slate-900 p-1 rounded-lg border border-slate-800 shrink-0">
+            <div className="flex items-center gap-1.5 bg-slate-900 p-1 rounded-lg border border-slate-800 shrink-0 flex-wrap">
+              <button
+                type="button"
+                id="btn-engine-hydrogen"
+                onClick={() => setSelectedEngine('hydrogen')}
+                className={`px-3 py-1.5 rounded-md text-xs font-mono font-bold flex items-center gap-1.5 transition ${
+                  selectedEngine === 'hydrogen'
+                    ? 'bg-cyan-400 text-slate-950 shadow-md shadow-cyan-400/20'
+                    : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                }`}
+                title="Google Gemini 4 Hydrogen Engine (gemini-4-hydrogen)"
+              >
+                <Atom className="w-3.5 h-3.5 text-inherit" />
+                <span>Gemini 4 Hydrogen</span>
+              </button>
               <button
                 type="button"
                 id="btn-engine-gemini"
@@ -6272,7 +6245,7 @@ For **${activeProject.name || 'this proposal'}** (${activeProject.projectType ||
                 <div
                   className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border transition ${
                     autonomousPowerActive
-                      ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-md shadow-amber-500/30 animate-pulse'
+                      ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-md shadow-amber-500/30'
                       : 'bg-slate-900 text-slate-500 border-slate-700'
                   }`}
                 >
@@ -6283,19 +6256,19 @@ For **${activeProject.name || 'this proposal'}** (${activeProject.projectType ||
                     <span className="text-xs font-mono font-bold uppercase tracking-wider text-white flex items-center gap-1.5">
                       <span>Gouse AI Autonomous Specialist</span>
                       {autonomousPowerActive ? (
-                        <span className="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[10px] font-mono font-bold flex items-center gap-1">
-                          <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping" />
+                        <span className="px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[10px] font-mono font-bold flex items-center gap-1.5">
+                          <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
                           LEVEL 5 AUTONOMOUS ACTIVE
                         </span>
                       ) : (
-                        <span className="px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700 text-[10px] font-mono">
+                        <span className="px-2 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700 text-[10px] font-mono">
                           SUPERVISED MODE
                         </span>
                       )}
                     </span>
                     {continuousAutoPilot && (
-                      <span className="px-2 py-0.5 rounded-full bg-teal-500/20 text-teal-300 border border-teal-500/40 text-[10px] font-mono flex items-center gap-1">
-                        <Activity className="w-3 h-3 text-teal-400 animate-pulse" />
+                      <span className="px-2 py-0.5 rounded bg-teal-500/20 text-teal-300 border border-teal-500/40 text-[10px] font-mono flex items-center gap-1">
+                        <Activity className="w-3 h-3 text-teal-400" />
                         AUTO-PILOT WATCHDOG ON
                       </span>
                     )}
@@ -6645,6 +6618,11 @@ For **${activeProject.name || 'this proposal'}** (${activeProject.projectType ||
                                   <Zap className="w-2.5 h-2.5 text-emerald-400" />
                                   ChatGPT (GPT-4o)
                                 </span>
+                              ) : msg.aiEngine === 'hydrogen' ? (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-mono font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-sm">
+                                  <Atom className="w-2.5 h-2.5 text-cyan-400" />
+                                  Gemini 4 Hydrogen
+                                </span>
                               ) : msg.aiEngine === 'hybrid' ? (
                                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-mono font-bold bg-gradient-to-r from-amber-500/20 to-emerald-500/20 text-teal-300 border border-teal-500/40 shadow-sm">
                                   <Sparkles className="w-2.5 h-2.5 text-teal-400" />
@@ -6877,15 +6855,15 @@ For **${activeProject.name || 'this proposal'}** (${activeProject.projectType ||
                                   .reverse()
                                   .find((m) => m.role === 'user');
                                 const queryToRerun = prevUserMsg ? prevUserMsg.content : msg.content.slice(0, 120);
-                                const altEngine = msg.aiEngine === 'chatgpt' ? 'gemini' : 'chatgpt';
+                                const altEngine = msg.aiEngine === 'chatgpt' ? 'hydrogen' : msg.aiEngine === 'hydrogen' ? 'gemini' : 'hydrogen';
                                 setSelectedEngine(altEngine);
                                 handleSendMessage(queryToRerun, altEngine);
                               }}
                               className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded bg-slate-900 border border-slate-800 text-teal-300 hover:text-white hover:bg-slate-800 transition shadow-sm"
-                              title={msg.aiEngine === 'chatgpt' ? 'Re-run analysis with Google Gemini 3.8' : 'Re-run analysis with OpenAI ChatGPT (GPT-4o)'}
+                              title={msg.aiEngine === 'hydrogen' ? 'Re-run analysis with Google Gemini 3.8' : 'Re-run analysis with Google Gemini 4 Hydrogen'}
                             >
                               <RefreshCw className="w-3 h-3 text-teal-400" />
-                              <span>{msg.aiEngine === 'chatgpt' ? 'Compare w/ Gemini' : 'Compare w/ ChatGPT'}</span>
+                              <span>{msg.aiEngine === 'hydrogen' ? 'Compare w/ Gemini 3.8' : 'Compare w/ Hydrogen'}</span>
                             </button>
 
                             {/* Transel (Translate) Button */}
@@ -6929,6 +6907,8 @@ For **${activeProject.name || 'this proposal'}** (${activeProject.projectType ||
                       <strong className="text-amber-400 font-mono">
                         {selectedEngine === 'chatgpt'
                           ? 'OpenAI ChatGPT (GPT-4o)'
+                          : selectedEngine === 'hydrogen'
+                          ? 'Google Gemini 4 Hydrogen'
                           : selectedEngine === 'hybrid'
                           ? 'Dual AI Ensemble'
                           : 'Google Gemini 3.8 Flash'}
@@ -6950,6 +6930,18 @@ For **${activeProject.name || 'this proposal'}** (${activeProject.projectType ||
                   <span className="text-slate-500 text-[10px] uppercase font-bold flex items-center gap-1">
                     <Cpu className="w-3 h-3 text-amber-400" /> Engine:
                   </span>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedEngine('hydrogen')}
+                    className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold flex items-center gap-1 transition ${
+                      selectedEngine === 'hydrogen'
+                        ? 'bg-cyan-400 text-slate-950 shadow-sm'
+                        : 'bg-slate-900 border border-slate-800 text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    <Atom className="w-2.5 h-2.5" />
+                    <span>Gemini 4 Hydrogen</span>
+                  </button>
                   <button
                     type="button"
                     onClick={() => setSelectedEngine('gemini')}
@@ -6990,7 +6982,9 @@ For **${activeProject.name || 'this proposal'}** (${activeProject.projectType ||
                 <div className="hidden sm:flex items-center gap-1.5 text-[10px] text-emerald-400">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
                   <span>
-                    {selectedEngine === 'gemini'
+                    {selectedEngine === 'hydrogen'
+                      ? 'Hydrogen 4.0 Active'
+                      : selectedEngine === 'gemini'
                       ? 'Gemini Spatial Reasoning'
                       : selectedEngine === 'chatgpt'
                       ? 'ChatGPT Structural Logic'
@@ -7062,7 +7056,7 @@ For **${activeProject.name || 'this proposal'}** (${activeProject.projectType ||
                   Specialist: <strong className="text-slate-400">{activeSpecialistObj.title}</strong> | Voice: <strong className="text-amber-400">{activeSpecialistObj.voiceName}</strong>
                 </span>
                 <span className="flex items-center gap-2">
-                  <span>Engine: <strong className="text-amber-400">{selectedEngine === 'gemini' ? 'Gemini 3.8 Flash' : selectedEngine === 'chatgpt' ? 'ChatGPT (GPT-4o)' : 'Dual AI Ensemble'}</strong></span>
+                  <span>Engine: <strong className="text-amber-400">{selectedEngine === 'hydrogen' ? 'Gemini 4 Hydrogen' : selectedEngine === 'gemini' ? 'Gemini 3.8 Flash' : selectedEngine === 'chatgpt' ? 'ChatGPT (GPT-4o)' : 'Dual AI Ensemble'}</strong></span>
                   <span className="text-slate-600">•</span>
                   <span>Lang: <strong className="text-slate-400">{currentLangObj.native}</strong></span>
                 </span>

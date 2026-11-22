@@ -582,49 +582,36 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
                 <Icon className="w-5 h-5" />
               </div>
               <div>
-                <div className="flex items-center gap-1.5 flex-wrap">
+                <div className="flex items-center gap-2 flex-wrap">
                   <h3 className="text-sm font-bold text-white group-hover:text-amber-300 transition">
                     {prof.name}
                   </h3>
-                  {isPracticeMember && (
-                    <span
-                      title="Part of My Practice Workspace"
-                      className="inline-flex items-center gap-1 text-[10px] font-mono font-semibold px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40"
-                    >
-                      <Building2 className="w-3 h-3 text-amber-400" />
-                      <span>My Practice</span>
-                    </span>
-                  )}
                   {prof.verified && (
-                    <span
-                      title="Verified Council / Association Registered"
-                      className="inline-flex items-center gap-0.5 text-emerald-400 text-[10px] font-medium bg-emerald-950/40 px-1.5 py-0.5 rounded border border-emerald-800/40"
-                    >
-                      <ShieldCheck className="w-3 h-3 text-emerald-400 shrink-0" />
-                      <span>Verified</span>
-                    </span>
-                  )}
-                  {/* Live Status indicator */}
-                  <span
-                    title="Live Active Partner"
-                    className="inline-flex items-center gap-1 text-[10px] font-mono px-1.5 py-0.5 rounded bg-emerald-950/50 text-emerald-300 border border-emerald-800/40"
-                  >
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                    <span>LIVE</span>
-                  </span>
-                  {isLive && (
-                    <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-300 border border-amber-500/30">
-                      Google Grounded
+                    <span title="Verified Council / Association Registered" className="inline-flex">
+                      <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
                     </span>
                   )}
                 </div>
                 <p className="text-xs text-slate-400 font-medium">{prof.company}</p>
+                <div className="mt-1 flex items-center gap-2 text-[10px] font-mono text-slate-400 flex-wrap">
+                  <span className="text-slate-300 uppercase">{typeLabel}</span>
+                  {isPracticeMember && (
+                    <>
+                      <span>·</span>
+                      <span className="text-amber-300 font-semibold">My Practice</span>
+                    </>
+                  )}
+                  <span>·</span>
+                  <span className="text-emerald-400">Active Partner</span>
+                  {isLive && (
+                    <>
+                      <span>·</span>
+                      <span className="text-amber-300">Google Grounded</span>
+                    </>
+                  )}
+                </div>
               </div>
             </div>
-
-            <span className={`text-[10px] uppercase font-mono px-2 py-0.5 rounded border whitespace-nowrap ${categoryBadgeStyles}`}>
-              {typeLabel}
-            </span>
           </div>
 
           {/* Location & Address with Google Maps link */}
@@ -657,14 +644,14 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
           {/* Bio & Services */}
           <p className="text-xs text-slate-400 line-clamp-2 leading-relaxed">{prof.bio}</p>
 
-          <div className="flex flex-wrap gap-1">
+          <div className="flex flex-wrap gap-1.5">
             {prof.services
               .split(',')
               .slice(0, 3)
               .map((service, index) => (
                 <span
                   key={index}
-                  className="px-2 py-0.5 rounded-full bg-slate-800/70 border border-slate-700/60 text-[10px] font-mono text-slate-300"
+                  className="px-2 py-0.5 rounded-md bg-slate-950/80 border border-slate-800 text-[10px] font-mono text-slate-300"
                 >
                   {service.trim()}
                 </span>
@@ -806,14 +793,12 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
   return (
     <div className="space-y-6">
       {/* Top Banner & Tab Navigation */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-5 rounded-2xl bg-slate-900 border border-slate-800 shadow-lg">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-5 rounded-xl bg-slate-900 border border-slate-800">
         <div>
-          <div className="flex items-center gap-2">
-            <span className="p-1.5 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20">
-              <Store className="w-4 h-4" />
-            </span>
-            <h2 className="text-lg font-bold text-white">Architectural Marketplace &amp; Directory</h2>
+          <div className="text-[11px] font-mono uppercase tracking-wider text-amber-400">
+            Vendor &amp; Consultant Network · Google Grounded
           </div>
+          <h2 className="text-lg font-bold text-white tracking-tight mt-0.5">Architectural Marketplace &amp; Directory</h2>
           <p className="text-xs text-slate-400 mt-1">
             Discover verified architects, general contractors, and material suppliers or ground live vendors via Google.
           </p>
@@ -889,21 +874,19 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
       )}
 
       {/* Live Multi-Discipline Radar & Quick Category Selector */}
-      <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-3 shadow-md">
+      <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-3">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div className="flex items-center gap-2.5">
-            <span className="relative flex h-3 w-3">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
-            </span>
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-slate-950 border border-slate-800 text-emerald-400 shrink-0">
+              <Globe className="w-4 h-4" />
+            </div>
             <div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-mono font-bold text-white uppercase tracking-wider">
-                  LIVE MARKETPLACE RADAR
+              <div className="flex items-center gap-2 text-xs font-mono">
+                <span className="font-semibold text-white uppercase tracking-wider">
+                  Marketplace Directory Index
                 </span>
-                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-950/60 text-emerald-300 border border-emerald-800/40">
-                  ● REAL-TIME DIRECTORY
-                </span>
+                <span className="text-slate-600">·</span>
+                <span className="text-emerald-400">Real-Time Sync</span>
               </div>
               <p className="text-[11px] text-slate-400">
                 Direct phone lines, Google Maps addresses, verified associations &amp; RFQ enquiry dispatch.

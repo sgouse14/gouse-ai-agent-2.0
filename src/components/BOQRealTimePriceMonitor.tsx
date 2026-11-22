@@ -154,6 +154,7 @@ export const BOQRealTimePriceMonitor: React.FC<BOQRealTimePriceMonitorProps> = (
   const [liveMarketPrices, setLiveMarketPrices] = useState<LiveMaterialPrice[]>([]);
   const [marketRadarAlerts, setMarketRadarAlerts] = useState<any[]>([]);
   const [isFetching, setIsFetching] = useState<boolean>(false);
+  const isFetchingRef = useRef<boolean>(false);
   const [lastSyncTime, setLastSyncTime] = useState<Date>(new Date());
   const [syncCount, setSyncCount] = useState<number>(0);
   const [marketSummaryText, setMarketSummaryText] = useState<string>('');
@@ -193,11 +194,11 @@ export const BOQRealTimePriceMonitor: React.FC<BOQRealTimePriceMonitorProps> = (
       if (perm === 'granted') {
         setSettings((prev) => ({ ...prev, pushNotificationsEnabled: true }));
         setToastMessage({
-          text: '🔔 Browser push notifications enabled for price fluctuations!',
+          text: 'Browser push notifications enabled for price fluctuations.',
           type: 'success',
         });
         // Send a test notification
-        new Notification('🔔 Gouse AI Price Monitor Active', {
+        new Notification('Gouse AI Price Monitor Active', {
           body: `Real-time price monitoring connected. Threshold alert set to ${settings.thresholdPercent}%.`,
           icon: '/favicon.ico',
         });
@@ -220,7 +221,8 @@ export const BOQRealTimePriceMonitor: React.FC<BOQRealTimePriceMonitorProps> = (
    * 2. POST /api/materials/radar-alerts
    */
   const fetchMarketplacePrices = useCallback(async (isManualTrigger: boolean = false) => {
-    if (isFetching) return;
+    if (isFetchingRef.current) return;
+    isFetchingRef.current = true;
     setIsFetching(true);
 
     try {
@@ -232,6 +234,7 @@ export const BOQRealTimePriceMonitor: React.FC<BOQRealTimePriceMonitorProps> = (
           location,
           category: 'all',
           customQuery: 'cement steel concrete sand aggregates bricks blocks tiles paint',
+          forceRefresh: isManualTrigger,
         }),
       });
 
@@ -271,20 +274,21 @@ export const BOQRealTimePriceMonitor: React.FC<BOQRealTimePriceMonitorProps> = (
 
       if (isManualTrigger) {
         setToastMessage({
-          text: `⚡ Synced with live marketplace API (${location}). Rates updated.`,
+          text: `Synced with live marketplace API (${location}). Rates updated.`,
           type: 'success',
         });
       }
     } catch (err) {
       console.warn('Notice from marketplace API, falling back to local spot benchmarks:', err);
     } finally {
+      isFetchingRef.current = false;
       setIsFetching(false);
     }
-  }, [activeProject.location, isFetching]);
+  }, [activeProject.location, activeProject.builtUpAreaSqFt]);
 
   // Initial fetch on mount
   useEffect(() => {
-    fetchMarketplacePrices();
+    fetchMarketplacePrices(false);
   }, [fetchMarketplacePrices]);
 
   // Periodic polling interval when enabled
@@ -661,7 +665,7 @@ export const BOQRealTimePriceMonitor: React.FC<BOQRealTimePriceMonitorProps> = (
           <div
             className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border transition ${
               activeExceededAlerts.length > 0
-                ? 'bg-red-500/20 text-red-400 border-red-500/40 animate-pulse'
+                ? 'bg-red-500/20 text-red-400 border-red-500/40'
                 : settings.enabled
                 ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40'
                 : 'bg-slate-900 text-slate-500 border-slate-800'
@@ -672,32 +676,19 @@ export const BOQRealTimePriceMonitor: React.FC<BOQRealTimePriceMonitorProps> = (
 
           <div>
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-xs font-mono font-bold uppercase tracking-wider text-white flex items-center gap-1.5">
-                <span>Real-Time Marketplace Price Monitor</span>
-                {settings.enabled ? (
-                  <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[10px] font-mono font-bold flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
-                    LIVE POLLING ON ({settings.intervalSeconds}s)
-                  </span>
-                ) : (
-                  <span className="px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700 text-[10px] font-mono">
-                    PAUSED
-                  </span>
-                )}
+              <span className="text-xs font-semibold uppercase tracking-wider text-white">
+                Real-Time Marketplace Price Monitor
+              </span>
+              <span className="text-[11px] font-mono text-slate-400">
+                {settings.enabled ? `· Polling every ${settings.intervalSeconds}s` : '· Paused'} · Threshold ±{settings.thresholdPercent}%
               </span>
 
-              {/* Threshold indicator pill */}
-              <span className="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[10px] font-mono">
-                Threshold: ±{settings.thresholdPercent}%
-              </span>
-
-              {/* Push notifications status pill */}
               <button
                 type="button"
                 onClick={handleRequestNotificationPermission}
-                className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold flex items-center gap-1 border transition ${
+                className={`px-2 py-0.5 rounded-md text-[10px] font-mono font-semibold flex items-center gap-1 border transition ${
                   notificationPermission === 'granted' && settings.pushNotificationsEnabled
-                    ? 'bg-sky-500/20 text-sky-300 border-sky-500/40 hover:bg-sky-500/30'
+                    ? 'bg-sky-500/15 text-sky-300 border-sky-500/30 hover:bg-sky-500/25'
                     : 'bg-slate-900 text-slate-400 border-slate-700 hover:text-white'
                 }`}
                 title="Click to toggle browser push notification permissions"
@@ -717,7 +708,7 @@ export const BOQRealTimePriceMonitor: React.FC<BOQRealTimePriceMonitorProps> = (
             </div>
 
             <p className="text-[11px] text-slate-400 font-mono mt-0.5">
-              Tracking live commodity indices via Google Grounding & regional mandis. Exceeding threshold triggers desktop push & visual warnings.
+              Tracking live commodity indices via Google Grounding &amp; regional mandis. Exceeding threshold triggers desktop push &amp; visual warnings.
             </p>
           </div>
         </div>
@@ -936,7 +927,7 @@ export const BOQRealTimePriceMonitor: React.FC<BOQRealTimePriceMonitorProps> = (
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
               <div className="flex items-center gap-2">
                 <Sliders className="w-5 h-5 text-amber-400" />
-                <h3 className="text-base font-bold text-white font-serif-classic">
+                <h3 className="text-base font-bold text-white tracking-tight">
                   Real-Time Price Monitor Settings
                 </h3>
               </div>

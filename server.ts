@@ -59,8 +59,9 @@ app.get('/api/health', (req, res) => {
     phone: '+91 8073947241',
     whatsapp: '+918073947241',
     email: 'sgouse14@gmail.com',
-    version: '3.8.0',
-    model: 'gemini-3.8-flash',
+    version: '4.0.0',
+    model: 'gemini-4-hydrogen',
+    models: ['gemini-4-hydrogen', 'gemini-3.8-flash'],
     features: [
       'chat',
       'multilingual_voice',
@@ -78,7 +79,7 @@ app.get('/api/health', (req, res) => {
 app.post('/api/chat', async (req, res) => {
   try {
     const { message, specialist, projectContext, language, boqContext, projectData, engine, aiEngine } = req.body;
-    const selectedEngine = (engine || aiEngine || 'gemini') as 'gemini' | 'chatgpt' | 'hybrid';
+    const selectedEngine = (engine || aiEngine || 'gemini') as 'gemini' | 'hydrogen' | 'chatgpt' | 'hybrid';
     const result = await generateChatResponse(
       message || '',
       specialist || 'general',
@@ -101,7 +102,7 @@ app.post('/api/chat', async (req, res) => {
       req.body?.language,
       req.body?.boqContext,
       req.body?.projectData,
-      (req.body?.engine || req.body?.aiEngine || 'gemini') as 'gemini' | 'chatgpt' | 'hybrid'
+      (req.body?.engine || req.body?.aiEngine || 'gemini') as 'gemini' | 'hydrogen' | 'chatgpt' | 'hybrid'
     );
     res.json(fallback);
   }
@@ -214,12 +215,15 @@ app.post('/api/intelligence', async (req, res) => {
 // BOQ generator
 app.post('/api/boq/generate', async (req, res) => {
   try {
-    const { description, projectType, builtUpAreaSqFt, qualityTier } = req.body;
+    const { description, projectType, builtUpAreaSqFt, qualityTier, image, mimeType, model } = req.body;
     const result = await generateAI_BOQ(
       description || '',
       projectType || 'Architecture',
       builtUpAreaSqFt ? Number(builtUpAreaSqFt) : undefined,
-      qualityTier || 'Standard'
+      qualityTier || 'Standard',
+      image,
+      mimeType,
+      model || 'gemini-4-hydrogen'
     );
     res.json(result);
   } catch (_err) {
@@ -228,7 +232,10 @@ app.post('/api/boq/generate', async (req, res) => {
       req.body.description || 'Architectural project',
       req.body.projectType || 'Architecture',
       area,
-      req.body.qualityTier || 'Standard'
+      req.body.qualityTier || 'Standard',
+      req.body.image,
+      req.body.mimeType,
+      req.body.model || 'gemini-4-hydrogen'
     );
     res.json(fallback);
   }
@@ -314,11 +321,12 @@ app.get('/api/search/professionals', async (req, res) => {
 // Live Material Prices endpoint
 app.post('/api/materials/live-prices', async (req, res) => {
   try {
-    const { location, category, customQuery } = req.body;
+    const { location, category, customQuery, forceRefresh } = req.body;
     const data = await fetchLiveMaterialPricesWithGoogle({
       location: location || 'Bangalore / South India',
       category: category || 'all',
       customQuery: customQuery || '',
+      forceRefresh: Boolean(forceRefresh),
     });
     res.json(data);
   } catch (_err) {

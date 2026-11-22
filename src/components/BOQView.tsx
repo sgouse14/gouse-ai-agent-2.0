@@ -1,52 +1,42 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import {
   Calculator,
   Plus,
   Trash2,
   Sparkles,
   Download,
-  Printer,
   Sliders,
-  DollarSign,
-  Layers,
   FileSpreadsheet,
   Check,
-  AlertCircle,
   Building,
   TrendingUp,
   TrendingDown,
-  Gauge,
   Send,
   RefreshCw,
-  Maximize2,
-  SlidersHorizontal,
-  ArrowUpRight,
-  ShieldCheck,
-  ShieldAlert,
   AlertTriangle,
-  CheckCircle2,
-  Filter,
-  Wrench,
-  Info,
   PieChart as PieChartIcon,
   Zap,
   MapPin,
-  Building2,
-  TableProperties,
   FileDown,
   HardHat,
-  Activity,
-  Newspaper,
+  Search,
+  CheckCircle2,
+  X,
+  Bot,
+  Layers,
+  ExternalLink,
+  Radio,
 } from 'lucide-react';
-import { BOQItem, Project, MarketplaceEnquiry, BuildingFloor, FloorWiseTotal } from '../types';
+import { BOQItem, Project, MarketplaceEnquiry, BuildingFloor, LiveMaterialPrice } from '../types';
 import { formatCurrency, CurrencyCode } from '../utils/formatters';
+import { BOQAreaAgentCalculator } from './BOQAreaAgentCalculator';
 import { BOQDistributionAnalytics } from './BOQDistributionAnalytics';
-import { getItemComponentFractions } from '../utils/boqDistribution';
 import { MarketPriceAutoUpdateModal } from './MarketPriceAutoUpdateModal';
 import { BOQRealTimePriceMonitor } from './BOQRealTimePriceMonitor';
 import { BimBoqMaterialNewsWire } from './BimBoqMaterialNewsWire';
 import { AreaTakeoffAutoUpdateModal } from './AreaTakeoffAutoUpdateModal';
 import { LabourCostBreakdownModal } from './LabourCostBreakdownModal';
+import { calculateLabourScheduleForArea } from '../utils/labourRateEngine';
 import {
   MARKET_REGIONS,
   MarketRegion,
@@ -54,30 +44,19 @@ import {
   MarketQualityTier,
   matchBOQItemToMarket,
   autoUpdateBOQItemsWithMarketRates,
-  MarketUpdateReport
 } from '../utils/marketPriceEngine';
-import { FloorWiseSummaryCards } from './FloorWiseSummaryCards';
-import { FloorWiseBOQMatrix } from './FloorWiseBOQMatrix';
-import { LevelDetailedBOQTable } from './LevelDetailedBOQTable';
 import { BuildingFloorManagerModal } from './BuildingFloorManagerModal';
 import { FloorDistributionModal } from './FloorDistributionModal';
 import { FloorWisePrintReportModal } from './FloorWisePrintReportModal';
 import {
   DEFAULT_BUILDING_FLOORS,
   calculateFloorWiseTotals,
-  updateItemFloorQuantity,
-  copyFloorQuantitiesAcrossItems,
-  generateFloorWiseCSV,
   ensureItemFloorBreakdown,
-  distributeItemQuantityByFloorArea,
-  scaleFloorAreasToTotal
+  scaleFloorAreasToTotal,
 } from '../utils/floorTakeoffEngine';
 import { autoUpdateBOQItemsWithAreaAndMarketPrice } from '../utils/materialTakeoffEngine';
 import { exportBOQToExcel, exportBOQToExcelCSV } from '../utils/excelExport';
-import {
-  SNK_BUILDING_FLOORS,
-  getSNKStandardBOQItems,
-} from '../data/snkQuotationFormat';
+import { SNK_BUILDING_FLOORS, getSNKStandardBOQItems } from '../data/snkQuotationFormat';
 
 export interface ItemAuditIssue {
   type: 'rate' | 'unit' | 'quantity';
@@ -96,45 +75,35 @@ export interface ItemAuditStatus {
   suggestedUnit?: string;
 }
 
-/**
- * Runs engineering & quantity surveying logic checks on a BOQ line item:
- * 1. Checks for missing or zero unit rates.
- * 2. Checks for missing or zero quantities.
- * 3. Checks for mismatched units based on construction industry standards
- *    (e.g., steel in m3 instead of MT, concrete casting in nos instead of m3,
- *     finishes/flooring in m3 instead of sq.m, linear skirting in m3, etc.).
- */
 export const checkBOQItemAudit = (item: BOQItem): ItemAuditStatus => {
   const issues: ItemAuditIssue[] = [];
   const rateNum = Number(item.rate);
   const qtyNum = Number(item.quantity);
 
-  // 1. Missing or zero unit rate
-  const missingRate = item.rate === null || item.rate === undefined || isNaN(rateNum) || rateNum <= 0;
+  const missingRate =
+    item.rate === null || item.rate === undefined || isNaN(rateNum) || rateNum <= 0;
   if (missingRate) {
     issues.push({
       type: 'rate',
       field: 'rate',
-      message: rateNum === 0 ? 'Missing unit rate: Rate is ₹0 (pricing required)' : 'Missing unit rate: Unspecified rate',
+      message: rateNum === 0 ? 'Missing unit rate (₹0)' : 'Unspecified unit rate',
       suggestedFix: 'Enter a valid unit rate',
     });
   }
 
-  // 2. Zero or negative quantity
-  const zeroQuantity = item.quantity === null || item.quantity === undefined || isNaN(qtyNum) || qtyNum <= 0;
+  const zeroQuantity =
+    item.quantity === null || item.quantity === undefined || isNaN(qtyNum) || qtyNum <= 0;
   if (zeroQuantity) {
     issues.push({
       type: 'quantity',
       field: 'quantity',
-      message: 'Invalid quantity: Quantity must be greater than 0',
+      message: 'Quantity must be greater than 0',
       suggestedFix: 'Enter a positive quantity',
     });
   }
 
-  // 3. Mismatched unit check
   let mismatchedUnit = false;
   let suggestedUnit: string | undefined = undefined;
-
   const rawUnit = (item.unit || '').trim();
   const unit = rawUnit.toLowerCase();
   const name = (item.name || '').toLowerCase();
@@ -145,12 +114,15 @@ export const checkBOQItemAudit = (item: BOQItem): ItemAuditStatus => {
     issues.push({
       type: 'unit',
       field: 'unit',
-      message: 'Missing unit: Unit of measurement is blank',
+      message: 'Unit of measurement is blank',
       suggestedFix: 'Select an appropriate unit',
     });
   } else {
-    // Check steel reinforcement / rebar / structural steel
-    const isSteel = name.includes('steel') || name.includes('rebar') || name.includes('tmt') || name.includes('reinforcement');
+    const isSteel =
+      name.includes('steel') ||
+      name.includes('rebar') ||
+      name.includes('tmt') ||
+      name.includes('reinforcement');
     if (isSteel) {
       if (!['mt', 'kg', 'tonne', 'ton', 't'].includes(unit)) {
         mismatchedUnit = true;
@@ -158,16 +130,19 @@ export const checkBOQItemAudit = (item: BOQItem): ItemAuditStatus => {
         issues.push({
           type: 'unit',
           field: 'unit',
-          message: `Mismatched Unit: Reinforcement/structural steel measured in '${rawUnit}', expected MT or kg`,
+          message: `Steel measured in '${rawUnit}', expected MT or kg`,
           suggestedFix: 'Switch unit to MT',
         });
       }
-    }
-    // Check concrete casting / RCC / PCC (excluding steel and paver/tiles)
-    else if (
-      (name.includes('concrete') || name.includes('rcc') || name.includes('pcc') || name.includes('casting') || cat === 'concrete works') &&
+    } else if (
+      (name.includes('concrete') ||
+        name.includes('rcc') ||
+        name.includes('pcc') ||
+        name.includes('casting') ||
+        cat === 'concrete works') &&
       !name.includes('block') &&
-      !name.includes('paver')
+      !name.includes('paver') &&
+      !name.includes('cement')
     ) {
       if (['nos', 'lump sum', 'r.m', 'kg', 'mt'].includes(unit)) {
         mismatchedUnit = true;
@@ -175,26 +150,26 @@ export const checkBOQItemAudit = (item: BOQItem): ItemAuditStatus => {
         issues.push({
           type: 'unit',
           field: 'unit',
-          message: `Mismatched Unit: Concrete casting measured in '${rawUnit}', expected volumetric m³`,
+          message: `Concrete measured in '${rawUnit}', expected m3`,
           suggestedFix: 'Switch unit to m3',
         });
       }
-    }
-    // Check bulk earthwork / excavation
-    else if (name.includes('excavation') || name.includes('earthwork') || (cat === 'substructure' && name.includes('trench'))) {
+    } else if (
+      name.includes('excavation') ||
+      name.includes('earthwork') ||
+      (cat === 'substructure' && name.includes('trench'))
+    ) {
       if (['nos', 'mt', 'kg', 'lump sum', 'r.m'].includes(unit)) {
         mismatchedUnit = true;
         suggestedUnit = 'm3';
         issues.push({
           type: 'unit',
           field: 'unit',
-          message: `Mismatched Unit: Earthwork excavation measured in '${rawUnit}', expected volumetric m³`,
+          message: `Excavation measured in '${rawUnit}', expected m3`,
           suggestedFix: 'Switch unit to m3',
         });
       }
-    }
-    // Check finishes: plaster, paint, tile, marble, granite, flooring
-    else if (
+    } else if (
       cat === 'finishes' ||
       name.includes('plaster') ||
       name.includes('paint') ||
@@ -204,7 +179,11 @@ export const checkBOQItemAudit = (item: BOQItem): ItemAuditStatus => {
       name.includes('granite') ||
       name.includes('marble')
     ) {
-      const isLinear = name.includes('skirting') || name.includes('border') || name.includes('cornice') || name.includes('coving');
+      const isLinear =
+        name.includes('skirting') ||
+        name.includes('border') ||
+        name.includes('cornice') ||
+        name.includes('coving');
       if (isLinear) {
         if (!['r.m', 'm', 'rmt'].includes(unit)) {
           mismatchedUnit = true;
@@ -212,53 +191,58 @@ export const checkBOQItemAudit = (item: BOQItem): ItemAuditStatus => {
           issues.push({
             type: 'unit',
             field: 'unit',
-            message: `Mismatched Unit: Skirting/cornice linear finish measured in '${rawUnit}', expected r.m`,
+            message: `Linear skirting measured in '${rawUnit}', expected r.m`,
             suggestedFix: 'Switch unit to r.m',
           });
         }
-      } else {
-        if (['m3', 'mt', 'kg', 'nos'].includes(unit)) {
-          mismatchedUnit = true;
-          suggestedUnit = 'sq.m';
-          issues.push({
-            type: 'unit',
-            field: 'unit',
-            message: `Mismatched Unit: Surface finishes measured in '${rawUnit}', expected area (sq.m or sq.ft)`,
-            suggestedFix: 'Switch unit to sq.m',
-          });
-        }
+      } else if (['m3', 'mt', 'kg', 'nos'].includes(unit)) {
+        mismatchedUnit = true;
+        suggestedUnit = 'sq.m';
+        issues.push({
+          type: 'unit',
+          field: 'unit',
+          message: `Surface finish measured in '${rawUnit}', expected sq.m or sq.ft`,
+          suggestedFix: 'Switch unit to sq.m',
+        });
       }
-    }
-    // Check masonry: brickwork, blockwork, AAC
-    else if (cat === 'masonry' || name.includes('brick') || name.includes('block') || name.includes('masonry')) {
+    } else if (
+      cat === 'masonry' ||
+      name.includes('brick') ||
+      name.includes('block') ||
+      name.includes('masonry')
+    ) {
       if (['mt', 'kg', 'r.m'].includes(unit)) {
         mismatchedUnit = true;
         suggestedUnit = 'm3';
         issues.push({
           type: 'unit',
           field: 'unit',
-          message: `Mismatched Unit: Masonry measured in '${rawUnit}', expected m³, sq.m, or nos`,
+          message: `Masonry measured in '${rawUnit}', expected m3, sq.m, or nos`,
           suggestedFix: 'Switch unit to m3',
         });
       }
-    }
-    // Check doors & windows
-    else if (cat === 'doors & windows' || name.includes('door') || name.includes('window') || name.includes('ventilator')) {
+    } else if (
+      cat === 'doors & windows' ||
+      name.includes('door') ||
+      name.includes('window') ||
+      name.includes('ventilator')
+    ) {
       if (['m3', 'mt', 'kg', 'r.m'].includes(unit)) {
         mismatchedUnit = true;
         suggestedUnit = 'nos';
         issues.push({
           type: 'unit',
           field: 'unit',
-          message: `Mismatched Unit: Doors/windows measured in '${rawUnit}', expected nos or sq.m`,
+          message: `Doors/windows measured in '${rawUnit}', expected nos or sq.m`,
           suggestedFix: 'Switch unit to nos',
         });
       }
-    }
-    // Check plumbing pipes / conduits / wiring
-    else if (
+    } else if (
       (cat === 'plumbing' || cat === 'mep & electrical') &&
-      (name.includes('pipe') || name.includes('conduit') || name.includes('drainage') || name.includes('wiring'))
+      (name.includes('pipe') ||
+        name.includes('conduit') ||
+        name.includes('drainage') ||
+        name.includes('wiring'))
     ) {
       if (['m3', 'mt', 'sq.m', 'sq.ft'].includes(unit)) {
         mismatchedUnit = true;
@@ -266,7 +250,7 @@ export const checkBOQItemAudit = (item: BOQItem): ItemAuditStatus => {
         issues.push({
           type: 'unit',
           field: 'unit',
-          message: `Mismatched Unit: Piping/conduits measured in '${rawUnit}', expected running meters (r.m)`,
+          message: `Piping/conduits measured in '${rawUnit}', expected r.m`,
           suggestedFix: 'Switch unit to r.m',
         });
       }
@@ -311,7 +295,6 @@ const CATEGORIES = [
 
 const UNITS = ['m3', 'sq.m', 'r.m', 'MT', 'nos', 'kg', 'lump sum', 'sq.ft'];
 
-// Industry-standard benchmark rates per sq.ft in Indian & regional construction markets
 export interface MarketBenchmark {
   tier: string;
   minRate: number;
@@ -331,9 +314,9 @@ export const MARKET_BENCHMARKS: MarketBenchmark[] = [
     minRate: 1400,
     maxRate: 1750,
     typicalRate: 1600,
-    tag: 'Budget Construction',
-    description: 'Cost-optimized construction with reliable basic building materials.',
-    features: ['Red brick / Fly-ash masonry', '2x2 Standard vitrified tiles', '2-track UPVC / Aluminum windows', 'Standard PVC/GI plumbing'],
+    tag: 'Budget',
+    description: 'Cost-optimized construction with reliable standard materials.',
+    features: ['Red brick / Fly-ash', '2x2 Vitrified tiles', 'Standard UPVC windows', 'PVC/GI plumbing'],
     accentColor: 'text-sky-400',
     badgeBg: 'bg-sky-500/10',
     badgeBorder: 'border-sky-500/30',
@@ -343,9 +326,9 @@ export const MARKET_BENCHMARKS: MarketBenchmark[] = [
     minRate: 1800,
     maxRate: 2450,
     typicalRate: 2150,
-    tag: 'Recommended Baseline',
-    description: 'High-quality contemporary construction with branded structural & finishing materials.',
-    features: ['M25 Ready-Mix RCC framing', 'AAC Block lightweight masonry', '4x2 Glazed vitrified tiles', 'Branded Jaquar/Kohler CP fittings', 'Schneider modular wiring'],
+    tag: 'Recommended',
+    description: 'Balanced contemporary specification with branded structural & finishing materials.',
+    features: ['M25 RMC framing', 'AAC blockwork', '4x2 Glazed tiles', 'Jaquar/Kohler & Schneider'],
     accentColor: 'text-amber-400',
     badgeBg: 'bg-amber-500/10',
     badgeBorder: 'border-amber-500/30',
@@ -355,9 +338,9 @@ export const MARKET_BENCHMARKS: MarketBenchmark[] = [
     minRate: 2500,
     maxRate: 3600,
     typicalRate: 3050,
-    tag: 'High Specification',
-    description: 'Architectural grade finish with high acoustic, thermal, and visual specifications.',
-    features: ['Engineered RCC framing & grade beams', 'Imported marble / large slab tiles', 'Double-glazed soundproof system aluminum', 'Grohe/Toto sanitaryware', 'Smart home automation conduits'],
+    tag: 'High Spec',
+    description: 'Architectural finish with acoustic glazing and large-format flooring.',
+    features: ['Engineered RCC', 'Imported marble / slabs', 'Double-glazed aluminum', 'Grohe/Toto sanitary'],
     accentColor: 'text-purple-400',
     badgeBg: 'bg-purple-500/10',
     badgeBorder: 'border-purple-500/30',
@@ -368,8 +351,8 @@ export const MARKET_BENCHMARKS: MarketBenchmark[] = [
     maxRate: 5500,
     typicalRate: 4400,
     tag: 'Ultra Luxury',
-    description: 'Bespoke high-end architectural villa and luxury commercial specification.',
-    features: ['Italian Statuario/Bottochino marble', 'Structural architectural glazing', 'VRV / VRF central HVAC integration', 'Acoustic insulation & façade cladding', 'Designer landscape & infinity pool works'],
+    description: 'Bespoke luxury villa specification with stone cladding and HVAC.',
+    features: ['Italian Statuario marble', 'Structural glazing', 'VRV/VRF central HVAC', 'Bespoke landscape'],
     accentColor: 'text-emerald-400',
     badgeBg: 'bg-emerald-500/10',
     badgeBorder: 'border-emerald-500/30',
@@ -377,12 +360,13 @@ export const MARKET_BENCHMARKS: MarketBenchmark[] = [
 ];
 
 const SQFT_PRESETS = [
-  { label: '1,200 sq.ft', value: 1200, desc: '2BHK Apartment / Compact Villa' },
-  { label: '2,000 sq.ft', value: 2000, desc: '3BHK Villa / Row House' },
-  { label: '3,000 sq.ft', value: 3000, desc: 'Duplex Residence / Penthouse' },
-  { label: '5,000 sq.ft', value: 5000, desc: 'Luxury Villa / Commercial Office' },
-  { label: '10,000 sq.ft', value: 10000, desc: 'Institutional / Commercial Complex' },
+  { label: '1,200 sq.ft', value: 1200 },
+  { label: '2,000 sq.ft', value: 2000 },
+  { label: '3,000 sq.ft', value: 3000 },
+  { label: '5,000 sq.ft', value: 5000 },
 ];
+
+type BoqWorkspaceTab = 'schedule' | 'auto_build' | 'market_labour' | 'analytics_tender';
 
 export const BOQView: React.FC<BOQViewProps> = ({
   items,
@@ -393,90 +377,27 @@ export const BOQView: React.FC<BOQViewProps> = ({
   onChangeContingency,
   onUpdateProject,
   onAddEnquiry,
-  onOpenWorkflowEngine,
 }) => {
-  // Built-up area in sq.ft state (synced with activeProject)
-  const [areaSqFt, setAreaSqFt] = useState<number>(() => {
-    return activeProject.builtUpAreaSqFt && activeProject.builtUpAreaSqFt > 0
-      ? activeProject.builtUpAreaSqFt
-      : 3000;
-  });
+  const [activeWorkspaceTab, setActiveWorkspaceTab] = useState<BoqWorkspaceTab>('schedule');
 
-  // Keep local area in sync if activeProject changes
+  // Built-up area state
+  const [areaSqFt, setAreaSqFt] = useState<number>(() =>
+    activeProject.builtUpAreaSqFt && activeProject.builtUpAreaSqFt > 0
+      ? activeProject.builtUpAreaSqFt
+      : 3000
+  );
+  const [areaDraft, setAreaDraft] = useState<number>(areaSqFt);
+
   useEffect(() => {
     if (activeProject.builtUpAreaSqFt && activeProject.builtUpAreaSqFt > 0) {
       setAreaSqFt(activeProject.builtUpAreaSqFt);
+      setAreaDraft(activeProject.builtUpAreaSqFt);
     }
   }, [activeProject.id, activeProject.builtUpAreaSqFt]);
 
-  // Area editor modal/popover
-  const [isEditingAreaModal, setIsEditingAreaModal] = useState(false);
-  const [tempAreaInput, setTempAreaInput] = useState<number>(areaSqFt);
-  const [scaleQuantitiesWithArea, setScaleQuantitiesWithArea] = useState(true);
-
-  // Market rate calibration modal
-  const [isCalibrateModal, setIsCalibrateModal] = useState(false);
-  const [targetRatePerSqFt, setTargetRatePerSqFt] = useState<number>(2150);
-
-  // Send Tender Enquiry modal
-  const [isEnquiryModal, setIsEnquiryModal] = useState(false);
-  const [enquirySuccess, setEnquirySuccess] = useState(false);
-  const [enquiryClientName, setEnquiryClientName] = useState('Ar. S. Gouse');
-  const [enquiryClientEmail, setEnquiryClientEmail] = useState('sgouse14@gmail.com');
-  const [enquiryClientPhone, setEnquiryClientPhone] = useState('+91 8073947241');
-  const [enquiryTenderNotes, setEnquiryTenderNotes] = useState('');
-
-  // Add Item form state
-  const [isAddingItem, setIsAddingItem] = useState(false);
-  const [newItemName, setNewItemName] = useState('');
-  const [newItemCategory, setNewItemCategory] = useState(CATEGORIES[0]);
-  const [newItemUnit, setNewItemUnit] = useState(UNITS[0]);
-  const [newItemQty, setNewItemQty] = useState<number>(10);
-  const [newItemRate, setNewItemRate] = useState<number>(500);
-  const [newItemNotes, setNewItemNotes] = useState('');
-
-  // AI BOQ Generator states
-  const [isGeneratingAI, setIsGeneratingAI] = useState(false);
-  const [aiDescription, setAiDescription] = useState(activeProject.description || '');
-  const [aiAreaSqFt, setAiAreaSqFt] = useState<number>(areaSqFt);
-  const [aiQualityTier, setAiQualityTier] = useState<string>('Standard');
-  const [aiLoading, setAiLoading] = useState(false);
-  const [aiResult, setAiResult] = useState<{
-    project_summary: string;
-    assumptions: string[];
-    items: any[];
-  } | null>(null);
-  const [aiError, setAiError] = useState<string | null>(null);
-
-  // Category filter state
-  const [filterCategory, setFilterCategory] = useState<string>('all');
-
-  // Quick Audit logic check state
-  const [isAuditActive, setIsAuditActive] = useState(false);
-  const [auditFilterOnlyIssues, setAuditFilterOnlyIssues] = useState(false);
-
-  // BOQ Cost Distribution (Materials, Labor & Overheads) state
-  const [isDistributionOpen, setIsDistributionOpen] = useState(true);
-
-  // Market Price Auto-Update state
-  const [isMarketModalOpen, setIsMarketModalOpen] = useState(false);
-  const [isAreaMarketModalOpen, setIsAreaMarketModalOpen] = useState(false);
-  const [isLabourBreakdownModalOpen, setIsLabourBreakdownModalOpen] = useState(false);
-  const [activeMarketRegion, setActiveMarketRegion] = useState<MarketRegion>('bangalore');
-  const [activeMarketTier, setActiveMarketTier] = useState<MarketQualityTier>('Standard');
-  const [activeMarketBasis, setActiveMarketBasis] = useState<MarketPricingBasis>('spot_market');
-  const [marketUpdateBanner, setMarketUpdateBanner] = useState<{ message: string; submessage?: string } | null>(null);
-
-  // Real-Time Marketplace Price Monitor state
-  const [showPriceMonitor, setShowPriceMonitor] = useState<boolean>(true);
-  // Daily Construction Material News Wire state
-  const [showMaterialNews, setShowMaterialNews] = useState<boolean>(true);
-
-  // Building Floors & Level Breakdown States
+  // Floors state (synchronized seamlessly behind the scenes)
   const [floors, setFloors] = useState<BuildingFloor[]>(() => {
-    if (activeProject.floors && activeProject.floors.length > 0) {
-      return activeProject.floors;
-    }
+    if (activeProject.floors && activeProject.floors.length > 0) return activeProject.floors;
     try {
       const saved = localStorage.getItem('gouse_ai_building_floors');
       if (saved) {
@@ -487,7 +408,6 @@ export const BOQView: React.FC<BOQViewProps> = ({
     return DEFAULT_BUILDING_FLOORS;
   });
 
-  // Sync floors if activeProject changes or has configured floors
   useEffect(() => {
     if (activeProject.floors && activeProject.floors.length > 0) {
       setFloors(activeProject.floors);
@@ -495,269 +415,285 @@ export const BOQView: React.FC<BOQViewProps> = ({
   }, [activeProject.id, activeProject.floors]);
 
   useEffect(() => {
-    localStorage.setItem('gouse_ai_building_floors', JSON.stringify(floors));
+    try {
+      localStorage.setItem('gouse_ai_building_floors', JSON.stringify(floors));
+    } catch {}
   }, [floors]);
 
-  // Handle saving configured building floors and synchronizing with project
-  const handleSaveFloors = (newFloors: BuildingFloor[]) => {
-    setFloors(newFloors);
-    const totalArea = newFloors.reduce((sum, f) => sum + (Number(f.areaSqFt) || 0), 0);
-    if (totalArea > 0) {
-      setAreaSqFt(totalArea);
-    }
-    if (onUpdateProject) {
-      onUpdateProject({
-        ...activeProject,
-        floors: newFloors,
-        builtUpAreaSqFt: totalArea > 0 ? totalArea : activeProject.builtUpAreaSqFt,
-      });
-    }
-    setIsFloorManagerOpen(false);
-  };
+  // Simple filtering & inline editing states
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterCategory, setFilterCategory] = useState<string>('all');
+  const [showAuditHighlight, setShowAuditHighlight] = useState(false);
+  const [showOffMarketOnly, setShowOffMarketOnly] = useState(false);
 
-  // Floor View Mode: 'matrix' (Detailed Floor-Wise Matrix) vs 'level_focus' (single level focus) vs 'standard'
-  const [floorViewMode, setFloorViewMode] = useState<'matrix' | 'level_focus' | 'standard'>('matrix');
-  const [selectedFloorId, setSelectedFloorId] = useState<string | 'all'>('all');
+  // Quick Add Item row / modal
+  const [isAddingItem, setIsAddingItem] = useState(false);
+  const [newItemName, setNewItemName] = useState('');
+  const [newItemCategory, setNewItemCategory] = useState(CATEGORIES[0]);
+  const [newItemUnit, setNewItemUnit] = useState(UNITS[0]);
+  const [newItemQty, setNewItemQty] = useState<number>(10);
+  const [newItemRate, setNewItemRate] = useState<number>(500);
+  const [newItemNotes, setNewItemNotes] = useState('');
 
-  // Modals for Floor-Wise capabilities
+  // Inline table quick-add row
+  const [quickName, setQuickName] = useState('');
+  const [quickCategory, setQuickCategory] = useState(CATEGORIES[1]);
+  const [quickUnit, setQuickUnit] = useState(UNITS[0]);
+  const [quickQty, setQuickQty] = useState<number>(10);
+  const [quickRate, setQuickRate] = useState<number>(6500);
+
+  // Market calibration & region settings
+  const [activeMarketRegion, setActiveMarketRegion] = useState<MarketRegion>(() => {
+    const loc = (activeProject.location || '').toLowerCase();
+    if (loc.includes('mumbai')) return 'mumbai';
+    if (loc.includes('hyderabad')) return 'hyderabad';
+    if (loc.includes('delhi') || loc.includes('ncr')) return 'delhi';
+    if (loc.includes('chennai')) return 'chennai';
+    if (loc.includes('bangalore') || loc.includes('bengaluru')) return 'bangalore';
+    return 'bangalore';
+  });
+  const [activeMarketTier, setActiveMarketTier] = useState<MarketQualityTier>('Standard');
+  const [activeMarketBasis] = useState<MarketPricingBasis>('spot_market');
+  const [targetRatePerSqFt, setTargetRatePerSqFt] = useState<number>(2150);
+  const [statusNotice, setStatusNotice] = useState<string | null>(null);
+
+  // Real-Time Live Market Data State (connected to /api/materials/live-prices & /api/materials/radar-alerts)
+  const [livePrices, setLivePrices] = useState<LiveMaterialPrice[]>([]);
+  const [liveSources, setLiveSources] = useState<Array<{ title: string; uri: string }>>([]);
+  const [liveDataMode, setLiveDataMode] = useState<'live_search' | 'regional_benchmark' | 'syncing'>('syncing');
+  const [liveLastSynced, setLiveLastSynced] = useState<Date | null>(null);
+  const [isLiveFetching, setIsLiveFetching] = useState<boolean>(false);
+  const [autoRefreshLive, setAutoRefreshLive] = useState<boolean>(true);
+  const liveFetchRef = useRef<boolean>(false);
+
+  // Modals
+  const [isGeneratingAI, setIsGeneratingAI] = useState(false);
+  const [aiDescription, setAiDescription] = useState(activeProject.description || '');
+  const [aiAreaSqFt, setAiAreaSqFt] = useState<number>(areaSqFt);
+  const [aiQualityTier, setAiQualityTier] = useState<string>('Standard');
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiResult, setAiResult] = useState<{
+    project_summary: string;
+    assumptions: string[];
+    items: any[];
+  } | null>(null);
+
+  const [isMarketModalOpen, setIsMarketModalOpen] = useState(false);
+  const [isAreaMarketModalOpen, setIsAreaMarketModalOpen] = useState(false);
+  const [isLabourBreakdownModalOpen, setIsLabourBreakdownModalOpen] = useState(false);
   const [isFloorManagerOpen, setIsFloorManagerOpen] = useState(false);
   const [isDistributionModalOpen, setIsDistributionModalOpen] = useState(false);
   const [activeDistributionItem, setActiveDistributionItem] = useState<BOQItem | null>(null);
   const [isFloorPrintModalOpen, setIsFloorPrintModalOpen] = useState(false);
 
-  // Floor-Wise Schedule Calculations (Subtotals, rates/sqft, % distribution)
-  const {
-    floorTotals,
-    buildingSubtotal: floorBuildingSubtotal,
-    contingencyAmount: floorContingencyAmount,
-    grandTotal: floorGrandTotal,
-    totalAreaSqFt: floorTotalAreaSqFt,
-    overallRatePerSqFt: floorOverallRatePerSqFt,
-  } = useMemo(() => {
-    return calculateFloorWiseTotals(items, floors, contingencyPercent);
-  }, [items, floors, contingencyPercent]);
+  // Tender Enquiry modal
+  const [isEnquiryModal, setIsEnquiryModal] = useState(false);
+  const [enquirySuccess, setEnquirySuccess] = useState(false);
+  const [enquiryClientName, setEnquiryClientName] = useState('Ar. S. Gouse');
+  const [enquiryClientEmail, setEnquiryClientEmail] = useState('sgouse14@gmail.com');
+  const [enquiryClientPhone, setEnquiryClientPhone] = useState('+91 8073947241');
+  const [enquiryTenderNotes, setEnquiryTenderNotes] = useState('');
 
-  // Handler: Update an individual item's quantity on a specific floor
-  const handleUpdateItemFloorQty = (itemId: string, floorId: string, newQty: number) => {
-    const updated = items.map((it) => {
-      if (it.id === itemId) {
-        return updateItemFloorQuantity(it, floorId, newQty, floors);
-      }
-      return it;
-    });
-    onUpdateItems(updated);
-  };
+  const activeRegionMeta = useMemo(
+    () => MARKET_REGIONS.find((r) => r.id === activeMarketRegion) || MARKET_REGIONS[0],
+    [activeMarketRegion]
+  );
 
-  // Handler: Update rate for an item in the matrix
-  const handleUpdateItemRateInMatrix = (itemId: string, newRate: number) => {
-    const updated = items.map((it) => {
-      if (it.id === itemId) {
-        const r = Math.max(0, newRate);
-        return {
-          ...it,
-          rate: r,
-          amount: Math.round(it.quantity * r * 100) / 100,
-        };
-      }
-      return it;
-    });
-    onUpdateItems(updated);
-  };
+  const fetchLiveMarketFeed = useCallback(
+    async (forceRefresh = false) => {
+      if (liveFetchRef.current) return;
+      liveFetchRef.current = true;
+      setIsLiveFetching(true);
+      try {
+        const locationLabel =
+          activeMarketRegion === 'national'
+            ? activeProject.location || 'India National Benchmark'
+            : activeRegionMeta.name;
 
-  // Handler: Copy takeoff quantities from one floor into another
-  const handleCopyFromFloor = (sourceFloorId: string, targetFloorId: string) => {
-    const updated = copyFloorQuantitiesAcrossItems(items, sourceFloorId, targetFloorId, floors);
-    onUpdateItems(updated);
-  };
+        const res = await fetch('/api/materials/live-prices', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            location: locationLabel,
+            category: 'all',
+            customQuery: 'cement tmt steel rmc concrete sand aac blocks vitrified tiles paint',
+            forceRefresh,
+          }),
+        });
 
-  // Handler: 1-Click Format according to SNK Associates Turnkey Residential Quotation
-  const handleApplySNKFormat = () => {
-    const snkItems = getSNKStandardBOQItems();
-    const snkFloors = SNK_BUILDING_FLOORS;
-    setFloors(snkFloors);
-    setAreaSqFt(3599);
-    onUpdateItems(snkItems);
-    if (onUpdateProject) {
-      onUpdateProject({
-        ...activeProject,
-        floors: snkFloors,
-        builtUpAreaSqFt: 3599,
-      });
-    }
-    setMarketUpdateBanner({
-      message: 'Applied SNK Turnkey Residential Standard (3,599 sq.ft @ ₹2,100/sq.ft)!',
-      submessage: 'Building Levels (GF 1,200 Sft, FF 1,200 Sft, SF 1,199 Sft), Material Prices (Steel ₹60/kg, Cement ₹385, CCB ₹38, Granite ₹100), and Level Quantities loaded.',
-    });
-  };
-
-  // Handler: Export directly to Microsoft Excel (.xlsx format with multiple sheets)
-  const handleExportExcel = () => {
-    exportBOQToExcel({
-      items,
-      floors,
-      projectName: activeProject.name,
-      currency,
-      contingencyPercent,
-      builtUpAreaSqFt: areaSqFt,
-    });
-  };
-
-  // Handler: Export Floor-Wise Schedule of Rates and Quantities in Excel-Ready CSV (with UTF-8 BOM)
-  const handleExportFloorWiseCSV = () => {
-    exportBOQToExcelCSV({
-      items,
-      floors,
-      projectName: activeProject.name,
-      currency,
-      contingencyPercent,
-      builtUpAreaSqFt: areaSqFt,
-    });
-  };
-
-  // Handle applied area & market price auto-update
-  const handleApplyAreaAndMarketUpdate = (
-    updatedItems: BOQItem[],
-    newAreaSqFt: number,
-    reportSummary: string
-  ) => {
-    onUpdateItems(updatedItems);
-    const scaledFloors = scaleFloorAreasToTotal(floors, newAreaSqFt);
-    setFloors(scaledFloors);
-    if (onUpdateProject) {
-      onUpdateProject({
-        ...activeProject,
-        floors: scaledFloors,
-        builtUpAreaSqFt: newAreaSqFt,
-      });
-    }
-    setAreaSqFt(newAreaSqFt);
-    setMarketUpdateBanner({
-      message: `✓ Applied Automatic Area & Market Update for ${newAreaSqFt.toLocaleString()} sq.ft!`,
-      submessage: reportSummary,
-    });
-  };
-
-  // Memoized market matches for all items based on current market settings
-  const itemMarketMatches = useMemo(() => {
-    const map: Record<string, ReturnType<typeof matchBOQItemToMarket>> = {};
-    items.forEach((it) => {
-      map[it.id] = matchBOQItemToMarket(it, activeMarketRegion, activeMarketTier, activeMarketBasis);
-    });
-    return map;
-  }, [items, activeMarketRegion, activeMarketTier, activeMarketBasis]);
-
-  // Quick 1-click update all to market prices
-  const handleQuickUpdateAllToMarket = () => {
-    const { updatedItems, report } = autoUpdateBOQItemsWithMarketRates(items, {
-      regionId: activeMarketRegion,
-      tier: activeMarketTier,
-      pricingBasis: activeMarketBasis,
-      onlyFlaggedOrZero: false,
-      fixUnitMismatches: true,
-    });
-
-    onUpdateItems(updatedItems);
-    setMarketUpdateBanner({
-      message: `Updated all ${report.updatedItemsCount} line items to live market rates for ${report.region.name}.`,
-      submessage: `Previous Subtotal: ${formatCurrency(report.previousSubtotal, currency)} → Updated: ${formatCurrency(report.updatedSubtotal, currency)} (${report.totalVariancePct > 0 ? '+' : ''}${report.totalVariancePct}% variance). Fixed ${report.unratedFixedCount} unpriced items.`,
-    });
-  };
-
-  // Single item update to market price
-  const handleUpdateSingleItemToMarket = (itemId: string) => {
-    const match = itemMarketMatches[itemId];
-    if (!match) return;
-
-    const updated = items.map((it) => {
-      if (it.id !== itemId) return it;
-      const newRate = match.marketRate;
-      const newUnit = match.unitMismatch && match.suggestedUnit ? match.suggestedUnit : it.unit;
-      return {
-        ...it,
-        rate: newRate,
-        unit: newUnit,
-        amount: Math.round(it.quantity * newRate),
-        materialComponent: match.matchedBenchmark.materialComponent,
-        laborComponent: match.matchedBenchmark.laborComponent,
-        equipmentComponent: match.matchedBenchmark.equipmentComponent,
-        overheadComponent: match.matchedBenchmark.overheadComponent,
-      };
-    });
-
-    onUpdateItems(updated);
-  };
-
-  const handleUpdateItemRateFromMonitor = (itemId: string, newRate: number) => {
-    const updated = items.map((it) =>
-      it.id === itemId
-        ? {
-            ...it,
-            rate: newRate,
-            amount: Math.round(it.quantity * newRate),
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data.prices) && data.prices.length > 0) {
+            setLivePrices(data.prices);
           }
-        : it
-    );
-    onUpdateItems(updated);
-  };
-
-  const handleUpdateMultipleItemRatesFromMonitor = (updates: Array<{ id: string; newRate: number }>) => {
-    const map = new Map(updates.map((u) => [u.id, u.newRate]));
-    const updated = items.map((it) => {
-      if (map.has(it.id)) {
-        const newRate = map.get(it.id)!;
-        return {
-          ...it,
-          rate: newRate,
-          amount: Math.round(it.quantity * newRate),
-        };
+          if (Array.isArray(data.sources)) {
+            setLiveSources(data.sources.slice(0, 3));
+          }
+          setLiveDataMode(data.dataMode === 'live_search' ? 'live_search' : 'regional_benchmark');
+          setLiveLastSynced(new Date());
+          if (forceRefresh) {
+            setStatusNotice(`Refreshed real-time market rates for ${activeRegionMeta.shortName}.`);
+          }
+        }
+      } catch (_err) {
+        setLiveDataMode('regional_benchmark');
+      } finally {
+        liveFetchRef.current = false;
+        setIsLiveFetching(false);
       }
-      return it;
-    });
-    onUpdateItems(updated);
-  };
+    },
+    [activeMarketRegion, activeRegionMeta.name, activeRegionMeta.shortName, activeProject.location]
+  );
 
-  // Calculations
-  const subtotal = useMemo(() => {
-    return items.reduce((sum, item) => sum + (item.quantity * item.rate), 0);
-  }, [items]);
+  useEffect(() => {
+    fetchLiveMarketFeed(false);
+  }, [fetchLiveMarketFeed]);
 
-  const contingencyAmount = useMemo(() => {
-    return (subtotal * contingencyPercent) / 100;
-  }, [subtotal, contingencyPercent]);
+  useEffect(() => {
+    if (!autoRefreshLive) return;
+    const timer = setInterval(() => {
+      fetchLiveMarketFeed(false);
+    }, 60000);
+    return () => clearInterval(timer);
+  }, [autoRefreshLive, fetchLiveMarketFeed]);
 
-  const totalEstimate = useMemo(() => {
-    return subtotal + contingencyAmount;
-  }, [subtotal, contingencyAmount]);
+  // Core Calculations
+  const subtotal = useMemo(
+    () => items.reduce((sum, item) => sum + item.quantity * item.rate, 0),
+    [items]
+  );
 
-  // Current Unit Rate per sq.ft
+  const contingencyAmount = useMemo(
+    () => (subtotal * contingencyPercent) / 100,
+    [subtotal, contingencyPercent]
+  );
+
+  const totalEstimate = useMemo(() => subtotal + contingencyAmount, [subtotal, contingencyAmount]);
+
   const currentRatePerSqFt = useMemo(() => {
     if (areaSqFt <= 0) return 0;
     return Math.round(totalEstimate / areaSqFt);
   }, [totalEstimate, areaSqFt]);
 
-  const subtotalRatePerSqFt = useMemo(() => {
-    if (areaSqFt <= 0) return 0;
-    return Math.round(subtotal / areaSqFt);
-  }, [subtotal, areaSqFt]);
+  const gstAmount = useMemo(() => Math.round(totalEstimate * 0.18), [totalEstimate]);
 
-  // Determine current market tier classification based on rate per sq.ft
   const currentMarketTier = useMemo(() => {
-    if (currentRatePerSqFt < 1750) return MARKET_BENCHMARKS[0]; // Economy
-    if (currentRatePerSqFt < 2500) return MARKET_BENCHMARKS[1]; // Standard
-    if (currentRatePerSqFt < 3700) return MARKET_BENCHMARKS[2]; // Premium
-    return MARKET_BENCHMARKS[3]; // Luxury
+    if (currentRatePerSqFt < 1750) return MARKET_BENCHMARKS[0];
+    if (currentRatePerSqFt < 2500) return MARKET_BENCHMARKS[1];
+    if (currentRatePerSqFt < 3700) return MARKET_BENCHMARKS[2];
+    return MARKET_BENCHMARKS[3];
   }, [currentRatePerSqFt]);
 
-  // Category breakdown & category unit rates per sq.ft
-  const categoryTotals = useMemo(() => {
-    const totals: Record<string, number> = {};
-    items.forEach((item) => {
-      totals[item.category] = (totals[item.category] || 0) + (item.quantity * item.rate);
-    });
-    return totals;
-  }, [items]);
+  const labourSchedule = useMemo(
+    () => calculateLabourScheduleForArea(areaSqFt || 1000, 'avg'),
+    [areaSqFt]
+  );
 
-  // Audit results computed across all items
+  const { floorTotals } = useMemo(
+    () => calculateFloorWiseTotals(items, floors, contingencyPercent),
+    [items, floors, contingencyPercent]
+  );
+
+  const itemMarketMatches = useMemo(() => {
+    const tierMul =
+      activeMarketTier === 'Economy'
+        ? 0.88
+        : activeMarketTier === 'Premium'
+        ? 1.18
+        : activeMarketTier === 'Luxury'
+        ? 1.38
+        : 1.0;
+
+    const map: Record<
+      string,
+      ReturnType<typeof matchBOQItemToMarket> & {
+        liveRate: number;
+        liveSourceLabel: string;
+        liveTrend: 'up' | 'down' | 'stable';
+        liveChangePct: number;
+        deltaVsCurrentPct: number;
+        isLiveApi: boolean;
+      }
+    > = {};
+
+    items.forEach((it) => {
+      const baseMatch = matchBOQItemToMarket(it, activeMarketRegion, activeMarketTier, activeMarketBasis);
+      const normName = (it.name || '').toLowerCase();
+      const normUnit = (it.unit || '').toLowerCase();
+
+      let apiMatched: LiveMaterialPrice | undefined;
+      let adjustedApiRate = 0;
+
+      if (livePrices.length > 0) {
+        if (normName.includes('tmt') || normName.includes('steel') || normName.includes('rebar')) {
+          apiMatched = livePrices.find(
+            (p) => p.name.toLowerCase().includes('tmt') || p.name.toLowerCase().includes('steel')
+          );
+          if (apiMatched) {
+            adjustedApiRate = apiMatched.currentPrice;
+            if (normUnit === 'kg' && adjustedApiRate > 1000) adjustedApiRate = Math.round(adjustedApiRate / 1000);
+            else if (normUnit === 'mt' && adjustedApiRate < 1000) adjustedApiRate = Math.round(adjustedApiRate * 1000);
+          }
+        } else if (normName.includes('rmc') || (normName.includes('concrete') && !normName.includes('block') && !normName.includes('pcc'))) {
+          apiMatched = livePrices.find(
+            (p) => p.name.toLowerCase().includes('ready-mix') || p.name.toLowerCase().includes('rmc')
+          );
+          if (apiMatched && normUnit === 'm3') {
+            adjustedApiRate = Math.round(apiMatched.currentPrice * tierMul * 1.45); // placed RCC w/ formwork & labor
+          }
+        } else if (normName.includes('aac') || normName.includes('block')) {
+          apiMatched = livePrices.find((p) => p.name.toLowerCase().includes('aac'));
+          if (apiMatched && normUnit === 'm3') {
+            adjustedApiRate = Math.round(apiMatched.currentPrice * tierMul);
+          }
+        } else if (normName.includes('cement') && (normUnit.includes('bag') || normUnit === 'nos')) {
+          apiMatched = livePrices.find((p) => p.name.toLowerCase().includes('cement'));
+          if (apiMatched) {
+            adjustedApiRate = Math.round(apiMatched.currentPrice * tierMul);
+          }
+        } else if (normName.includes('paint') || normName.includes('emulsion')) {
+          apiMatched = livePrices.find((p) => p.name.toLowerCase().includes('paint'));
+          if (apiMatched && (normUnit.includes('drum') || normUnit === 'nos')) {
+            adjustedApiRate = Math.round(apiMatched.currentPrice * tierMul);
+          }
+        } else if (normName.includes('glaz') || normName.includes('glass') || normName.includes('window')) {
+          apiMatched = livePrices.find((p) => p.name.toLowerCase().includes('glaz'));
+          if (apiMatched && normUnit === 'sq.m') {
+            adjustedApiRate = Math.round(apiMatched.currentPrice * tierMul);
+          }
+        }
+      }
+
+      const liveRate = adjustedApiRate > 0 ? adjustedApiRate : baseMatch.marketRate;
+      const curRate = Number(it.rate) || 0;
+      const deltaVsCurrentPct =
+        curRate > 0 ? Number((((liveRate - curRate) / curRate) * 100).toFixed(1)) : 100;
+
+      map[it.id] = {
+        ...baseMatch,
+        liveRate,
+        liveSourceLabel: apiMatched
+          ? liveDataMode === 'live_search'
+            ? 'Live Google Index'
+            : `Live API (${activeRegionMeta.shortName})`
+          : `DSR Spot (${activeRegionMeta.shortName})`,
+        liveTrend: apiMatched?.trend || (baseMatch.rateDelta > 0 ? 'up' : baseMatch.rateDelta < 0 ? 'down' : 'stable'),
+        liveChangePct: apiMatched?.changePercent ?? 0,
+        deltaVsCurrentPct,
+        isLiveApi: Boolean(apiMatched),
+      };
+    });
+
+    return map;
+  }, [items, activeMarketRegion, activeMarketTier, activeMarketBasis, livePrices, liveDataMode, activeRegionMeta.shortName]);
+
+  const offMarketCount = useMemo(() => {
+    return items.filter((it) => {
+      const m = itemMarketMatches[it.id];
+      return m && (it.rate <= 0 || Math.abs(m.deltaVsCurrentPct) >= 2);
+    }).length;
+  }, [items, itemMarketMatches]);
+
   const auditResults = useMemo(() => {
     const map: Record<string, ItemAuditStatus> = {};
     items.forEach((item) => {
@@ -766,207 +702,271 @@ export const BOQView: React.FC<BOQViewProps> = ({
     return map;
   }, [items]);
 
-  const totalAuditIssues = useMemo(() => {
-    return Object.values(auditResults).reduce((acc, status) => acc + status.issues.length, 0);
-  }, [auditResults]);
-
-  const itemsWithIssuesCount = useMemo(() => {
-    return Object.values(auditResults).filter((status) => status.hasIssues).length;
-  }, [auditResults]);
-
-  const missingRatesCount = useMemo(() => {
-    return Object.values(auditResults).filter((status) => status.missingRate).length;
-  }, [auditResults]);
-
-  const mismatchedUnitsCount = useMemo(() => {
-    return Object.values(auditResults).filter((status) => status.mismatchedUnit).length;
-  }, [auditResults]);
-
-  const zeroQuantitiesCount = useMemo(() => {
-    return Object.values(auditResults).filter((status) => status.zeroQuantity).length;
-  }, [auditResults]);
+  const itemsWithIssuesCount = useMemo(
+    () => Object.values(auditResults).filter((s) => s.hasIssues).length,
+    [auditResults]
+  );
 
   const filteredItems = useMemo(() => {
-    let list = items;
-    if (filterCategory !== 'all') {
-      list = list.filter((item) => item.category === filterCategory);
-    }
-    if (isAuditActive && auditFilterOnlyIssues) {
-      list = list.filter((item) => auditResults[item.id]?.hasIssues);
-    }
-    return list;
-  }, [items, filterCategory, isAuditActive, auditFilterOnlyIssues, auditResults]);
+    const q = searchQuery.trim().toLowerCase();
+    return items.filter((item) => {
+      if (filterCategory !== 'all' && item.category !== filterCategory) return false;
+      if (showAuditHighlight && !auditResults[item.id]?.hasIssues) return false;
+      if (showOffMarketOnly) {
+        const m = itemMarketMatches[item.id];
+        if (!m || (item.rate > 0 && Math.abs(m.deltaVsCurrentPct) < 2)) return false;
+      }
+      if (!q) return true;
+      return (
+        item.name.toLowerCase().includes(q) ||
+        item.category.toLowerCase().includes(q) ||
+        item.unit.toLowerCase().includes(q) ||
+        (item.notes || '').toLowerCase().includes(q)
+      );
+    });
+  }, [items, filterCategory, showAuditHighlight, showOffMarketOnly, itemMarketMatches, auditResults, searchQuery]);
 
-  // Handle Square Footage Update
-  const handleApplyAreaChange = (newSqFt: number, shouldScale: boolean = true) => {
+  const showToast = (msg: string) => {
+    setStatusNotice(msg);
+    setTimeout(() => {
+      setStatusNotice((prev) => (prev === msg ? null : prev));
+    }, 4000);
+  };
+
+  // Handlers
+  const handleApplyAreaChange = (newSqFt: number, scaleQuantities = true) => {
     const validSqFt = Math.max(100, Math.round(newSqFt));
-    const previousSqFt = areaSqFt > 0 ? areaSqFt : 3000;
+    const prevSqFt = areaSqFt > 0 ? areaSqFt : 3000;
 
-    if (shouldScale && previousSqFt > 0 && validSqFt !== previousSqFt) {
-      const { updatedItems, report } = autoUpdateBOQItemsWithAreaAndMarketPrice(
+    if (scaleQuantities && prevSqFt > 0 && validSqFt !== prevSqFt) {
+      const { updatedItems } = autoUpdateBOQItemsWithAreaAndMarketPrice(
         items,
         validSqFt,
-        previousSqFt,
+        prevSqFt,
         {
           regionId: activeMarketRegion,
           tier: activeMarketTier,
           pricingBasis: activeMarketBasis,
           updateQuantitiesWithArea: true,
           updateRatesWithMarketPrice: false,
-          floors: floors,
+          floors,
         }
       );
       onUpdateItems(updatedItems);
       const scaledFloors = scaleFloorAreasToTotal(floors, validSqFt);
       setFloors(scaledFloors);
-      setMarketUpdateBanner({
-        message: `✓ Auto-updated ${report.quantitiesUpdatedCount} BOQ quantities for ${validSqFt.toLocaleString()} sq.ft!`,
-        submessage: `Previous Subtotal: ${formatCurrency(report.previousSubtotal, currency)} → Scaled Subtotal: ${formatCurrency(report.updatedSubtotal, currency)} (${formatCurrency(Math.round(report.updatedSubtotal / validSqFt), currency)}/sq.ft). All floor level allocations rescaled.`,
-      });
+      if (onUpdateProject) {
+        onUpdateProject({
+          ...activeProject,
+          floors: scaledFloors,
+          builtUpAreaSqFt: validSqFt,
+        });
+      }
+      showToast(`Scaled all BOQ quantities to ${validSqFt.toLocaleString()} sq.ft.`);
+    } else if (onUpdateProject) {
+      onUpdateProject({ ...activeProject, builtUpAreaSqFt: validSqFt });
+      showToast(`Updated built-up area to ${validSqFt.toLocaleString()} sq.ft.`);
     }
 
     setAreaSqFt(validSqFt);
+    setAreaDraft(validSqFt);
     setAiAreaSqFt(validSqFt);
-
-    if (onUpdateProject) {
-      onUpdateProject({
-        ...activeProject,
-        ...(shouldScale && previousSqFt > 0 && validSqFt !== previousSqFt
-          ? { floors: scaleFloorAreasToTotal(floors, validSqFt) }
-          : {}),
-        builtUpAreaSqFt: validSqFt,
-      });
-    }
-
-    setIsEditingAreaModal(false);
   };
 
-  // Handle Calibrating Item Rates to Target Live Market Rate per sq.ft
-  const handleApplyMarketRateCalibration = () => {
-    if (targetRatePerSqFt <= 0 || currentRatePerSqFt <= 0 || areaSqFt <= 0) return;
-
-    // Target Grand Total
-    const targetTotal = targetRatePerSqFt * areaSqFt;
-    // Factor considering contingency
+  const handleCalibrateToRate = (targetRate: number) => {
+    if (targetRate <= 0 || areaSqFt <= 0 || subtotal <= 0) return;
+    const targetTotal = targetRate * areaSqFt;
     const targetSubtotal = targetTotal / (1 + contingencyPercent / 100);
-    const multiplier = targetSubtotal / (subtotal > 0 ? subtotal : 1);
+    const multiplier = targetSubtotal / subtotal;
 
-    const calibratedItems = items.map((item) => {
-      const newRate = Math.max(1, Math.round(item.rate * multiplier));
+    const calibrated = items.map((item) => {
+      const nextRate = Math.max(1, Math.round(item.rate * multiplier));
       return {
         ...item,
-        rate: newRate,
-        amount: Math.round(item.quantity * newRate),
+        rate: nextRate,
+        amount: Math.round(item.quantity * nextRate),
       };
     });
-
-    onUpdateItems(calibratedItems);
-    setIsCalibrateModal(false);
+    onUpdateItems(calibrated);
+    setTargetRatePerSqFt(targetRate);
+    showToast(`Calibrated all item rates to ≈ ₹${targetRate.toLocaleString()}/sq.ft.`);
   };
 
-  // Item field editing
   const handleUpdateItemField = (id: string, field: keyof BOQItem, value: any) => {
     const updated = items.map((item) => {
       if (item.id !== id) return item;
-      const updatedItem = { ...item, [field]: value };
+      const next = { ...item, [field]: value };
       if (field === 'quantity' || field === 'rate') {
         const q = field === 'quantity' ? Math.max(0, Number(value) || 0) : item.quantity;
         const r = field === 'rate' ? Math.max(0, Number(value) || 0) : item.rate;
-        updatedItem.amount = Math.round(q * r);
+        next.quantity = q;
+        next.rate = r;
+        next.amount = Math.round(q * r);
       }
-      return updatedItem;
+      return next;
     });
     onUpdateItems(updated);
   };
 
   const handleDeleteItem = (id: string) => {
-    onUpdateItems(items.filter((item) => item.id !== id));
+    onUpdateItems(items.filter((it) => it.id !== id));
   };
 
-  const handleAddItem = (e: React.FormEvent) => {
+  const handleQuickAddRow = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!quickName.trim()) return;
+    const q = Math.max(0, Number(quickQty) || 0);
+    const r = Math.max(0, Number(quickRate) || 0);
+    const item = ensureItemFloorBreakdown(
+      {
+        id: `boq-${Date.now()}`,
+        name: quickName.trim(),
+        category: quickCategory,
+        unit: quickUnit,
+        quantity: q,
+        rate: r,
+        amount: Math.round(q * r),
+        notes: '',
+      },
+      floors
+    );
+    onUpdateItems([...items, item]);
+    setQuickName('');
+    showToast(`Added "${item.name}" to schedule.`);
+  };
+
+  const handleAddItemModal = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newItemName.trim()) return;
-
-    const qty = Math.max(0, Number(newItemQty) || 0);
-    const rate = Math.max(0, Number(newItemRate) || 0);
-
-    const newItem: BOQItem = {
-      id: `boq-${Date.now()}`,
-      name: newItemName.trim(),
-      category: newItemCategory,
-      unit: newItemUnit,
-      quantity: qty,
-      rate: rate,
-      amount: Math.round(qty * rate),
-      notes: newItemNotes.trim(),
-    };
-
-    const ensuredNewItem = ensureItemFloorBreakdown(newItem, floors);
-    onUpdateItems([...items, ensuredNewItem]);
+    const q = Math.max(0, Number(newItemQty) || 0);
+    const r = Math.max(0, Number(newItemRate) || 0);
+    const item = ensureItemFloorBreakdown(
+      {
+        id: `boq-${Date.now()}`,
+        name: newItemName.trim(),
+        category: newItemCategory,
+        unit: newItemUnit,
+        quantity: q,
+        rate: r,
+        amount: Math.round(q * r),
+        notes: newItemNotes.trim(),
+      },
+      floors
+    );
+    onUpdateItems([...items, item]);
     setNewItemName('');
     setNewItemNotes('');
     setIsAddingItem(false);
+    showToast(`Added "${item.name}" to schedule.`);
   };
 
-  // Quick Audit: Auto-correct mismatched units based on engineering standards
-  const handleAutoFixAuditIssues = () => {
-    let fixCount = 0;
+  const handleQuickSyncMarket = () => {
+    let syncedCount = 0;
+    const updated = items.map((it) => {
+      const m = itemMarketMatches[it.id];
+      const audit = auditResults[it.id];
+      const nextUnit = audit?.mismatchedUnit && audit.suggestedUnit ? audit.suggestedUnit : it.unit;
+      if (!m) return it;
+      const nextRate = m.liveRate > 0 ? m.liveRate : it.rate;
+      if (nextRate !== it.rate || nextUnit !== it.unit) syncedCount++;
+      return {
+        ...it,
+        rate: nextRate,
+        unit: nextUnit,
+        amount: Math.round(it.quantity * nextRate),
+      };
+    });
+    onUpdateItems(updated);
+    showToast(
+      `Synced ${syncedCount > 0 ? syncedCount : updated.length} BOQ items to live ${activeRegionMeta.shortName} rates.`
+    );
+  };
+
+  const handleAutoFixUnits = () => {
+    let fixed = 0;
     const updated = items.map((item) => {
       const audit = auditResults[item.id];
-      if (audit && audit.mismatchedUnit && audit.suggestedUnit) {
-        fixCount++;
-        return {
-          ...item,
-          unit: audit.suggestedUnit,
-        };
+      if (audit?.mismatchedUnit && audit.suggestedUnit) {
+        fixed++;
+        return { ...item, unit: audit.suggestedUnit };
       }
       return item;
     });
-    if (fixCount > 0) {
+    if (fixed > 0) {
       onUpdateItems(updated);
+      showToast(`Auto-fixed ${fixed} unit mismatch${fixed > 1 ? 'es' : ''}.`);
     }
   };
 
-  // Quick Audit: Inject demo items with missing rate or mismatched unit for immediate user verification
-  const handleInjectSampleAuditIssue = () => {
-    const demoItems: BOQItem[] = [
-      {
-        id: `boq-audit-${Date.now()}-1`,
-        name: 'Structural Steel Portal Framing & Purlins for Warehouse Bay',
-        category: 'Concrete Works',
-        unit: 'm3', // Mismatched unit (should be MT or kg)
-        quantity: 12.5,
-        rate: 72000,
-        amount: 900000,
-        notes: 'Fabricated I-sections (Mismatched unit: entered as volumetric m³ instead of MT)',
-        stage: 'Superstructure',
-        status: 'tendered',
-      },
-      {
-        id: `boq-audit-${Date.now()}-2`,
-        name: 'Acoustic Double-Glazed Flush Timber Core Partition Doors',
-        category: 'Doors & Windows',
-        unit: 'nos',
-        quantity: 18,
-        rate: 0, // Missing unit rate
-        amount: 0,
-        notes: 'Awaiting supplier price quotation (Missing unit rate)',
-        stage: 'Finishes',
-        status: 'estimated',
-      },
-    ];
-
-    onUpdateItems([...demoItems, ...items]);
-    setIsAuditActive(true);
-    setAuditFilterOnlyIssues(false);
+  const handleApplySingleMarketRate = (itemId: string) => {
+    const match = itemMarketMatches[itemId];
+    if (!match) return;
+    const rateToApply = match.liveRate > 0 ? match.liveRate : match.marketRate;
+    onUpdateItems(
+      items.map((it) =>
+        it.id === itemId
+          ? {
+              ...it,
+              rate: rateToApply,
+              unit: match.unitMismatch && match.suggestedUnit ? match.suggestedUnit : it.unit,
+              amount: Math.round(it.quantity * rateToApply),
+            }
+          : it
+      )
+    );
+    showToast(`Updated rate to ₹${rateToApply.toLocaleString()} (${match.liveSourceLabel}).`);
   };
 
-  // AI BOQ Generation with exact square footage & quality tier
+  // Suggest live market rate while typing in Quick Add row
+  const handleQuickNameChange = (val: string) => {
+    setQuickName(val);
+    if (val.trim().length >= 3) {
+      const probe: BOQItem = {
+        id: 'probe',
+        name: val,
+        category: quickCategory,
+        unit: quickUnit,
+        quantity: quickQty || 1,
+        rate: 0,
+        amount: 0,
+        notes: '',
+      };
+      const m = matchBOQItemToMarket(probe, activeMarketRegion, activeMarketTier, activeMarketBasis);
+      const lower = val.toLowerCase();
+      const apiHit = livePrices.find((p) => {
+        const pn = p.name.toLowerCase();
+        return (
+          (lower.includes('cement') && pn.includes('cement')) ||
+          ((lower.includes('steel') || lower.includes('tmt')) && pn.includes('tmt')) ||
+          (lower.includes('aac') && pn.includes('aac')) ||
+          (lower.includes('paint') && pn.includes('paint'))
+        );
+      });
+      if (apiHit && apiHit.currentPrice > 0) {
+        setQuickRate(apiHit.currentPrice);
+      } else if (m.marketRate > 0) {
+        setQuickRate(m.marketRate);
+      }
+    }
+  };
+
+  const handleApplySNKFormat = () => {
+    const snkItems = getSNKStandardBOQItems();
+    const snkFloors = SNK_BUILDING_FLOORS;
+    setFloors(snkFloors);
+    setAreaSqFt(3599);
+    setAreaDraft(3599);
+    onUpdateItems(snkItems);
+    if (onUpdateProject) {
+      onUpdateProject({ ...activeProject, floors: snkFloors, builtUpAreaSqFt: 3599 });
+    }
+    setActiveWorkspaceTab('schedule');
+    showToast('Loaded Standard Turnkey Residential BOQ (3,599 sq.ft @ ₹2,100/sq.ft).');
+  };
+
   const handleGenerateAI = async () => {
     if (!aiDescription.trim()) return;
     setAiLoading(true);
-    setAiError(null);
-
     try {
       const res = await fetch('/api/boq/generate', {
         method: 'POST',
@@ -978,35 +978,29 @@ export const BOQView: React.FC<BOQViewProps> = ({
           qualityTier: aiQualityTier,
         }),
       });
-
-      if (!res.ok) {
-        throw new Error('API server returned response error, utilizing benchmark fallback');
-      }
+      if (!res.ok) throw new Error('Fallback');
       const data = await res.json();
       setAiResult(data);
-    } catch (err: any) {
-      // Graceful fallback without showing a blocking error
+    } catch {
+      const scale = (aiAreaSqFt || 3000) / 3000;
       setAiResult({
-        project_summary: `Preliminary Bill of Quantities for ${activeProject.name} (${aiAreaSqFt.toLocaleString()} sq.ft, ${aiQualityTier} Tier)`,
+        project_summary: `Simple BOQ Estimate for ${activeProject.name} (${aiAreaSqFt.toLocaleString()} sq.ft · ${aiQualityTier} Tier)`,
         assumptions: [
-          `Quantities calibrated specifically for ${aiAreaSqFt.toLocaleString()} sq.ft built-up area.`,
-          `Specification tier aligned with ${aiQualityTier} live market rates.`,
-          'M25 grade ready-mix concrete and Fe550D TMT reinforcement steel assumed.',
-          'Plinth area empirical consumption indices applied per standard civil guidelines.',
+          `Quantities scaled cleanly for ${aiAreaSqFt.toLocaleString()} sq.ft built-up area.`,
+          `Material & finish rates calibrated to ${aiQualityTier} tier.`,
         ],
         items: [
-          { name: 'Earthwork excavation in foundation trenches', category: 'Substructure', unit: 'm3', quantity: Math.round(140 * (aiAreaSqFt / 3000)), rate: 280, notes: `Footprint for ${aiAreaSqFt} sq.ft` },
-          { name: 'PCC 1:4:8 in foundation bed (100mm thick)', category: 'Concrete Works', unit: 'm3', quantity: Math.round(24 * (aiAreaSqFt / 3000) * 10) / 10, rate: 4800, notes: '40mm aggregate base' },
-          { name: 'RCC M25 grade in columns, beams & slabs', category: 'Concrete Works', unit: 'm3', quantity: Math.round(52 * (aiAreaSqFt / 3000) * 10) / 10, rate: 8500, notes: 'Complete formwork & curing' },
-          { name: 'JSW Cement Concreel HD & Eco-Friendly Green PSC', category: 'Concrete Works', unit: 'nos', quantity: Math.round(1450 * (aiAreaSqFt / 3000)), rate: 375, notes: 'IS 455 Portland Slag Cement with low heat of hydration and crack prevention' },
-          { name: 'Fe550D TMT thermo-mechanically treated rebar', category: 'Concrete Works', unit: 'MT', quantity: Math.round(4.8 * (aiAreaSqFt / 3000) * 10) / 10, rate: 72000, notes: 'Cut, bend and placed in position' },
-          { name: 'AAC lightweight block masonry (200mm)', category: 'Masonry', unit: 'm3', quantity: Math.round(65 * (aiAreaSqFt / 3000) * 10) / 10, rate: 5600, notes: 'With polymer adhesive joints' },
-          { name: 'Internal & external cement plastering (12-15mm)', category: 'Finishes', unit: 'sq.m', quantity: Math.round(380 * (aiAreaSqFt / 3000)), rate: 260, notes: 'Double coat sponge finish' },
-          { name: 'Vitrified flooring tiles with epoxy grout', category: 'Finishes', unit: 'sq.m', quantity: Math.round(180 * (aiAreaSqFt / 3000)), rate: 1150, notes: 'Over 20mm cement bed' },
-          { name: 'System aluminum / UPVC glazed windows', category: 'Doors & Windows', unit: 'sq.m', quantity: Math.round(36 * (aiAreaSqFt / 3000)), rate: 4200, notes: 'With mosquito mesh track' },
-          { name: 'Electrical conduit & modular point wiring', category: 'MEP & Electrical', unit: 'nos', quantity: Math.round(85 * (aiAreaSqFt / 3000)), rate: 950, notes: 'Concealed FRLS copper' },
-          { name: 'Plumbing & sanitary drainage network', category: 'Plumbing', unit: 'r.m', quantity: Math.round(120 * (aiAreaSqFt / 3000)), rate: 420, notes: 'CPVC & SWR pipes pressure tested' },
-          { name: 'Waterproofing treatment on terrace & wet areas', category: 'Waterproofing', unit: 'sq.m', quantity: Math.round(125 * (aiAreaSqFt / 3000)), rate: 580, notes: 'Brickbat coba & polymer coating' },
+          { name: 'Earthwork Excavation in Foundation', category: 'Substructure', unit: 'm3', quantity: Math.round(140 * scale), rate: 280 },
+          { name: 'PCC 1:4:8 Bed Concrete', category: 'Concrete Works', unit: 'm3', quantity: Math.round(24 * scale * 10) / 10, rate: 4800 },
+          { name: 'RCC M25 Structural Columns, Beams & Slabs', category: 'Concrete Works', unit: 'm3', quantity: Math.round(52 * scale * 10) / 10, rate: 8500 },
+          { name: 'Fe550D TMT Reinforcement Steel', category: 'Concrete Works', unit: 'MT', quantity: Math.round(4.8 * scale * 10) / 10, rate: 72000 },
+          { name: 'AAC Block Masonry (200mm)', category: 'Masonry', unit: 'm3', quantity: Math.round(65 * scale * 10) / 10, rate: 5600 },
+          { name: 'Internal & External Plastering', category: 'Finishes', unit: 'sq.m', quantity: Math.round(380 * scale), rate: 260 },
+          { name: 'Vitrified Tiles Flooring & Skirting', category: 'Finishes', unit: 'sq.m', quantity: Math.round(180 * scale), rate: 1150 },
+          { name: 'Doors & UPVC/Aluminum Windows', category: 'Doors & Windows', unit: 'sq.m', quantity: Math.round(36 * scale), rate: 4200 },
+          { name: 'Concealed Electrical Conduit & Wiring', category: 'MEP & Electrical', unit: 'nos', quantity: Math.round(85 * scale), rate: 950 },
+          { name: 'Plumbing & Sanitary Network', category: 'Plumbing', unit: 'r.m', quantity: Math.round(120 * scale), rate: 420 },
+          { name: 'Terrace & Wet Area Waterproofing', category: 'Waterproofing', unit: 'sq.m', quantity: Math.round(125 * scale), rate: 580 },
         ],
       });
     } finally {
@@ -1015,80 +1009,47 @@ export const BOQView: React.FC<BOQViewProps> = ({
   };
 
   const handleApplyAIBOQ = (replace: boolean) => {
-    if (!aiResult || !aiResult.items) return;
-
-    const formatted: BOQItem[] = aiResult.items.map((it, idx) => ({
-      id: `boq-ai-${Date.now()}-${idx}`,
-      name: it.name,
-      category: it.category || 'General',
-      unit: it.unit || 'nos',
-      quantity: Number(it.quantity) || 0,
-      rate: Number(it.rate) || 0,
-      amount: Math.round((Number(it.quantity) || 0) * (Number(it.rate) || 0)),
-      notes: it.notes || '',
-    }));
-
-    if (replace) {
-      onUpdateItems(formatted);
-    } else {
-      onUpdateItems([...items, ...formatted]);
-    }
-
-    // Sync area if user updated it during AI generation
+    if (!aiResult?.items) return;
+    const formatted: BOQItem[] = aiResult.items.map((it, idx) =>
+      ensureItemFloorBreakdown(
+        {
+          id: `boq-ai-${Date.now()}-${idx}`,
+          name: it.name,
+          category: it.category || 'General',
+          unit: it.unit || 'nos',
+          quantity: Number(it.quantity) || 0,
+          rate: Number(it.rate) || 0,
+          amount: Math.round((Number(it.quantity) || 0) * (Number(it.rate) || 0)),
+          notes: it.notes || '',
+        },
+        floors
+      )
+    );
+    onUpdateItems(replace ? formatted : [...items, ...formatted]);
     if (aiAreaSqFt !== areaSqFt) {
       setAreaSqFt(aiAreaSqFt);
-      if (onUpdateProject) {
-        onUpdateProject({ ...activeProject, builtUpAreaSqFt: aiAreaSqFt });
-      }
+      setAreaDraft(aiAreaSqFt);
+      if (onUpdateProject) onUpdateProject({ ...activeProject, builtUpAreaSqFt: aiAreaSqFt });
     }
-
     setIsGeneratingAI(false);
     setAiResult(null);
+    setActiveWorkspaceTab('schedule');
+    showToast(`Applied ${formatted.length} AI-generated BOQ items.`);
   };
 
-  // Handle Dispatching BOQ as Tender Enquiry
-  const handleSendTenderEnquiry = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!onAddEnquiry) return;
-
-    const topCategories = Object.entries(categoryTotals)
-      .slice(0, 4)
-      .map(([cat, amt]) => `${cat}: ${formatCurrency(amt, currency)}`)
-      .join(' | ');
-
-    const newEnquiry: MarketplaceEnquiry = {
-      id: `enq-boq-${Date.now()}`,
-      professionalId: 'general-contractor-rfq',
-      professionalName: 'Tender & Contractor Network',
-      clientName: enquiryClientName.trim() || 'Principal Architect',
-      clientEmail: enquiryClientEmail.trim() || 'office@architecture.com',
-      projectTitle: `BOQ Tender RFQ: ${activeProject.name} (${areaSqFt.toLocaleString()} sq.ft)`,
-      budget: formatCurrency(totalEstimate, currency),
-      message: `Formal Contractor & Tender Quotation Enquiry for ${activeProject.name} in ${activeProject.location}.
-Built-Up Area: ${areaSqFt.toLocaleString()} sq.ft (${Math.round(areaSqFt / 10.764).toLocaleString()} m²)
-Estimated BOQ Value: ${formatCurrency(totalEstimate, currency)} (COST EXCLUDING GST • ${formatCurrency(currentRatePerSqFt, currency)} / sq.ft)
-Tax Terms: Quoted Cost Excludes GST. Statutory GST (18%) extra as applicable on milestone billing.
-Specification Tier: ${currentMarketTier.tier}
-Scope Summary: ${items.length} line items across categories including ${topCategories}.
-Contingency Reserve: ${contingencyPercent}%.
-Notes / Terms: ${enquiryTenderNotes.trim() || 'Please submit sealed itemized rates within 10 days.'}
-Contact: ${enquiryClientPhone}`,
-      status: 'open',
-      createdAt: new Date().toISOString(),
-    };
-
-    onAddEnquiry(newEnquiry);
-    setEnquirySuccess(true);
-    setTimeout(() => {
-      setEnquirySuccess(false);
-      setIsEnquiryModal(false);
-      setEnquiryTenderNotes('');
-    }, 2200);
+  const handleExportExcel = () => {
+    exportBOQToExcel({
+      items,
+      floors,
+      projectName: activeProject.name,
+      currency,
+      contingencyPercent,
+      builtUpAreaSqFt: areaSqFt,
+    });
   };
 
-  // CSV Export
   const handleExportCSV = () => {
-    const headers = ['Item Name', 'Category', 'Unit', 'Quantity', 'Rate (INR - Excl. GST)', 'Amount (INR - Excl. GST)', 'Notes'];
+    const headers = ['Item Name', 'Category', 'Unit', 'Quantity', 'Rate (Excl. GST)', 'Amount (Excl. GST)', 'Notes'];
     const rows = items.map((i) => [
       `"${i.name.replace(/"/g, '""')}"`,
       `"${i.category}"`,
@@ -1098,870 +1059,1136 @@ Contact: ${enquiryClientPhone}`,
       i.amount,
       `"${(i.notes || '').replace(/"/g, '""')}"`,
     ]);
-
-    // Add metadata summary at bottom of CSV
     rows.push([]);
     rows.push(['Built-Up Area (sq.ft)', '', '', areaSqFt.toString(), '', '', '']);
-    rows.push(['Subtotal Cost (Cost Excluding GST)', '', '', '', '', subtotal.toString(), '']);
-    rows.push([`Contingency Reserve (${contingencyPercent}% - Excl. GST)`, '', '', '', '', contingencyAmount.toString(), '']);
-    rows.push(['Grand Estimated Total (COST EXCLUDING GST)', '', '', '', '', totalEstimate.toString(), '']);
-    rows.push(['Calculated Unit Rate per sq.ft (Excl. GST)', '', '', '', '', currentRatePerSqFt.toString(), '']);
-    rows.push(['Applicable Statutory GST @ 18% (Extra)', '', '', '', '', Math.round(totalEstimate * 0.18).toString(), '']);
-    rows.push(['Indicative Grand Total with 18% GST', '', '', '', '', (totalEstimate + Math.round(totalEstimate * 0.18)).toString(), '']);
+    rows.push(['Subtotal (Excl. GST)', '', '', '', '', subtotal.toString(), '']);
+    rows.push([`Contingency (${contingencyPercent}%)`, '', '', '', '', contingencyAmount.toString(), '']);
+    rows.push(['Grand Total (Excl. GST)', '', '', '', '', totalEstimate.toString(), '']);
+    rows.push(['GST @ 18%', '', '', '', '', gstAmount.toString(), '']);
+    rows.push(['Grand Total (Incl. 18% GST)', '', '', '', '', (totalEstimate + gstAmount).toString(), '']);
 
-    const csvContent = [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const csv = [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.setAttribute('href', url);
-    link.setAttribute('download', `${activeProject.name.replace(/\s+/g, '_')}_BOQ_${areaSqFt}sqft.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${activeProject.name.replace(/\s+/g, '_')}_BOQ_${areaSqFt}sqft.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  };
+
+  const handleSendTenderEnquiry = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!onAddEnquiry) return;
+    onAddEnquiry({
+      id: `enq-boq-${Date.now()}`,
+      professionalId: 'general-contractor-rfq',
+      professionalName: 'Tender & Contractor Network',
+      clientName: enquiryClientName.trim() || 'Principal Architect',
+      clientEmail: enquiryClientEmail.trim() || 'sgouse14@gmail.com',
+      projectTitle: `BOQ Tender RFQ: ${activeProject.name} (${areaSqFt.toLocaleString()} sq.ft)`,
+      budget: formatCurrency(totalEstimate, currency),
+      message: `Tender RFQ for ${activeProject.name} (${activeProject.location}). Area: ${areaSqFt.toLocaleString()} sq.ft · Estimate: ${formatCurrency(totalEstimate, currency)} Excl. GST (${formatCurrency(currentRatePerSqFt, currency)}/sq.ft) · ${items.length} items. Notes: ${enquiryTenderNotes || 'Please submit itemized rates.'}`,
+      status: 'open',
+      createdAt: new Date().toISOString(),
+    });
+    setEnquirySuccess(true);
+    setTimeout(() => {
+      setEnquirySuccess(false);
+      setIsEnquiryModal(false);
+      setEnquiryTenderNotes('');
+    }, 1800);
   };
 
   return (
-    <div id="boq-estimation-view" className="max-w-7xl mx-auto px-4 lg:px-8 py-6 space-y-6">
-      {/* Top Header & Global Actions */}
-      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 border-b border-slate-800 pb-5">
-        <div>
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-xs uppercase tracking-wider font-mono text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
-              Quantity Surveying & Cost Engineering
-            </span>
-            <span className="text-xs uppercase tracking-wider font-mono text-emerald-400 bg-emerald-500/10 px-2.5 py-0.5 rounded border border-emerald-500/30 font-bold">
-              COST EXCLUDING GST
-            </span>
-            <span className="text-xs uppercase tracking-wider font-mono text-slate-300 bg-slate-800 px-2 py-0.5 rounded border border-slate-700">
-              18% GST Extra as Applicable
-            </span>
-            <span className="text-xs text-slate-400">
-              {activeProject.name} • {activeProject.location}
-            </span>
+    <div id="boq-estimation-view" className="max-w-7xl mx-auto px-4 lg:px-8 py-6 space-y-5 text-slate-100">
+      {/* CLEAN TOP HEADER */}
+      <section className="rounded-xl bg-slate-900 border border-slate-800 p-4 sm:p-5 space-y-4">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 text-xs text-slate-400 flex-wrap">
+              <span className="font-semibold text-white">Simple BOQ &amp; Costing</span>
+              <span>·</span>
+              <span className="truncate">{activeProject.name} ({activeProject.location})</span>
+              <span>·</span>
+              <span className="text-amber-300">All rates exclude 18% GST</span>
+            </div>
+            <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight mt-1">
+              Bill of Quantities
+            </h1>
           </div>
-          <h2 className="text-2xl font-bold tracking-tight text-white mt-1">
-            Bill of Quantities & Live Market Cost Estimation
-          </h2>
-          <p className="text-xs text-slate-400">
-            Set exact square footage, calibrate item rates against live market benchmarks (quoted as <span className="text-amber-300 font-semibold">Cost Excluding GST</span>), and dispatch tender enquiries.
-          </p>
-        </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          {/* AI Workflow Engine (Step 3) Button */}
-          {onOpenWorkflowEngine && (
+          {/* 3 Simple Primary Actions */}
+          <div className="flex flex-wrap items-center gap-2 shrink-0">
             <button
-              id="btn-boq-open-workflow-engine"
+              id="btn-open-add-boq"
               type="button"
-              onClick={onOpenWorkflowEngine}
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-gradient-to-r from-amber-500/20 via-emerald-500/15 to-slate-900 border border-amber-500/40 text-amber-300 hover:from-amber-500/30 text-xs font-bold transition shadow-sm"
-              title="Open AI Construction Platform Workflow Engine (Step 3: Populate BOQ & Estimation)"
+              onClick={() => setIsAddingItem(true)}
+              className="px-3.5 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold text-xs inline-flex items-center gap-1.5 transition whitespace-nowrap"
             >
-              <Zap className="w-3.5 h-3.5 text-amber-400" />
-              <span>AI Workflow Engine</span>
-              <span className="text-[10px] font-mono px-1 rounded bg-amber-500/20 text-amber-300">
-                Step 3
-              </span>
+              <Plus className="w-3.5 h-3.5" />
+              <span>Add Item</span>
             </button>
-          )}
 
-          {/* Real-Time Live Price Monitor Button */}
-          <button
-            id="btn-toggle-price-monitor"
-            onClick={() => setShowPriceMonitor((prev) => !prev)}
-            className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition border ${
-              showPriceMonitor
-                ? 'bg-amber-500 text-slate-950 border-amber-400 font-bold shadow-sm'
-                : 'bg-slate-800 hover:bg-slate-700 text-amber-300 border-amber-500/30'
-            }`}
-            title="Real-Time Price Monitoring: track live material price fluctuations & push/visual alerts"
-          >
-            <Activity className={`w-3.5 h-3.5 ${showPriceMonitor ? 'text-slate-950' : 'text-amber-400 animate-pulse'}`} />
-            <span>Live Price Monitor</span>
-            <span
-              className={`px-1.5 py-0.5 rounded-full font-mono text-[10px] font-bold ${
-                showPriceMonitor
-                  ? 'bg-slate-950 text-amber-400'
-                  : 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
-              }`}
+            <button
+              id="btn-open-ai-boq"
+              type="button"
+              onClick={() => {
+                setAiAreaSqFt(areaSqFt);
+                setIsGeneratingAI(true);
+              }}
+              className="px-3.5 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white font-semibold text-xs inline-flex items-center gap-1.5 transition whitespace-nowrap"
             >
-              {showPriceMonitor ? 'ACTIVE' : 'RADAR'}
-            </span>
-          </button>
+              <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+              <span>Auto-Generate BOQ</span>
+            </button>
 
-          {/* Daily Material News Button */}
+            <button
+              id="btn-export-excel-top"
+              type="button"
+              onClick={handleExportExcel}
+              className="px-3.5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs inline-flex items-center gap-1.5 transition whitespace-nowrap"
+            >
+              <FileSpreadsheet className="w-3.5 h-3.5" />
+              <span>Export Excel</span>
+            </button>
+
+            <button
+              id="btn-print-floor-report-top"
+              type="button"
+              onClick={() => setIsFloorPrintModalOpen(true)}
+              className="px-3 py-2 rounded-lg bg-slate-950 hover:bg-slate-800 border border-slate-800 text-slate-200 font-semibold text-xs inline-flex items-center gap-1.5 transition whitespace-nowrap"
+            >
+              <FileDown className="w-3.5 h-3.5 text-rose-400" />
+              <span>PDF / Print</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Clean 4-Tab Switcher */}
+        <div className="pt-3 border-t border-slate-800 flex items-center justify-between gap-3 flex-wrap">
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5">
+            {[
+              { id: 'schedule', label: '1. BOQ Schedule', icon: Calculator },
+              { id: 'auto_build', label: '2. Area & Presets', icon: Bot },
+              { id: 'market_labour', label: '3. Market Rates & Labour', icon: RefreshCw },
+              { id: 'analytics_tender', label: '4. Breakdown & Tender', icon: PieChartIcon },
+            ].map((tab) => {
+              const Icon = tab.icon;
+              const active = activeWorkspaceTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setActiveWorkspaceTab(tab.id as BoqWorkspaceTab)}
+                  className={`px-3 py-2 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition whitespace-nowrap shrink-0 border ${
+                    active
+                      ? 'bg-slate-800 border-slate-600 text-white'
+                      : 'bg-transparent border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
+                  }`}
+                >
+                  <Icon className="w-3.5 h-3.5 text-amber-400" />
+                  <span>{tab.label}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          <span className="text-xs text-slate-400 tabular-nums whitespace-nowrap">
+            {items.length} items · {areaSqFt.toLocaleString()} sq.ft ·{' '}
+            <strong className="text-amber-300">{formatCurrency(totalEstimate, currency)}</strong>
+          </span>
+        </div>
+      </section>
+
+      {/* Single Clean Status Toast */}
+      {statusNotice && (
+        <div className="px-4 py-2.5 rounded-xl bg-slate-900 border border-emerald-500/40 flex items-center justify-between gap-3 text-xs">
+          <div className="flex items-center gap-2 text-emerald-300 font-medium">
+            <CheckCircle2 className="w-4 h-4 shrink-0" />
+            <span>{statusNotice}</span>
+          </div>
           <button
-            id="btn-toggle-material-news"
             type="button"
-            onClick={() => setShowMaterialNews((prev) => !prev)}
-            className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition border ${
-              showMaterialNews
-                ? 'bg-amber-400 text-slate-950 border-amber-300 font-bold shadow-sm'
-                : 'bg-slate-800 hover:bg-slate-700 text-amber-300 border-amber-500/30'
-            }`}
-            title="Daily Construction Material News & Spot Rates Bulletin"
+            onClick={() => setStatusNotice(null)}
+            className="text-slate-400 hover:text-white"
           >
-            <Newspaper className="w-3.5 h-3.5" />
-            <span>Daily Material News</span>
-            <span
-              className={`px-1.5 py-0.5 rounded-full font-mono text-[10px] font-bold ${
-                showMaterialNews
-                  ? 'bg-slate-950 text-amber-300'
-                  : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
-              }`}
-            >
-              LIVE
-            </span>
-          </button>
-
-          {/* Calibrate to Market Price Button */}
-          <button
-            id="btn-calibrate-market-rate"
-            onClick={() => {
-              setTargetRatePerSqFt(currentRatePerSqFt > 0 ? currentRatePerSqFt : 2150);
-              setIsCalibrateModal(true);
-            }}
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/25 text-xs font-semibold transition"
-            title="Set target rate per sq.ft based on live market pricing"
-          >
-            <TrendingUp className="w-3.5 h-3.5" />
-            <span>Set Market Rate / sq.ft</span>
-          </button>
-
-          {/* Detailed Labour Cost Breakdown Button */}
-
-          {/* Detailed Labour Cost Breakdown Button */}
-          <button
-            id="btn-toolbar-labour-cost-breakdown"
-            onClick={() => setIsLabourBreakdownModalOpen(true)}
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-gradient-to-r from-amber-500/25 via-amber-500/15 to-amber-500/25 text-amber-300 border border-amber-500/50 hover:bg-amber-500/35 text-xs font-bold transition shadow-sm"
-            title="Detailed Labour Cost Breakdown per 1,000 sq.ft civil schedule with 1-click BOQ rate calibration"
-          >
-            <HardHat className="w-3.5 h-3.5 text-amber-400" />
-            <span>Labour Schedule Rates</span>
-            <span className="px-1.5 py-0.5 rounded-full font-mono text-[10px] font-extrabold bg-amber-500 text-slate-950">
-              Per 1000 Sq.Ft
-            </span>
-          </button>
-
-          {/* AI Generator Button */}
-          <button
-            id="btn-open-ai-boq"
-            onClick={() => {
-              setAiAreaSqFt(areaSqFt);
-              setIsGeneratingAI(true);
-            }}
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-amber-500/15 text-amber-300 border border-amber-500/30 hover:bg-amber-500/25 text-xs font-medium transition"
-          >
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>AI BOQ Generator</span>
-          </button>
-
-          {/* Add Line Item */}
-          <button
-            id="btn-open-add-boq"
-            onClick={() => setIsAddingItem(true)}
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-semibold transition shadow-sm"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            <span>Add Line Item</span>
-          </button>
-
-          {/* Send Tender Enquiry */}
-          {onAddEnquiry && (
-            <button
-              id="btn-send-boq-enquiry"
-              onClick={() => setIsEnquiryModal(true)}
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/30 text-xs font-medium transition"
-              title="Dispatch BOQ as a Contractor / Tender Enquiry"
-            >
-              <Send className="w-3.5 h-3.5 text-amber-400" />
-              <span>Send Tender Enquiry</span>
-            </button>
-          )}
-
-          {/* Export to Microsoft Excel (.xlsx) */}
-          <button
-            id="btn-export-excel-top"
-            onClick={handleExportExcel}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs transition shadow-sm"
-            title="Download complete Schedule of Rates & Quantities in Microsoft Excel (.xlsx) format with multi-sheet workbook (Floor-Wise Breakdown, Level Summary, Master BOQ)"
-          >
-            <FileSpreadsheet className="w-4 h-4 text-emerald-100" />
-            <span>Export Excel (.xlsx)</span>
-          </button>
-
-          {/* Export CSV (Excel Compatible with UTF-8 BOM) */}
-          <button
-            id="btn-export-floor-wise-csv-top"
-            onClick={handleExportFloorWiseCSV}
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-emerald-400 border border-emerald-500/30 text-xs font-medium transition"
-            title="Download Schedule of Rates & Quantities broken down by floor level in Excel-compatible CSV format"
-          >
-            <Download className="w-3.5 h-3.5 text-emerald-400" />
-            <span>Floor-Wise CSV (Excel)</span>
-          </button>
-
-          <button
-            id="btn-export-csv"
-            onClick={handleExportCSV}
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs transition"
-            title="Export standard BOQ summary"
-          >
-            <Download className="w-3.5 h-3.5" />
-            <span>Master CSV</span>
-          </button>
-
-          {/* Print & PDF Floor-Wise Report */}
-          <button
-            id="btn-print-floor-report-top"
-            onClick={() => setIsFloorPrintModalOpen(true)}
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border border-rose-500/30 text-xs font-semibold transition"
-            title="Convert to PDF, export or print official Floor-Wise Schedule of Rates and Quantities report"
-          >
-            <FileDown className="w-3.5 h-3.5 text-rose-400" />
-            <span>Floor Report (PDF & Print)</span>
-          </button>
-        </div>
-      </div>
-
-      {/* Banner notification when area takeoff or market prices are auto-updated */}
-      {marketUpdateBanner && (
-        <div className="p-3.5 rounded-xl bg-gradient-to-r from-amber-500/20 via-amber-500/10 to-slate-900 border border-amber-500/40 flex items-center justify-between gap-3 text-xs shadow-md">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-amber-500/20 border border-amber-500/40 flex items-center justify-center shrink-0">
-              <Zap className="w-4 h-4 text-amber-400 animate-pulse" />
-            </div>
-            <div>
-              <span className="font-bold text-amber-300 font-mono text-sm">{marketUpdateBanner.message}</span>
-              {marketUpdateBanner.submessage && (
-                <p className="text-xs text-slate-300 mt-0.5 font-mono">{marketUpdateBanner.submessage}</p>
-              )}
-            </div>
-          </div>
-          <button
-            onClick={() => setMarketUpdateBanner(null)}
-            className="text-slate-400 hover:text-white px-2.5 py-1 rounded bg-slate-800/80 hover:bg-slate-700 text-xs font-mono transition shrink-0"
-          >
-            Dismiss
+            <X className="w-4 h-4" />
           </button>
         </div>
       )}
 
-      {/* REAL-TIME MARKETPLACE PRICE MONITORING & FLUCTUATION ALERT SYSTEM */}
-      {showPriceMonitor && (
-        <BOQRealTimePriceMonitor
-          items={items}
-          activeProject={activeProject}
-          currency={currency}
-          onUpdateItemRate={handleUpdateItemRateFromMonitor}
-          onUpdateMultipleItemRates={handleUpdateMultipleItemRatesFromMonitor}
-        />
-      )}
-
-      {/* BIM & BOQ AGENT: DAILY MATERIAL NEWS WIRE */}
-      {showMaterialNews && (
-        <BimBoqMaterialNewsWire
-          onLockMaterialRate={(newsItem) => {
-            setMarketUpdateBanner({
-              message: `Locked ${newsItem.categoryLabel} rate from Daily Material News (${newsItem.currentMandiRate})!`,
-              submessage: newsItem.boqRecommendation,
-            });
-          }}
-        />
-      )}
-
-      {/* SQUARE FOOTAGE CONTROLLER BAR (User can set square feet directly) */}
-      <div className="p-4 rounded-xl bg-gradient-to-r from-slate-900 via-slate-900 to-slate-950 border border-slate-800 shadow-sm flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-400 shrink-0">
-            <Building className="w-5 h-5" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-semibold uppercase tracking-wider text-slate-400 font-mono">
-                Project Built-Up Area
-              </span>
-              <span className="text-[10px] bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded font-mono">
-                Active Benchmark
-              </span>
-            </div>
-            <div className="flex items-baseline gap-2 mt-0.5">
-              <span className="text-2xl font-bold font-mono text-white">
-                {areaSqFt.toLocaleString()} <span className="text-sm font-normal text-slate-400">sq.ft</span>
-              </span>
-              <span className="text-xs text-slate-400 font-mono">
-                (≈ {Math.round(areaSqFt / 10.764).toLocaleString()} m²)
-              </span>
-            </div>
-          </div>
+      {/* Clean 4-KPI Summary Strip (Visible across all tabs) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 tabular-nums">
+        <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-1">
+          <span className="text-xs text-slate-400 font-medium">Subtotal Works (Excl. GST)</span>
+          <p className="text-xl font-bold text-white">{formatCurrency(subtotal, currency)}</p>
+          <p className="text-xs text-slate-400">{items.length} line items</p>
         </div>
 
-        {/* Quick presets and Change Area button */}
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs text-slate-400 font-medium mr-1">Quick Presets:</span>
-          {SQFT_PRESETS.map((p) => (
-            <button
-              key={p.value}
-              onClick={() => handleApplyAreaChange(p.value, true)}
-              className={`px-2.5 py-1 text-xs rounded-lg font-mono transition border ${
-                areaSqFt === p.value
-                  ? 'bg-amber-500/20 border-amber-500 text-amber-300 font-semibold'
-                  : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-white hover:border-slate-700'
-              }`}
-              title={p.desc}
-            >
-              {p.label}
-            </button>
-          ))}
-
-          <button
-            id="btn-edit-square-feet"
-            onClick={() => {
-              setTempAreaInput(areaSqFt);
-              setIsEditingAreaModal(true);
-            }}
-            className="inline-flex items-center gap-1.5 px-3 py-1 text-xs rounded-lg bg-slate-800 hover:bg-slate-700 text-amber-300 border border-slate-700 font-medium transition ml-1"
-          >
-            <SlidersHorizontal className="w-3 h-3" />
-            <span>Set Custom Sq.Ft</span>
-          </button>
+        <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-1.5">
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-slate-400 font-medium">Contingency Reserve</span>
+            <span className="text-xs font-bold text-amber-400">{contingencyPercent}%</span>
+          </div>
+          <p className="text-xl font-bold text-amber-400">{formatCurrency(contingencyAmount, currency)}</p>
+          <input
+            id="slider-contingency"
+            type="range"
+            min={0}
+            max={25}
+            step={0.5}
+            value={contingencyPercent}
+            onChange={(e) => onChangeContingency(Number(e.target.value))}
+            className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-amber-500"
+          />
         </div>
-      </div>
 
-      {/* METRIC SUMMARY CARDS (With live Unit Rate per sq.ft) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Subtotal Civil & Finishes (Cost Excl. GST) */}
+        <div className="p-4 rounded-xl bg-slate-900 border border-amber-500/40 space-y-1">
+          <span className="text-xs text-amber-300 font-semibold">Grand Total (Excl. GST)</span>
+          <p className="text-xl font-bold text-amber-400">{formatCurrency(totalEstimate, currency)}</p>
+          <p className="text-xs text-slate-400">
+            + 18% GST = {formatCurrency(totalEstimate + gstAmount, currency)}
+          </p>
+        </div>
+
         <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-1">
           <div className="flex items-center justify-between">
-            <span className="text-xs text-slate-400 font-medium">Subtotal Works (Base Cost)</span>
-            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700">
-              Excl. GST
-            </span>
-          </div>
-          <p className="text-xl font-bold font-mono text-white">
-            {formatCurrency(subtotal, currency)}
-          </p>
-          <div className="flex items-center justify-between text-[11px] text-slate-400 font-mono">
-            <span>{items.length} line items</span>
-            <span className="text-slate-400">{formatCurrency(subtotalRatePerSqFt, currency)}/sq.ft</span>
-          </div>
-        </div>
-
-        {/* Contingency Reserve (Excl. GST) */}
-        <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-1">
-          <div className="flex items-center justify-between">
-            <span className="text-xs text-slate-400 font-medium">Design & Site Contingency</span>
-            <div className="flex items-center gap-1.5">
-              <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700">
-                Excl. GST
-              </span>
-              <span className="text-xs font-mono font-bold text-amber-400">{contingencyPercent}%</span>
-            </div>
-          </div>
-          <p className="text-xl font-bold font-mono text-amber-400">
-            {formatCurrency(contingencyAmount, currency)}
-          </p>
-          <div className="pt-1">
-            <input
-              id="slider-contingency"
-              type="range"
-              min={0}
-              max={25}
-              step={0.5}
-              value={contingencyPercent}
-              onChange={(e) => onChangeContingency(Number(e.target.value))}
-              className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-amber-500"
-            />
-          </div>
-        </div>
-
-        {/* Estimated Grand Total - COST EXCLUDING GST */}
-        <div className="p-4 rounded-xl bg-slate-900 border border-amber-500/40 bg-amber-500/10 space-y-1.5 relative overflow-hidden">
-          <div className="flex items-center justify-between">
-            <span className="text-xs text-amber-300 font-black uppercase tracking-wider">
-              COST EXCLUDING GST
-            </span>
-            <span className="text-[10px] font-mono font-black px-1.5 py-0.5 rounded bg-amber-500 text-slate-950">
-              EXCL. GST
-            </span>
-          </div>
-          <p className="text-2xl font-black font-mono text-amber-400">
-            {formatCurrency(totalEstimate, currency)}
-          </p>
-          <div className="flex items-center justify-between text-[11px] text-slate-300 font-mono">
-            <span>Grand Total Estimate</span>
-            <span className="text-emerald-400 font-bold">{formatCurrency(currentRatePerSqFt, currency)}/sq.ft</span>
-          </div>
-          <div className="pt-1 text-[10px] font-mono text-slate-400 border-t border-slate-800/80 flex items-center justify-between">
-            <span>* Statutory GST @ 18% extra:</span>
-            <span className="text-slate-300 font-medium">+{formatCurrency(Math.round(totalEstimate * 0.18), currency)}</span>
-          </div>
-        </div>
-
-        {/* Unit Rate per sq.ft (Excl. GST) */}
-        <div className="p-4 rounded-xl bg-slate-900 border border-emerald-500/30 bg-emerald-500/5 space-y-1">
-          <div className="flex items-center justify-between">
-            <span className="text-xs text-emerald-300 font-medium">Unit Rate per sq.ft (Excl. GST)</span>
-            <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded border ${currentMarketTier.badgeBg} ${currentMarketTier.badgeBorder} ${currentMarketTier.accentColor}`}>
+            <span className="text-xs text-slate-400 font-medium">Rate per sq.ft</span>
+            <span className={`text-xs font-semibold ${currentMarketTier.accentColor}`}>
               {currentMarketTier.tag}
             </span>
           </div>
-          <p className="text-2xl font-bold font-mono text-emerald-400">
-            {formatCurrency(currentRatePerSqFt, currency)} <span className="text-xs font-normal text-slate-400">/ sq.ft</span>
+          <p className="text-xl font-bold text-emerald-400">
+            {formatCurrency(currentRatePerSqFt, currency)}
+            <span className="text-xs font-normal text-slate-400"> / sq.ft</span>
           </p>
-          <p className="text-[11px] text-slate-400 font-mono">
-            Based on {areaSqFt.toLocaleString()} sq.ft plinth ({currentMarketTier.tier.split('/')[0].trim()}) • Excl. GST
-          </p>
+          <p className="text-xs text-slate-400">For {areaSqFt.toLocaleString()} sq.ft</p>
         </div>
       </div>
 
-      {/* COST EXCLUDING GST SUMMARY & STATUTORY TAX NOTICE */}
-      <div className="p-4 rounded-xl bg-gradient-to-r from-slate-900 via-slate-900 to-slate-950 border border-amber-500/30 flex flex-col md:flex-row md:items-center md:justify-between gap-4 shadow-sm">
-        <div className="flex items-center gap-3">
-          <div className="p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 shrink-0">
-            <ShieldCheck className="w-5 h-5" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-sm font-bold text-white font-mono">
-                BOQ & ESTIMATION: COST EXCLUDING GST
-              </span>
-              <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40">
-                18% GST Extra as Applicable
-              </span>
-            </div>
-            <p className="text-xs text-slate-400 mt-0.5">
-              Standard Indian architectural, civil construction, and QS contract practice: all item quantities, level rates, and contract estimates are quoted as <span className="text-amber-300 font-semibold">COST EXCLUDING GST</span>. Statutory GST (18%) is chargeable on actual payment milestone invoices.
-            </p>
-          </div>
-        </div>
-
-        {/* Live Tax Breakdown Figures */}
-        <div className="flex items-center gap-3 sm:gap-6 border-t md:border-t-0 md:border-l border-slate-800 pt-3 md:pt-0 md:pl-6 shrink-0 font-mono">
-          <div>
-            <div className="text-[10px] text-slate-400 uppercase tracking-wider">Cost Excl. GST</div>
-            <div className="text-base font-bold text-amber-400">
-              {formatCurrency(totalEstimate, currency)}
-            </div>
-            <div className="text-[10px] text-slate-500">{formatCurrency(currentRatePerSqFt, currency)}/sq.ft</div>
-          </div>
-          <div className="text-slate-600 font-sans text-lg">+</div>
-          <div>
-            <div className="text-[10px] text-slate-400 uppercase tracking-wider">GST @ 18%</div>
-            <div className="text-sm font-semibold text-slate-300">
-              {formatCurrency(Math.round(totalEstimate * 0.18), currency)}
-            </div>
-            <div className="text-[10px] text-slate-500">CGST 9% + SGST 9%</div>
-          </div>
-          <div className="text-slate-600 font-sans text-lg">=</div>
-          <div>
-            <div className="text-[10px] text-emerald-400 uppercase tracking-wider font-semibold">Total Incl. GST</div>
-            <div className="text-base font-extrabold text-emerald-400">
-              {formatCurrency(totalEstimate + Math.round(totalEstimate * 0.18), currency)}
-            </div>
-            <div className="text-[10px] text-emerald-500/80">
-              {areaSqFt > 0 ? `${formatCurrency(Math.round((totalEstimate + Math.round(totalEstimate * 0.18)) / areaSqFt), currency)}/sq.ft` : ''}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* LIVE MARKET PRICE BENCHMARK COMPARISON BAR */}
-      <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-3">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <Gauge className="w-4 h-4 text-amber-400" />
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-200 font-mono">
-              Live Construction Market Benchmark Spectrum (INR / sq.ft)
-            </h3>
-          </div>
-          <div className="text-xs font-mono text-slate-400">
-            Current Position: <span className="text-emerald-400 font-bold">₹{currentRatePerSqFt.toLocaleString()}/sq.ft</span>
-          </div>
-        </div>
-
-        {/* Benchmark spectrum cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-1">
-          {MARKET_BENCHMARKS.map((b) => {
-            const isCurrent = currentRatePerSqFt >= b.minRate && currentRatePerSqFt <= b.maxRate;
-            return (
-              <div
-                key={b.tier}
-                onClick={() => {
-                  setTargetRatePerSqFt(b.typicalRate);
-                  setIsCalibrateModal(true);
-                }}
-                className={`p-3 rounded-lg border cursor-pointer transition hover:border-slate-600 ${
-                  isCurrent
-                    ? `${b.badgeBg} ${b.badgeBorder} ring-1 ring-amber-500/40`
-                    : 'bg-slate-950/60 border-slate-800/80 hover:bg-slate-950'
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <span className={`text-xs font-bold ${b.accentColor}`}>{b.tier}</span>
-                  {isCurrent && (
-                    <span className="text-[10px] bg-amber-500/20 text-amber-300 px-1.5 py-0.5 rounded font-mono font-semibold">
-                      CURRENT
-                    </span>
-                  )}
+      {/* ===================================================================== */}
+      {/* TAB 1: SIMPLE & EASY BOQ SCHEDULE WITH REAL-TIME DATA                 */}
+      {/* ===================================================================== */}
+      {activeWorkspaceTab === 'schedule' && (
+        <div className="space-y-4">
+          {/* Real-Time Market Feed Bar */}
+          <div className="rounded-xl bg-slate-900 border border-slate-800 p-4 space-y-3">
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5 flex-wrap text-xs">
+                <span className="inline-flex items-center gap-1.5 font-semibold text-emerald-400">
+                  <Radio className="w-3.5 h-3.5" />
+                  <span>
+                    {liveDataMode === 'live_search' ? 'Live Google Market Data' : 'Live Regional Index'}
+                  </span>
+                </span>
+                <span className="text-slate-600">·</span>
+                <div className="inline-flex items-center gap-1.5 bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1">
+                  <MapPin className="w-3.5 h-3.5 text-amber-400" />
+                  <select
+                    aria-label="Market City Region"
+                    value={activeMarketRegion}
+                    onChange={(e) => setActiveMarketRegion(e.target.value as MarketRegion)}
+                    className="bg-transparent text-xs text-white focus:outline-none"
+                  >
+                    {MARKET_REGIONS.map((r) => (
+                      <option key={r.id} value={r.id} className="bg-slate-900">
+                        {r.shortName}
+                      </option>
+                    ))}
+                  </select>
                 </div>
-                <div className="text-sm font-bold font-mono text-white mt-1">
-                  ₹{b.minRate.toLocaleString()} - ₹{b.maxRate.toLocaleString()} <span className="text-[10px] text-slate-400">/ sq.ft</span>
-                </div>
-                <p className="text-[11px] text-slate-400 line-clamp-2 mt-1">
-                  {b.description}
-                </p>
-                <div className="pt-2 flex items-center justify-between text-[10px] text-slate-400 font-mono border-t border-slate-800/60 mt-2">
-                  <span>Typical: ₹{b.typicalRate.toLocaleString()}</span>
-                  <span className="text-amber-400 underline">Calibrate</span>
-                </div>
+                <span className="text-slate-600">·</span>
+                <span className="text-slate-400 tabular-nums">
+                  {liveLastSynced
+                    ? `Updated ${liveLastSynced.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`
+                    : 'Fetching latest spot rates...'}
+                </span>
               </div>
-            );
-          })}
-        </div>
-      </div>
 
-      {/* MODAL 1: SET SQUARE FEET & SCALE QUANTITIES */}
-      {isEditingAreaModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4">
-          <div className="bg-slate-900 border border-slate-700 rounded-xl max-w-md w-full p-6 shadow-2xl space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <div className="flex items-center gap-2">
-                <Building className="w-5 h-5 text-amber-400" />
-                <h3 className="text-lg font-bold text-white font-serif-classic">
-                  Set Project Built-Up Area
-                </h3>
+              <div className="flex flex-wrap items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setAutoRefreshLive((v) => !v)}
+                  className={`px-2.5 py-1.5 rounded-lg border text-xs font-medium transition whitespace-nowrap ${
+                    autoRefreshLive
+                      ? 'bg-emerald-500/10 border-emerald-500/40 text-emerald-300'
+                      : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-white'
+                  }`}
+                >
+                  Auto-Sync 60s: {autoRefreshLive ? 'On' : 'Off'}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => fetchLiveMarketFeed(true)}
+                  disabled={isLiveFetching}
+                  className="px-3 py-1.5 rounded-lg bg-slate-950 hover:bg-slate-800 border border-slate-700 text-xs font-semibold text-slate-200 inline-flex items-center gap-1.5 whitespace-nowrap disabled:opacity-50 transition"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 text-amber-400 ${isLiveFetching ? 'animate-spin' : ''}`} />
+                  <span>{isLiveFetching ? 'Refreshing...' : 'Refresh Live'}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleQuickSyncMarket}
+                  className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold inline-flex items-center gap-1.5 whitespace-nowrap transition"
+                >
+                  <Zap className="w-3.5 h-3.5" />
+                  <span>
+                    Sync All to Live{offMarketCount > 0 ? ` (${offMarketCount})` : ''}
+                  </span>
+                </button>
               </div>
-              <button onClick={() => setIsEditingAreaModal(false)} className="text-slate-400 hover:text-white">✕</button>
             </div>
 
-            <div className="space-y-4">
-              <p className="text-xs text-slate-300">
-                Adjusting the square footage recalculates your unit rate per sq.ft and can optionally scale all BOQ material quantities proportionally.
-              </p>
+            {/* Live Commodity Ticker Strip */}
+            {livePrices.length > 0 && (
+              <div className="pt-2.5 border-t border-slate-800/80 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+                <div className="flex items-center gap-x-4 gap-y-1 flex-wrap tabular-nums">
+                  {livePrices.slice(0, 5).map((p) => {
+                    const up = p.trend === 'up';
+                    const down = p.trend === 'down';
+                    return (
+                      <span key={p.id} className="inline-flex items-center gap-1.5 text-slate-300">
+                        <span className="text-slate-400">{p.name.split('(')[0].trim().split(' ').slice(0, 3).join(' ')}:</span>
+                        <strong className="text-white">₹{Number(p.currentPrice).toLocaleString()}</strong>
+                        <span className="text-slate-500">/{p.unit.split(' ')[0]}</span>
+                        <span
+                          className={`inline-flex items-center gap-0.5 text-[11px] font-medium ${
+                            up ? 'text-rose-400' : down ? 'text-emerald-400' : 'text-slate-400'
+                          }`}
+                        >
+                          {up && <TrendingUp className="w-3 h-3" />}
+                          {down && <TrendingDown className="w-3 h-3" />}
+                          {p.changePercent > 0 ? `+${p.changePercent}%` : `${p.changePercent}%`}
+                        </span>
+                      </span>
+                    );
+                  })}
+                </div>
 
-              <div>
-                <label className="block text-xs font-medium text-slate-300 mb-1">
-                  Built-Up Area (Square Feet) *
-                </label>
-                <div className="relative">
+                {liveSources.length > 0 && (
+                  <div className="flex items-center gap-3 text-[11px] text-slate-400 shrink-0">
+                    {liveSources.slice(0, 2).map((src, i) => (
+                      <a
+                        key={i}
+                        href={src.uri}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 hover:text-amber-300 transition truncate max-w-[170px]"
+                      >
+                        <ExternalLink className="w-3 h-3 shrink-0" />
+                        <span className="truncate">{src.title}</span>
+                      </a>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Quick 1-Row Area + Quality Rate + Search Controls */}
+          <div className="rounded-xl bg-slate-900 border border-slate-800 p-4 space-y-3">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+              {/* Simple Area Updater */}
+              <div className="bg-slate-950 border border-slate-800 rounded-lg p-3 flex flex-col justify-between gap-2">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-semibold text-slate-200 flex items-center gap-1.5">
+                    <Building className="w-3.5 h-3.5 text-amber-400" />
+                    Built-Up Area (sq.ft)
+                  </span>
+                  <div className="flex items-center gap-1">
+                    {SQFT_PRESETS.map((p) => (
+                      <button
+                        key={p.value}
+                        type="button"
+                        onClick={() => handleApplyAreaChange(p.value, true)}
+                        className={`px-1.5 py-0.5 rounded text-[11px] font-medium transition ${
+                          areaSqFt === p.value
+                            ? 'bg-amber-500 text-slate-950 font-semibold'
+                            : 'bg-slate-900 text-slate-400 hover:text-white'
+                        }`}
+                      >
+                        {p.value / 1000}k
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
                   <input
                     id="input-custom-sqft"
                     type="number"
                     min={100}
                     step={50}
-                    value={tempAreaInput}
-                    onChange={(e) => setTempAreaInput(Math.max(0, Number(e.target.value)))}
-                    className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-base text-white font-mono focus:outline-none focus:border-amber-500"
+                    value={areaDraft}
+                    onChange={(e) => setAreaDraft(Math.max(100, Number(e.target.value)))}
+                    className="flex-1 bg-slate-900 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-white tabular-nums focus:outline-none focus:border-amber-500"
                   />
-                  <span className="absolute right-3 top-2.5 text-xs text-slate-400 font-mono">
-                    sq.ft (≈ {Math.round(tempAreaInput / 10.764)} m²)
-                  </span>
-                </div>
-              </div>
-
-              {/* Quick Preset Buttons */}
-              <div>
-                <label className="block text-xs font-medium text-slate-400 mb-1">Common Typology Sizes:</label>
-                <div className="grid grid-cols-2 gap-1.5">
-                  {SQFT_PRESETS.map((p) => (
-                    <button
-                      key={p.value}
-                      type="button"
-                      onClick={() => setTempAreaInput(p.value)}
-                      className={`px-2.5 py-1.5 rounded text-xs font-mono text-left transition border ${
-                        tempAreaInput === p.value
-                          ? 'bg-amber-500/20 border-amber-500 text-amber-300'
-                          : 'bg-slate-950 border-slate-800 text-slate-300 hover:border-slate-700'
-                      }`}
-                    >
-                      <div className="font-bold">{p.label}</div>
-                      <div className="text-[10px] text-slate-400 truncate">{p.desc}</div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Scaling checkbox option */}
-              <div className="p-3 rounded-lg bg-slate-950 border border-slate-800 space-y-1">
-                <label className="flex items-start gap-2.5 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={scaleQuantitiesWithArea}
-                    onChange={(e) => setScaleQuantitiesWithArea(e.target.checked)}
-                    className="mt-0.5 rounded border-slate-700 text-amber-500 focus:ring-0"
-                  />
-                  <div>
-                    <span className="text-xs font-medium text-white">
-                      Scale BOQ item quantities proportionally ({((tempAreaInput / (areaSqFt || 1))).toFixed(2)}x)
-                    </span>
-                    <p className="text-[11px] text-slate-400">
-                      If checked, concrete, steel, masonry, and finish quantities will multiply by the area ratio so your estimate remains engineering-accurate.
-                    </p>
-                  </div>
-                </label>
-              </div>
-
-              {/* Action buttons */}
-              <div className="flex justify-end gap-2 pt-3 border-t border-slate-800">
-                <button
-                  type="button"
-                  onClick={() => setIsEditingAreaModal(false)}
-                  className="px-4 py-2 rounded-lg bg-slate-800 text-xs text-slate-300"
-                >
-                  Cancel
-                </button>
-                <button
-                  id="btn-confirm-sqft-change"
-                  type="button"
-                  onClick={() => handleApplyAreaChange(tempAreaInput, scaleQuantitiesWithArea)}
-                  className="px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold text-xs transition"
-                >
-                  Apply & Update Schedule
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL 2: CALIBRATE TO LIVE MARKET RATE PER SQ.FT */}
-      {isCalibrateModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4">
-          <div className="bg-slate-900 border border-slate-700 rounded-xl max-w-lg w-full p-6 shadow-2xl space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <div className="flex items-center gap-2">
-                <TrendingUp className="w-5 h-5 text-emerald-400" />
-                <h3 className="text-lg font-bold text-white font-serif-classic">
-                  Calibrate Unit Rate based on Live Market Price
-                </h3>
-              </div>
-              <button onClick={() => setIsCalibrateModal(false)} className="text-slate-400 hover:text-white">✕</button>
-            </div>
-
-            <div className="space-y-4">
-              <p className="text-xs text-slate-300">
-                Set your target all-in construction rate per sq.ft. The system will proportionally adjust item unit rates across all BOQ categories to meet the market price target.
-              </p>
-
-              {/* Current vs Target */}
-              <div className="grid grid-cols-2 gap-3 p-3 rounded-xl bg-slate-950 border border-slate-800">
-                <div>
-                  <span className="text-[11px] text-slate-400">Current BOQ Rate</span>
-                  <div className="text-lg font-bold font-mono text-white">
-                    ₹{currentRatePerSqFt.toLocaleString()} <span className="text-xs text-slate-400">/ sq.ft</span>
-                  </div>
-                  <div className="text-[10px] text-slate-500 font-mono">
-                    Total: {formatCurrency(totalEstimate, currency)}
-                  </div>
-                </div>
-
-                <div>
-                  <span className="text-[11px] text-emerald-400">Target Market Rate</span>
-                  <div className="text-lg font-bold font-mono text-emerald-400">
-                    ₹{targetRatePerSqFt.toLocaleString()} <span className="text-xs text-slate-400">/ sq.ft</span>
-                  </div>
-                  <div className="text-[10px] text-emerald-500 font-mono">
-                    Target Total: {formatCurrency(targetRatePerSqFt * areaSqFt, currency)}
-                  </div>
-                </div>
-              </div>
-
-              {/* Target rate input */}
-              <div>
-                <label className="block text-xs font-medium text-slate-300 mb-1">
-                  Target Rate per sq.ft (INR) *
-                </label>
-                <input
-                  type="number"
-                  min={500}
-                  step={50}
-                  value={targetRatePerSqFt}
-                  onChange={(e) => setTargetRatePerSqFt(Math.max(0, Number(e.target.value)))}
-                  className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-base text-white font-mono focus:outline-none focus:border-amber-500"
-                />
-              </div>
-
-              {/* Quick Tier Selectors */}
-              <div>
-                <span className="block text-xs font-medium text-slate-400 mb-1.5">Or Choose Standard Market Tiers:</span>
-                <div className="grid grid-cols-2 gap-2">
-                  {MARKET_BENCHMARKS.map((b) => (
-                    <button
-                      key={b.tier}
-                      type="button"
-                      onClick={() => setTargetRatePerSqFt(b.typicalRate)}
-                      className={`p-2 rounded text-left border text-xs transition ${
-                        targetRatePerSqFt === b.typicalRate
-                          ? 'bg-emerald-500/20 border-emerald-500 text-emerald-300 font-semibold'
-                          : 'bg-slate-950 border-slate-800 text-slate-300 hover:border-slate-700'
-                      }`}
-                    >
-                      <div className="font-bold">{b.tier.split('/')[0]}</div>
-                      <div className="text-[11px] font-mono text-white">₹{b.typicalRate.toLocaleString()} / sq.ft</div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="flex justify-end gap-2 pt-3 border-t border-slate-800">
-                <button
-                  type="button"
-                  onClick={() => setIsCalibrateModal(false)}
-                  className="px-4 py-2 rounded-lg bg-slate-800 text-xs text-slate-300"
-                >
-                  Cancel
-                </button>
-                <button
-                  id="btn-confirm-market-rate"
-                  type="button"
-                  onClick={handleApplyMarketRateCalibration}
-                  className="px-4 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs transition"
-                >
-                  Calibrate All Line Items
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL 3: SEND BOQ TENDER ENQUIRY */}
-      {isEnquiryModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4">
-          <div className="bg-slate-900 border border-slate-700 rounded-xl max-w-lg w-full p-6 shadow-2xl space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <div className="flex items-center gap-2">
-                <Send className="w-5 h-5 text-amber-400" />
-                <h3 className="text-lg font-bold text-white font-serif-classic">
-                  Send BOQ Tender Enquiry to Contractors
-                </h3>
-              </div>
-              <button onClick={() => setIsEnquiryModal(false)} className="text-slate-400 hover:text-white">✕</button>
-            </div>
-
-            {enquirySuccess ? (
-              <div className="p-6 rounded-xl bg-emerald-950/40 border border-emerald-800 text-center space-y-2">
-                <div className="w-12 h-12 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center mx-auto">
-                  <Check className="w-6 h-6" />
-                </div>
-                <h4 className="text-base font-bold text-white">Tender Enquiry Dispatched!</h4>
-                <p className="text-xs text-emerald-300">
-                  The BOQ schedule with {items.length} items ({formatCurrency(totalEstimate, currency)}) has been submitted to the marketplace enquiries network.
-                </p>
-              </div>
-            ) : (
-              <form onSubmit={handleSendTenderEnquiry} className="space-y-3">
-                <div className="p-3 rounded-lg bg-slate-950 border border-slate-800 space-y-1 text-xs font-mono">
-                  <div className="flex justify-between text-slate-400">
-                    <span>Project:</span>
-                    <span className="text-white font-sans font-medium">{activeProject.name}</span>
-                  </div>
-                  <div className="flex justify-between text-slate-400">
-                    <span>Area:</span>
-                    <span className="text-white">{areaSqFt.toLocaleString()} sq.ft</span>
-                  </div>
-                  <div className="flex justify-between text-slate-400">
-                    <span>Target Budget:</span>
-                    <span className="text-amber-400 font-bold">{formatCurrency(totalEstimate, currency)}</span>
-                  </div>
-                  <div className="flex justify-between text-slate-400">
-                    <span>Unit Rate:</span>
-                    <span className="text-emerald-400 font-bold">{formatCurrency(currentRatePerSqFt, currency)} / sq.ft</span>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-medium text-slate-300 mb-1">Your Name *</label>
-                    <input
-                      type="text"
-                      required
-                      value={enquiryClientName}
-                      onChange={(e) => setEnquiryClientName(e.target.value)}
-                      className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-slate-300 mb-1">Phone Number *</label>
-                    <input
-                      type="text"
-                      required
-                      value={enquiryClientPhone}
-                      onChange={(e) => setEnquiryClientPhone(e.target.value)}
-                      className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-slate-300 mb-1">Email Address *</label>
-                  <input
-                    type="email"
-                    required
-                    value={enquiryClientEmail}
-                    onChange={(e) => setEnquiryClientEmail(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-slate-300 mb-1">Tender Submission Notes / Scope Details</label>
-                  <textarea
-                    rows={3}
-                    placeholder="Provide specific notes on payment terms, defect liability period, site handover date..."
-                    value={enquiryTenderNotes}
-                    onChange={(e) => setEnquiryTenderNotes(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2.5 text-xs text-white focus:outline-none focus:border-amber-500"
-                  />
-                </div>
-
-                <div className="flex justify-end gap-2 pt-3 border-t border-slate-800">
                   <button
                     type="button"
-                    onClick={() => setIsEnquiryModal(false)}
-                    className="px-4 py-2 rounded-lg bg-slate-800 text-xs text-slate-300"
+                    onClick={() => handleApplyAreaChange(areaDraft, true)}
+                    className="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold text-xs whitespace-nowrap transition"
                   >
-                    Cancel
-                  </button>
-                  <button
-                    id="btn-submit-tender-enquiry"
-                    type="submit"
-                    className="px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs transition inline-flex items-center gap-1.5"
-                  >
-                    <Send className="w-3.5 h-3.5" />
-                    <span>Dispatch Enquiry</span>
+                    Scale Area
                   </button>
                 </div>
-              </form>
-            )}
+              </div>
+
+              {/* Simple Quality Tier Rate Calibrator */}
+              <div className="bg-slate-950 border border-slate-800 rounded-lg p-3 flex flex-col justify-between gap-2">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-semibold text-slate-200 flex items-center gap-1.5">
+                    <TrendingUp className="w-3.5 h-3.5 text-emerald-400" />
+                    Target Rate / sq.ft
+                  </span>
+                  <span className="text-[11px] text-slate-400 tabular-nums">
+                    Current: ₹{currentRatePerSqFt.toLocaleString()}/sf
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <select
+                    value={targetRatePerSqFt}
+                    onChange={(e) => setTargetRatePerSqFt(Number(e.target.value))}
+                    className="flex-1 bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none"
+                  >
+                    {MARKET_BENCHMARKS.map((b) => (
+                      <option key={b.tier} value={b.typicalRate}>
+                        {b.tier.split('/')[0].trim()} (₹{b.typicalRate.toLocaleString()}/sq.ft)
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => handleCalibrateToRate(targetRatePerSqFt)}
+                    className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs whitespace-nowrap transition"
+                  >
+                    Apply Rate
+                  </button>
+                </div>
+              </div>
+
+              {/* Quick Actions: Tier Selector & Standard Preset */}
+              <div className="bg-slate-950 border border-slate-800 rounded-lg p-3 flex flex-col justify-between gap-2">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-semibold text-slate-200 flex items-center gap-1.5">
+                    <Sliders className="w-3.5 h-3.5 text-amber-400" />
+                    Spec Tier &amp; Preset
+                  </span>
+                  <select
+                    aria-label="Specification Quality Tier"
+                    value={activeMarketTier}
+                    onChange={(e) => setActiveMarketTier(e.target.value as MarketQualityTier)}
+                    className="bg-slate-900 border border-slate-800 rounded px-2 py-0.5 text-[11px] text-amber-300 focus:outline-none"
+                  >
+                    <option value="Economy">Economy</option>
+                    <option value="Standard">Standard</option>
+                    <option value="Premium">Premium</option>
+                    <option value="Luxury">Luxury</option>
+                  </select>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsFloorManagerOpen(true)}
+                    className="flex-1 px-2.5 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-200 font-semibold text-xs whitespace-nowrap transition"
+                  >
+                    Levels ({floors.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleApplySNKFormat}
+                    className="flex-1 px-2.5 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-700 text-amber-300 font-semibold text-xs whitespace-nowrap transition"
+                  >
+                    Standard 3,599 Sft
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Search + Category + Issue Check Bar */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pt-1">
+              <div className="flex items-center gap-2 flex-1 flex-wrap">
+                <div className="relative flex-1 min-w-[200px] max-w-sm">
+                  <Search className="w-3.5 h-3.5 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search item, category, or unit..."
+                    className="w-full bg-slate-950 border border-slate-800 focus:border-slate-600 rounded-lg pl-8 pr-3 py-1.5 text-xs text-white placeholder:text-slate-500 focus:outline-none"
+                  />
+                </div>
+
+                <select
+                  value={filterCategory}
+                  onChange={(e) => setFilterCategory(e.target.value)}
+                  className="bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-slate-200 focus:outline-none"
+                >
+                  <option value="all">All Categories ({items.length})</option>
+                  {CATEGORIES.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0 flex-wrap">
+                <button
+                  type="button"
+                  onClick={() => setShowOffMarketOnly((v) => !v)}
+                  className={`px-3 py-1.5 rounded-lg border text-xs font-semibold inline-flex items-center gap-1.5 transition whitespace-nowrap ${
+                    showOffMarketOnly
+                      ? 'bg-emerald-500/15 border-emerald-500/50 text-emerald-300'
+                      : 'bg-slate-950 border-slate-800 text-slate-300 hover:border-slate-700'
+                  }`}
+                >
+                  <TrendingUp className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Off-Market ({offMarketCount})</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setShowAuditHighlight((v) => !v)}
+                  className={`px-3 py-1.5 rounded-lg border text-xs font-semibold inline-flex items-center gap-1.5 transition whitespace-nowrap ${
+                    showAuditHighlight
+                      ? 'bg-rose-500/15 border-rose-500/50 text-rose-300'
+                      : 'bg-slate-950 border-slate-800 text-slate-300 hover:border-slate-700'
+                  }`}
+                >
+                  <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
+                  <span>Issues ({itemsWithIssuesCount})</span>
+                </button>
+
+                {itemsWithIssuesCount > 0 && (
+                  <button
+                    type="button"
+                    onClick={handleAutoFixUnits}
+                    className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-amber-300 text-xs font-semibold transition whitespace-nowrap"
+                  >
+                    Fix Units
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* CLEAN EDITABLE BOQ TABLE WITH LIVE MARKET COLUMN */}
+          <div className="rounded-xl bg-slate-900 border border-slate-800 overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr className="border-b border-slate-800 bg-slate-950/70 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                    <th className="py-3 px-3 w-10 text-center">#</th>
+                    <th className="py-3 px-3 min-w-[220px]">Item Description &amp; Notes</th>
+                    <th className="py-3 px-3 w-36">Category</th>
+                    <th className="py-3 px-3 w-24 text-center">Unit</th>
+                    <th className="py-3 px-3 w-24 text-right">Qty</th>
+                    <th className="py-3 px-3 w-28 text-right">Your Rate</th>
+                    <th className="py-3 px-3 w-36 text-right">Live Market</th>
+                    <th className="py-3 px-4 w-32 text-right">Amount</th>
+                    <th className="py-3 px-3 w-12 text-center">Del</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800/70">
+                  {filteredItems.length === 0 ? (
+                    <tr>
+                      <td colSpan={9} className="py-10 text-center text-slate-400 text-xs">
+                        No BOQ items match this filter. Use the Quick Add row below or click Add Item.
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredItems.map((item, idx) => {
+                      const audit = auditResults[item.id];
+                      const match = itemMarketMatches[item.id];
+                      const showUseLive =
+                        match && (item.rate <= 0 || Math.abs(match.deltaVsCurrentPct) >= 2);
+                      return (
+                        <tr
+                          key={item.id}
+                          className={`hover:bg-slate-800/35 transition ${
+                            showAuditHighlight && audit?.hasIssues ? 'bg-rose-950/20' : ''
+                          }`}
+                        >
+                          <td className="py-2.5 px-3 text-center text-slate-500 tabular-nums">
+                            {idx + 1}
+                          </td>
+
+                          {/* Inline Editable Name & Notes */}
+                          <td className="py-2 px-3">
+                            <input
+                              type="text"
+                              value={item.name}
+                              onChange={(e) => handleUpdateItemField(item.id, 'name', e.target.value)}
+                              className="w-full bg-transparent text-xs font-medium text-white focus:bg-slate-950 focus:px-2 py-0.5 rounded focus:outline-none focus:ring-1 focus:ring-amber-500/60"
+                            />
+                            <input
+                              type="text"
+                              value={item.notes || ''}
+                              onChange={(e) => handleUpdateItemField(item.id, 'notes', e.target.value)}
+                              placeholder="Add specification note..."
+                              className="w-full bg-transparent text-[11px] text-slate-400 placeholder:text-slate-600 focus:bg-slate-950 focus:px-2 py-0.5 rounded focus:outline-none mt-0.5"
+                            />
+                          </td>
+
+                          {/* Editable Category */}
+                          <td className="py-2 px-3">
+                            <select
+                              value={item.category}
+                              onChange={(e) =>
+                                handleUpdateItemField(item.id, 'category', e.target.value)
+                              }
+                              className="w-full bg-slate-950 border border-slate-800 rounded-md px-2 py-1 text-xs text-slate-200 focus:outline-none focus:border-amber-500"
+                            >
+                              {CATEGORIES.map((c) => (
+                                <option key={c} value={c}>
+                                  {c}
+                                </option>
+                              ))}
+                            </select>
+                          </td>
+
+                          {/* Editable Unit */}
+                          <td className="py-2 px-3 text-center">
+                            <select
+                              value={item.unit}
+                              onChange={(e) => handleUpdateItemField(item.id, 'unit', e.target.value)}
+                              className={`w-full bg-slate-950 border rounded-md px-1.5 py-1 text-xs text-center focus:outline-none ${
+                                audit?.mismatchedUnit
+                                  ? 'border-rose-500 text-rose-300'
+                                  : 'border-slate-800 text-slate-200 focus:border-amber-500'
+                              }`}
+                            >
+                              {UNITS.map((u) => (
+                                <option key={u} value={u}>
+                                  {u}
+                                </option>
+                              ))}
+                            </select>
+                          </td>
+
+                          {/* Editable Quantity */}
+                          <td className="py-2 px-3 text-right">
+                            <input
+                              type="number"
+                              min={0}
+                              step={0.1}
+                              value={item.quantity}
+                              onChange={(e) =>
+                                handleUpdateItemField(item.id, 'quantity', e.target.value)
+                              }
+                              className={`w-24 bg-slate-950 border rounded-md px-2 py-1 text-right text-xs tabular-nums focus:outline-none ${
+                                audit?.zeroQuantity
+                                  ? 'border-rose-500 text-rose-300'
+                                  : 'border-slate-800 text-white focus:border-amber-500'
+                              }`}
+                            />
+                          </td>
+
+                          {/* Editable Rate */}
+                          <td className="py-2 px-3 text-right">
+                            <input
+                              type="number"
+                              min={0}
+                              step={1}
+                              value={item.rate}
+                              onChange={(e) =>
+                                handleUpdateItemField(item.id, 'rate', e.target.value)
+                              }
+                              className={`w-24 bg-slate-950 border rounded-md px-2 py-1 text-right text-xs tabular-nums focus:outline-none ${
+                                audit?.missingRate
+                                  ? 'border-rose-500 text-rose-300'
+                                  : 'border-slate-800 text-white focus:border-amber-500'
+                              }`}
+                            />
+                          </td>
+
+                          {/* Real-Time Market Benchmark & 1-Click Sync */}
+                          <td className="py-2 px-3 text-right tabular-nums">
+                            {match ? (
+                              <div className="flex flex-col items-end gap-0.5">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-slate-200 font-medium">
+                                    ₹{match.liveRate.toLocaleString()}
+                                  </span>
+                                  {Math.abs(match.deltaVsCurrentPct) >= 2 && item.rate > 0 ? (
+                                    <span
+                                      className={`text-[11px] ${
+                                        match.deltaVsCurrentPct > 0
+                                          ? 'text-rose-400'
+                                          : 'text-emerald-400'
+                                      }`}
+                                    >
+                                      {match.deltaVsCurrentPct > 0
+                                        ? `+${match.deltaVsCurrentPct}%`
+                                        : `${match.deltaVsCurrentPct}%`}
+                                    </span>
+                                  ) : item.rate > 0 ? (
+                                    <span className="text-[11px] text-emerald-400">On Market</span>
+                                  ) : null}
+                                </div>
+                                {showUseLive ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleApplySingleMarketRate(item.id)}
+                                    className="text-[11px] font-semibold text-amber-300 hover:text-amber-200 hover:underline whitespace-nowrap"
+                                  >
+                                    Use ₹{match.liveRate.toLocaleString()}
+                                  </button>
+                                ) : (
+                                  <span className="text-[10px] text-slate-500 truncate max-w-[130px]">
+                                    {match.liveSourceLabel}
+                                  </span>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="text-slate-500">—</span>
+                            )}
+                          </td>
+
+                          {/* Computed Amount */}
+                          <td className="py-2.5 px-4 text-right font-semibold text-amber-300 tabular-nums whitespace-nowrap">
+                            {formatCurrency(item.quantity * item.rate, currency)}
+                          </td>
+
+                          {/* Delete */}
+                          <td className="py-2 px-3 text-center">
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteItem(item.id)}
+                              title="Delete item"
+                              className="p-1 text-slate-500 hover:text-rose-400 transition"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+
+                  {/* Inline Quick Add Row */}
+                  <tr className="bg-slate-950/60 border-t border-slate-800">
+                    <td className="py-2.5 px-3 text-center text-amber-400 font-bold">+</td>
+                    <td className="py-2 px-3">
+                      <input
+                        type="text"
+                        value={quickName}
+                        onChange={(e) => handleQuickNameChange(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && quickName.trim()) {
+                            handleQuickAddRow(e as unknown as React.FormEvent);
+                          }
+                        }}
+                        placeholder="Quick add item (auto-fills live rate)..."
+                        className="w-full bg-slate-900 border border-slate-800 focus:border-amber-500 rounded-md px-2.5 py-1.5 text-xs text-white placeholder:text-slate-500 focus:outline-none"
+                      />
+                    </td>
+                    <td className="py-2 px-3">
+                      <select
+                        value={quickCategory}
+                        onChange={(e) => setQuickCategory(e.target.value)}
+                        className="w-full bg-slate-900 border border-slate-800 rounded-md px-2 py-1.5 text-xs text-slate-200 focus:outline-none"
+                      >
+                        {CATEGORIES.map((c) => (
+                          <option key={c} value={c}>
+                            {c}
+                          </option>
+                        ))}
+                      </select>
+                    </td>
+                    <td className="py-2 px-3">
+                      <select
+                        value={quickUnit}
+                        onChange={(e) => setQuickUnit(e.target.value)}
+                        className="w-full bg-slate-900 border border-slate-800 rounded-md px-1.5 py-1.5 text-xs text-center text-slate-200 focus:outline-none"
+                      >
+                        {UNITS.map((u) => (
+                          <option key={u} value={u}>
+                            {u}
+                          </option>
+                        ))}
+                      </select>
+                    </td>
+                    <td className="py-2 px-3 text-right">
+                      <input
+                        type="number"
+                        min={0}
+                        step={1}
+                        value={quickQty}
+                        onChange={(e) => setQuickQty(Number(e.target.value))}
+                        className="w-24 bg-slate-900 border border-slate-800 rounded-md px-2 py-1.5 text-right text-xs text-white tabular-nums focus:outline-none"
+                      />
+                    </td>
+                    <td className="py-2 px-3 text-right">
+                      <input
+                        type="number"
+                        min={0}
+                        step={1}
+                        value={quickRate}
+                        onChange={(e) => setQuickRate(Number(e.target.value))}
+                        className="w-24 bg-slate-900 border border-slate-800 rounded-md px-2 py-1.5 text-right text-xs text-white tabular-nums focus:outline-none"
+                      />
+                    </td>
+                    <td className="py-2 px-3 text-right text-[11px] text-slate-500">
+                      Auto-matched
+                    </td>
+                    <td className="py-2 px-4 text-right text-xs text-slate-400 tabular-nums">
+                      {formatCurrency(quickQty * quickRate, currency)}
+                    </td>
+                    <td className="py-2 px-2 text-center">
+                      <button
+                        type="button"
+                        onClick={handleQuickAddRow}
+                        disabled={!quickName.trim()}
+                        className="px-2.5 py-1.5 rounded-md bg-amber-500 hover:bg-amber-400 disabled:bg-slate-800 disabled:text-slate-600 text-slate-950 font-semibold text-xs transition"
+                      >
+                        Add
+                      </button>
+                    </td>
+                  </tr>
+                </tbody>
+
+                {/* Clean Totals Footer */}
+                <tfoot className="bg-slate-950 border-t border-slate-700 tabular-nums">
+                  <tr className="text-xs">
+                    <td colSpan={7} className="py-2.5 px-4 text-right text-slate-300 font-medium">
+                      Subtotal Works (Cost Excl. GST):
+                    </td>
+                    <td className="py-2.5 px-4 text-right text-white font-semibold">
+                      {formatCurrency(subtotal, currency)}
+                    </td>
+                    <td />
+                  </tr>
+                  <tr className="text-xs border-t border-slate-800/70">
+                    <td colSpan={7} className="py-2 px-4 text-right text-amber-300 font-medium">
+                      Contingency ({contingencyPercent}%):
+                    </td>
+                    <td className="py-2 px-4 text-right text-amber-300 font-semibold">
+                      {formatCurrency(contingencyAmount, currency)}
+                    </td>
+                    <td />
+                  </tr>
+                  <tr className="text-sm border-t border-slate-700">
+                    <td colSpan={7} className="py-3 px-4 text-right text-amber-400 font-bold">
+                      Grand Total (Cost Excluding GST):
+                    </td>
+                    <td className="py-3 px-4 text-right text-amber-400 font-bold">
+                      {formatCurrency(totalEstimate, currency)}
+                    </td>
+                    <td />
+                  </tr>
+                  <tr className="text-xs border-t border-slate-800/70">
+                    <td colSpan={7} className="py-2 px-4 text-right text-slate-400">
+                      + Statutory GST @ 18% ({formatCurrency(gstAmount, currency)}) = Total Incl. GST:
+                    </td>
+                    <td className="py-2 px-4 text-right text-emerald-400 font-semibold">
+                      {formatCurrency(totalEstimate + gstAmount, currency)}
+                    </td>
+                    <td />
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
           </div>
         </div>
       )}
 
-      {/* MODAL 4: ADD LINE ITEM */}
-      {isAddingItem && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4">
-          <div className="bg-slate-900 border border-slate-700 rounded-xl max-w-lg w-full p-6 shadow-2xl space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <h3 className="text-lg font-bold text-white font-serif-classic">
-                Add BOQ Line Item
-              </h3>
-              <button onClick={() => setIsAddingItem(false)} className="text-slate-400 hover:text-white">✕</button>
+      {/* ===================================================================== */}
+      {/* TAB 2: AREA & AUTO-BUILD                                              */}
+      {/* ===================================================================== */}
+      {activeWorkspaceTab === 'auto_build' && (
+        <div className="space-y-5">
+          {/* Quick Quality Tiers + Floor Settings */}
+          <div className="rounded-xl bg-slate-900 border border-slate-800 p-4 sm:p-5 space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h2 className="text-base font-bold text-white">
+                  1-Click Specification Presets &amp; Floor Area
+                </h2>
+                <p className="text-xs text-slate-400">
+                  Pick a construction quality tier to instantly calibrate all line items for {areaSqFt.toLocaleString()} sq.ft.
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsFloorManagerOpen(true)}
+                  className="px-3 py-1.5 rounded-lg bg-slate-950 hover:bg-slate-800 border border-slate-700 text-xs font-semibold text-slate-200 inline-flex items-center gap-1.5"
+                >
+                  <Layers className="w-3.5 h-3.5 text-amber-400" />
+                  <span>Manage Levels ({floors.length})</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsAreaMarketModalOpen(true)}
+                  className="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-semibold"
+                >
+                  Area + Market Sync
+                </button>
+              </div>
             </div>
 
-            <form onSubmit={handleAddItem} className="space-y-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              {MARKET_BENCHMARKS.map((b) => {
+                const active = currentRatePerSqFt >= b.minRate && currentRatePerSqFt <= b.maxRate;
+                return (
+                  <button
+                    key={b.tier}
+                    type="button"
+                    onClick={() => handleCalibrateToRate(b.typicalRate)}
+                    className={`p-3.5 rounded-xl border text-left transition ${
+                      active
+                        ? `${b.badgeBg} ${b.badgeBorder}`
+                        : 'bg-slate-950 border-slate-800 hover:border-slate-600'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className={`text-xs font-bold ${b.accentColor}`}>{b.tier}</span>
+                      <span className="text-[11px] text-slate-400">{b.tag}</span>
+                    </div>
+                    <p className="text-sm font-bold text-white tabular-nums mt-1">
+                      ₹{b.typicalRate.toLocaleString()} / sq.ft
+                    </p>
+                    <p className="text-[11px] text-slate-400 mt-1">{b.description}</p>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Dedicated Area Auto-Calc Agent */}
+          <BOQAreaAgentCalculator
+            currentAreaSqFt={areaSqFt}
+            items={items}
+            floors={floors}
+            currency={currency}
+            activeProject={activeProject}
+            activeRegion={activeMarketRegion}
+            activeTier={activeMarketTier}
+            onApplyCalculatedBOQ={(updated, newArea, summary) => {
+              handleApplyAreaChange(newArea, false);
+              onUpdateItems(updated);
+              showToast(summary || `Calculated BOQ for ${newArea.toLocaleString()} sq.ft.`);
+              setActiveWorkspaceTab('schedule');
+            }}
+            onReplaceWithGeneratedBOQ={(generatedItems, newArea) => {
+              onUpdateItems(generatedItems);
+              const scaledFloors = scaleFloorAreasToTotal(floors, newArea);
+              setFloors(scaledFloors);
+              if (onUpdateProject) {
+                onUpdateProject({
+                  ...activeProject,
+                  floors: scaledFloors,
+                  builtUpAreaSqFt: newArea,
+                });
+              }
+              setAreaSqFt(newArea);
+              setAreaDraft(newArea);
+              setActiveWorkspaceTab('schedule');
+              showToast(`Generated complete BOQ for ${newArea.toLocaleString()} sq.ft.`);
+            }}
+            onClose={() => setActiveWorkspaceTab('schedule')}
+          />
+        </div>
+      )}
+
+      {/* ===================================================================== */}
+      {/* TAB 3: MARKET RATES & LABOUR                                          */}
+      {/* ===================================================================== */}
+      {activeWorkspaceTab === 'market_labour' && (
+        <div className="space-y-5">
+          <div className="rounded-xl bg-slate-900 border border-slate-800 p-4 sm:p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+            <div>
+              <h2 className="text-base font-bold text-white">
+                Regional Market Sync &amp; Civil Labour Schedule
+              </h2>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Sync all item rates to local city benchmarks or review direct civil labour cost ({formatCurrency(labourSchedule.totalAvg, currency)} est.).
+              </p>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="flex items-center gap-1.5 bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs">
+                <MapPin className="w-3.5 h-3.5 text-amber-400" />
+                <select
+                  value={activeMarketRegion}
+                  onChange={(e) => setActiveMarketRegion(e.target.value as MarketRegion)}
+                  className="bg-transparent text-white focus:outline-none"
+                >
+                  {MARKET_REGIONS.map((r) => (
+                    <option key={r.id} value={r.id} className="bg-slate-900">
+                      {r.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <select
+                value={activeMarketTier}
+                onChange={(e) => setActiveMarketTier(e.target.value as MarketQualityTier)}
+                className="bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none"
+              >
+                <option value="Economy">Economy Tier</option>
+                <option value="Standard">Standard Tier</option>
+                <option value="Premium">Premium Tier</option>
+                <option value="Luxury">Luxury Tier</option>
+              </select>
+
+              <button
+                type="button"
+                onClick={handleQuickSyncMarket}
+                className="px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold"
+              >
+                Sync All Rates
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setIsMarketModalOpen(true)}
+                className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200 inline-flex items-center gap-1.5"
+              >
+                <Sliders className="w-3.5 h-3.5" />
+                <span>Rate Audit</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setIsLabourBreakdownModalOpen(true)}
+                className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-amber-300 inline-flex items-center gap-1.5"
+              >
+                <HardHat className="w-3.5 h-3.5" />
+                <span>Labour Breakdown</span>
+              </button>
+            </div>
+          </div>
+
+          <BOQRealTimePriceMonitor
+            items={items}
+            activeProject={activeProject}
+            currency={currency}
+            onUpdateItemRate={(id, rate) => handleUpdateItemField(id, 'rate', rate)}
+            onUpdateMultipleItemRates={(updates) => {
+              const map = new Map(updates.map((u) => [u.id, u.newRate]));
+              onUpdateItems(
+                items.map((it) =>
+                  map.has(it.id)
+                    ? { ...it, rate: map.get(it.id)!, amount: Math.round(it.quantity * map.get(it.id)!) }
+                    : it
+                )
+              );
+            }}
+          />
+
+          <BimBoqMaterialNewsWire
+            onLockMaterialRate={(newsItem) => {
+              showToast(`Locked ${newsItem.categoryLabel} spot rate (${newsItem.currentMandiRate}).`);
+            }}
+          />
+        </div>
+      )}
+
+      {/* ===================================================================== */}
+      {/* TAB 4: COST BREAKDOWN & TENDER                                        */}
+      {/* ===================================================================== */}
+      {activeWorkspaceTab === 'analytics_tender' && (
+        <div className="space-y-5">
+          <div className="rounded-xl bg-slate-900 border border-slate-800 p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <h2 className="text-base font-bold text-white">
+                Exports &amp; Contractor Tender Dispatch
+              </h2>
+              <p className="text-xs text-slate-400">
+                Download spreadsheet schedules, print PDF reports, or send this BOQ for contractor quotes.
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={handleExportExcel}
+                className="px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold inline-flex items-center gap-1.5"
+              >
+                <FileSpreadsheet className="w-3.5 h-3.5" />
+                <span>Excel (.xlsx)</span>
+              </button>
+              <button
+                type="button"
+                onClick={handleExportCSV}
+                className="px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold inline-flex items-center gap-1.5"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>Master CSV</span>
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  exportBOQToExcelCSV({
+                    items,
+                    floors,
+                    projectName: activeProject.name,
+                    currency,
+                    contingencyPercent,
+                    builtUpAreaSqFt: areaSqFt,
+                  })
+                }
+                className="px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold inline-flex items-center gap-1.5"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>Floor CSV</span>
+              </button>
+              {onAddEnquiry && (
+                <button
+                  type="button"
+                  onClick={() => setIsEnquiryModal(true)}
+                  className="px-3.5 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-semibold inline-flex items-center gap-1.5"
+                >
+                  <Send className="w-3.5 h-3.5" />
+                  <span>Send Tender Enquiry</span>
+                </button>
+              )}
+            </div>
+          </div>
+
+          <BOQDistributionAnalytics
+            items={items}
+            currency={currency}
+            contingencyPercent={contingencyPercent}
+            areaSqFt={areaSqFt}
+          />
+        </div>
+      )}
+
+      {/* ===================================================================== */}
+      {/* MODALS                                                                */}
+      {/* ===================================================================== */}
+      {isAddingItem && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/85 p-4">
+          <div className="bg-slate-900 border border-slate-700 rounded-xl max-w-lg w-full p-5 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <h3 className="text-base font-bold text-white">Add BOQ Line Item</h3>
+              <button
+                type="button"
+                onClick={() => setIsAddingItem(false)}
+                className="text-slate-400 hover:text-white"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleAddItemModal} className="space-y-3">
               <div>
-                <label className="block text-xs font-medium text-slate-300 mb-1">Item Description *</label>
+                <label className="block text-xs font-medium text-slate-300 mb-1">
+                  Item Description *
+                </label>
                 <input
-                  id="input-boq-name"
                   type="text"
                   required
-                  placeholder="e.g. Reinforced Cement Concrete M25 in Grade Beams"
+                  placeholder="e.g. RCC M25 Concrete in Beams & Slabs"
                   value={newItemName}
                   onChange={(e) => setNewItemName(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-amber-500"
+                  className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500"
                 />
               </div>
 
@@ -1969,27 +2196,28 @@ Contact: ${enquiryClientPhone}`,
                 <div>
                   <label className="block text-xs font-medium text-slate-300 mb-1">Category</label>
                   <select
-                    id="select-boq-category"
                     value={newItemCategory}
                     onChange={(e) => setNewItemCategory(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500"
+                    className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none"
                   >
                     {CATEGORIES.map((c) => (
-                      <option key={c} value={c}>{c}</option>
+                      <option key={c} value={c}>
+                        {c}
+                      </option>
                     ))}
                   </select>
                 </div>
-
                 <div>
-                  <label className="block text-xs font-medium text-slate-300 mb-1">Measurement Unit</label>
+                  <label className="block text-xs font-medium text-slate-300 mb-1">Unit</label>
                   <select
-                    id="select-boq-unit"
                     value={newItemUnit}
                     onChange={(e) => setNewItemUnit(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500"
+                    className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none"
                   >
                     {UNITS.map((u) => (
-                      <option key={u} value={u}>{u}</option>
+                      <option key={u} value={u}>
+                        {u}
+                      </option>
                     ))}
                   </select>
                 </div>
@@ -1999,41 +2227,37 @@ Contact: ${enquiryClientPhone}`,
                 <div>
                   <label className="block text-xs font-medium text-slate-300 mb-1">Quantity</label>
                   <input
-                    id="input-boq-qty"
                     type="number"
                     min={0}
                     step={0.01}
                     required
                     value={newItemQty}
                     onChange={(e) => setNewItemQty(Number(e.target.value))}
-                    className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white font-mono focus:outline-none focus:border-amber-500"
+                    className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white tabular-nums focus:outline-none"
                   />
                 </div>
-
                 <div>
-                  <label className="block text-xs font-medium text-slate-300 mb-1">Unit Rate (in INR)</label>
+                  <label className="block text-xs font-medium text-slate-300 mb-1">Unit Rate (₹)</label>
                   <input
-                    id="input-boq-rate"
                     type="number"
                     min={0}
                     step={0.01}
                     required
                     value={newItemRate}
                     onChange={(e) => setNewItemRate(Number(e.target.value))}
-                    className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white font-mono focus:outline-none focus:border-amber-500"
+                    className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white tabular-nums focus:outline-none"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-slate-300 mb-1">Specification / Notes</label>
+                <label className="block text-xs font-medium text-slate-300 mb-1">Notes</label>
                 <input
-                  id="input-boq-notes"
                   type="text"
-                  placeholder="e.g. Centering, shuttering, 28-day curing included"
+                  placeholder="Optional specification notes"
                   value={newItemNotes}
                   onChange={(e) => setNewItemNotes(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500"
+                  className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none"
                 />
               </div>
 
@@ -2046,11 +2270,10 @@ Contact: ${enquiryClientPhone}`,
                   Cancel
                 </button>
                 <button
-                  id="btn-submit-boq-item"
                   type="submit"
-                  className="px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold text-xs transition"
+                  className="px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold text-xs"
                 >
-                  Add to Schedule
+                  Add Item
                 </button>
               </div>
             </form>
@@ -2058,685 +2281,188 @@ Contact: ${enquiryClientPhone}`,
         </div>
       )}
 
-      {/* MODAL 5: AI BOQ GENERATOR (With Built-Up Area & Quality Tier Controls) */}
       {isGeneratingAI && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4">
-          <div className="bg-slate-900 border border-slate-700 rounded-xl max-w-2xl w-full p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/85 p-4">
+          <div className="bg-slate-900 border border-slate-700 rounded-xl max-w-2xl w-full p-5 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
               <div className="flex items-center gap-2">
-                <Sparkles className="w-5 h-5 text-amber-400" />
-                <h3 className="text-lg font-bold text-white font-serif-classic">
-                  AI Bill of Quantities Generator
-                </h3>
+                <Sparkles className="w-4 h-4 text-amber-400" />
+                <h3 className="text-base font-bold text-white">Auto-Generate Simple BOQ</h3>
               </div>
-              <button onClick={() => setIsGeneratingAI(false)} className="text-slate-400 hover:text-white">✕</button>
+              <button
+                type="button"
+                onClick={() => setIsGeneratingAI(false)}
+                className="text-slate-400 hover:text-white"
+              >
+                <X className="w-4 h-4" />
+              </button>
             </div>
 
-            <div className="space-y-4">
-              <p className="text-xs text-slate-300">
-                Generate an empirical, engineering-accurate Bill of Quantities calibrated to your exact square footage and specification tier.
-              </p>
-
-              {/* Area and Quality Tier Selectors */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 rounded-xl bg-slate-950 border border-slate-800">
-                <div>
-                  <label className="block text-xs font-medium text-slate-300 mb-1">
-                    Target Built-Up Area (sq.ft)
-                  </label>
-                  <input
-                    type="number"
-                    min={100}
-                    step={100}
-                    value={aiAreaSqFt}
-                    onChange={(e) => setAiAreaSqFt(Math.max(100, Number(e.target.value)))}
-                    className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-amber-500"
-                  />
-                  <span className="text-[10px] text-slate-500 font-mono">
-                    ≈ {Math.round(aiAreaSqFt / 10.764)} m² plinth
-                  </span>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-slate-300 mb-1">
-                    Specification Quality Tier
-                  </label>
-                  <select
-                    value={aiQualityTier}
-                    onChange={(e) => setAiQualityTier(e.target.value)}
-                    className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500"
-                  >
-                    <option value="Economy">Economy (₹1,400 - ₹1,750 / sq.ft)</option>
-                    <option value="Standard">Standard Quality (₹1,850 - ₹2,450 / sq.ft)</option>
-                    <option value="Premium">Premium Architectural (₹2,500 - ₹3,600 / sq.ft)</option>
-                    <option value="Luxury">Luxury / Signature (₹3,800 - ₹5,500+ / sq.ft)</option>
-                  </select>
-                  <span className="text-[10px] text-slate-500 font-mono">
-                    Adjusts material finishes & rates
-                  </span>
-                </div>
-              </div>
-
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs font-medium text-slate-300 mb-1">
-                  Architectural Scope & Typology Description
+                  Built-Up Area (sq.ft)
                 </label>
-                <textarea
-                  id="textarea-ai-boq-desc"
-                  rows={3}
-                  value={aiDescription}
-                  onChange={(e) => setAiDescription(e.target.value)}
-                  placeholder="Describe building typology, foundation type, structural framing, walling materials, glazing, finishes..."
-                  className="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-xs text-white focus:outline-none focus:border-amber-500"
+                <input
+                  type="number"
+                  min={100}
+                  step={100}
+                  value={aiAreaSqFt}
+                  onChange={(e) => setAiAreaSqFt(Math.max(100, Number(e.target.value)))}
+                  className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white tabular-nums focus:outline-none"
                 />
               </div>
-
-              <div className="flex justify-end">
-                <button
-                  id="btn-run-ai-boq"
-                  onClick={handleGenerateAI}
-                  disabled={aiLoading}
-                  className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold text-xs transition disabled:opacity-50"
-                >
-                  <Sparkles className={`w-4 h-4 ${aiLoading ? 'animate-spin' : ''}`} />
-                  <span>{aiLoading ? 'Calculating Engineering Quantities...' : 'Generate Calibrated BOQ'}</span>
-                </button>
-              </div>
-
-              {aiResult && (
-                <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3 mt-4">
-                  <div className="flex items-center justify-between">
-                    <h4 className="text-xs font-semibold text-amber-400 uppercase tracking-wider font-mono">
-                      Generated {aiResult.items.length} Preliminary Items ({aiAreaSqFt.toLocaleString()} sq.ft)
-                    </h4>
-                  </div>
-
-                  <p className="text-xs text-slate-300">{aiResult.project_summary}</p>
-
-                  {aiResult.assumptions && aiResult.assumptions.length > 0 && (
-                    <div className="space-y-1">
-                      <span className="text-[11px] font-semibold text-slate-400">Key Engineering Assumptions:</span>
-                      <ul className="list-disc list-inside text-[11px] text-slate-400 space-y-0.5">
-                        {aiResult.assumptions.map((a, i) => (
-                          <li key={i}>{a}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-
-                  <div className="max-h-48 overflow-y-auto space-y-1.5 border border-slate-800 rounded-lg p-2 bg-slate-900">
-                    {aiResult.items.map((it, i) => (
-                      <div key={i} className="text-xs flex items-center justify-between py-1 border-b border-slate-800 last:border-0">
-                        <span className="text-slate-200 truncate max-w-[280px]">{it.name}</span>
-                        <div className="flex items-center gap-3 font-mono text-slate-400 text-[11px]">
-                          <span>{it.quantity} {it.unit}</span>
-                          <span>@ ₹{it.rate}</span>
-                          <span className="text-amber-400 font-semibold">₹{(it.quantity * it.rate).toLocaleString()}</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-
-                  <div className="flex justify-end gap-2 pt-2">
-                    <button
-                      id="btn-append-ai-boq"
-                      onClick={() => handleApplyAIBOQ(false)}
-                      className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs text-amber-300 border border-amber-500/30 transition"
-                    >
-                      Append to Schedule
-                    </button>
-                    <button
-                      id="btn-replace-ai-boq"
-                      onClick={() => handleApplyAIBOQ(true)}
-                      className="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold text-xs transition"
-                    >
-                      Replace Schedule ({aiAreaSqFt.toLocaleString()} sq.ft)
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* SECTION: FLOOR-WISE BREAKDOWN & LEVEL NAVIGATION */}
-      <div id="section-floor-wise-schedule" className="space-y-4">
-        <FloorWiseSummaryCards
-          floors={floors}
-          floorTotals={floorTotals}
-          selectedFloorId={selectedFloorId}
-          onSelectFloor={(floorId) => {
-            setSelectedFloorId(floorId);
-            if (floorId === 'all') {
-              setFloorViewMode('matrix');
-            } else {
-              setFloorViewMode('level_focus');
-            }
-          }}
-          currency={currency}
-          onOpenFloorManager={() => setIsFloorManagerOpen(true)}
-          onOpenDistributionModal={() => {
-            setActiveDistributionItem(null);
-            setIsDistributionModalOpen(true);
-          }}
-        />
-
-        {/* View Mode Switcher & Floor Export Actions Bar */}
-        <div className="flex flex-wrap items-center justify-between gap-3 p-3 bg-slate-900 border border-slate-800 rounded-xl">
-          <div className="flex items-center gap-1.5 bg-slate-950 p-1 rounded-lg border border-slate-800">
-            <button
-              type="button"
-              id="tab-mode-floor-matrix"
-              onClick={() => setFloorViewMode('matrix')}
-              className={`px-3 py-1.5 rounded-md text-xs font-semibold transition flex items-center gap-1.5 ${
-                floorViewMode === 'matrix'
-                  ? 'bg-amber-500 text-slate-950 shadow-sm'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              <TableProperties className="w-3.5 h-3.5" />
-              <span>Floor-Wise Matrix</span>
-              <span className={`px-1.5 py-0.2 rounded text-[10px] font-mono ${
-                floorViewMode === 'matrix' ? 'bg-slate-950 text-amber-400' : 'bg-slate-800 text-slate-400'
-              }`}>
-                All Levels
-              </span>
-            </button>
-
-            <button
-              type="button"
-              id="tab-mode-single-level"
-              onClick={() => {
-                setFloorViewMode('level_focus');
-                if (selectedFloorId === 'all') {
-                  setSelectedFloorId(floors[1]?.id || floors[0]?.id || 'ground_floor');
-                }
-              }}
-              className={`px-3 py-1.5 rounded-md text-xs font-semibold transition flex items-center gap-1.5 ${
-                floorViewMode === 'level_focus'
-                  ? 'bg-amber-500 text-slate-950 shadow-sm'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              <Layers className="w-3.5 h-3.5" />
-              <span>Single Level Focus</span>
-              {selectedFloorId !== 'all' && (
-                <span className={`px-1.5 py-0.2 rounded text-[10px] font-mono font-bold ${
-                  floorViewMode === 'level_focus' ? 'bg-slate-950 text-amber-400' : 'bg-slate-800 text-slate-400'
-                }`}>
-                  {floors.find((f) => f.id === selectedFloorId)?.shortCode || 'Level'}
-                </span>
-              )}
-            </button>
-
-            <button
-              type="button"
-              id="tab-mode-master-consolidated"
-              onClick={() => setFloorViewMode('standard')}
-              className={`px-3 py-1.5 rounded-md text-xs font-semibold transition flex items-center gap-1.5 ${
-                floorViewMode === 'standard'
-                  ? 'bg-amber-500 text-slate-950 shadow-sm'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              <span>Master Schedule</span>
-            </button>
-          </div>
-
-          <div className="flex items-center gap-2 flex-wrap">
-            <button
-              type="button"
-              id="btn-format-snk-turnkey"
-              onClick={handleApplySNKFormat}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold shadow-sm transition"
-              title="Apply SNK Turnkey 3,599 sq.ft Format (Material Prices, Area Concept & Level Schedule)"
-            >
-              <Sparkles className="w-3.5 h-3.5 text-slate-950" />
-              <span>SNK Format (3,599 Sft)</span>
-            </button>
-
-            <button
-              type="button"
-              id="btn-export-floor-wise-excel"
-              onClick={handleExportExcel}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold shadow-sm transition"
-              title="Download Schedule of Rates and Quantities broken down by floor level in Microsoft Excel (.xlsx) workbook"
-            >
-              <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-100" />
-              <span>Export Excel (.xlsx)</span>
-            </button>
-
-            <button
-              type="button"
-              id="btn-export-floor-wise-csv"
-              onClick={handleExportFloorWiseCSV}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-emerald-400 border border-emerald-500/30 text-xs font-medium transition"
-              title="Download Schedule of Rates and Quantities with individual columns for each floor level in Excel-ready CSV format"
-            >
-              <Download className="w-3.5 h-3.5 text-emerald-400" />
-              <span>Export CSV (Excel)</span>
-            </button>
-
-            <button
-              type="button"
-              id="btn-print-floor-report"
-              onClick={() => setIsFloorPrintModalOpen(true)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-rose-950/40 hover:bg-rose-900/50 text-rose-300 border border-rose-500/30 text-xs font-medium transition"
-              title="Convert to PDF & print official Floor-Wise Schedule of Rates and Quantities report"
-            >
-              <FileDown className="w-3.5 h-3.5 text-rose-400" />
-              <span>Floor Report (PDF)</span>
-            </button>
-          </div>
-        </div>
-
-        {/* View Mode 1: Detailed Floor-Wise Matrix Table */}
-        {floorViewMode === 'matrix' && (
-          <FloorWiseBOQMatrix
-            items={items}
-            floors={floors}
-            floorTotals={floorTotals}
-            currency={currency}
-            contingencyPercent={contingencyPercent}
-            auditResults={auditResults}
-            isAuditActive={isAuditActive}
-            onUpdateFloorQty={handleUpdateItemFloorQty}
-            onUpdateRate={handleUpdateItemRateInMatrix}
-            onDeleteItem={handleDeleteItem}
-            onOpenItemDistribution={(item) => {
-              setActiveDistributionItem(item);
-              setIsDistributionModalOpen(true);
-            }}
-            onApplySNKFormat={handleApplySNKFormat}
-          />
-        )}
-
-        {/* View Mode 2: Level-Specific Focus View */}
-        {floorViewMode === 'level_focus' && (
-          <LevelDetailedBOQTable
-            floor={
-              floors.find((f) => f.id === selectedFloorId) ||
-              floors.find((f) => f.id === 'ground_floor') ||
-              floors[0]
-            }
-            floorTotal={
-              floorTotals.find((t) => t.floorId === selectedFloorId) ||
-              floorTotals[0]
-            }
-            items={items}
-            allFloors={floors}
-            currency={currency}
-            contingencyPercent={contingencyPercent}
-            onUpdateFloorQty={handleUpdateItemFloorQty}
-            onUpdateRate={handleUpdateItemRateInMatrix}
-            onCopyFromFloor={handleCopyFromFloor}
-            onOpenItemDistribution={(item) => {
-              setActiveDistributionItem(item);
-              setIsDistributionModalOpen(true);
-            }}
-          />
-        )}
-      </div>
-
-      {/* MAIN BOQ ITEM SCHEDULE TABLE (Master Consolidated View) */}
-      {floorViewMode === 'standard' && (
-      <div className="rounded-xl bg-slate-900 border border-slate-800 overflow-hidden shadow-sm">
-        {/* Banner notification when market prices are updated */}
-        {marketUpdateBanner && (
-          <div className="p-3 bg-gradient-to-r from-amber-500/15 via-amber-500/10 to-transparent border-b border-amber-500/30 flex items-center justify-between gap-2 text-xs">
-            <div className="flex items-center gap-2">
-              <Zap className="w-4 h-4 text-amber-400 shrink-0 animate-pulse" />
               <div>
-                <span className="font-bold text-amber-300 font-mono">{marketUpdateBanner.message}</span>
-                {marketUpdateBanner.submessage && (
-                  <p className="text-[11px] text-slate-300 mt-0.5 font-mono">{marketUpdateBanner.submessage}</p>
-                )}
+                <label className="block text-xs font-medium text-slate-300 mb-1">
+                  Quality Tier
+                </label>
+                <select
+                  value={aiQualityTier}
+                  onChange={(e) => setAiQualityTier(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none"
+                >
+                  <option value="Economy">Economy (₹1,400–₹1,750/sq.ft)</option>
+                  <option value="Standard">Standard (₹1,800–₹2,450/sq.ft)</option>
+                  <option value="Premium">Premium (₹2,500–₹3,600/sq.ft)</option>
+                  <option value="Luxury">Luxury (₹3,800–₹5,500/sq.ft)</option>
+                </select>
               </div>
             </div>
-            <button
-              onClick={() => setMarketUpdateBanner(null)}
-              className="text-slate-400 hover:text-white text-xs px-2 py-1 rounded hover:bg-slate-800 transition font-mono"
-            >
-              Dismiss
-            </button>
-          </div>
-        )}
 
-        {/* Area-Based Takeoff & Market Price Quick Bar */}
-        <div className="p-3 bg-gradient-to-r from-amber-500/10 via-slate-950 to-slate-950 border-b border-slate-800 flex items-center justify-between flex-wrap gap-2 text-xs font-mono">
-          <div className="flex items-center gap-2.5">
-            <div className="w-7 h-7 rounded-lg bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-400 shrink-0">
-              <Maximize2 className="w-4 h-4" />
-            </div>
             <div>
-              <span className="text-white font-bold">
-                Automatic Takeoff: Built-up Area {areaSqFt.toLocaleString()} sq.ft
-              </span>
-              <span className="text-slate-400 block text-[11px]">
-                Empirical consumption norms (IS 456) scale rebar (3.8 kg/sq.ft), cement (0.42 bags/sq.ft), blocks, tiles and market rates.
-              </span>
+              <label className="block text-xs font-medium text-slate-300 mb-1">
+                Project Description
+              </label>
+              <textarea
+                rows={3}
+                value={aiDescription}
+                onChange={(e) => setAiDescription(e.target.value)}
+                placeholder="e.g. G+2 residential home in Whitefield with M25 RCC frame, AAC blocks, vitrified flooring..."
+                className="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-xs text-white focus:outline-none"
+              />
             </div>
-          </div>
-        </div>
 
-        <div className="p-3 bg-slate-950/80 border-b border-slate-800 flex items-center justify-between flex-wrap gap-2">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-xs font-semibold text-white font-mono">
-              Schedule of Rates & Quantities ({filteredItems.length} items)
-            </span>
-            {filterCategory !== 'all' && (
-              <span className="text-[10px] bg-amber-500/10 text-amber-300 px-2 py-0.5 rounded border border-amber-500/30">
-                Filtered: {filterCategory}
-              </span>
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={handleGenerateAI}
+                disabled={aiLoading}
+                className="px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold text-xs inline-flex items-center gap-1.5 disabled:opacity-50"
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>{aiLoading ? 'Calculating...' : 'Generate Items'}</span>
+              </button>
+            </div>
+
+            {aiResult && (
+              <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
+                <p className="text-xs font-semibold text-amber-300">{aiResult.project_summary}</p>
+                <div className="max-h-48 overflow-y-auto divide-y divide-slate-800 text-xs">
+                  {aiResult.items.map((it, idx) => (
+                    <div key={idx} className="py-1.5 flex items-center justify-between gap-2 tabular-nums">
+                      <span className="text-slate-200 truncate">{it.name}</span>
+                      <span className="text-slate-400 shrink-0">
+                        {it.quantity} {it.unit} · ₹{(it.quantity * it.rate).toLocaleString()}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+                <div className="flex justify-end gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => handleApplyAIBOQ(false)}
+                    className="px-3 py-1.5 rounded-lg bg-slate-800 text-xs text-amber-300"
+                  >
+                    Append
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleApplyAIBOQ(true)}
+                    className="px-3 py-1.5 rounded-lg bg-amber-500 text-slate-950 font-semibold text-xs"
+                  >
+                    Replace Schedule
+                  </button>
+                </div>
+              </div>
             )}
           </div>
-
-          {/* Schedule Specification & Regional Hub Selectors */}
-          <div className="flex items-center gap-2 flex-wrap">
-            {/* Region selector */}
-            <div className="flex items-center gap-1 bg-slate-900 border border-slate-700/80 rounded-lg px-2 py-1 text-[11px] font-mono text-slate-300">
-              <MapPin className="w-3 h-3 text-amber-400 shrink-0" />
-              <select
-                id="select-schedule-market-region"
-                value={activeMarketRegion}
-                onChange={(e) => setActiveMarketRegion(e.target.value as MarketRegion)}
-                className="bg-transparent text-amber-300 focus:outline-none cursor-pointer text-xs"
-                title="Select geographical pricing hub"
-              >
-                {MARKET_REGIONS.map((r) => (
-                  <option key={r.id} value={r.id} className="bg-slate-900 text-white">
-                    {r.shortName}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Quality Tier selector */}
-            <select
-              id="select-schedule-market-tier"
-              value={activeMarketTier}
-              onChange={(e) => setActiveMarketTier(e.target.value as MarketQualityTier)}
-              className="bg-slate-900 border border-slate-700/80 rounded-lg px-2 py-1 text-xs text-slate-300 focus:outline-none cursor-pointer font-sans"
-              title="Select specification quality tier"
-            >
-              <option value="Economy" className="bg-slate-900">Economy</option>
-              <option value="Standard" className="bg-slate-900">Standard</option>
-              <option value="Premium" className="bg-slate-900">Premium</option>
-              <option value="Luxury" className="bg-slate-900">Luxury</option>
-            </select>
-          </div>
         </div>
-
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse text-xs">
-            <thead>
-              <tr className="border-b border-slate-800 bg-slate-950/50 font-mono text-[11px] text-slate-400 uppercase tracking-wider">
-                <th className="py-3 px-4 w-12 text-center">#</th>
-                <th className="py-3 px-4 min-w-[240px]">Item Description</th>
-                <th className="py-3 px-3 w-32">Category</th>
-                <th className="py-3 px-3 w-28 text-center">Unit</th>
-                <th className="py-3 px-3 w-28 text-right">Quantity</th>
-                <th className="py-3 px-3 w-28 text-right">Unit Rate (₹)</th>
-                <th className="py-3 px-4 w-32 text-right">Amount</th>
-                <th className="py-3 px-3 w-16 text-center">Action</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-800/60 font-sans">
-              {filteredItems.length === 0 ? (
-                <tr>
-                  <td colSpan={8} className="py-12 text-center text-slate-400 text-xs">
-                    {auditFilterOnlyIssues
-                      ? 'No flagged items remaining. All items passed the logic audit!'
-                      : 'No items in this view. Click "Add Line Item" or "AI BOQ Generator" to populate quantities.'}
-                  </td>
-                </tr>
-              ) : (
-                filteredItems.map((item, index) => {
-                  const audit = isAuditActive ? auditResults[item.id] : null;
-                  const hasAuditError = isAuditActive && !!audit?.hasIssues;
-
-                  return (
-                    <tr
-                      key={item.id}
-                      className={`transition group ${
-                        hasAuditError
-                          ? 'bg-red-950/30 border-l-4 border-l-red-500 hover:bg-red-950/40'
-                          : 'hover:bg-slate-800/40'
-                      }`}
-                    >
-                      <td className="py-2.5 px-4 text-center font-mono text-slate-500">
-                        {hasAuditError ? (
-                          <AlertTriangle className="w-3.5 h-3.5 text-red-400 mx-auto" />
-                        ) : (
-                          index + 1
-                        )}
-                      </td>
-                      <td className="py-2.5 px-4">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <div className="font-medium text-slate-200">
-                            {item.name}
-                          </div>
-                        </div>
-                        {item.notes && (
-                          <div className="text-[11px] text-slate-400 italic mt-0.5">{item.notes}</div>
-                        )}
-                      </td>
-                      <td className="py-2.5 px-3">
-                        <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-slate-800 text-slate-300 border border-slate-700">
-                          {item.category}
-                        </span>
-                      </td>
-                      <td className="py-2.5 px-3 text-center font-mono">
-                        {hasAuditError && audit?.mismatchedUnit ? (
-                          <div className="flex flex-col items-center gap-1">
-                            <select
-                              value={item.unit}
-                              onChange={(e) => handleUpdateItemField(item.id, 'unit', e.target.value)}
-                              className="px-2 py-1 rounded text-xs font-mono font-bold bg-red-950 border-2 border-red-500 text-red-200 ring-2 ring-red-500/50 focus:outline-none cursor-pointer"
-                              title="Mismatched unit: choose corrected unit"
-                            >
-                              {UNITS.map((u) => (
-                                <option key={u} value={u} className="bg-slate-900 text-white font-mono">
-                                  {u}
-                                </option>
-                              ))}
-                            </select>
-                            <span className="text-[9px] font-mono font-bold text-red-400 uppercase tracking-wider">
-                              Mismatched Unit
-                            </span>
-                            {audit.suggestedUnit && (
-                              <button
-                                type="button"
-                                onClick={() => handleUpdateItemField(item.id, 'unit', audit.suggestedUnit!)}
-                                className="text-[9px] text-amber-300 hover:text-amber-200 underline font-mono"
-                                title={`Change unit to recommended '${audit.suggestedUnit}'`}
-                              >
-                                Suggest: {audit.suggestedUnit}
-                              </button>
-                            )}
-                          </div>
-                        ) : (
-                          <span className="text-slate-300">{item.unit}</span>
-                        )}
-                      </td>
-                      <td className="py-2.5 px-3 text-right">
-                        <div className="flex flex-col items-end">
-                          <input
-                            type="number"
-                            min={0}
-                            step={0.1}
-                            value={item.quantity}
-                            onChange={(e) => handleUpdateItemField(item.id, 'quantity', e.target.value)}
-                            className={`w-24 rounded px-2 py-1 text-right text-xs font-mono focus:outline-none ${
-                              hasAuditError && audit?.zeroQuantity
-                                ? 'bg-red-950/90 border-2 border-red-500 text-red-200 ring-2 ring-red-500/50 font-bold focus:border-red-400'
-                                : 'bg-slate-950 border border-slate-800 text-white focus:border-amber-500'
-                            }`}
-                          />
-                          {hasAuditError && audit?.zeroQuantity && (
-                            <span className="text-[9px] text-red-400 font-mono mt-0.5 font-semibold">
-                              Qty &gt; 0 req
-                            </span>
-                          )}
-                        </div>
-                      </td>
-                      <td className="py-2.5 px-3 text-right">
-                        <div className="flex flex-col items-end">
-                          <input
-                            type="number"
-                            min={0}
-                            step={1}
-                            value={item.rate}
-                            onChange={(e) => handleUpdateItemField(item.id, 'rate', e.target.value)}
-                            className={`w-24 rounded px-2 py-1 text-right text-xs font-mono focus:outline-none ${
-                              hasAuditError && audit?.missingRate
-                                ? 'bg-red-950/90 border-2 border-red-500 text-red-200 ring-2 ring-red-500/50 font-bold focus:border-red-400'
-                                : 'bg-slate-950 border border-slate-800 text-white focus:border-amber-500'
-                            }`}
-                          />
-                          {/* Live Market Price comparison & quick 1-click apply */}
-                          {(() => {
-                            const match = itemMarketMatches[item.id];
-                            if (!match) return null;
-                            if (item.rate <= 0) {
-                              return (
-                                <button
-                                  type="button"
-                                  onClick={() => handleUpdateSingleItemToMarket(item.id)}
-                                  className="mt-1 inline-flex items-center gap-1 text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 hover:bg-amber-500/30 transition text-right"
-                                  title={`Click to auto-apply prevailing market rate: ₹${match.marketRate.toLocaleString()}`}
-                                >
-                                  <Zap className="w-2.5 h-2.5 text-amber-400 animate-pulse" />
-                                  <span>Auto-Fill: ₹{match.marketRate.toLocaleString()}</span>
-                                </button>
-                              );
-                            }
-                            if (match.status === 'exact') {
-                              return (
-                                <span className="mt-0.5 text-[9px] font-mono text-emerald-400/90 flex items-center gap-0.5">
-                                  <Check className="w-2.5 h-2.5 text-emerald-400" />
-                                  <span>Mkt: ₹{match.marketRate.toLocaleString()}</span>
-                                </span>
-                              );
-                            }
-                            const isRising = match.rateDelta > 0;
-                            const isFalling = match.rateDelta < 0;
-                            return (
-                              <div className="mt-0.5 flex items-center gap-1 text-[9px] font-mono">
-                                <span
-                                  className={`flex items-center gap-0.5 font-bold ${
-                                    isRising
-                                      ? 'text-emerald-400'
-                                      : isFalling
-                                      ? 'text-rose-400'
-                                      : 'text-slate-400'
-                                  }`}
-                                >
-                                  {isRising ? (
-                                    <TrendingUp className="w-2.5 h-2.5 text-emerald-400" />
-                                  ) : isFalling ? (
-                                    <TrendingDown className="w-2.5 h-2.5 text-rose-400" />
-                                  ) : null}
-                                  <span>
-                                    Mkt: ₹{match.marketRate.toLocaleString()} ({match.percentDelta > 0 ? `+${match.percentDelta}%` : `${match.percentDelta}%`})
-                                  </span>
-                                </span>
-                                <button
-                                  type="button"
-                                  onClick={() => handleUpdateSingleItemToMarket(item.id)}
-                                  className="text-amber-300 hover:text-amber-200 underline font-semibold"
-                                  title={`Update this item to market price ₹${match.marketRate.toLocaleString()}`}
-                                >
-                                  Sync
-                                </button>
-                              </div>
-                            );
-                          })()}
-                          {hasAuditError && audit?.missingRate && (
-                            <span className="text-[9px] text-red-400 font-mono mt-0.5 font-bold">
-                              Missing Rate (₹0)
-                            </span>
-                          )}
-                        </div>
-                      </td>
-                      <td className="py-2.5 px-4 text-right font-mono font-semibold">
-                        {hasAuditError && (audit?.missingRate || audit?.zeroQuantity) ? (
-                          <span className="text-red-400 font-bold">
-                            ₹0 (Pending)
-                          </span>
-                        ) : (
-                          <span className="text-amber-400">
-                            {formatCurrency(item.quantity * item.rate, currency)}
-                          </span>
-                        )}
-                      </td>
-                      <td className="py-2.5 px-3 text-center">
-                        <div className="flex items-center justify-center gap-1">
-                          <button
-                            onClick={() => handleDeleteItem(item.id)}
-                            className="text-slate-500 hover:text-red-400 transition p-1"
-                            title="Delete line item"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-            <tfoot>
-              {/* Subtotal */}
-              <tr className="border-t border-slate-700 bg-slate-950 font-mono font-bold text-xs">
-                <td colSpan={6} className="py-3 px-4 text-right text-slate-300">
-                  Subtotal Civil & Finishing Works:
-                </td>
-                <td className="py-3 px-4 text-right text-white">
-                  {formatCurrency(subtotal, currency)}
-                </td>
-                <td></td>
-              </tr>
-
-              {/* Contingency */}
-              <tr className="bg-slate-950 font-mono text-xs">
-                <td colSpan={6} className="py-2 px-4 text-right text-amber-400 font-medium">
-                  Design Contingency Reserve ({contingencyPercent}%):
-                </td>
-                <td className="py-2 px-4 text-right text-amber-400 font-bold">
-                  {formatCurrency(contingencyAmount, currency)}
-                </td>
-                <td></td>
-              </tr>
-
-              {/* Grand Total */}
-              <tr className="bg-slate-950 font-mono text-sm border-t border-slate-700">
-                <td colSpan={6} className="py-3 px-4 text-right text-amber-400 font-bold uppercase tracking-wider">
-                  Grand Estimated Total:
-                </td>
-                <td className="py-3 px-4 text-right text-amber-400 font-extrabold text-base">
-                  {formatCurrency(totalEstimate, currency)}
-                </td>
-                <td></td>
-              </tr>
-
-              {/* Unit Rate per sq.ft summary row */}
-              <tr className="bg-slate-950/90 font-mono text-xs border-t border-slate-800/80">
-                <td colSpan={6} className="py-2.5 px-4 text-right text-emerald-400 font-semibold">
-                  Unit Rate per sq.ft ({areaSqFt.toLocaleString()} sq.ft plinth):
-                </td>
-                <td className="py-2.5 px-4 text-right text-emerald-400 font-bold text-sm">
-                  {formatCurrency(currentRatePerSqFt, currency)} / sq.ft
-                </td>
-                <td></td>
-              </tr>
-            </tfoot>
-          </table>
-        </div>
-      </div>
       )}
 
-      {/* MODAL 6: AUTOMATIC MARKET PRICE UPDATE & COMPARISON */}
+      {isEnquiryModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/85 p-4">
+          <div className="bg-slate-900 border border-slate-700 rounded-xl max-w-lg w-full p-5 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <h3 className="text-base font-bold text-white">Send BOQ Tender Enquiry</h3>
+              <button
+                type="button"
+                onClick={() => setIsEnquiryModal(false)}
+                className="text-slate-400 hover:text-white"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            {enquirySuccess ? (
+              <div className="p-6 text-center space-y-2">
+                <Check className="w-8 h-8 text-emerald-400 mx-auto" />
+                <p className="text-sm font-bold text-white">Tender Enquiry Sent</p>
+              </div>
+            ) : (
+              <form onSubmit={handleSendTenderEnquiry} className="space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <input
+                    type="text"
+                    required
+                    value={enquiryClientName}
+                    onChange={(e) => setEnquiryClientName(e.target.value)}
+                    placeholder="Name"
+                    className="bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white"
+                  />
+                  <input
+                    type="text"
+                    required
+                    value={enquiryClientPhone}
+                    onChange={(e) => setEnquiryClientPhone(e.target.value)}
+                    placeholder="Phone"
+                    className="bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white"
+                  />
+                </div>
+                <input
+                  type="email"
+                  required
+                  value={enquiryClientEmail}
+                  onChange={(e) => setEnquiryClientEmail(e.target.value)}
+                  placeholder="Email"
+                  className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white"
+                />
+                <textarea
+                  rows={3}
+                  value={enquiryTenderNotes}
+                  onChange={(e) => setEnquiryTenderNotes(e.target.value)}
+                  placeholder="Notes or timeline requirements..."
+                  className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2.5 text-xs text-white"
+                />
+                <div className="flex justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsEnquiryModal(false)}
+                    className="px-4 py-2 rounded-lg bg-slate-800 text-xs text-slate-300"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-4 py-2 rounded-lg bg-amber-500 text-slate-950 font-semibold text-xs"
+                  >
+                    Send Enquiry
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
+
       <MarketPriceAutoUpdateModal
         items={items}
         currency={currency}
@@ -2744,16 +2470,12 @@ Contact: ${enquiryClientPhone}`,
         isOpen={isMarketModalOpen}
         onClose={() => setIsMarketModalOpen(false)}
         initialRegion={activeMarketRegion}
-        onApplyRates={(updatedItems) => {
-          onUpdateItems(updatedItems);
-          setMarketUpdateBanner({
-            message: `Updated ${updatedItems.length} items to prevailing market rates (${MARKET_REGIONS.find((r) => r.id === activeMarketRegion)?.shortName || 'Market Hub'}).`,
-            submessage: `All rates, amounts, subtotal, and cost distribution components have been automatically recalculated.`,
-          });
+        onApplyRates={(updated) => {
+          onUpdateItems(updated);
+          showToast(`Updated ${updated.length} BOQ items to market rates.`);
         }}
       />
 
-      {/* MODAL 7: AUTOMATIC AREA & MARKET PRICE TAKEOFF UPDATE */}
       <AreaTakeoffAutoUpdateModal
         items={items}
         currentAreaSqFt={areaSqFt}
@@ -2764,18 +2486,35 @@ Contact: ${enquiryClientPhone}`,
         initialTier={activeMarketTier}
         initialPricingBasis={activeMarketBasis}
         floors={floors}
-        onApplyUpdate={handleApplyAreaAndMarketUpdate}
+        onApplyUpdate={(updated, newArea, summary) => {
+          handleApplyAreaChange(newArea, false);
+          onUpdateItems(updated);
+          showToast(summary || `Synced area (${newArea.toLocaleString()} sq.ft) & market rates.`);
+        }}
       />
 
-      {/* MODAL 8: CONFIGURE BUILDING LEVELS & FLOOR AREAS */}
       <BuildingFloorManagerModal
         isOpen={isFloorManagerOpen}
         onClose={() => setIsFloorManagerOpen(false)}
         floors={floors}
-        onSaveFloors={handleSaveFloors}
+        onSaveFloors={(newFloors) => {
+          setFloors(newFloors);
+          const totalArea = newFloors.reduce((s, f) => s + (Number(f.areaSqFt) || 0), 0);
+          if (totalArea > 0) {
+            setAreaSqFt(totalArea);
+            setAreaDraft(totalArea);
+          }
+          if (onUpdateProject) {
+            onUpdateProject({
+              ...activeProject,
+              floors: newFloors,
+              builtUpAreaSqFt: totalArea > 0 ? totalArea : activeProject.builtUpAreaSqFt,
+            });
+          }
+          setIsFloorManagerOpen(false);
+        }}
       />
 
-      {/* MODAL 9: FLOOR-WISE QUANTITY DISTRIBUTION TOOLS */}
       <FloorDistributionModal
         isOpen={isDistributionModalOpen}
         onClose={() => {
@@ -2789,7 +2528,6 @@ Contact: ${enquiryClientPhone}`,
         onUpdateAllItems={onUpdateItems}
       />
 
-      {/* MODAL 10: PRINT & EXPORT FLOOR-WISE REPORT */}
       <FloorWisePrintReportModal
         isOpen={isFloorPrintModalOpen}
         onClose={() => setIsFloorPrintModalOpen(false)}
@@ -2801,19 +2539,15 @@ Contact: ${enquiryClientPhone}`,
         contingencyPercent={contingencyPercent}
       />
 
-      {/* MODAL 11: DETAILED LABOUR COST BREAKDOWN & RATE CALIBRATION */}
       <LabourCostBreakdownModal
         items={items}
         currency={currency}
         areaSqFt={areaSqFt}
         isOpen={isLabourBreakdownModalOpen}
         onClose={() => setIsLabourBreakdownModalOpen(false)}
-        onApplyRates={(updatedItems) => {
-          onUpdateItems(updatedItems);
-          setMarketUpdateBanner({
-            message: `Successfully calibrated ${updatedItems.length} BOQ items with civil engineering labour schedule rates!`,
-            submessage: `All rates, labor percentage splits, and amounts have been calibrated to current construction labor benchmarks.`,
-          });
+        onApplyRates={(updated) => {
+          onUpdateItems(updated);
+          showToast(`Calibrated ${updated.length} items with civil labour benchmarks.`);
         }}
       />
     </div>

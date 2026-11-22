@@ -33,6 +33,7 @@ import courtyardInteriorImg from '../assets/images/pg_dining_lounge_179017022906
 import masterSuiteImg from '../assets/images/pg_bedroom_suite_1790170216460.jpg';
 import pgTerraceImg from '../assets/images/bangalore_pg_terrace_1790170513465.jpg';
 import apartmentTowerImg from '../assets/images/mantri_premero_tower_1790170972037.jpg';
+import { AVATARS } from '../utils/mediaAssets';
 
 export interface PastClientProject {
   id: string;
@@ -80,7 +81,7 @@ export const ClientPastProjectsShowcase: React.FC<ClientPastProjectsShowcaseProp
       rating: 5,
       testimonial:
         'Ar. S. Gouse delivered our biophilic duplex residence with zero contractor cost variance. The dynamic CPWD-indexed BOQ locked all steel and concrete rates beforehand. Handover was executed 12 days ahead of schedule!',
-      clientAvatarUrl: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?auto=format&fit=crop&w=300&q=80',
+      clientAvatarUrl: AVATARS.principal,
       handoverPhotos: [
         {
           title: 'Official Handover & Twilight Front Elevation',
@@ -114,7 +115,7 @@ export const ClientPastProjectsShowcase: React.FC<ClientPastProjectsShowcaseProp
       rating: 5,
       testimonial:
         'Residing in Singapore, managing home construction remotely in India was daunting until we partnered with Ar. S. Gouse. The daily 360° AI site camera scans and automated rebar inspection ensured 100% transparency.',
-      clientAvatarUrl: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=300&q=80',
+      clientAvatarUrl: AVATARS.seniorArchitect,
       handoverPhotos: [
         {
           title: 'Finished Superstructure & Cantilevered Balconies',
@@ -143,7 +144,7 @@ export const ClientPastProjectsShowcase: React.FC<ClientPastProjectsShowcaseProp
       rating: 5,
       testimonial:
         'Turnkey architectural design, structural M25 casting, and Gouse AI Agent Broker leasing filled our 32-bed facility in just 11 days. Complete end-to-end execution without third-party broker cuts.',
-      clientAvatarUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=300&q=80',
+      clientAvatarUrl: AVATARS.structuralEngineer,
       handoverPhotos: [
         {
           title: 'Turnkey Apartment & Co-Living Tower Handover',
@@ -172,7 +173,7 @@ export const ClientPastProjectsShowcase: React.FC<ClientPastProjectsShowcaseProp
       rating: 5,
       testimonial:
         'Ar. S. Gouse’s automated BIM clash detection caught a critical 100mm MEP duct collision before slab casting began. The final finished residence is peaceful, energy-efficient, and acoustically dampened.',
-      clientAvatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=300&q=80',
+      clientAvatarUrl: AVATARS.qsDirector,
       handoverPhotos: [
         {
           title: 'Slab Framing Inspection Milestone (2024)',
@@ -209,6 +210,7 @@ export const ClientPastProjectsShowcase: React.FC<ClientPastProjectsShowcaseProp
   const [postCaption, setPostCaption] = useState('');
   const [postSelectedPresetImage, setPostSelectedPresetImage] = useState(villaExteriorImg);
   const [postSuccessMessage, setPostSuccessMessage] = useState<string | null>(null);
+  const [postError, setPostError] = useState<string | null>(null);
 
   // Likes Counter Handler
   const handleLikeProject = (id: string) => {
@@ -221,9 +223,10 @@ export const ClientPastProjectsShowcase: React.FC<ClientPastProjectsShowcaseProp
   const handleSubmitClientPost = (e: React.FormEvent) => {
     e.preventDefault();
     if (!postClientName.trim() || !postProjectName.trim()) {
-      alert('Please fill in your name and project name.');
+      setPostError('Please fill in both your full name and project name.');
       return;
     }
+    setPostError(null);
 
     const newProject: PastClientProject = {
       id: `client-post-${Date.now()}`,
@@ -237,7 +240,7 @@ export const ClientPastProjectsShowcase: React.FC<ClientPastProjectsShowcaseProp
       builtUpArea: 'Turnkey Client Project',
       rating: 5,
       testimonial: postCaption || 'Delighted with the architectural craftsmanship and turnkey execution by Ar. S. Gouse Studio.',
-      clientAvatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=300&q=80',
+      clientAvatarUrl: AVATARS.seniorArchitect,
       handoverPhotos: [
         {
           title: postPhotoTitle || 'Delivered Client Space',
@@ -273,26 +276,21 @@ export const ClientPastProjectsShowcase: React.FC<ClientPastProjectsShowcaseProp
       {/* ========================================================================= */}
       {/* 1. HERO BANNER: PAST CLIENT HANDOVER PHOTOS & ARCHITECTURAL RETROSPECTIVE  */}
       {/* ========================================================================= */}
-      <div className="p-6 md:p-8 rounded-3xl bg-gradient-to-r from-rose-950/70 via-slate-900 to-indigo-950/60 border border-rose-500/30 flex flex-col lg:flex-row lg:items-center justify-between gap-6 shadow-2xl">
-        <div className="space-y-3 max-w-3xl">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="px-3 py-1 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/40 text-xs font-mono font-bold flex items-center gap-1.5">
-              <Camera className="w-3.5 h-3.5 text-rose-400" />
-              SOCIAL &amp; MEDIA HUB: PAST CLIENT PHOTOS
-            </span>
-            <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 text-xs font-mono">
-              VERIFIED HANDOVER RETROSPECTIVE
-            </span>
-            <span className="px-2.5 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30 text-xs font-mono">
-              2024 - 2026 DELIVERIES
-            </span>
+      <div className="p-6 md:p-7 rounded-xl bg-slate-900 border border-slate-800 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+        <div className="space-y-2.5 max-w-3xl">
+          <div className="flex items-center gap-2 flex-wrap text-[11px] font-mono uppercase tracking-wider text-slate-400">
+            <span className="text-amber-400 font-semibold">Social &amp; Media Showcase</span>
+            <span>·</span>
+            <span className="text-emerald-400">Verified Handovers</span>
+            <span>·</span>
+            <span>2024 – 2026 Deliveries</span>
           </div>
 
-          <h2 className="text-2xl sm:text-3xl lg:text-4xl font-black text-white tracking-tight leading-tight">
+          <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight leading-tight">
             Past Client Photos, Handover Ceremonies &amp; Delivered Homes
           </h2>
 
-          <p className="text-xs sm:text-sm text-slate-300 leading-relaxed font-light">
+          <p className="text-xs sm:text-sm text-slate-400 leading-relaxed">
             Browse authentic handover ceremony photographs, completed living room interiors, and delivered turnkey villas designed and constructed by Ar. S. Gouse Studio across Bangalore. Clients can also post their own space photos directly to the gallery.
           </p>
         </div>
@@ -300,8 +298,11 @@ export const ClientPastProjectsShowcase: React.FC<ClientPastProjectsShowcaseProp
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 shrink-0">
           <button
             type="button"
-            onClick={() => setIsPostingFormOpen(!isPostingFormOpen)}
-            className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-rose-500 to-pink-600 hover:from-rose-400 hover:to-pink-500 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-rose-500/25 transition"
+            onClick={() => {
+              setPostError(null);
+              setIsPostingFormOpen(!isPostingFormOpen);
+            }}
+            className="px-4 py-2.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold text-xs flex items-center justify-center gap-2 transition"
           >
             <PlusCircle className="w-4 h-4" />
             <span>Post Client Home Photo</span>
@@ -311,7 +312,7 @@ export const ClientPastProjectsShowcase: React.FC<ClientPastProjectsShowcaseProp
             href="https://wa.me/918073947241?text=Hello%20Ar.%20Gouse,%20I%20am%20viewing%20the%20Past%20Client%20Handover%20Photos%20in%20your%20Social%20Media%20Hub%20and%20would%20like%20to%20discuss%20a%20project."
             target="_blank"
             rel="noreferrer"
-            className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-bold flex items-center justify-center gap-2 transition"
+            className="px-4 py-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-semibold flex items-center justify-center gap-2 transition"
           >
             <MessageSquare className="w-4 h-4 text-emerald-400" />
             <span>WhatsApp Lead Architect</span>
@@ -347,6 +348,18 @@ export const ClientPastProjectsShowcase: React.FC<ClientPastProjectsShowcaseProp
           </div>
 
           <form onSubmit={handleSubmitClientPost} className="space-y-4">
+            {postError && (
+              <div className="p-3 rounded-lg bg-red-950/60 border border-red-500/40 text-red-300 text-xs flex items-center justify-between gap-2">
+                <span>{postError}</span>
+                <button
+                  type="button"
+                  onClick={() => setPostError(null)}
+                  className="text-red-400 hover:text-white"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div>
                 <label className="block text-xs font-semibold text-slate-300 mb-1">Your Full Name *</label>

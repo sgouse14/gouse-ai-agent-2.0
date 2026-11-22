@@ -1,2225 +1,3051 @@
-import React, { useState, useEffect, useRef } from 'react';
-import {
-  Share2,
-  Camera,
-  Film,
-  Play,
-  Pause,
-  Upload,
-  Image as ImageIcon,
-  Video,
-  Eye,
-  Check,
-  Copy,
-  ExternalLink,
-  Trash2,
-  Sparkles,
-  Phone,
-  MessageSquare,
-  Globe,
-  Send,
-  Heart,
-  ShieldCheck,
-  Building2,
-  Volume2,
-  VolumeX,
-  Maximize2,
-  Minimize2,
-  Download,
-  Filter,
-  Plus,
-  RefreshCw,
-  Megaphone,
-  Briefcase,
-  X,
-  SlidersHorizontal,
-  ChevronRight,
-  Layers,
-  Sparkle,
-  Radio,
-  Compass,
-  FileText,
-  Users,
-} from 'lucide-react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Project, SocialMediaItem } from '../types';
 import { SocialVirtualTourAndCampaigns } from './SocialVirtualTourAndCampaigns';
-import { ClientPastProjectsShowcase } from './ClientPastProjectsShowcase';
+import {
+  Heart,
+  MessageCircle,
+  Bookmark,
+  Share2,
+  Send,
+  MapPin,
+  MoreHorizontal,
+  Plus,
+  Search,
+  Grid3X3,
+  LayoutList,
+  Film,
+  Compass,
+  FileText,
+  Megaphone,
+  Check,
+  CheckCircle2,
+  Copy,
+  Phone,
+  Mail,
+  X,
+  ChevronLeft,
+  ChevronRight,
+  UploadCloud,
+  Image as ImageIcon,
+  Play,
+  ThumbsUp,
+  Building2,
+  Trash2,
+  SlidersHorizontal,
+  HardHat,
+  Package,
+  PenTool,
+  Home,
+  UserCheck,
+} from 'lucide-react';
 
-// Import local project assets for instant out-of-the-box rich visuals
+// Local bundled high-resolution architectural, construction, real estate & material assets
 import villaExteriorImg from '../assets/images/bangalore_house_exterior_1790170528532.jpg';
-import siteFramingImg from '../assets/images/bangalore_builder_proj1_1790170892084.jpg';
+import apartmentTowerImg from '../assets/images/mantri_premero_tower_1790170972037.jpg';
+import pgHouseExteriorImg from '../assets/images/pg_house_exterior_1790170202558.jpg';
+import pgBedroomSuiteImg from '../assets/images/pg_bedroom_suite_1790170216460.jpg';
+import courtyardDiningImg from '../assets/images/pg_dining_lounge_1790170229065.jpg';
+import modernBathImg from '../assets/images/pg_modern_bathroom_1790170240349.jpg';
+import pgTerraceImg from '../assets/images/bangalore_pg_terrace_1790170513465.jpg';
 import villaElevationImg from '../assets/images/bangalore_builder_proj2_1790170907606.jpg';
+import siteFramingImg from '../assets/images/bangalore_builder_proj1_1790170892084.jpg';
 import columnGridImg from '../assets/images/bangalore_builder_proj3_1790170920758.jpg';
-import courtyardInteriorImg from '../assets/images/pg_dining_lounge_1790170229065.jpg';
-import masterSuiteImg from '../assets/images/pg_bedroom_suite_1790170216460.jpg';
+import rccFramingImg from '../assets/images/site_rcc_framing_1795248636506.jpg';
 
-// Pre-seeded high quality sample videos (working HTML5 open video streams)
-const SAMPLE_WALKTHROUGH_VIDEO = 'https://assets.mixkit.co/videos/preview/mixkit-modern-apartment-interior-living-room-41381-large.mp4';
-const SAMPLE_DRONE_VIDEO = 'https://assets.mixkit.co/videos/preview/mixkit-aerial-view-of-modern-city-buildings-42795-large.mp4';
+import realEstateAvatarImg from '../assets/images/avatar_principal_architect_1795248637118.jpg';
+import architectAvatarImg from '../assets/images/avatar_senior_architect_1795248636683.jpg';
+import builderAvatarImg from '../assets/images/avatar_structural_engineer_1795248637200.jpg';
+import supplierAvatarImg from '../assets/images/avatar_qs_director_1795248637002.jpg';
 
-export const INITIAL_SOCIAL_MEDIA_ITEMS: SocialMediaItem[] = [
+export type PosterRole =
+  | 'real_estate'
+  | 'architect'
+  | 'builder'
+  | 'material_supplier'
+  | 'client';
+
+export type RoleFilter = 'all' | PosterRole;
+
+export type RealEstateCategory =
+  | 'all'
+  | 'for_sale'
+  | 'for_rent'
+  | 'pg_coliving'
+  | 'land_plots'
+  | 'architectural_design'
+  | 'turnkey_build'
+  | 'materials_supply'
+  | 'client_post';
+
+export interface PostComment {
+  id: string;
+  author: string;
+  text: string;
+  timeAgo: string;
+}
+
+export interface RealEstateSocialPost extends SocialMediaItem {
+  posterRole: PosterRole;
+  posterName: string;
+  posterHandle: string;
+  posterAvatar: string;
+  posterPhone: string;
+  propertyCategory: Exclude<RealEstateCategory, 'all'>;
+  listingStatus: string;
+  priceLabel: string;
+  location: string;
+  areaSpec: string;
+  bhkOrType: string;
+  facing: string;
+  possessionStatus: string;
+  postedAgo: string;
+  liked: boolean;
+  saved: boolean;
+  sharesCount: number;
+  isReel?: boolean;
+  comments: PostComment[];
+  hashtags: string[];
+}
+
+export interface PropertyStoryHighlight {
+  id: string;
+  role: PosterRole;
+  label: string;
+  posterHandle: string;
+  location: string;
+  priceTag: string;
+  headline: string;
+  subline: string;
+  imageUrl: string;
+  category: Exclude<RealEstateCategory, 'all'>;
+  postedAgo: string;
+}
+
+const STORAGE_KEY = 'realstate_media_social_v4';
+
+export const ROLE_DIRECTORY: Record<
+  PosterRole,
   {
-    id: 'media-1',
-    type: 'video',
-    title: '3D Lumion Architectural Walkthrough • Biophilic Living & Courtyard',
-    caption: 'Step inside the biophilic double-height courtyard featuring NBC 2016 solar passive daylighting and bespoke teak louvers. Designed and executed by Ar. S. Gouse.',
-    url: SAMPLE_WALKTHROUGH_VIDEO,
-    thumbnailUrl: courtyardInteriorImg,
-    fileName: 'lumion_3d_walkthrough_4k.mp4',
-    fileSize: '42.8 MB',
-    dimensions: '1920x1080 (Full HD 60fps)',
-    aspectRatio: '16:9',
-    duration: '02:14',
-    platform: 'youtube',
-    category: '3d_walkthrough',
-    uploadedAt: 'Today at 09:30 AM',
-    architectAttribution: 'Ar. S. Gouse (+91 8073947241)',
-    tags: ['#3DWalkthrough', '#LumionArchitecture', '#NBC2016', '#TurnkeyConstruction', '#BangaloreArchitects'],
-    likesCount: 142,
-    viewsCount: 2840,
-    isFeatured: true,
+    label: string;
+    shortLabel: string;
+    defaultName: string;
+    defaultHandle: string;
+    avatar: string;
+    accentText: string;
+    defaultCategory: Exclude<RealEstateCategory, 'all'>;
+    defaultStatus: string;
+    placeholderRate: string;
+  }
+> = {
+  real_estate: {
+    label: 'Real Estate',
+    shortLabel: 'Real Estate',
+    defaultName: 'Gouse Real Estate Advisory',
+    defaultHandle: 'gouse_estates_blr',
+    avatar: realEstateAvatarImg,
+    accentText: 'text-amber-300',
+    defaultCategory: 'for_sale',
+    defaultStatus: 'For Sale',
+    placeholderRate: '₹2.85 Cr',
+  },
+  architect: {
+    label: 'Architect',
+    shortLabel: 'Architect',
+    defaultName: 'Ar. S. Gouse Design Studio',
+    defaultHandle: 'gouse_architects_studio',
+    avatar: architectAvatarImg,
+    accentText: 'text-sky-400',
+    defaultCategory: 'architectural_design',
+    defaultStatus: 'Architectural Portfolio',
+    placeholderRate: '₹120 / sq.ft Design',
+  },
+  builder: {
+    label: 'Builder',
+    shortLabel: 'Builder',
+    defaultName: 'Apex Turnkey Builders & Civil',
+    defaultHandle: 'apex_builders_blr',
+    avatar: builderAvatarImg,
+    accentText: 'text-emerald-400',
+    defaultCategory: 'turnkey_build',
+    defaultStatus: 'Turnkey Execution',
+    placeholderRate: '₹2,150 / sq.ft Turnkey',
+  },
+  material_supplier: {
+    label: 'Material Supplier',
+    shortLabel: 'Material Supplier',
+    defaultName: 'Deccan BuildMart & Stones',
+    defaultHandle: 'deccan_materials_hub',
+    avatar: supplierAvatarImg,
+    accentText: 'text-rose-400',
+    defaultCategory: 'materials_supply',
+    defaultStatus: 'Material Supply',
+    placeholderRate: '₹185 / sq.ft Supply',
+  },
+  client: {
+    label: 'Client',
+    shortLabel: 'Client',
+    defaultName: 'Rajesh & Priya (Homeowners)',
+    defaultHandle: 'rajesh_home_journey',
+    avatar: realEstateAvatarImg,
+    accentText: 'text-violet-400',
+    defaultCategory: 'client_post',
+    defaultStatus: 'Client Post',
+    placeholderRate: 'Budget ₹1.40 Cr',
+  },
+};
+
+export const STORY_HIGHLIGHTS: PropertyStoryHighlight[] = [
+  {
+    id: 'story-re-villas',
+    role: 'real_estate',
+    label: 'Luxury Villas',
+    posterHandle: 'gouse_estates_blr',
+    location: 'Whitefield · Bengaluru',
+    priceTag: '₹2.85 Cr',
+    headline: '4 BHK Corner Courtyard Villa — Ready for Inspection',
+    subline: 'Real Estate · 3,450 sq.ft · East Facing · OC & A-Khata Ready',
+    imageUrl: villaExteriorImg,
+    category: 'for_sale',
+    postedAgo: '2h ago',
   },
   {
-    id: 'media-2',
+    id: 'story-arch-facade',
+    role: 'architect',
+    label: '3D Elevations',
+    posterHandle: 'gouse_architects_studio',
+    location: 'Sadashivanagar · Studio',
+    priceTag: 'BIM + GFC',
+    headline: 'Tropical Cantilever Facade & Natural Light Courtyard',
+    subline: 'Architect · Conceptual 3D to GFC Structural & Interior Package',
+    imageUrl: villaElevationImg,
+    category: 'architectural_design',
+    postedAgo: '3h ago',
+  },
+  {
+    id: 'story-builder-rcc',
+    role: 'builder',
+    label: 'Turnkey Sites',
+    posterHandle: 'apex_builders_blr',
+    location: 'Sarjapur Main Road',
+    priceTag: '₹2,150 / sq.ft',
+    headline: 'G+3 RCC Slab Pour & Column Grid Inspection Completed',
+    subline: 'Builder · M25 Grade Concrete · Turnkey Villa Construction',
+    imageUrl: siteFramingImg,
+    category: 'turnkey_build',
+    postedAgo: '5h ago',
+  },
+  {
+    id: 'story-supplier-stone',
+    role: 'material_supplier',
+    label: 'Stone & Bath',
+    posterHandle: 'deccan_materials_hub',
+    location: 'Jigani Granite & Tile Hub',
+    priceTag: '₹240 / sq.ft',
+    headline: 'Bookmatched Italian Quartzite & Matte Black Sanitary Line',
+    subline: 'Material Supplier · Bulk Site Dispatch Across Bengaluru',
+    imageUrl: modernBathImg,
+    category: 'materials_supply',
+    postedAgo: '6h ago',
+  },
+  {
+    id: 'story-re-pg',
+    role: 'real_estate',
+    label: 'Executive PG',
+    posterHandle: 'gouse_estates_blr',
+    location: 'HSR Layout Sector 2',
+    priceTag: '₹12,500 / mo',
+    headline: 'Fully Furnished Co-Living Suites Near Tech Parks',
+    subline: 'Real Estate · Single & Twin Occupancy · Zero Brokerage',
+    imageUrl: pgBedroomSuiteImg,
+    category: 'pg_coliving',
+    postedAgo: '8h ago',
+  },
+  {
+    id: 'story-supplier-steel',
+    role: 'material_supplier',
+    label: 'Fe-550D Steel',
+    posterHandle: 'deccan_materials_hub',
+    location: 'Peenya Industrial Supply',
+    priceTag: '₹68 / kg',
+    headline: 'Primary Fe-550D TMT Bars & Ready-Mix M25 Concrete Delivery',
+    subline: 'Material Supplier · Lab Certified Mill Test Reports Included',
+    imageUrl: rccFramingImg,
+    category: 'materials_supply',
+    postedAgo: '12h ago',
+  },
+  {
+    id: 'story-client-home',
+    role: 'client',
+    label: 'Client Stories',
+    posterHandle: 'rajesh_home_journey',
+    location: 'Whitefield · 30x40 Plot',
+    priceTag: 'Client Handover',
+    headline: 'Our Dream G+2 Duplex Completed on Time & Budget',
+    subline: 'Client Post · Designed & Built via Realstate Media Network',
+    imageUrl: pgTerraceImg,
+    category: 'client_post',
+    postedAgo: '10h ago',
+  },
+];
+
+export const INITIAL_REAL_ESTATE_POSTS: RealEstateSocialPost[] = [
+  {
+    id: 'eco-re-whitefield-villa',
     type: 'photo',
-    title: 'Signature Front Elevation & Cantilevered Balconies',
-    caption: 'Evening twilight elevation render showcasing wire-cut exposed brickwork, textured slate cladding, and integrated acoustic double-glazed fenestrations.',
+    posterRole: 'real_estate',
+    posterName: 'Gouse Real Estate Advisory',
+    posterHandle: 'gouse_estates_blr',
+    posterAvatar: realEstateAvatarImg,
+    posterPhone: '+91 80739 47241',
+    title: 'Whitefield 4 BHK Contemporary Courtyard Villa',
+    caption:
+      'Open house this weekend at our newly handed-over 4 BHK contemporary villa in Whitefield. Double-height living atrium, Italian stone flooring, ventilated central courtyard, and private sky terrace built on a 40x60 East-facing plot.',
     url: villaExteriorImg,
     thumbnailUrl: villaExteriorImg,
-    fileName: 'signature_villa_exterior_twilight.jpg',
-    fileSize: '4.8 MB',
-    dimensions: '3840x2160 (4K UHD)',
-    aspectRatio: '1:1',
+    aspectRatio: '4:5',
+    platform: 'all',
+    category: 'handover',
+    propertyCategory: 'for_sale',
+    listingStatus: 'For Sale',
+    priceLabel: '₹2.85 Cr',
+    location: 'Whitefield, Bengaluru',
+    areaSpec: '3,450 sq.ft',
+    bhkOrType: '4 BHK Villa',
+    facing: 'East Facing',
+    possessionStatus: 'Ready to Move',
+    postedAgo: '2 hrs ago',
+    uploadedAt: '2026-11-21',
+    architectAttribution: 'Gouse Real Estate Advisory',
+    tags: ['WhitefieldVilla', 'BengaluruRealEstate', 'ReadyToMove'],
+    hashtags: ['#WhitefieldVilla', '#BengaluruRealEstate', '#ReadyToMove', '#GouseEstates'],
+    likesCount: 342,
+    viewsCount: 4820,
+    liked: false,
+    saved: true,
+    sharesCount: 47,
+    isFeatured: true,
+    comments: [
+      {
+        id: 'c-101',
+        author: 'rohan_mehta.blr',
+        text: 'What is the plot dimension and OC status for this corner unit?',
+        timeAgo: '1h',
+      },
+      {
+        id: 'c-102',
+        author: 'gouse_estates_blr',
+        text: '40x60 ft (2,400 sq.ft land) with A-Khata and Occupancy Certificate ready. Private tours open 10 AM – 6 PM.',
+        timeAgo: '45m',
+      },
+    ],
+  },
+  {
+    id: 'eco-arch-sadashivanagar',
+    type: 'photo',
+    posterRole: 'architect',
+    posterName: 'Ar. S. Gouse Design Studio',
+    posterHandle: 'gouse_architects_studio',
+    posterAvatar: architectAvatarImg,
+    posterPhone: '+91 80739 47241',
+    title: 'Cantilevered Warm Timber & Glass Villa Elevation',
+    caption:
+      'Completed architectural concept-to-GFC package for a 50x80 corner residence. Deep sun-shading overhangs reduce west solar gain by 38% while framing private terrace gardens across G+2 floors.',
+    url: villaElevationImg,
+    thumbnailUrl: villaElevationImg,
+    aspectRatio: '4:5',
     platform: 'instagram',
     category: 'site_elevation',
-    uploadedAt: 'Yesterday',
-    architectAttribution: 'Ar. S. Gouse (+91 8073947241)',
-    tags: ['#LuxuryVilla', '#ModernElevation', '#BangaloreArchitecture', '#FacadeEngineering', '#ArchitecturalDesign'],
-    likesCount: 389,
-    viewsCount: 4520,
-    isFeatured: true,
+    propertyCategory: 'architectural_design',
+    listingStatus: 'Architecture Project',
+    priceLabel: '₹120 / sq.ft Design',
+    location: 'Sadashivanagar, Bengaluru',
+    areaSpec: '5,200 sq.ft Built-Up',
+    bhkOrType: 'Concept + BIM + GFC',
+    facing: 'North-East Corner',
+    possessionStatus: 'Design Delivered',
+    postedAgo: '3 hrs ago',
+    uploadedAt: '2026-11-21',
+    architectAttribution: 'Ar. S. Gouse Design Studio',
+    tags: ['ArchitectureIndia', 'ContemporaryVilla', 'BIMDesign'],
+    hashtags: ['#BengaluruArchitects', '#FacadeDesign', '#BIMWorkflow', '#GouseDesign'],
+    likesCount: 418,
+    viewsCount: 5940,
+    liked: true,
+    saved: true,
+    sharesCount: 61,
+    isReel: true,
+    duration: '00:48',
+    comments: [
+      {
+        id: 'c-151',
+        author: 'kiran_patel_homes',
+        text: 'Do you take up full architectural + interior + structural GFC drawings for 30x40 sites too?',
+        timeAgo: '2h',
+      },
+    ],
   },
   {
-    id: 'media-3',
-    type: 'video',
-    title: 'Drone Aerial Survey & Setback Verification Reel',
-    caption: 'High-altitude drone sweep validating ADS setbacks (2.5ft front, 2.0ft side yards) compliant with BBMP and NBC 2016 residential building bylaws.',
-    url: SAMPLE_DRONE_VIDEO,
-    thumbnailUrl: siteFramingImg,
-    fileName: 'drone_aerial_setbacks_reel.mp4',
-    fileSize: '28.4 MB',
-    dimensions: '1080x1920 (Vertical 9:16 Reel)',
-    aspectRatio: '9:16',
-    duration: '00:54',
-    platform: 'instagram',
-    category: 'drone_aerial',
-    uploadedAt: '2 days ago',
-    architectAttribution: 'Ar. S. Gouse (+91 8073947241)',
-    tags: ['#DroneReel', '#InstagramReel', '#SiteSetbacks', '#CivilEngineering', '#DroneSurvey'],
-    likesCount: 512,
-    viewsCount: 8900,
-    isFeatured: false,
-  },
-  {
-    id: 'media-4',
+    id: 'eco-builder-sarjapur',
     type: 'photo',
-    title: 'RCC Column Grid & Slab Reinforcement Inspection',
-    caption: 'M25 design-mix concrete casting with Jindal Panther Fe550D TMT reinforcement, cover block placement, and pre-pour structural lead verification.',
-    url: columnGridImg,
-    thumbnailUrl: columnGridImg,
-    fileName: 'rcc_slab_casting_day42.jpg',
-    fileSize: '3.9 MB',
-    dimensions: '2560x1440 (2K QHD)',
+    posterRole: 'builder',
+    posterName: 'Apex Turnkey Builders & Civil',
+    posterHandle: 'apex_builders_blr',
+    posterAvatar: builderAvatarImg,
+    posterPhone: '+91 80739 47241',
+    title: 'Sarjapur Road — Turnkey G+3 Duplex Structural Handover',
+    caption:
+      'Milestone update from our Sarjapur turnkey project: M25 RMC roof slab cured, double-height portico columns plumbed to ±3mm laser tolerance, and AAC block masonry underway on level 2.',
+    url: siteFramingImg,
+    thumbnailUrl: siteFramingImg,
     aspectRatio: '16:9',
     platform: 'facebook',
     category: 'slab_casting',
-    uploadedAt: '3 days ago',
-    architectAttribution: 'Er. Ramesh Babu & Ar. S. Gouse',
-    tags: ['#StructuralEngineering', '#RCCFraming', '#ConcreteSlab', '#JindalPanther', '#QualityControl'],
-    likesCount: 178,
-    viewsCount: 1940,
-    isFeatured: false,
+    propertyCategory: 'turnkey_build',
+    listingStatus: 'Builder Site Log',
+    priceLabel: '₹2,150 / sq.ft Turnkey',
+    location: 'Sarjapur Main Rd, Bengaluru',
+    areaSpec: '4,100 sq.ft Construction',
+    bhkOrType: 'G+3 Turnkey Contract',
+    facing: 'West Facing',
+    possessionStatus: 'Handover Q2 2027',
+    postedAgo: '5 hrs ago',
+    uploadedAt: '2026-11-21',
+    architectAttribution: 'Apex Turnkey Builders',
+    tags: ['TurnkeyBuilder', 'RCCFraming', 'SarjapurConstruction'],
+    hashtags: ['#TurnkeyBuilders', '#CivilEngineering', '#SarjapurRoad', '#QualityConstruction'],
+    likesCount: 274,
+    viewsCount: 3680,
+    liked: false,
+    saved: false,
+    sharesCount: 29,
+    comments: [
+      {
+        id: 'c-201',
+        author: 'naveen_civil',
+        text: 'Clean shuttering alignment and column stirrup spacing.',
+        timeAgo: '3h',
+      },
+    ],
   },
   {
-    id: 'media-5',
+    id: 'eco-sup-marble-bath',
     type: 'photo',
-    title: 'Master Bedroom Suite & Teak Louver Terraces',
-    caption: 'Interior styling with concealed ambient LED coves, Italian marble floor takeoffs, and panoramic sliding pocket doors opening to private planters.',
-    url: masterSuiteImg,
-    thumbnailUrl: masterSuiteImg,
-    fileName: 'master_bedroom_interior_suite.jpg',
-    fileSize: '5.1 MB',
-    dimensions: '3000x2000',
-    aspectRatio: '4:5',
+    posterRole: 'material_supplier',
+    posterName: 'Deccan BuildMart & Stones',
+    posterHandle: 'deccan_materials_hub',
+    posterAvatar: supplierAvatarImg,
+    posterPhone: '+91 80739 47241',
+    title: 'Italian Travertine Slabs & Matte Gunmetal Bath Line',
+    caption:
+      'Fresh container stock ready for builders and interior architects: 18mm honed travertine large-format slabs paired with concealed brushed gunmetal faucets and frameless 10mm toughened shower enclosures.',
+    url: modernBathImg,
+    thumbnailUrl: modernBathImg,
+    aspectRatio: '1:1',
     platform: 'all',
     category: 'interior_design',
-    uploadedAt: '4 days ago',
-    architectAttribution: 'Ar. S. Gouse (+91 8073947241)',
-    tags: ['#InteriorArchitecture', '#MasterSuite', '#LuxuryInteriors', '#BiophilicHomes', '#IndianArchitects'],
-    likesCount: 265,
-    viewsCount: 3120,
-    isFeatured: false,
+    propertyCategory: 'materials_supply',
+    listingStatus: 'Bulk & Retail Supply',
+    priceLabel: '₹240 / sq.ft Slab',
+    location: 'Jigani Granite Hub, Bengaluru',
+    areaSpec: '12,000 sq.ft In Stock',
+    bhkOrType: 'Marble · Tiles · Sanitary',
+    facing: '24-Hr Site Dispatch',
+    possessionStatus: 'Ready Stock',
+    postedAgo: '6 hrs ago',
+    uploadedAt: '2026-11-21',
+    architectAttribution: 'Deccan BuildMart & Stones',
+    tags: ['BuildingMaterials', 'ItalianMarble', 'Sanitaryware'],
+    hashtags: ['#BuildingMaterials', '#JiganiMarble', '#InteriorSuppliers', '#ArchitectTrade'],
+    likesCount: 309,
+    viewsCount: 4120,
+    liked: false,
+    saved: false,
+    sharesCount: 52,
+    comments: [],
   },
   {
-    id: 'media-6',
+    id: 'eco-re-indiranagar-tower',
     type: 'photo',
-    title: 'Turnkey Villa Superstructure Framing Milestone',
-    caption: 'G+3 framing milestone completed on schedule with zero cost escalation. Turnkey architectural consultation and contractor execution.',
-    url: villaElevationImg,
-    thumbnailUrl: villaElevationImg,
-    fileName: 'turnkey_superstructure_g3.jpg',
-    fileSize: '4.2 MB',
-    dimensions: '3200x2400',
+    posterRole: 'real_estate',
+    posterName: 'Gouse Real Estate Advisory',
+    posterHandle: 'gouse_estates_blr',
+    posterAvatar: realEstateAvatarImg,
+    posterPhone: '+91 80739 47241',
+    title: 'Indiranagar 100ft Rd — 3 BHK Sky Residence',
+    caption:
+      'Elevated living overlooking green tree canopies near Indiranagar 100ft Road. Expansive 2,180 sq.ft floorplate with wrap-around sit-out deck, cross-ventilated bedrooms, and 2 covered EV-ready car parks.',
+    url: apartmentTowerImg,
+    thumbnailUrl: apartmentTowerImg,
+    aspectRatio: '4:5',
+    platform: 'facebook',
+    category: '3d_walkthrough',
+    propertyCategory: 'for_sale',
+    listingStatus: 'For Sale',
+    priceLabel: '₹2.10 Cr',
+    location: 'Indiranagar, Bengaluru',
+    areaSpec: '2,180 sq.ft',
+    bhkOrType: '3 BHK + Study',
+    facing: 'North Facing',
+    possessionStatus: 'Ready to Move',
+    postedAgo: '9 hrs ago',
+    uploadedAt: '2026-11-20',
+    architectAttribution: 'Gouse Real Estate Advisory',
+    tags: ['IndiranagarFlats', '3BHKBengaluru', 'SkyResidence'],
+    hashtags: ['#Indiranagar', '#3BHKApartment', '#BengaluruLuxury', '#UrbanHomes'],
+    likesCount: 419,
+    viewsCount: 6250,
+    liked: true,
+    saved: false,
+    sharesCount: 64,
+    isFeatured: true,
+    comments: [],
+  },
+  {
+    id: 'eco-arch-courtyard-dining',
+    type: 'photo',
+    posterRole: 'architect',
+    posterName: 'Ar. S. Gouse Design Studio',
+    posterHandle: 'gouse_architects_studio',
+    posterAvatar: architectAvatarImg,
+    posterPhone: '+91 80739 47241',
+    title: 'Biophilic Teakwood Courtyard & Interior Fit-Out',
+    caption:
+      'Interior architecture showcase: custom fluted teak paneling, skylight dining bay, and acoustic lime-plaster walls crafted for a low-energy family home in Bellandur.',
+    url: courtyardDiningImg,
+    thumbnailUrl: courtyardDiningImg,
+    aspectRatio: '16:9',
+    platform: 'all',
+    category: 'interior_design',
+    propertyCategory: 'architectural_design',
+    listingStatus: 'Interior Architecture',
+    priceLabel: '₹1,650 / sq.ft Interiors',
+    location: 'Bellandur, Bengaluru',
+    areaSpec: '1,680 sq.ft Interior',
+    bhkOrType: 'Turnkey Interior Fitout',
+    facing: 'Skylight Atrium',
+    possessionStatus: 'Completed Handover',
+    postedAgo: '1 day ago',
+    uploadedAt: '2026-11-20',
+    architectAttribution: 'Ar. S. Gouse Design Studio',
+    tags: ['InteriorArchitecture', 'BiophilicHome', 'BengaluruDesign'],
+    hashtags: ['#InteriorArchitect', '#CourtyardHome', '#BengaluruInteriors', '#CustomMillwork'],
+    likesCount: 256,
+    viewsCount: 3420,
+    liked: false,
+    saved: false,
+    sharesCount: 34,
+    comments: [],
+  },
+  {
+    id: 'eco-sup-steel-rmc',
+    type: 'photo',
+    posterRole: 'material_supplier',
+    posterName: 'Deccan BuildMart & Stones',
+    posterHandle: 'deccan_materials_hub',
+    posterAvatar: supplierAvatarImg,
+    posterPhone: '+91 80739 47241',
+    title: 'Fe-550D Primary TMT Rebar & M25 RMC Dispatch',
+    caption:
+      'Supplying 28 metric tons of primary Fe-550D TMT bars (8mm–25mm) and automated M25 Ready-Mix Concrete batches for G+4 commercial & PG projects across East Bengaluru. Factory test certificates with every trailer.',
+    url: rccFramingImg,
+    thumbnailUrl: rccFramingImg,
     aspectRatio: '16:9',
     platform: 'facebook',
-    category: 'site_elevation',
-    uploadedAt: '5 days ago',
-    architectAttribution: 'Ar. S. Gouse (+91 8073947241)',
-    tags: ['#TurnkeyConstruction', '#VillaMilestone', '#BangaloreBuilders', '#HandoverReady'],
-    likesCount: 210,
-    viewsCount: 2780,
-    isFeatured: false,
+    category: 'slab_casting',
+    propertyCategory: 'materials_supply',
+    listingStatus: 'Structural Supply',
+    priceLabel: '₹68 / kg Steel · ₹4,950 / m³ RMC',
+    location: 'Peenya & Whitefield Depot',
+    areaSpec: 'MOQ 2 Tons / 6 m³',
+    bhkOrType: 'TMT Steel + RMC Supply',
+    facing: 'Same-Day Transit Mixer',
+    possessionStatus: 'Direct Mill Rate',
+    postedAgo: '1 day ago',
+    uploadedAt: '2026-11-19',
+    architectAttribution: 'Deccan BuildMart & Stones',
+    tags: ['TMTSteel', 'RMCConcrete', 'BuildersSupply'],
+    hashtags: ['#TMTSteel', '#ReadyMixConcrete', '#MaterialSupplier', '#BengaluruBuilders'],
+    likesCount: 192,
+    viewsCount: 2740,
+    liked: false,
+    saved: false,
+    sharesCount: 41,
+    comments: [],
+  },
+  {
+    id: 'eco-builder-column-grid',
+    type: 'photo',
+    posterRole: 'builder',
+    posterName: 'Apex Turnkey Builders & Civil',
+    posterHandle: 'apex_builders_blr',
+    posterAvatar: builderAvatarImg,
+    posterPhone: '+91 80739 47241',
+    title: 'Electronic City 22-Unit Co-Living & Commercial Frame',
+    caption:
+      'Structural RCC column grid and perimeter retaining wall completed 11 days ahead of baseline schedule. Open for builder partnerships and investor turnkey contracts on 40x60 / 60x80 plots.',
+    url: columnGridImg,
+    thumbnailUrl: columnGridImg,
+    aspectRatio: '1:1',
+    platform: 'instagram',
+    category: 'slab_casting',
+    propertyCategory: 'turnkey_build',
+    listingStatus: 'Commercial Builder',
+    priceLabel: '₹1,980 / sq.ft Grey Structure',
+    location: 'Electronic City Phase 1',
+    areaSpec: '6,800 sq.ft Structure',
+    bhkOrType: 'G+4 Commercial / PG Build',
+    facing: 'Corner Plot Execution',
+    possessionStatus: 'On-Time Milestone',
+    postedAgo: '2 days ago',
+    uploadedAt: '2026-11-18',
+    architectAttribution: 'Apex Turnkey Builders',
+    tags: ['CommercialBuilder', 'RCCStructure', 'ElectronicCity'],
+    hashtags: ['#StructuralBuild', '#PGConstruction', '#TurnkeyContractor', '#BengaluruCivil'],
+    likesCount: 184,
+    viewsCount: 2390,
+    liked: false,
+    saved: false,
+    sharesCount: 23,
+    isReel: true,
+    duration: '00:52',
+    comments: [],
+  },
+  {
+    id: 'eco-re-hsr-pg',
+    type: 'photo',
+    posterRole: 'real_estate',
+    posterName: 'Gouse Real Estate Advisory',
+    posterHandle: 'gouse_estates_blr',
+    posterAvatar: realEstateAvatarImg,
+    posterPhone: '+91 80739 47241',
+    title: 'HSR Sector 2 Executive Co-Living & PG Suites',
+    caption:
+      'Move-in ready executive suites designed for tech professionals in HSR Layout Sector 2. Orthopedic queen beds, dedicated ergonomic work desk, dual fiber Wi-Fi, biometric access, and rooftop terrace lounge.',
+    url: pgBedroomSuiteImg,
+    thumbnailUrl: pgBedroomSuiteImg,
+    aspectRatio: '1:1',
+    platform: 'instagram',
+    category: 'interior_design',
+    propertyCategory: 'pg_coliving',
+    listingStatus: 'PG & Co-Living',
+    priceLabel: '₹12,500 / mo',
+    location: 'HSR Layout Sector 2, Bengaluru',
+    areaSpec: '280 sq.ft Suite',
+    bhkOrType: 'Executive Single / Twin',
+    facing: 'North-East Ventilation',
+    possessionStatus: 'Immediate Move-In',
+    postedAgo: '3 days ago',
+    uploadedAt: '2026-11-17',
+    architectAttribution: 'Gouse Real Estate Advisory',
+    tags: ['HSRLayoutPG', 'CoLivingBengaluru', 'ZeroBrokerage'],
+    hashtags: ['#HSRLayoutPG', '#CoLivingBangalore', '#ZeroBrokerage', '#FurnishedSuites'],
+    likesCount: 218,
+    viewsCount: 3190,
+    liked: false,
+    saved: false,
+    sharesCount: 31,
+    isReel: true,
+    duration: '00:42',
+    comments: [],
+  },
+  {
+    id: 'eco-client-handover',
+    type: 'photo',
+    posterRole: 'client',
+    posterName: 'Rajesh & Priya (Homeowners)',
+    posterHandle: 'rajesh_home_journey',
+    posterAvatar: realEstateAvatarImg,
+    posterPhone: '+91 80739 47241',
+    title: 'Client Handover Story: Our 30x40 G+2 Terrace Duplex',
+    caption:
+      'Thrilled to share our newly handed-over family home! Connected with our Architect, Turnkey Builder, and Italian Stone Supplier right here on Realstate Media. Zero cost overruns and crystal-clear BOQ tracking.',
+    url: pgTerraceImg,
+    thumbnailUrl: pgTerraceImg,
+    aspectRatio: '4:5',
+    platform: 'all',
+    category: 'client_post' as any,
+    propertyCategory: 'client_post',
+    listingStatus: 'Client Handover Review',
+    priceLabel: '₹1.38 Cr Total Build',
+    location: 'Brookefield, Bengaluru',
+    areaSpec: '2,850 sq.ft Duplex',
+    bhkOrType: 'Homeowner Showcase',
+    facing: 'East Facing',
+    possessionStatus: 'Moved In',
+    postedAgo: '4 hrs ago',
+    uploadedAt: '2026-11-21',
+    architectAttribution: 'Client Verified Story',
+    tags: ['ClientReview', 'DreamHomeBengaluru', 'TurnkeySuccess'],
+    hashtags: ['#ClientShowcase', '#HomeownerReview', '#DreamHome', '#RealstateMedia'],
+    likesCount: 294,
+    viewsCount: 3820,
+    liked: true,
+    saved: false,
+    sharesCount: 38,
+    comments: [
+      {
+        id: 'c-901',
+        author: 'gouse_architects_studio',
+        text: 'Thank you Rajesh & Priya! Wishing your family wonderful memories in your new terrace lounge.',
+        timeAgo: '2h',
+      },
+    ],
+  },
+  {
+    id: 'eco-client-plot-req',
+    type: 'photo',
+    posterRole: 'client',
+    posterName: 'Karthik Reddy (Plot Owner)',
+    posterHandle: 'karthik_devanahalli',
+    posterAvatar: supplierAvatarImg,
+    posterPhone: '+91 80739 47241',
+    title: 'Client Requirement: Seeking Architect & Builder for 40x60 Plot',
+    caption:
+      'Looking for quotes from verified Architects and Turnkey Builders for a modern 3-floor residential + rental floor building in Devanahalli. Structural drawings & BOQ estimate needed within 2 weeks.',
+    url: villaElevationImg,
+    thumbnailUrl: villaElevationImg,
+    aspectRatio: '16:9',
+    platform: 'facebook',
+    category: 'client_post' as any,
+    propertyCategory: 'client_post',
+    listingStatus: 'Client Requirement',
+    priceLabel: 'Budget ₹1.85 Cr',
+    location: 'Devanahalli, North Bengaluru',
+    areaSpec: '2,400 sq.ft Plot',
+    bhkOrType: 'Client Build Request',
+    facing: 'North Facing Plot',
+    possessionStatus: 'Ready to Start',
+    postedAgo: '1 day ago',
+    uploadedAt: '2026-11-20',
+    architectAttribution: 'Client Requirement Post',
+    tags: ['ClientRequirement', 'ArchitectNeeded', 'BuilderQuotes'],
+    hashtags: ['#ClientRequirement', '#LookingForArchitect', '#Devanahalli', '#RealstateMedia'],
+    likesCount: 127,
+    viewsCount: 1890,
+    liked: false,
+    saved: false,
+    sharesCount: 14,
+    comments: [],
   },
 ];
+
+// Exported for backward compatibility with any external imports
+export const INITIAL_SOCIAL_MEDIA_ITEMS: SocialMediaItem[] = INITIAL_REAL_ESTATE_POSTS;
+
+type PlatformMode = 'instagram' | 'facebook' | 'dual' | 'virtual_tour' | 'brochure' | 'campaigns';
+type IgSubView = 'feed' | 'grid' | 'reels';
 
 interface SocialMediaStudioProps {
   activeProject: Project;
   onOpenWorkflowEngine?: () => void;
 }
 
+const formatCompact = (n: number): string => {
+  if (n >= 1000) return `${(n / 1000).toFixed(1)}k`;
+  return String(n);
+};
+
 export const SocialMediaStudio: React.FC<SocialMediaStudioProps> = ({
   activeProject,
-  onOpenWorkflowEngine,
 }) => {
-  // Navigation & Sub-mode tabs
-  const [activeSubMode, setActiveSubMode] = useState<
-    'gallery' | 'client_past' | 'virtual_tour' | 'campaigns' | 'brochure' | 'channels' | 'ads' | 'wall'
-  >('gallery');
-  const [mediaTypeFilter, setMediaTypeFilter] = useState<'all' | 'photo' | 'video'>('all');
-  const [platformFilter, setPlatformFilter] = useState<'all' | 'instagram' | 'facebook' | 'youtube' | 'linkedin'>('all');
-  const [searchQuery, setSearchQuery] = useState('');
-
-  // Media Library state (synced with localStorage)
-  const [mediaItems, setMediaItems] = useState<SocialMediaItem[]>(() => {
+  const [posts, setPosts] = useState<RealEstateSocialPost[]>(() => {
     try {
-      const saved = localStorage.getItem('gouse_ai_social_media_library');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed;
-        }
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
       }
-      return INITIAL_SOCIAL_MEDIA_ITEMS;
     } catch {
-      return INITIAL_SOCIAL_MEDIA_ITEMS;
+      // ignore storage errors
     }
+    return INITIAL_REAL_ESTATE_POSTS;
   });
 
-  // Save to localStorage whenever mediaItems changes
   useEffect(() => {
     try {
-      localStorage.setItem('gouse_ai_social_media_library', JSON.stringify(mediaItems));
-    } catch (err) {
-      console.warn('LocalStorage limit reached or error saving media library:', err);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(posts));
+    } catch {
+      // ignore storage quota errors
     }
-  }, [mediaItems]);
+  }, [posts]);
 
-  // Active showcase media (the selected photo or video synced across mockups)
-  const [activeMediaId, setActiveMediaId] = useState<string>(() => {
-    return mediaItems[0]?.id || 'media-1';
-  });
+  // Active account role (who the user is posting as) + feed filters
+  const [activePosterRole, setActivePosterRole] = useState<PosterRole>('real_estate');
+  const [roleFilter, setRoleFilter] = useState<RoleFilter>('all');
+  const [categoryFilter, setCategoryFilter] = useState<RealEstateCategory>('all');
+  const [platformMode, setPlatformMode] = useState<PlatformMode>('instagram');
+  const [igSubView, setIgSubView] = useState<IgSubView>('feed');
+  const [onlySaved, setOnlySaved] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
-  const activeMedia = mediaItems.find((m) => m.id === activeMediaId) || mediaItems[0] || INITIAL_SOCIAL_MEDIA_ITEMS[0];
+  // Dual preview selector
+  const [dualPostId, setDualPostId] = useState<string>(INITIAL_REAL_ESTATE_POSTS[0].id);
 
-  // Upload Modal State
-  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
-  const [uploadSourceMode, setUploadSourceMode] = useState<'file' | 'url' | 'sample'>('file');
-  const [isDragging, setIsDragging] = useState(false);
+  // Story Viewer modal
+  const [activeStoryIdx, setActiveStoryIdx] = useState<number | null>(null);
+
+  // Full Post Detail / Comments Modal
+  const [detailPostId, setDetailPostId] = useState<string | null>(null);
+
+  // Upload / Post Project Modal
+  const [isComposerOpen, setIsComposerOpen] = useState(false);
+
+  // Inline comment drafts & toggles
+  const [commentDrafts, setCommentDrafts] = useState<Record<string, string>>({});
+  const [expandedComments, setExpandedComments] = useState<Record<string, boolean>>({});
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  // Facebook quick inline composer state
+  const [fbDraftText, setFbDraftText] = useState('');
+  const [fbDraftTitle, setFbDraftTitle] = useState('');
+  const [fbDraftPrice, setFbDraftPrice] = useState(ROLE_DIRECTORY.real_estate.placeholderRate);
+  const [fbDraftLocation, setFbDraftLocation] = useState(
+    activeProject.location || 'Whitefield, Bengaluru'
+  );
+  const [fbDraftCategory, setFbDraftCategory] = useState<Exclude<RealEstateCategory, 'all'>>(
+    'for_sale'
+  );
+  const [fbDraftImageUrl, setFbDraftImageUrl] = useState<string>(villaExteriorImg);
+  const [fbShowAttachBar, setFbShowAttachBar] = useState(false);
+
+  // Modal New Project Post state
+  const [modalRole, setModalRole] = useState<PosterRole>('real_estate');
+  const [newCompanyName, setNewCompanyName] = useState(ROLE_DIRECTORY.real_estate.defaultName);
+  const [newTitle, setNewTitle] = useState('');
+  const [newCaption, setNewCaption] = useState('');
+  const [newPrice, setNewPrice] = useState(ROLE_DIRECTORY.real_estate.placeholderRate);
+  const [newLocation, setNewLocation] = useState('Whitefield, Bengaluru');
+  const [newAreaSpec, setNewAreaSpec] = useState('2,400 sq.ft');
+  const [newSpecType, setNewSpecType] = useState('4 BHK Villa / Project');
+  const [newCategory, setNewCategory] = useState<Exclude<RealEstateCategory, 'all'>>('for_sale');
+  const [newMediaType, setNewMediaType] = useState<'photo' | 'video'>('photo');
+  const [newMediaUrl, setNewMediaUrl] = useState<string>(villaExteriorImg);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const fbFileInputRef = useRef<HTMLInputElement>(null);
 
-  // Upload Form Fields
-  const [uploadType, setUploadType] = useState<'photo' | 'video'>('photo');
-  const [uploadTitle, setUploadTitle] = useState('');
-  const [uploadCaption, setUploadCaption] = useState('');
-  const [uploadUrl, setUploadUrl] = useState('');
-  const [uploadAspectRatio, setUploadAspectRatio] = useState<'16:9' | '9:16' | '1:1' | '4:5'>('16:9');
-  const [uploadPlatform, setUploadPlatform] = useState<'all' | 'instagram' | 'facebook' | 'youtube' | 'linkedin'>('all');
-  const [uploadCategory, setUploadCategory] = useState<SocialMediaItem['category']>('3d_walkthrough');
-  const [uploadFileName, setUploadFileName] = useState('');
-  const [uploadFileSize, setUploadFileSize] = useState('');
-  const [uploadDimensions, setUploadDimensions] = useState('');
-  const [uploadDuration, setUploadDuration] = useState('01:30');
-  const [previewError, setPreviewError] = useState<string | null>(null);
-  const [uploadSuccessToast, setUploadSuccessToast] = useState<string | null>(null);
-
-  // Full Lightbox / Theater Modal
-  const [lightboxItem, setLightboxItem] = useState<SocialMediaItem | null>(null);
-  const [playbackSpeed, setPlaybackSpeed] = useState<number>(1);
-  const [isLooping, setIsLooping] = useState<boolean>(true);
-  const [isMuted, setIsMuted] = useState<boolean>(false);
-  const theaterVideoRef = useRef<HTMLVideoElement>(null);
-
-  // Video Player in Mockup States
-  const [isPlayingYouTube, setIsPlayingYouTube] = useState(false);
-  const [isPlayingReel, setIsPlayingReel] = useState(false);
-  const [isPlayingFeedVideo, setIsPlayingFeedVideo] = useState(false);
-  const [reelLikes, setReelLikes] = useState<number>(1284);
-  const [hasLikedReel, setHasLikedReel] = useState<boolean>(false);
-
-  // Social Channels state (Instagram / Facebook / YouTube)
-  const [socialPlatformFocus, setSocialPlatformFocus] = useState<'all' | 'instagram' | 'facebook' | 'youtube'>('all');
-  const [instagramFormat, setInstagramFormat] = useState<'reel' | 'post' | 'carousel'>('reel');
-  const [copiedInstagramKit, setCopiedInstagramKit] = useState(false);
-  const [copiedFacebookKit, setCopiedFacebookKit] = useState(false);
-  const [copiedYouTubeKit, setCopiedYouTubeKit] = useState(false);
-  const [copiedShareLink, setCopiedShareLink] = useState(false);
-
-  // Ads Studio State
-  const [adPlatformFocus, setAdPlatformFocus] = useState<'all' | 'instagram' | 'facebook' | 'youtube' | 'linkedin'>('all');
-  const [adBudgetTier, setAdBudgetTier] = useState<number>(500); // INR per ad (User configured: 500)
-  const [copiedAdCopy, setCopiedAdCopy] = useState(false);
-
-  // Stakeholder Wall Comments
-  const [wallComments, setWallComments] = useState<Array<{
-    id: string;
-    author: string;
-    role: string;
-    avatarText: string;
-    timestamp: string;
-    content: string;
-    mediaItem?: SocialMediaItem;
-    likes: number;
-    hasLiked?: boolean;
-    tag?: string;
-  }>>([
-    {
-      id: 'soc-wall-1',
-      author: 'Ar. S. Gouse',
-      role: 'Lead Architect (+91 8073947241)',
-      avatarText: 'SG',
-      timestamp: '2 hours ago',
-      content: 'Uploaded the updated 4K Lumion walkthrough showing the biophilic central courtyard and setback perimeter. Elevation options compliant with NBC 2016.',
-      mediaItem: INITIAL_SOCIAL_MEDIA_ITEMS[0],
-      likes: 8,
-      hasLiked: true,
-      tag: '3D Walkthrough Release',
-    },
-    {
-      id: 'soc-wall-2',
-      author: 'Client Representative',
-      role: 'Project Stakeholder',
-      avatarText: 'CR',
-      timestamp: 'Yesterday',
-      content: 'The evening twilight facade rendering with wire-cut brickwork looks fantastic! We approved the cantilevered balconies for construction drawings.',
-      mediaItem: INITIAL_SOCIAL_MEDIA_ITEMS[1],
-      likes: 12,
-      hasLiked: false,
-      tag: 'Client Approval',
-    },
-  ]);
-  const [newWallComment, setNewWallComment] = useState('');
-  const [newWallAuthor, setNewWallAuthor] = useState('Ar. S. Gouse');
-  const [newWallTag, setNewWallTag] = useState('Site Progress Update');
-  const [selectedWallMediaId, setSelectedWallMediaId] = useState<string>('');
-
-  // Handle Drag & Drop
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(true);
-  };
-
-  const handleDragLeave = () => {
-    setIsDragging(false);
-  };
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      processSelectedFile(e.dataTransfer.files[0]);
-    }
-  };
-
-  // Process File Selection (Images & Videos)
-  const processSelectedFile = (file: File) => {
-    setPreviewError(null);
-    const isVideo = file.type.startsWith('video/');
-    const isImage = file.type.startsWith('image/');
-
-    if (!isVideo && !isImage) {
-      setPreviewError('Please upload an image (PNG, JPG, WEBP, GIF, SVG) or video file (MP4, WebM, MOV).');
-      return;
-    }
-
-    const sizeInMb = (file.size / (1024 * 1024)).toFixed(1);
-    setUploadFileName(file.name);
-    setUploadFileSize(`${sizeInMb} MB`);
-
-    if (isVideo) {
-      setUploadType('video');
-      setUploadAspectRatio('16:9');
-      setUploadDimensions('1080p MP4');
-      setUploadDuration('01:45');
-      // Create local object URL for instant, high-speed playback
-      const objectUrl = URL.createObjectURL(file);
-      setUploadUrl(objectUrl);
-      if (!uploadTitle) {
-        setUploadTitle(file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' '));
-      }
+  const handleSelectActiveRole = (role: PosterRole) => {
+    setActivePosterRole(role);
+    setModalRole(role);
+    const meta = ROLE_DIRECTORY[role];
+    setNewCompanyName(meta.defaultName);
+    setNewPrice(meta.placeholderRate);
+    setNewCategory(meta.defaultCategory);
+    setFbDraftCategory(meta.defaultCategory);
+    setFbDraftPrice(meta.placeholderRate);
+    if (role === 'architect') {
+      setNewSpecType('Concept + BIM + GFC');
+      setFbDraftImageUrl(villaElevationImg);
+      setNewMediaUrl(villaElevationImg);
+    } else if (role === 'builder') {
+      setNewSpecType('Turnkey G+2 / Civil Contract');
+      setFbDraftImageUrl(siteFramingImg);
+      setNewMediaUrl(siteFramingImg);
+    } else if (role === 'material_supplier') {
+      setNewSpecType('Bulk Material Supply');
+      setFbDraftImageUrl(modernBathImg);
+      setNewMediaUrl(modernBathImg);
+    } else if (role === 'client') {
+      setNewSpecType('Homeowner Showcase / Plot Requirement');
+      setFbDraftImageUrl(pgTerraceImg);
+      setNewMediaUrl(pgTerraceImg);
     } else {
-      setUploadType('photo');
-      setUploadAspectRatio('1:1');
-      setUploadDimensions('High-Res Photo');
-      // Use FileReader for photos
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        setUploadUrl(event.target?.result as string);
-        if (!uploadTitle) {
-          setUploadTitle(file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' '));
-        }
-      };
-      reader.readAsDataURL(file);
+      setNewSpecType('4 BHK Villa / Plot');
+      setFbDraftImageUrl(villaExteriorImg);
+      setNewMediaUrl(villaExteriorImg);
     }
   };
 
-  // Handle Form Submission / Add Media
-  const handleCreateMediaItem = (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!uploadUrl) {
-      setPreviewError('Please select a photo or video to upload, or paste a valid URL.');
-      return;
-    }
-
-    const title = uploadTitle.trim() || (uploadType === 'video' ? 'Architectural Video Showcase' : 'Architectural Elevation Photo');
-    const autoTags = [
-      `#${uploadCategory.replace(/_/g, '')}`,
-      '#GouseArchitecture',
-      '#NBC2016',
-      '#BangaloreLuxury',
-      '#ArchitectTurnkey',
-    ];
-
-    const newItem: SocialMediaItem = {
-      id: `media-${Date.now()}`,
-      projectId: activeProject.id,
-      type: uploadType,
-      title,
-      caption: uploadCaption.trim() || `${title} • NBC 2016 compliant turnkey architectural execution by Ar. S. Gouse (+91 8073947241).`,
-      url: uploadUrl,
-      thumbnailUrl: uploadType === 'video' ? (uploadUrl.startsWith('data:') ? undefined : uploadUrl) : uploadUrl,
-      fileName: uploadFileName || `${uploadType}_upload_${Date.now()}`,
-      fileSize: uploadFileSize || (uploadType === 'video' ? '18.4 MB' : '3.2 MB'),
-      dimensions: uploadDimensions || (uploadType === 'video' ? '1920x1080 Full HD' : '3000x2000'),
-      aspectRatio: uploadAspectRatio,
-      duration: uploadType === 'video' ? uploadDuration : undefined,
-      platform: uploadPlatform,
-      category: uploadCategory,
-      uploadedAt: 'Just now',
-      architectAttribution: 'Ar. S. Gouse (+91 8073947241)',
-      tags: autoTags,
-      likesCount: 1,
-      viewsCount: 1,
-      isFeatured: true,
-    };
-
-    setMediaItems([newItem, ...mediaItems]);
-    setActiveMediaId(newItem.id);
-    setIsUploadModalOpen(false);
-
-    // Reset upload form
-    setUploadTitle('');
-    setUploadCaption('');
-    setUploadUrl('');
-    setUploadFileName('');
-    setUploadFileSize('');
-    setPreviewError(null);
-
-    // Show toast
-    setUploadSuccessToast(`Successfully uploaded ${newItem.type === 'video' ? 'video' : 'photo'}: "${newItem.title}"! Set as Active Creative.`);
-    setTimeout(() => setUploadSuccessToast(null), 5000);
-  };
-
-  // Delete Media
-  const handleDeleteMedia = (id: string, e?: React.MouseEvent) => {
-    e?.stopPropagation();
-    const item = mediaItems.find((m) => m.id === id);
-    if (!item) return;
-
-    if (window.confirm(`Are you sure you want to remove "${item.title}" from the Social Media library?`)) {
-      const updated = mediaItems.filter((m) => m.id !== id);
-      setMediaItems(updated);
-      if (activeMediaId === id && updated.length > 0) {
-        setActiveMediaId(updated[0].id);
+  const filteredPosts = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    return posts.filter((post) => {
+      if (onlySaved && !post.saved) return false;
+      if (roleFilter !== 'all' && post.posterRole !== roleFilter) return false;
+      if (categoryFilter !== 'all' && post.propertyCategory !== categoryFilter) return false;
+      if (platformMode === 'instagram' && igSubView === 'reels' && !post.isReel && post.type !== 'video') {
+        return false;
       }
-    }
+      if (!q) return true;
+      return (
+        post.title.toLowerCase().includes(q) ||
+        post.posterName.toLowerCase().includes(q) ||
+        post.posterHandle.toLowerCase().includes(q) ||
+        post.location.toLowerCase().includes(q) ||
+        post.priceLabel.toLowerCase().includes(q) ||
+        post.caption.toLowerCase().includes(q) ||
+        post.bhkOrType.toLowerCase().includes(q)
+      );
+    });
+  }, [posts, roleFilter, categoryFilter, onlySaved, searchQuery, platformMode, igSubView]);
+
+  const savedPosts = useMemo(() => posts.filter((p) => p.saved), [posts]);
+
+  const roleCounts = useMemo(() => {
+    return {
+      all: posts.length,
+      real_estate: posts.filter((p) => p.posterRole === 'real_estate').length,
+      architect: posts.filter((p) => p.posterRole === 'architect').length,
+      builder: posts.filter((p) => p.posterRole === 'builder').length,
+      material_supplier: posts.filter((p) => p.posterRole === 'material_supplier').length,
+      client: posts.filter((p) => p.posterRole === 'client').length,
+    };
+  }, [posts]);
+
+  const dualSelectedPost = useMemo(
+    () => posts.find((p) => p.id === dualPostId) || filteredPosts[0] || posts[0],
+    [posts, dualPostId, filteredPosts]
+  );
+
+  const detailPost = useMemo(
+    () => (detailPostId ? posts.find((p) => p.id === detailPostId) || null : null),
+    [posts, detailPostId]
+  );
+
+  // Engagement Handlers
+  const toggleLike = (id: string) => {
+    setPosts((prev) =>
+      prev.map((p) => {
+        if (p.id !== id) return p;
+        const nextLiked = !p.liked;
+        return {
+          ...p,
+          liked: nextLiked,
+          likesCount: Math.max(0, (p.likesCount || 0) + (nextLiked ? 1 : -1)),
+        };
+      })
+    );
   };
 
-  // Reset to default sample media
-  const handleResetToDefault = () => {
-    if (window.confirm('Reset media library to standard architectural portfolio with sample 4K videos & photos?')) {
-      setMediaItems(INITIAL_SOCIAL_MEDIA_ITEMS);
-      setActiveMediaId(INITIAL_SOCIAL_MEDIA_ITEMS[0].id);
-      localStorage.removeItem('gouse_ai_social_media_library');
-      setUploadSuccessToast('Reset media library to standard 4K portfolio.');
-      setTimeout(() => setUploadSuccessToast(null), 4000);
-    }
+  const toggleSave = (id: string) => {
+    setPosts((prev) => prev.map((p) => (p.id === id ? { ...p, saved: !p.saved } : p)));
   };
 
-  // Add Comment on Stakeholder Wall
-  const handleAddWallComment = (e: React.FormEvent) => {
+  const handleShare = (post: RealEstateSocialPost) => {
+    const roleLabel = ROLE_DIRECTORY[post.posterRole].label;
+    const text = `[${roleLabel}] ${post.title} — ${post.priceLabel} (${post.location}, ${post.areaSpec})\nPosted by ${post.posterName}\n${post.caption}\n${post.hashtags.join(' ')}\nContact: ${post.posterPhone}`;
+    navigator.clipboard?.writeText(text).catch(() => {});
+    setPosts((prev) =>
+      prev.map((p) => (p.id === post.id ? { ...p, sharesCount: p.sharesCount + 1 } : p))
+    );
+    setCopiedId(post.id);
+    setTimeout(() => setCopiedId((cur) => (cur === post.id ? null : cur)), 2000);
+  };
+
+  const handleAddComment = (postId: string) => {
+    const draft = (commentDrafts[postId] || '').trim();
+    if (!draft) return;
+    const authorHandle = ROLE_DIRECTORY[activePosterRole].defaultHandle;
+    const newComment: PostComment = {
+      id: `cmt-${Date.now()}`,
+      author: authorHandle,
+      text: draft,
+      timeAgo: 'Just now',
+    };
+    setPosts((prev) =>
+      prev.map((p) => (p.id === postId ? { ...p, comments: [...p.comments, newComment] } : p))
+    );
+    setCommentDrafts((prev) => ({ ...prev, [postId]: '' }));
+    setExpandedComments((prev) => ({ ...prev, [postId]: true }));
+  };
+
+  const handleDeleteCustomPost = (id: string) => {
+    setPosts((prev) => prev.filter((p) => p.id !== id));
+    if (detailPostId === id) setDetailPostId(null);
+  };
+
+  const handleQuickFbFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === 'string') {
+        setFbDraftImageUrl(reader.result);
+        setFbShowAttachBar(true);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleQuickFbPublish = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newWallComment.trim()) return;
+    const body = fbDraftText.trim();
+    if (!body) return;
 
-    const attached = mediaItems.find((m) => m.id === selectedWallMediaId);
-
-    const newComment = {
-      id: `wall-${Date.now()}`,
-      author: newWallAuthor,
-      role: newWallAuthor.includes('Gouse') ? 'Lead Architect (+91 8073947241)' : 'Stakeholder',
-      avatarText: newWallAuthor.split(' ').map((n) => n[0]).join('').substring(0, 2).toUpperCase(),
-      timestamp: 'Just now',
-      content: newWallComment.trim(),
-      mediaItem: attached,
-      likes: 0,
-      hasLiked: false,
-      tag: newWallTag,
+    const roleMeta = ROLE_DIRECTORY[activePosterRole];
+    const statusMap: Record<Exclude<RealEstateCategory, 'all'>, string> = {
+      for_sale: 'For Sale',
+      for_rent: 'For Rent',
+      pg_coliving: 'PG & Co-Living',
+      land_plots: 'Land & Plots',
+      architectural_design: 'Architecture Project',
+      turnkey_build: 'Builder Site Log',
+      materials_supply: 'Material Supply',
+      client_post: 'Client Post',
     };
 
-    setWallComments([newComment, ...wallComments]);
-    setNewWallComment('');
-    setSelectedWallMediaId('');
+    const newPost: RealEstateSocialPost = {
+      id: `eco-user-${Date.now()}`,
+      projectId: activeProject.id,
+      type: 'photo',
+      posterRole: activePosterRole,
+      posterName: roleMeta.defaultName,
+      posterHandle: roleMeta.defaultHandle,
+      posterAvatar: roleMeta.avatar,
+      posterPhone: '+91 80739 47241',
+      title:
+        fbDraftTitle.trim() ||
+        `${roleMeta.shortLabel} Update · ${fbDraftLocation.split(',')[0] || 'Bengaluru'}`,
+      caption: body,
+      url: fbDraftImageUrl || villaExteriorImg,
+      thumbnailUrl: fbDraftImageUrl || villaExteriorImg,
+      aspectRatio: '16:9',
+      platform: 'all',
+      category: 'handover',
+      propertyCategory: fbDraftCategory,
+      listingStatus: statusMap[fbDraftCategory],
+      priceLabel: fbDraftPrice.trim() || roleMeta.placeholderRate,
+      location: fbDraftLocation.trim() || 'Bengaluru',
+      areaSpec: 'Verified Project',
+      bhkOrType: roleMeta.label,
+      facing: 'Bengaluru Region',
+      possessionStatus: 'Active Post',
+      postedAgo: 'Just now',
+      uploadedAt: new Date().toISOString().slice(0, 10),
+      architectAttribution: roleMeta.defaultName,
+      tags: ['BengaluruConstruction', roleMeta.shortLabel.replace(/\s+/g, '')],
+      hashtags: [
+        '#BengaluruProjects',
+        `#${roleMeta.shortLabel.replace(/\s+/g, '')}`,
+        '#RealstateMedia',
+      ],
+      likesCount: 1,
+      viewsCount: 15,
+      liked: true,
+      saved: false,
+      sharesCount: 0,
+      comments: [],
+    };
+
+    setPosts((prev) => [newPost, ...prev]);
+    setFbDraftText('');
+    setFbDraftTitle('');
+    setFbShowAttachBar(false);
+    setDualPostId(newPost.id);
   };
 
-  // Filtered Media
-  const filteredMedia = mediaItems.filter((item) => {
-    if (mediaTypeFilter !== 'all' && item.type !== mediaTypeFilter) return false;
-    if (platformFilter !== 'all' && item.platform !== 'all' && item.platform !== platformFilter) return false;
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      const match =
-        item.title.toLowerCase().includes(q) ||
-        item.caption.toLowerCase().includes(q) ||
-        item.category.toLowerCase().includes(q) ||
-        item.tags.some((t) => t.toLowerCase().includes(q));
-      if (!match) return false;
-    }
-    return true;
-  });
-
-  // Direct Phone & SMS Links
-  const companyPhone = '+91 8073947241';
-  const directCallHref = `tel:${companyPhone.replace(/\s+/g, '')}`;
-  const directAreaSmsHref = `sms:${companyPhone.replace(/\s+/g, '')}?&body=${encodeURIComponent(
-    `Hello Ar. S. Gouse, I reviewed the social media showcase for "${activeProject.name || activeMedia.title}" (${activeProject.builtUpAreaSqFt || 3500} sq.ft). I would like to schedule an architectural consultation and turnkey site visit.`
-  )}`;
-  const directWhatsAppHref = `https://api.whatsapp.com/send?phone=918073947241&text=${encodeURIComponent(
-    `Hello Ar. S. Gouse (+91 8073947241), I am inquiring from your Social Media Showcase regarding "${activeMedia.title}". Could you share the detailed BOQ and architectural drawings?`
-  )}`;
-
-  // Copy Kits
-  const copyToClipboard = (text: string, setCopied: (v: boolean) => void) => {
-    navigator.clipboard.writeText(text);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2500);
+  const handleModalFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const isVideo = file.type.startsWith('video/');
+    setNewMediaType(isVideo ? 'video' : 'photo');
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === 'string') {
+        setNewMediaUrl(reader.result);
+      }
+    };
+    reader.readAsDataURL(file);
   };
 
-  const instagramKitText = `🏛️ ${activeMedia.title}\n\n${activeMedia.caption}\n\n📐 Built-Up Area: ${activeProject.builtUpAreaSqFt || 3500} SQ.FT\n✅ Compliant with NBC 2016 & BBMP Setbacks\n📞 Architectural Consultation: Ar. S. Gouse ${companyPhone}\n💬 Send Area SMS: ${directAreaSmsHref}\n\n${activeMedia.tags.join(' ')} #GouseArchitects`;
+  const handleCreateModalPost = (e: React.FormEvent) => {
+    e.preventDefault();
+    const roleMeta = ROLE_DIRECTORY[modalRole];
+    const companyName = newCompanyName.trim() || roleMeta.defaultName;
+    const handle = companyName
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '_')
+      .replace(/^_|_$/g, '')
+      .slice(0, 24) || roleMeta.defaultHandle;
 
-  const facebookKitText = `⭐ PROJECT HIGHLIGHT: ${activeMedia.title}\n\n${activeMedia.caption}\n\nKey Specifications:\n• Project: ${activeProject.name}\n• Location: ${activeProject.location || 'Bengaluru, India'}\n• Architectural Direction: Ar. S. Gouse (${companyPhone})\n• NBC 2016 Compliant RCC Framing & Daylighting\n\nDirect Call / WhatsApp: ${companyPhone}\n#TurnkeyConstruction #ArchitecturalDesign #BangaloreVillas`;
+    const statusMap: Record<Exclude<RealEstateCategory, 'all'>, string> = {
+      for_sale: 'For Sale',
+      for_rent: 'For Rent',
+      pg_coliving: 'PG & Co-Living',
+      land_plots: 'Land & Plots',
+      architectural_design: 'Architecture Project',
+      turnkey_build: 'Builder Site Log',
+      materials_supply: 'Material Supply',
+      client_post: 'Client Post',
+    };
 
-  const youtubeKitText = `TITLE:\n${activeMedia.title} | 4K 60FPS Architectural Walkthrough\n\nDESCRIPTION:\n${activeMedia.caption}\n\nArchitect & Turnkey Contractor: Ar. S. Gouse\nPhone / SMS: ${companyPhone}\nLocation: ${activeProject.location || 'Bengaluru, India'}\nBuilt-Up Area: ${activeProject.builtUpAreaSqFt || 3500} sq.ft\n\nTIMESTAMPS:\n00:00 Aerial Drone Setback Analysis\n01:10 Double-Height Biophilic Courtyard\n02:20 Cantilevered Facade & Teak Louvers\n03:15 Structural Column Grid & BOQ Handover\n\nTAGS:\n${activeMedia.tags.join(', ')}`;
+    const title = newTitle.trim() || `${roleMeta.shortLabel} Project — ${newLocation}`;
+    const caption =
+      newCaption.trim() ||
+      `Published by ${companyName} (${roleMeta.label}) in ${newLocation}. ${newSpecType} · ${newAreaSpec} · ${newPrice}. Reach out directly for drawings, quotes, or site inspection.`;
 
-  return (
-    <div id="social-media-studio-container" className="space-y-6">
-      {/* SUCCESS TOAST */}
-      {uploadSuccessToast && (
-        <div className="fixed top-20 right-6 z-50 flex items-center gap-3 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 px-4 py-3 text-white shadow-2xl animate-bounce">
-          <Check className="h-5 w-5 shrink-0" />
-          <span className="text-xs font-bold">{uploadSuccessToast}</span>
-          <button
-            type="button"
-            onClick={() => setUploadSuccessToast(null)}
-            className="ml-2 text-white/80 hover:text-white"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-      )}
+    const created: RealEstateSocialPost = {
+      id: `eco-modal-${Date.now()}`,
+      projectId: activeProject.id,
+      type: newMediaType,
+      posterRole: modalRole,
+      posterName: companyName,
+      posterHandle: handle,
+      posterAvatar: roleMeta.avatar,
+      posterPhone: '+91 80739 47241',
+      title,
+      caption,
+      url: newMediaUrl || villaExteriorImg,
+      thumbnailUrl: newMediaType === 'photo' ? newMediaUrl : villaExteriorImg,
+      aspectRatio: newMediaType === 'video' ? '9:16' : '4:5',
+      platform: 'all',
+      category: newMediaType === 'video' ? '3d_walkthrough' : 'handover',
+      propertyCategory: newCategory,
+      listingStatus: statusMap[newCategory],
+      priceLabel: newPrice.trim() || roleMeta.placeholderRate,
+      location: newLocation.trim() || 'Bengaluru',
+      areaSpec: newAreaSpec.trim() || '2,400 sq.ft',
+      bhkOrType: newSpecType.trim() || roleMeta.label,
+      facing: 'Verified Listing',
+      possessionStatus: 'Active Now',
+      postedAgo: 'Just now',
+      uploadedAt: new Date().toISOString().slice(0, 10),
+      architectAttribution: companyName,
+      tags: [roleMeta.shortLabel.replace(/\s+/g, ''), 'BengaluruProjects'],
+      hashtags: [
+        `#${roleMeta.shortLabel.replace(/\s+/g, '')}`,
+        '#BengaluruRealEstate',
+        '#ArchitectureAndBuild',
+      ],
+      likesCount: 1,
+      viewsCount: 18,
+      liked: true,
+      saved: false,
+      sharesCount: 0,
+      isReel: newMediaType === 'video',
+      duration: newMediaType === 'video' ? '00:45' : undefined,
+      comments: [],
+    };
 
-      {/* TOP HEADER: SOCIAL MEDIA HUB & UPLOAD HERO BANNER */}
-      <div className="rounded-2xl border-2 border-sky-500/40 bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 p-5 md:p-6 shadow-2xl shadow-sky-500/10 space-y-5">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5 border-b border-slate-800 pb-5">
-          <div className="flex items-start sm:items-center gap-4">
-            <div className="flex h-13 w-13 items-center justify-center rounded-2xl bg-gradient-to-tr from-pink-500 via-purple-600 to-sky-500 text-white shadow-lg shadow-pink-500/20 shrink-0">
-              <Share2 className="h-7 w-7" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2.5 flex-wrap">
-                <h2 className="text-lg md:text-xl font-extrabold text-white tracking-tight">
-                  Social Media &amp; Media Showcase Hub
-                </h2>
-                <span className="rounded-full bg-gradient-to-r from-pink-500/20 via-purple-500/20 to-sky-500/20 px-3 py-0.5 text-[11px] font-mono font-bold text-sky-200 border border-sky-500/40">
-                  UPLOAD PHOTOS &amp; VIDEOS
-                </span>
-                <span className="rounded-full bg-emerald-500/20 px-2.5 py-0.5 text-[10px] font-semibold text-emerald-300 border border-emerald-500/30">
-                  {mediaItems.length} Media Assets Loaded
-                </span>
-              </div>
-              <p className="text-xs text-slate-300 mt-1 max-w-3xl leading-relaxed">
-                Upload and manage high-resolution architectural <strong>photos</strong>, <strong>4K video walkthroughs</strong>, and <strong>drone reels</strong>. Sync media instantly with Instagram Reels &amp; Posts, Facebook Stories, YouTube 3D Player, and Sponsored Social Ads.
-              </p>
-            </div>
-          </div>
+    setPosts((prev) => [created, ...prev]);
+    setDualPostId(created.id);
+    setNewTitle('');
+    setNewCaption('');
+    setIsComposerOpen(false);
+  };
 
-          {/* Quick Action Buttons */}
-          <div className="flex items-center gap-2.5 flex-wrap">
-            {/* Primary UPLOAD Button */}
-            <button
-              id="btn-upload-social-media"
-              type="button"
-              onClick={() => {
-                setUploadSourceMode('file');
-                setIsUploadModalOpen(true);
-              }}
-              className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-pink-500 via-purple-600 to-sky-500 px-4 py-2.5 text-xs font-bold text-white shadow-lg shadow-pink-500/25 hover:opacity-95 hover:scale-[1.02] transition active:scale-95"
-            >
-              <Upload className="h-4 w-4" />
-              <span>Upload Photo / Video</span>
-              <span className="rounded bg-black/30 px-1.5 py-0.5 text-[10px] font-mono">
-                +ADD
-              </span>
-            </button>
+  const whatsappInquiryUrl = (post: RealEstateSocialPost) => {
+    const roleLabel = ROLE_DIRECTORY[post.posterRole].label;
+    const msg = encodeURIComponent(
+      `Hello ${post.posterName} (${roleLabel}), I saw "${post.title}" (${post.priceLabel}, ${post.location}) on Realstate Media and would like project details.`
+    );
+    return `https://wa.me/918073947241?text=${msg}`;
+  };
 
-            {/* Direct Architect Phone Call */}
-            <a
-              id="btn-social-architect-call"
-              href={directCallHref}
-              className="flex items-center gap-1.5 rounded-xl border border-emerald-500/40 bg-emerald-500/10 px-3.5 py-2.5 text-xs font-bold text-emerald-300 hover:bg-emerald-500/20 transition"
-              title="Call Lead Architect Ar. S. Gouse"
-            >
-              <Phone className="h-3.5 w-3.5 text-emerald-400" />
-              <span>+91 8073947241</span>
-            </a>
-
-            {/* WhatsApp Inquiry */}
-            <a
-              id="btn-social-architect-whatsapp"
-              href={directWhatsAppHref}
-              target="_blank"
-              rel="noreferrer"
-              className="flex items-center gap-1.5 rounded-xl border border-emerald-500/40 bg-emerald-600 px-3.5 py-2.5 text-xs font-bold text-white hover:bg-emerald-500 transition shadow-sm"
-            >
-              <MessageSquare className="h-3.5 w-3.5" />
-              <span>WhatsApp</span>
-            </a>
-          </div>
-        </div>
-
-        {/* 8 CORE SUB-MODE SWITCHERS */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2 p-1.5 rounded-xl bg-slate-950 border border-slate-800">
-          <button
-            id="subtab-media-gallery"
-            type="button"
-            onClick={() => setActiveSubMode('gallery')}
-            className={`flex items-center justify-center gap-1.5 py-2 px-2 rounded-lg text-xs font-bold transition ${
-              activeSubMode === 'gallery'
-                ? 'bg-gradient-to-r from-sky-500 to-blue-600 text-slate-950 shadow-md shadow-sky-500/20'
-                : 'text-slate-400 hover:text-white hover:bg-slate-900'
-            }`}
-          >
-            <Layers className="h-3.5 w-3.5" />
-            <span>4K Gallery</span>
-            <span className={`rounded-full px-1.5 py-0.2 text-[9px] font-mono ${
-              activeSubMode === 'gallery' ? 'bg-slate-950 text-sky-300' : 'bg-slate-800 text-slate-300'
-            }`}>
-              {mediaItems.length}
-            </span>
-          </button>
-
-          <button
-            id="subtab-client-past-photos"
-            type="button"
-            onClick={() => setActiveSubMode('client_past')}
-            className={`flex items-center justify-center gap-1.5 py-2 px-2 rounded-lg text-xs font-bold transition ${
-              activeSubMode === 'client_past'
-                ? 'bg-gradient-to-r from-emerald-500 to-teal-600 text-slate-950 shadow-md shadow-emerald-500/20 ring-2 ring-emerald-400'
-                : 'text-slate-400 hover:text-white hover:bg-slate-900'
-            }`}
-          >
-            <Users className="h-3.5 w-3.5 text-emerald-400" />
-            <span>Client Past</span>
-            <span className={`rounded-full px-1.5 py-0.2 text-[9px] font-mono ${
-              activeSubMode === 'client_past' ? 'bg-slate-950 text-emerald-300 font-bold' : 'bg-slate-800 text-slate-300'
-            }`}>
-              PHOTOS
-            </span>
-          </button>
-
-          <button
-            id="subtab-virtual-tour"
-            type="button"
-            onClick={() => setActiveSubMode('virtual_tour')}
-            className={`flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-lg text-xs font-bold transition ${
-              activeSubMode === 'virtual_tour'
-                ? 'bg-gradient-to-r from-rose-500 to-pink-600 text-white shadow-md shadow-rose-500/20'
-                : 'text-slate-400 hover:text-white hover:bg-slate-900'
-            }`}
-          >
-            <Compass className="h-3.5 w-3.5 text-rose-400" />
-            <span>360° Tour &amp; Wipe</span>
-          </button>
-
-          <button
-            id="subtab-ai-campaigns"
-            type="button"
-            onClick={() => setActiveSubMode('campaigns')}
-            className={`flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-lg text-xs font-bold transition ${
-              activeSubMode === 'campaigns'
-                ? 'bg-gradient-to-r from-purple-500 to-indigo-600 text-white shadow-md shadow-purple-500/20'
-                : 'text-slate-400 hover:text-white hover:bg-slate-900'
-            }`}
-          >
-            <Share2 className="h-3.5 w-3.5 text-purple-400" />
-            <span>AI Reel Producer</span>
-          </button>
-
-          <button
-            id="subtab-lookbook-brochure"
-            type="button"
-            onClick={() => setActiveSubMode('brochure')}
-            className={`flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-lg text-xs font-bold transition ${
-              activeSubMode === 'brochure'
-                ? 'bg-gradient-to-r from-amber-500 to-yellow-500 text-slate-950 shadow-md shadow-amber-500/20'
-                : 'text-slate-400 hover:text-white hover:bg-slate-900'
-            }`}
-          >
-            <FileText className="h-3.5 w-3.5 text-amber-400" />
-            <span>PDF Lookbook</span>
-          </button>
-
-          <button
-            id="subtab-social-channels"
-            type="button"
-            onClick={() => setActiveSubMode('channels')}
-            className={`flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-lg text-xs font-bold transition ${
-              activeSubMode === 'channels'
-                ? 'bg-gradient-to-r from-pink-500 to-purple-600 text-white shadow-md shadow-pink-500/20'
-                : 'text-slate-400 hover:text-white hover:bg-slate-900'
-            }`}
-          >
-            <Camera className="h-3.5 w-3.5 text-pink-400" />
-            <span>Channels Player</span>
-          </button>
-
-          <button
-            id="subtab-social-ads"
-            type="button"
-            onClick={() => setActiveSubMode('ads')}
-            className={`flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-lg text-xs font-bold transition ${
-              activeSubMode === 'ads'
-                ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 shadow-md shadow-amber-500/20'
-                : 'text-slate-400 hover:text-white hover:bg-slate-900'
-            }`}
-          >
-            <Megaphone className="h-3.5 w-3.5 text-amber-400" />
-            <span>Social Ads</span>
-          </button>
-
-          <button
-            id="subtab-stakeholder-wall"
-            type="button"
-            onClick={() => setActiveSubMode('wall')}
-            className={`flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-lg text-xs font-bold transition ${
-              activeSubMode === 'wall'
-                ? 'bg-gradient-to-r from-emerald-500 to-teal-600 text-slate-950 shadow-md shadow-emerald-500/20'
-                : 'text-slate-400 hover:text-white hover:bg-slate-900'
-            }`}
-          >
-            <MessageSquare className="h-3.5 w-3.5 text-emerald-400" />
-            <span>Client Feed ({wallComments.length})</span>
-          </button>
-        </div>
-
-        {/* ACTIVE CREATIVE BANNER (INDICATES WHICH MEDIA IS SYNCED ACROSS CHANNELS) */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-xl bg-slate-900/90 border border-sky-500/30 text-xs">
-          <div className="flex items-center gap-3">
-            <div className="relative h-11 w-16 rounded-lg overflow-hidden bg-slate-950 border border-slate-700 shrink-0">
-              {activeMedia.type === 'video' ? (
-                <video src={activeMedia.url} className="h-full w-full object-cover" muted />
-              ) : (
-                <img src={activeMedia.url} alt={activeMedia.title} className="h-full w-full object-cover" />
-              )}
-              <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
-                {activeMedia.type === 'video' ? (
-                  <Play className="h-4 w-4 text-white fill-current" />
-                ) : (
-                  <Camera className="h-4 w-4 text-white" />
-                )}
-              </div>
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-sky-400">
-                  Active Showcase Creative:
-                </span>
-                <span className={`px-1.5 py-0.2 rounded text-[10px] font-mono font-bold ${
-                  activeMedia.type === 'video' ? 'bg-red-500/20 text-red-300 border border-red-500/30' : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                }`}>
-                  {activeMedia.type.toUpperCase()} • {activeMedia.aspectRatio}
-                </span>
-              </div>
-              <div className="text-xs font-bold text-white line-clamp-1 mt-0.5">
-                {activeMedia.title}
-              </div>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2 shrink-0">
-            <button
-              type="button"
-              onClick={() => setLightboxItem(activeMedia)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition"
-            >
-              <Eye className="h-3.5 w-3.5 text-sky-400" />
-              <span>Full Preview</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveSubMode('channels')}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-sky-500/20 hover:bg-sky-500/30 text-sky-300 border border-sky-500/40 text-xs font-bold transition"
-            >
-              <span>View in Mockups</span>
-              <ChevronRight className="h-3.5 w-3.5" />
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* ========================================================================= */}
-      {/* SUB-MODE 1: MEDIA LIBRARY & UPLOADS GALLERY */}
-      {/* ========================================================================= */}
-      {activeSubMode === 'gallery' && (
-        <div id="media-library-gallery-section" className="space-y-6">
-          {/* FILTER & SEARCH TOOLBAR */}
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-4 rounded-xl bg-slate-900/90 border border-slate-800">
-            {/* Filter Pills */}
-            <div className="flex items-center gap-1.5 flex-wrap">
-              <span className="text-xs font-semibold text-slate-400 mr-1 flex items-center gap-1">
-                <Filter className="h-3.5 w-3.5 text-sky-400" /> Filter:
-              </span>
-
-              {/* All / Photos / Videos */}
-              <button
-                type="button"
-                onClick={() => setMediaTypeFilter('all')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition border ${
-                  mediaTypeFilter === 'all'
-                    ? 'bg-sky-500 text-slate-950 border-sky-400'
-                    : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-white'
-                }`}
-              >
-                All Media ({mediaItems.length})
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setMediaTypeFilter('photo')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition border ${
-                  mediaTypeFilter === 'photo'
-                    ? 'bg-gradient-to-r from-pink-500 to-purple-600 text-white border-pink-400'
-                    : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-pink-300'
-                }`}
-              >
-                <Camera className="h-3.5 w-3.5" />
-                <span>Photos ({mediaItems.filter((m) => m.type === 'photo').length})</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setMediaTypeFilter('video')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition border ${
-                  mediaTypeFilter === 'video'
-                    ? 'bg-gradient-to-r from-red-500 to-rose-600 text-white border-red-400'
-                    : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-red-300'
-                }`}
-              >
-                <Film className="h-3.5 w-3.5" />
-                <span>Videos &amp; 3D ({mediaItems.filter((m) => m.type === 'video').length})</span>
-              </button>
-            </div>
-
-            {/* Search Box and Reset */}
-            <div className="flex items-center gap-2">
-              <input
-                type="text"
-                placeholder="Search renders, reels, tags..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full md:w-64 rounded-lg bg-slate-950 border border-slate-800 px-3 py-1.5 text-xs text-white placeholder-slate-500 outline-none focus:border-sky-500"
-              />
-              <button
-                type="button"
-                onClick={handleResetToDefault}
-                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-slate-950 border border-slate-800 text-slate-400 hover:text-slate-200 text-xs transition shrink-0"
-                title="Reset to initial 4K sample portfolio"
-              >
-                <RefreshCw className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline">Reset</span>
-              </button>
-            </div>
-          </div>
-
-          {/* MEDIA GRID */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-            {filteredMedia.map((item) => {
-              const isActive = item.id === activeMediaId;
-              return (
-                <div
-                  key={item.id}
-                  className={`group rounded-xl border bg-slate-900/90 overflow-hidden flex flex-col transition-all duration-200 shadow-lg ${
-                    isActive
-                      ? 'border-sky-400 ring-2 ring-sky-500/20 shadow-sky-500/10'
-                      : 'border-slate-800 hover:border-slate-700'
-                  }`}
-                >
-                  {/* Media Thumbnail Container */}
-                  <div className="relative aspect-video bg-slate-950 overflow-hidden cursor-pointer" onClick={() => setLightboxItem(item)}>
-                    {item.type === 'video' ? (
-                      <video
-                        src={item.url}
-                        className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300"
-                        muted
-                        playsInline
-                        onMouseOver={(e) => (e.currentTarget as HTMLVideoElement).play().catch(() => {})}
-                        onMouseOut={(e) => {
-                          const v = e.currentTarget as HTMLVideoElement;
-                          v.pause();
-                          v.currentTime = 0;
-                        }}
-                      />
-                    ) : (
-                      <img
-                        src={item.url}
-                        alt={item.title}
-                        className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300"
-                        loading="lazy"
-                      />
-                    )}
-
-                    {/* Top Badges */}
-                    <div className="absolute top-2.5 left-2.5 flex items-center gap-1.5 flex-wrap">
-                      <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-extrabold uppercase shadow-md ${
-                        item.type === 'video'
-                          ? 'bg-red-600 text-white'
-                          : 'bg-gradient-to-r from-pink-500 to-purple-600 text-white'
-                      }`}>
-                        {item.type === 'video' ? 'VIDEO • 4K' : 'PHOTO'}
-                      </span>
-                      <span className="px-2 py-0.5 rounded bg-slate-950/80 text-slate-200 text-[10px] font-mono border border-slate-700">
-                        {item.aspectRatio}
-                      </span>
-                      {isActive && (
-                        <span className="px-2 py-0.5 rounded bg-sky-500 text-slate-950 text-[10px] font-mono font-bold flex items-center gap-1">
-                          <Check className="h-3 w-3" /> ACTIVE CREATIVE
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Duration / File Size Badge */}
-                    <div className="absolute top-2.5 right-2.5 rounded bg-slate-950/80 px-2 py-0.5 text-[10px] font-mono text-slate-300 border border-slate-800">
-                      {item.duration || item.fileSize}
-                    </div>
-
-                    {/* Play / Preview Hover Overlay */}
-                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                      <div className="h-12 w-12 rounded-full bg-sky-500 text-slate-950 flex items-center justify-center shadow-xl transform scale-90 group-hover:scale-100 transition-transform">
-                        {item.type === 'video' ? <Play className="h-6 w-6 fill-current ml-0.5" /> : <Eye className="h-6 w-6" />}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Media Content Information */}
-                  <div className="p-4 flex-1 flex flex-col justify-between space-y-3">
-                    <div className="space-y-1.5">
-                      <div className="flex items-center justify-between text-[11px] text-slate-400 font-mono">
-                        <span className="capitalize text-sky-400 font-semibold">{item.category.replace(/_/g, ' ')}</span>
-                        <span>{item.uploadedAt}</span>
-                      </div>
-
-                      <h3 className="text-sm font-bold text-white group-hover:text-sky-300 transition-colors line-clamp-1">
-                        {item.title}
-                      </h3>
-
-                      <p className="text-xs text-slate-300 line-clamp-2 leading-relaxed font-sans">
-                        {item.caption}
-                      </p>
-
-                      {/* Hashtags */}
-                      <div className="flex items-center gap-1 flex-wrap pt-1">
-                        {item.tags.slice(0, 3).map((tag, idx) => (
-                          <span
-                            key={idx}
-                            className="text-[10px] font-mono text-slate-400 bg-slate-950 px-1.5 py-0.2 rounded border border-slate-800"
-                          >
-                            {tag}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Bottom Actions Bar */}
-                    <div className="border-t border-slate-800 pt-3 flex items-center justify-between gap-2">
-                      {/* Set as Active Creative Button */}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setActiveMediaId(item.id);
-                          setUploadSuccessToast(`Set "${item.title}" as active creative across all mockups.`);
-                          setTimeout(() => setUploadSuccessToast(null), 3000);
-                        }}
-                        className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition ${
-                          isActive
-                            ? 'bg-sky-500/20 text-sky-300 border border-sky-500/40'
-                            : 'bg-slate-800 text-slate-200 hover:bg-slate-700'
-                        }`}
-                      >
-                        {isActive ? <Check className="h-3.5 w-3.5" /> : <Sparkles className="h-3.5 w-3.5 text-amber-400" />}
-                        <span>{isActive ? 'Active Creative' : 'Use in Mockups'}</span>
-                      </button>
-
-                      {/* Preview / Theater */}
-                      <button
-                        type="button"
-                        onClick={() => setLightboxItem(item)}
-                        className="p-1.5 rounded-lg bg-slate-950 border border-slate-800 text-slate-400 hover:text-white transition"
-                        title="Theater View"
-                      >
-                        <Maximize2 className="h-4 w-4" />
-                      </button>
-
-                      {/* Delete */}
-                      <button
-                        type="button"
-                        onClick={(e) => handleDeleteMedia(item.id, e)}
-                        className="p-1.5 rounded-lg bg-slate-950 border border-slate-800 text-rose-400/80 hover:text-rose-400 hover:bg-rose-500/10 transition"
-                        title="Remove Media"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-          {filteredMedia.length === 0 && (
-            <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-12 text-center space-y-4">
-              <Camera className="h-12 w-12 text-slate-600 mx-auto" />
-              <h3 className="text-base font-bold text-white">No media found matching your filter</h3>
-              <p className="text-xs text-slate-400 max-w-md mx-auto">
-                Try selecting a different filter or upload a new photo or video to the architectural portfolio.
-              </p>
-              <button
-                type="button"
-                onClick={() => setIsUploadModalOpen(true)}
-                className="inline-flex items-center gap-2 rounded-xl bg-sky-500 px-4 py-2 text-xs font-bold text-slate-950 hover:bg-sky-400 transition"
-              >
-                <Upload className="h-4 w-4" />
-                <span>Upload New Photo or Video</span>
-              </button>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* ========================================================================= */}
-      {/* SUB-MODE: CLIENT PAST PROJECTS & HANDOVER PHOTOS SHOWCASE                 */}
-      {/* ========================================================================= */}
-      {activeSubMode === 'client_past' && (
-        <ClientPastProjectsShowcase
-          activeProject={activeProject}
-          onOpenSocialHub={onOpenWorkflowEngine}
+  const renderMediaFrame = (
+    post: RealEstateSocialPost,
+    aspectClass: string,
+    overlayPrice = true
+  ) => (
+    <div className={`relative w-full ${aspectClass} bg-slate-900 overflow-hidden select-none`}>
+      {post.type === 'video' ? (
+        <video
+          src={post.url}
+          poster={post.thumbnailUrl || villaExteriorImg}
+          controls
+          playsInline
+          className="w-full h-full object-cover"
+        />
+      ) : (
+        <img
+          src={post.url}
+          alt={post.title}
+          referrerPolicy="no-referrer"
+          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.02]"
         />
       )}
-
-      {/* ========================================================================= */}
-      {/* SUB-MODE: 360° VIRTUAL TOUR & BEFORE/AFTER WIPE SLIDER                    */}
-      {/* ========================================================================= */}
-      {activeSubMode === 'virtual_tour' && (
-        <SocialVirtualTourAndCampaigns activeProject={activeProject} mode="virtual_tour" />
+      {overlayPrice && (
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-slate-950/90 via-slate-950/40 to-transparent flex items-end justify-between px-4 pb-3">
+          <div className="min-w-0">
+            <p className="text-[11px] font-medium text-slate-200 truncate">
+              {ROLE_DIRECTORY[post.posterRole].shortLabel} · {post.bhkOrType} · {post.areaSpec}
+            </p>
+          </div>
+          <span className="text-sm font-bold text-white tabular-nums shrink-0 ml-3">
+            {post.priceLabel}
+          </span>
+        </div>
       )}
+    </div>
+  );
 
-      {/* ========================================================================= */}
-      {/* SUB-MODE: MULTI-CHANNEL AI SOCIAL CAMPAIGN GENERATOR                      */}
-      {/* ========================================================================= */}
-      {activeSubMode === 'campaigns' && (
-        <SocialVirtualTourAndCampaigns activeProject={activeProject} mode="campaigns" />
-      )}
+  // Reusable Instagram Card
+  const renderInstagramCard = (post: RealEstateSocialPost, compact = false) => {
+    const roleMeta = ROLE_DIRECTORY[post.posterRole];
+    const showAllComments = !!expandedComments[post.id];
+    const visibleComments = showAllComments ? post.comments : post.comments.slice(-2);
 
-      {/* ========================================================================= */}
-      {/* SUB-MODE: ARCHITECTURAL LOOKBOOK & PRINTABLE PDF BROCHURE                  */}
-      {/* ========================================================================= */}
-      {activeSubMode === 'brochure' && (
-        <SocialVirtualTourAndCampaigns activeProject={activeProject} mode="brochure" />
-      )}
+    return (
+      <article
+        key={`ig-${post.id}`}
+        className="bg-slate-900/90 border border-slate-800 rounded-xl overflow-hidden flex flex-col"
+      >
+        {/* IG Card Header */}
+        <div className="px-4 py-3 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-9 h-9 rounded-full p-[2px] bg-gradient-to-tr from-amber-500 via-rose-500 to-fuchsia-600 shrink-0">
+              <img
+                src={post.posterAvatar || roleMeta.avatar}
+                alt={post.posterName}
+                referrerPolicy="no-referrer"
+                className="w-full h-full rounded-full object-cover border-2 border-slate-950"
+              />
+            </div>
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className="text-sm font-semibold text-white truncate">
+                  {post.posterHandle}
+                </span>
+                <CheckCircle2 className="w-3.5 h-3.5 text-sky-400 shrink-0" />
+                <span className={`text-[11px] font-semibold ${roleMeta.accentText} shrink-0`}>
+                  · {roleMeta.shortLabel}
+                </span>
+                <span className="text-xs text-slate-500 shrink-0">· {post.postedAgo}</span>
+              </div>
+              <p className="text-xs text-slate-400 truncate flex items-center gap-1">
+                <MapPin className="w-3 h-3 text-slate-500 shrink-0" />
+                <span className="truncate">
+                  {post.location} · {post.listingStatus}
+                </span>
+              </p>
+            </div>
+          </div>
 
-      {/* ========================================================================= */}
-      {/* SUB-MODE 2: INSTAGRAM REELS, FACEBOOK & YOUTUBE PLAYER MOCKUPS */}
-      {/* ========================================================================= */}
-      {activeSubMode === 'channels' && (
-        <div id="channels-showcase-section" className="space-y-6">
-          {/* Sub-channel Selector */}
-          <div className="flex items-center gap-2 border-b border-slate-800 pb-3 flex-wrap">
-            <span className="text-xs font-semibold text-slate-400 mr-1">Platform Preview:</span>
+          <div className="flex items-center gap-1.5 shrink-0">
+            <a
+              href={whatsappInquiryUrl(post)}
+              target="_blank"
+              rel="noreferrer"
+              className="text-xs font-semibold text-sky-400 hover:text-sky-300 px-2.5 py-1 rounded-lg hover:bg-slate-800 transition whitespace-nowrap"
+            >
+              Contact
+            </a>
+            {post.id.startsWith('eco-user-') || post.id.startsWith('eco-modal-') ? (
+              <button
+                type="button"
+                onClick={() => handleDeleteCustomPost(post.id)}
+                title="Remove post"
+                className="p-1.5 text-slate-500 hover:text-rose-400 rounded-lg hover:bg-slate-800 transition"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setDetailPostId(post.id)}
+                title="Open project details"
+                className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition"
+              >
+                <MoreHorizontal className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Media Area */}
+        <div className="group cursor-pointer" onClick={() => setDetailPostId(post.id)}>
+          {renderMediaFrame(post, compact ? 'aspect-square' : 'aspect-[4/5]', true)}
+        </div>
+
+        {/* IG Action Bar */}
+        <div className="px-4 pt-3 pb-2 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <button
+              type="button"
+              onClick={() => toggleLike(post.id)}
+              aria-label="Like post"
+              className="flex items-center gap-1.5 text-slate-200 hover:text-rose-400 transition"
+            >
+              <Heart
+                className={`w-5 h-5 transition-transform active:scale-125 ${
+                  post.liked ? 'fill-rose-500 text-rose-500' : 'text-slate-200'
+                }`}
+              />
+              <span className="text-xs font-semibold tabular-nums">
+                {(post.likesCount || 0).toLocaleString()}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() =>
+                setExpandedComments((prev) => ({ ...prev, [post.id]: !prev[post.id] }))
+              }
+              aria-label="Toggle comments"
+              className="flex items-center gap-1.5 text-slate-200 hover:text-sky-400 transition"
+            >
+              <MessageCircle className="w-5 h-5" />
+              <span className="text-xs font-semibold tabular-nums">{post.comments.length}</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => handleShare(post)}
+              aria-label="Copy and share project"
+              className="flex items-center gap-1.5 text-slate-200 hover:text-emerald-400 transition"
+            >
+              {copiedId === post.id ? (
+                <>
+                  <Check className="w-4 h-4 text-emerald-400" />
+                  <span className="text-xs font-medium text-emerald-400">Copied</span>
+                </>
+              ) : (
+                <Send className="w-4 h-4" />
+              )}
+            </button>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => toggleSave(post.id)}
+            aria-label="Save project"
+            className="text-slate-300 hover:text-amber-400 transition"
+          >
+            <Bookmark
+              className={`w-5 h-5 ${post.saved ? 'fill-amber-400 text-amber-400' : ''}`}
+            />
+          </button>
+        </div>
+
+        {/* Caption & Specs */}
+        <div className="px-4 pb-3 space-y-1.5 text-sm">
+          <div className="flex items-baseline justify-between gap-2 border-b border-slate-800/80 pb-2">
+            <h4 className="font-semibold text-white text-sm leading-snug">{post.title}</h4>
+            <span className="text-xs font-semibold text-amber-300 tabular-nums whitespace-nowrap shrink-0">
+              {post.priceLabel}
+            </span>
+          </div>
+
+          <p className="text-slate-300 text-[13px] leading-relaxed">
+            <span className="font-semibold text-white mr-1.5">{post.posterHandle}</span>
+            {post.caption}
+          </p>
+
+          <p className="text-xs text-sky-400/90 leading-relaxed">
+            {post.hashtags.join(' ')}
+          </p>
+
+          {post.comments.length > 2 && !showAllComments && (
+            <button
+              type="button"
+              onClick={() => setExpandedComments((prev) => ({ ...prev, [post.id]: true }))}
+              className="text-xs text-slate-400 hover:text-slate-200 transition pt-0.5"
+            >
+              View all {post.comments.length} comments
+            </button>
+          )}
+
+          {visibleComments.length > 0 && (
+            <div className="space-y-1 pt-1">
+              {visibleComments.map((c) => (
+                <div
+                  key={c.id}
+                  className="text-xs text-slate-300 flex items-baseline justify-between gap-2"
+                >
+                  <p className="leading-snug">
+                    <span className="font-semibold text-white mr-1.5">{c.author}</span>
+                    {c.text}
+                  </p>
+                  <span className="text-[11px] text-slate-500 shrink-0">{c.timeAgo}</span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Add Comment */}
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleAddComment(post.id);
+            }}
+            className="flex items-center gap-2 pt-2 border-t border-slate-800/80 mt-2"
+          >
+            <input
+              type="text"
+              value={commentDrafts[post.id] || ''}
+              onChange={(e) =>
+                setCommentDrafts((prev) => ({ ...prev, [post.id]: e.target.value }))
+              }
+              placeholder="Ask about BOQ rates, drawings, supply MOQ, or visit..."
+              className="flex-1 bg-transparent text-xs text-slate-100 placeholder:text-slate-500 focus:outline-none py-1"
+            />
+            <button
+              type="submit"
+              disabled={!(commentDrafts[post.id] || '').trim()}
+              className="text-xs font-semibold text-sky-400 hover:text-sky-300 disabled:text-slate-600 transition whitespace-nowrap"
+            >
+              Post
+            </button>
+          </form>
+        </div>
+      </article>
+    );
+  };
+
+  // Reusable Facebook Page Feed Card
+  const renderFacebookCard = (post: RealEstateSocialPost) => {
+    const roleMeta = ROLE_DIRECTORY[post.posterRole];
+    const showComments = !!expandedComments[post.id] || post.comments.length > 0;
+
+    return (
+      <article
+        key={`fb-${post.id}`}
+        className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden"
+      >
+        {/* FB Header */}
+        <div className="px-4 pt-4 pb-3 flex items-start justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <img
+              src={post.posterAvatar || roleMeta.avatar}
+              alt={post.posterName}
+              referrerPolicy="no-referrer"
+              className="w-10 h-10 rounded-full object-cover border border-slate-700 shrink-0"
+            />
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className="text-sm font-semibold text-white">{post.posterName}</span>
+                <CheckCircle2 className="w-3.5 h-3.5 text-[#1877F2] shrink-0" />
+                <span className={`text-xs font-semibold ${roleMeta.accentText}`}>
+                  · {roleMeta.label}
+                </span>
+              </div>
+              <p className="text-xs text-slate-400 flex items-center gap-1.5 flex-wrap">
+                <span>{post.postedAgo}</span>
+                <span>·</span>
+                <span className="text-slate-300">{post.location}</span>
+                <span>·</span>
+                <span className="text-sky-400 font-medium">{post.listingStatus}</span>
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-1 shrink-0">
+            <button
+              type="button"
+              onClick={() => toggleSave(post.id)}
+              title={post.saved ? 'Remove from saved' : 'Save project'}
+              className="p-1.5 rounded-lg text-slate-400 hover:text-amber-400 hover:bg-slate-800 transition"
+            >
+              <Bookmark className={`w-4 h-4 ${post.saved ? 'fill-amber-400 text-amber-400' : ''}`} />
+            </button>
+            {(post.id.startsWith('eco-user-') || post.id.startsWith('eco-modal-')) && (
+              <button
+                type="button"
+                onClick={() => handleDeleteCustomPost(post.id)}
+                title="Delete post"
+                className="p-1.5 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-slate-800 transition"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* FB Headline & Spec Line */}
+        <div className="px-4 pb-3 space-y-2">
+          <div className="flex items-baseline justify-between gap-3 flex-wrap">
+            <h4 className="text-base font-semibold text-white">{post.title}</h4>
+            <span className="text-base font-bold text-emerald-400 tabular-nums">
+              {post.priceLabel}
+            </span>
+          </div>
+          <p className="text-xs text-slate-300 font-medium">
+            {post.bhkOrType} · {post.areaSpec} · {post.facing} · {post.possessionStatus}
+          </p>
+          <p className="text-sm text-slate-300 leading-relaxed">{post.caption}</p>
+        </div>
+
+        {/* Full-bleed Media */}
+        <div
+          className="group cursor-pointer border-y border-slate-800"
+          onClick={() => setDetailPostId(post.id)}
+        >
+          {renderMediaFrame(post, 'aspect-[16/10]', false)}
+        </div>
+
+        {/* Marketplace / Vendor CTA Bar inside FB Post */}
+        <div className="px-4 py-2.5 bg-slate-950/60 border-b border-slate-800 flex items-center justify-between gap-3 flex-wrap">
+          <div className="min-w-0">
+            <p className="text-[11px] uppercase tracking-wider text-slate-400">
+              {roleMeta.label} · {post.location}
+            </p>
+            <p className="text-xs font-semibold text-white truncate">
+              {post.bhkOrType} · {post.priceLabel}
+            </p>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <a
+              href={`tel:${post.posterPhone.replace(/\s+/g, '')}`}
+              className="px-3 py-1.5 rounded-lg border border-slate-700 hover:border-slate-500 text-xs font-medium text-slate-200 transition whitespace-nowrap"
+            >
+              Call Desk
+            </a>
+            <a
+              href={whatsappInquiryUrl(post)}
+              target="_blank"
+              rel="noreferrer"
+              className="px-3 py-1.5 rounded-lg bg-[#1877F2] hover:bg-[#166fe5] text-white text-xs font-semibold transition whitespace-nowrap"
+            >
+              {post.posterRole === 'material_supplier'
+                ? 'Request Quote'
+                : post.posterRole === 'architect'
+                ? 'Book Consult'
+                : post.posterRole === 'builder'
+                ? 'Request BOQ'
+                : 'Schedule Visit'}
+            </a>
+          </div>
+        </div>
+
+        {/* FB Engagement Metrics */}
+        <div className="px-4 py-2 flex items-center justify-between text-xs text-slate-400 border-b border-slate-800/80 tabular-nums">
+          <div className="flex items-center gap-1.5">
+            <ThumbsUp className="w-3.5 h-3.5 text-[#1877F2]" />
+            <span>{(post.likesCount || 0).toLocaleString()} reactions</span>
+          </div>
+          <div className="flex items-center gap-3">
+            <span>{post.comments.length} comments</span>
+            <span>{post.sharesCount} shares</span>
+          </div>
+        </div>
+
+        {/* FB Action Row */}
+        <div className="grid grid-cols-3 divide-x divide-slate-800/70 border-b border-slate-800/80">
+          <button
+            type="button"
+            onClick={() => toggleLike(post.id)}
+            className={`py-2.5 flex items-center justify-center gap-2 text-xs font-semibold transition hover:bg-slate-800/60 ${
+              post.liked ? 'text-[#1877F2]' : 'text-slate-300'
+            }`}
+          >
+            <ThumbsUp className={`w-4 h-4 ${post.liked ? 'fill-[#1877F2]' : ''}`} />
+            <span>{post.liked ? 'Liked' : 'Like'}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() =>
+              setExpandedComments((prev) => ({ ...prev, [post.id]: !prev[post.id] }))
+            }
+            className="py-2.5 flex items-center justify-center gap-2 text-xs font-semibold text-slate-300 hover:bg-slate-800/60 transition"
+          >
+            <MessageCircle className="w-4 h-4" />
+            <span>Comment</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => handleShare(post)}
+            className="py-2.5 flex items-center justify-center gap-2 text-xs font-semibold text-slate-300 hover:bg-slate-800/60 transition"
+          >
+            {copiedId === post.id ? (
+              <>
+                <Check className="w-4 h-4 text-emerald-400" />
+                <span className="text-emerald-400">Link Copied</span>
+              </>
+            ) : (
+              <>
+                <Share2 className="w-4 h-4" />
+                <span>Share</span>
+              </>
+            )}
+          </button>
+        </div>
+
+        {/* FB Comments */}
+        {showComments && (
+          <div className="px-4 py-3 bg-slate-950/40 space-y-2.5">
+            {post.comments.map((c) => (
+              <div key={c.id} className="flex items-start gap-2.5">
+                <img
+                  src={architectAvatarImg}
+                  alt={c.author}
+                  referrerPolicy="no-referrer"
+                  className="w-7 h-7 rounded-full object-cover border border-slate-700 shrink-0 mt-0.5"
+                />
+                <div className="bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 flex-1 min-w-0">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs font-semibold text-white">{c.author}</span>
+                    <span className="text-[11px] text-slate-500">{c.timeAgo}</span>
+                  </div>
+                  <p className="text-xs text-slate-300 mt-0.5 leading-relaxed">{c.text}</p>
+                </div>
+              </div>
+            ))}
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleAddComment(post.id);
+              }}
+              className="flex items-center gap-2 pt-1"
+            >
+              <img
+                src={ROLE_DIRECTORY[activePosterRole].avatar}
+                alt="Active User"
+                referrerPolicy="no-referrer"
+                className="w-7 h-7 rounded-full object-cover border border-slate-700 shrink-0"
+              />
+              <input
+                type="text"
+                value={commentDrafts[post.id] || ''}
+                onChange={(e) =>
+                  setCommentDrafts((prev) => ({ ...prev, [post.id]: e.target.value }))
+                }
+                placeholder={`Comment as ${ROLE_DIRECTORY[activePosterRole].defaultName}...`}
+                className="flex-1 bg-slate-900 border border-slate-800 focus:border-[#1877F2] rounded-lg px-3 py-1.5 text-xs text-white placeholder:text-slate-500 focus:outline-none"
+              />
+              <button
+                type="submit"
+                disabled={!(commentDrafts[post.id] || '').trim()}
+                className="px-3 py-1.5 rounded-lg bg-[#1877F2] hover:bg-[#166fe5] disabled:bg-slate-800 disabled:text-slate-500 text-white text-xs font-semibold transition whitespace-nowrap"
+              >
+                Reply
+              </button>
+            </form>
+          </div>
+        )}
+      </article>
+    );
+  };
+
+  const roleTabs: { id: RoleFilter; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
+    { id: 'all', label: `All Ecosystem (${roleCounts.all})`, icon: Building2 },
+    { id: 'real_estate', label: `Real Estate (${roleCounts.real_estate})`, icon: Home },
+    { id: 'architect', label: `Architects (${roleCounts.architect})`, icon: PenTool },
+    { id: 'builder', label: `Builders (${roleCounts.builder})`, icon: HardHat },
+    {
+      id: 'material_supplier',
+      label: `Material Suppliers (${roleCounts.material_supplier})`,
+      icon: Package,
+    },
+    { id: 'client', label: `Clients (${roleCounts.client})`, icon: UserCheck },
+  ];
+
+  const categoryTabs: { id: RealEstateCategory; label: string }[] = [
+    { id: 'all', label: 'All Work' },
+    { id: 'for_sale', label: 'For Sale' },
+    { id: 'for_rent', label: 'Rent & PG' },
+    { id: 'architectural_design', label: 'Architecture & 3D' },
+    { id: 'turnkey_build', label: 'Builder Turnkey' },
+    { id: 'materials_supply', label: 'Materials & Stones' },
+    { id: 'client_post', label: 'Client Stories & Requests' },
+  ];
+
+  const activeAccount = ROLE_DIRECTORY[activePosterRole];
+
+  return (
+    <div className="space-y-6 text-slate-100">
+      {/* Top Studio Header & Role Switcher */}
+      <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 sm:p-5 flex flex-col gap-4">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-2 text-xs text-slate-400 font-medium flex-wrap">
+              <span className="text-white font-semibold">Realstate Media</span>
+              <span>·</span>
+              <span className="text-amber-300">Instagram &amp; Facebook Network</span>
+              <span>·</span>
+              <span className="truncate">{activeProject.name}</span>
+            </div>
+            <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight mt-1">
+              Realstate Media — Instagram &amp; Facebook Showcase
+            </h1>
+            <p className="text-xs sm:text-sm text-slate-400 mt-0.5">
+              Real Estate, Architects, Builders, Material Suppliers, and Clients can publish projects, reviews, and requirements across Instagram &amp; Facebook feeds.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2.5 flex-wrap">
+            {/* Quick Active Role Switcher */}
+            <div className="flex items-center gap-2 bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5">
+              <img
+                src={activeAccount.avatar}
+                alt={activeAccount.label}
+                referrerPolicy="no-referrer"
+                className="w-5 h-5 rounded-full object-cover"
+              />
+              <span className="text-[11px] text-slate-400 whitespace-nowrap">Post as:</span>
+              <select
+                value={activePosterRole}
+                onChange={(e) => handleSelectActiveRole(e.target.value as PosterRole)}
+                className="bg-transparent text-xs font-semibold text-white focus:outline-none"
+              >
+                <option value="real_estate" className="bg-slate-900">
+                  Real Estate
+                </option>
+                <option value="architect" className="bg-slate-900">
+                  Architect
+                </option>
+                <option value="builder" className="bg-slate-900">
+                  Builder
+                </option>
+                <option value="material_supplier" className="bg-slate-900">
+                  Material Supplier
+                </option>
+                <option value="client" className="bg-slate-900">
+                  Client
+                </option>
+              </select>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setOnlySaved((v) => !v)}
+              className={`px-3 py-2 rounded-lg border text-xs font-semibold flex items-center gap-1.5 transition whitespace-nowrap shrink-0 ${
+                onlySaved
+                  ? 'bg-amber-500/15 border-amber-500/60 text-amber-300'
+                  : 'bg-slate-950 border-slate-800 text-slate-300 hover:border-slate-700'
+              }`}
+            >
+              <Bookmark className={`w-3.5 h-3.5 ${onlySaved ? 'fill-amber-400 text-amber-400' : ''}`} />
+              <span>Saved ({savedPosts.length})</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setModalRole(activePosterRole);
+                setIsComposerOpen(true);
+              }}
+              className="px-4 py-2 rounded-lg bg-sky-500 hover:bg-sky-400 text-slate-950 font-semibold text-xs flex items-center gap-1.5 transition whitespace-nowrap shrink-0"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Post Your Project</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Platform Switcher & Search */}
+        <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3 pt-3 border-t border-slate-800">
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 xl:pb-0">
             {[
-              { id: 'all', label: 'All Channels', icon: Share2, color: 'text-sky-300' },
-              { id: 'instagram', label: 'Instagram Reels & Post Studio', icon: Camera, color: 'text-pink-400' },
-              { id: 'youtube', label: 'YouTube 3D Tour Player', icon: Film, color: 'text-red-400' },
-              { id: 'facebook', label: 'Facebook Page & Community Story', icon: Globe, color: 'text-blue-400' },
+              { id: 'instagram', label: 'Instagram Model', icon: ImageIcon },
+              { id: 'facebook', label: 'Facebook Model', icon: Building2 },
+              { id: 'dual', label: 'Dual IG + FB View', icon: LayoutList },
+              { id: 'virtual_tour', label: '360° Tour', icon: Compass },
+              { id: 'brochure', label: 'PDF Lookbook', icon: FileText },
+              { id: 'campaigns', label: 'Social Ads', icon: Megaphone },
             ].map((tab) => {
               const Icon = tab.icon;
-              const isSelected = socialPlatformFocus === tab.id;
+              const isActive = platformMode === tab.id;
               return (
                 <button
                   key={tab.id}
                   type="button"
-                  onClick={() => setSocialPlatformFocus(tab.id as any)}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition border ${
-                    isSelected
-                      ? 'bg-slate-800 border-sky-400/80 text-white shadow-sm'
-                      : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-slate-200'
+                  onClick={() => setPlatformMode(tab.id as PlatformMode)}
+                  className={`px-3 py-2 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition whitespace-nowrap shrink-0 border ${
+                    isActive
+                      ? 'bg-slate-800 border-slate-600 text-white'
+                      : 'bg-transparent border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
                   }`}
                 >
-                  <Icon className={`h-3.5 w-3.5 ${tab.color}`} />
+                  <Icon className="w-3.5 h-3.5" />
                   <span>{tab.label}</span>
                 </button>
               );
             })}
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-            {/* LEFT / CENTER: INSTAGRAM & YOUTUBE PLAYERS (7 COLS) */}
-            <div className="lg:col-span-7 space-y-6">
-              {/* INSTAGRAM MODULE */}
-              {(socialPlatformFocus === 'all' || socialPlatformFocus === 'instagram') && (
-                <div className="rounded-2xl bg-slate-900/90 border border-pink-500/30 p-5 space-y-4 shadow-xl shadow-pink-500/5">
-                  <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-                    <div className="flex items-center gap-2.5">
-                      <div className="h-7 w-7 rounded-lg bg-gradient-to-tr from-yellow-500 via-pink-500 to-purple-600 flex items-center justify-center text-white">
-                        <Camera className="h-4 w-4" />
-                      </div>
-                      <div>
-                        <h4 className="text-xs font-bold text-white uppercase tracking-wider">
-                          Instagram Reels &amp; Showcase Studio
-                        </h4>
-                        <span className="text-[10px] text-pink-400 font-mono">
-                          Live Active Media: {activeMedia.title}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-1 text-[11px] font-mono">
-                      {(['reel', 'post', 'carousel'] as const).map((fmt) => (
-                        <button
-                          key={fmt}
-                          type="button"
-                          onClick={() => setInstagramFormat(fmt)}
-                          className={`px-2.5 py-1 rounded text-[10px] uppercase font-bold transition ${
-                            instagramFormat === fmt
-                              ? 'bg-pink-500 text-white'
-                              : 'bg-slate-950 text-slate-400 hover:text-white'
-                          }`}
-                        >
-                          {fmt}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* INTERACTIVE INSTAGRAM PHONE PREVIEW FRAME */}
-                  <div className="mx-auto max-w-sm rounded-3xl bg-slate-950 border-4 border-slate-800 p-2 shadow-2xl overflow-hidden relative">
-                    {/* Phone Top Notch Bar */}
-                    <div className="flex items-center justify-between px-3 py-1.5 text-[10px] font-mono text-slate-400 border-b border-slate-900">
-                      <span>9:41</span>
-                      <div className="h-3 w-16 bg-slate-900 rounded-full" />
-                      <span>5G 100%</span>
-                    </div>
-
-                    {/* Instagram Account Header */}
-                    <div className="p-2.5 flex items-center justify-between border-b border-slate-900 text-xs">
-                      <div className="flex items-center gap-2">
-                        <div className="h-7 w-7 rounded-full bg-gradient-to-tr from-yellow-400 via-pink-500 to-purple-600 p-0.5">
-                          <div className="h-full w-full rounded-full bg-slate-950 flex items-center justify-center text-[10px] font-bold text-white">
-                            SG
-                          </div>
-                        </div>
-                        <div>
-                          <div className="font-bold text-white flex items-center gap-1 text-xs">
-                            <span>gouse_architects</span>
-                            <span className="h-1.5 w-1.5 rounded-full bg-sky-400" />
-                          </div>
-                          <div className="text-[10px] text-slate-400">Bengaluru • Ar. S. Gouse</div>
-                        </div>
-                      </div>
-                      <span className="text-[10px] font-mono text-pink-400 font-bold">Follow</span>
-                    </div>
-
-                    {/* Visual Media Container */}
-                    <div className="relative aspect-[9/16] bg-slate-900 rounded-2xl overflow-hidden flex items-center justify-center">
-                      {activeMedia.type === 'video' ? (
-                        <video
-                          src={activeMedia.url}
-                          className="h-full w-full object-cover"
-                          autoPlay
-                          loop
-                          muted={isMuted}
-                          playsInline
-                        />
-                      ) : (
-                        <img
-                          src={activeMedia.url}
-                          alt={activeMedia.title}
-                          className="h-full w-full object-cover"
-                        />
-                      )}
-
-                      {/* Reel Floating Overlays */}
-                      <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-transparent to-transparent pointer-events-none" />
-
-                      {/* Right-Side Floating Actions */}
-                      <div className="absolute right-2.5 bottom-12 flex flex-col items-center gap-4 text-white z-10">
-                        {/* Like */}
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setHasLikedReel(!hasLikedReel);
-                            setReelLikes(hasLikedReel ? reelLikes - 1 : reelLikes + 1);
-                          }}
-                          className="flex flex-col items-center gap-1 text-xs font-mono"
-                        >
-                          <div className={`p-2 rounded-full backdrop-blur-md transition ${hasLikedReel ? 'bg-pink-600 text-white' : 'bg-black/40 text-white hover:text-pink-400'}`}>
-                            <Heart className={`h-5 w-5 ${hasLikedReel ? 'fill-current' : ''}`} />
-                          </div>
-                          <span className="text-[10px]">{reelLikes}</span>
-                        </button>
-
-                        {/* Comment */}
-                        <div className="flex flex-col items-center gap-1 text-xs font-mono">
-                          <div className="p-2 rounded-full bg-black/40 backdrop-blur-md text-white">
-                            <MessageSquare className="h-5 w-5" />
-                          </div>
-                          <span className="text-[10px]">48</span>
-                        </div>
-
-                        {/* Share */}
-                        <div className="flex flex-col items-center gap-1 text-xs font-mono">
-                          <div className="p-2 rounded-full bg-black/40 backdrop-blur-md text-white">
-                            <Send className="h-5 w-5" />
-                          </div>
-                          <span className="text-[10px]">Share</span>
-                        </div>
-                      </div>
-
-                      {/* Bottom Info Overlay */}
-                      <div className="absolute left-3 right-16 bottom-3 text-white space-y-1 z-10 pointer-events-auto">
-                        <div className="flex items-center gap-2">
-                          <span className="font-bold text-xs">@gouse_architects</span>
-                          <span className="text-[10px] px-1.5 py-0.2 rounded bg-pink-500/80 font-mono font-bold">
-                            NBC 2016
-                          </span>
-                        </div>
-                        <p className="text-[11px] text-slate-200 line-clamp-2 leading-snug">
-                          {activeMedia.caption}
-                        </p>
-                        <div className="flex items-center gap-1 text-[10px] text-pink-300 font-mono">
-                          <span>♫ Ar. S. Gouse • Signature Turnkey Design Audio</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Quick Call Action Bar */}
-                    <div className="p-2.5 flex items-center justify-between border-t border-slate-900 text-xs">
-                      <a
-                        href={directCallHref}
-                        className="flex items-center gap-1 text-[11px] font-bold text-emerald-400"
-                      >
-                        <Phone className="h-3 w-3" />
-                        <span>Direct Call: +91 8073947241</span>
-                      </a>
-                      <a
-                        href={directAreaSmsHref}
-                        className="text-[11px] font-mono text-sky-400 underline font-semibold"
-                      >
-                        Send Area SMS
-                      </a>
-                    </div>
-                  </div>
-
-                  {/* Caption & Hashtag Kit */}
-                  <div className="rounded-xl bg-slate-950 border border-slate-800 p-3.5 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[11px] font-mono font-bold text-pink-400">
-                        Instagram Caption &amp; Hashtag Kit:
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => copyToClipboard(instagramKitText, setCopiedInstagramKit)}
-                        className="flex items-center gap-1 text-[11px] text-pink-300 hover:text-pink-200 font-mono"
-                      >
-                        {copiedInstagramKit ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-                        <span>{copiedInstagramKit ? 'Copied Kit!' : 'Copy Instagram Kit'}</span>
-                      </button>
-                    </div>
-                    <div className="text-xs text-slate-300 whitespace-pre-line leading-relaxed bg-slate-900/60 p-3 rounded-lg border border-slate-800">
-                      {instagramKitText}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* YOUTUBE 3D & 4K VIDEO PLAYER MODULE */}
-              {(socialPlatformFocus === 'all' || socialPlatformFocus === 'youtube') && (
-                <div className="rounded-2xl bg-slate-900/90 border border-red-500/30 p-5 space-y-4 shadow-xl shadow-red-500/5">
-                  <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-                    <div className="flex items-center gap-2.5">
-                      <div className="h-7 w-7 rounded-lg bg-red-600 flex items-center justify-center text-white font-bold text-xs">
-                        <Play className="h-4 w-4 fill-current ml-0.5" />
-                      </div>
-                      <div>
-                        <h4 className="text-xs font-bold text-white uppercase tracking-wider">
-                          YouTube 3D Architectural Player
-                        </h4>
-                        <span className="text-[10px] text-red-400 font-mono">
-                          Playing: {activeMedia.title}
-                        </span>
-                      </div>
-                    </div>
-                    <span className="text-[10px] font-mono text-red-400 bg-red-500/10 px-2 py-0.5 rounded border border-red-500/20">
-                      4K UHD • 60 FPS
-                    </span>
-                  </div>
-
-                  {/* Real HTML5 Interactive YouTube Player Frame */}
-                  <div className="rounded-xl bg-slate-950 border border-slate-800 overflow-hidden relative">
-                    <div className="relative aspect-video bg-black flex items-center justify-center">
-                      {activeMedia.type === 'video' ? (
-                        <video
-                          src={activeMedia.url}
-                          className="h-full w-full object-contain"
-                          controls
-                          autoPlay={isPlayingYouTube}
-                          muted={isMuted}
-                        />
-                      ) : (
-                        <div className="relative h-full w-full flex items-center justify-center">
-                          <img src={activeMedia.url} alt={activeMedia.title} className="h-full w-full object-cover" />
-                          <div className="absolute inset-0 bg-black/40 flex flex-col items-center justify-center text-center p-4">
-                            <span className="text-xs font-bold text-white bg-slate-950/80 px-3 py-1.5 rounded-lg border border-slate-700">
-                              Selected Active Creative is a Photo: {activeMedia.title}
-                            </span>
-                            <span className="text-[11px] text-slate-400 mt-1">
-                              To play full motion video, select any video from the Media Library.
-                            </span>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* YouTube Chapters */}
-                    <div className="p-3 bg-slate-900 border-t border-slate-800 text-xs">
-                      <div className="text-[11px] font-semibold text-slate-400 mb-1.5 flex items-center justify-between">
-                        <span>Interactive Video Chapters:</span>
-                        <span className="font-mono text-[10px] text-red-400">NBC 2016 Compliant Walkthrough</span>
-                      </div>
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px] font-mono">
-                        <div className="p-1.5 rounded bg-slate-950 border border-slate-800 text-slate-300">
-                          <strong className="text-red-400">00:00</strong> Drone Aerials
-                        </div>
-                        <div className="p-1.5 rounded bg-slate-950 border border-slate-800 text-slate-300">
-                          <strong className="text-red-400">01:10</strong> Courtyard Daylighting
-                        </div>
-                        <div className="p-1.5 rounded bg-slate-950 border border-slate-800 text-slate-300">
-                          <strong className="text-red-400">02:25</strong> Facade Teak Louvers
-                        </div>
-                        <div className="p-1.5 rounded bg-slate-950 border border-slate-800 text-slate-300">
-                          <strong className="text-red-400">03:45</strong> RCC Slab Matrix
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* YouTube SEO & Kit */}
-                  <div className="rounded-xl bg-slate-950 border border-slate-800 p-3.5 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[11px] font-mono font-bold text-red-400">
-                        YouTube SEO Title &amp; Description Kit:
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => copyToClipboard(youtubeKitText, setCopiedYouTubeKit)}
-                        className="flex items-center gap-1 text-[11px] text-red-300 hover:text-red-200 font-mono"
-                      >
-                        {copiedYouTubeKit ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-                        <span>{copiedYouTubeKit ? 'Copied Kit!' : 'Copy YouTube Kit'}</span>
-                      </button>
-                    </div>
-                    <div className="text-xs text-slate-300 whitespace-pre-line leading-relaxed bg-slate-900/60 p-3 rounded-lg border border-slate-800">
-                      {youtubeKitText}
-                    </div>
-                  </div>
-                </div>
-              )}
+          {(platformMode === 'instagram' || platformMode === 'facebook' || platformMode === 'dual') && (
+            <div className="relative w-full xl:w-80 shrink-0">
+              <Search className="w-3.5 h-3.5 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search villas, architects, builders, marble, TMT..."
+                className="w-full bg-slate-950 border border-slate-800 focus:border-slate-600 rounded-lg pl-8 pr-3 py-1.5 text-xs text-white placeholder:text-slate-500 focus:outline-none"
+              />
             </div>
-
-            {/* RIGHT COLUMN: LIVE MULTI-CHANNEL PORTAL & STAKEHOLDER FEED SUMMARY (5 COLS) */}
-            <div className="lg:col-span-5 space-y-6">
-              {/* FACEBOOK MODULE */}
-              {(socialPlatformFocus === 'all' || socialPlatformFocus === 'facebook') && (
-                <div className="rounded-2xl bg-slate-900/90 border border-blue-500/30 p-5 space-y-4 shadow-xl shadow-blue-500/5">
-                  <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-                    <div className="flex items-center gap-2">
-                      <div className="h-7 w-7 rounded-lg bg-blue-600 flex items-center justify-center text-white font-bold text-xs">
-                        f
-                      </div>
-                      <h4 className="text-xs font-bold text-white uppercase tracking-wider">
-                        Facebook Page Post Preview
-                      </h4>
-                    </div>
-                    <span className="text-[10px] font-mono text-blue-400">Client Group Ready</span>
-                  </div>
-
-                  {/* Facebook Mock Post Card */}
-                  <div className="rounded-xl border border-slate-700 bg-slate-950 overflow-hidden shadow-md">
-                    <div className="p-3 border-b border-slate-800 flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <div className="h-8 w-8 rounded-full bg-blue-600 flex items-center justify-center text-xs font-bold text-white">
-                          GA
-                        </div>
-                        <div>
-                          <div className="text-xs font-bold text-white">Gouse Architectural Design &amp; Turnkey</div>
-                          <div className="text-[10px] text-slate-400">Bengaluru • Public Portfolio</div>
-                        </div>
-                      </div>
-                      <span className="text-[10px] font-mono text-sky-400 bg-sky-500/10 px-2 py-0.5 rounded">Verified</span>
-                    </div>
-
-                    <div className="p-3 text-xs text-slate-200">
-                      <p className="line-clamp-2">{activeMedia.caption}</p>
-                    </div>
-
-                    {/* Post Media */}
-                    <div className="relative aspect-video bg-black">
-                      {activeMedia.type === 'video' ? (
-                        <video src={activeMedia.url} className="h-full w-full object-cover" controls />
-                      ) : (
-                        <img src={activeMedia.url} alt={activeMedia.title} className="h-full w-full object-cover" />
-                      )}
-                    </div>
-
-                    <div className="p-3 border-t border-slate-800 flex items-center justify-between text-xs">
-                      <div className="flex items-center gap-1.5 text-slate-400">
-                        <Heart className="h-4 w-4 text-rose-500 fill-current" />
-                        <span>342 Likes</span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => copyToClipboard(facebookKitText, setCopiedFacebookKit)}
-                        className="text-blue-400 hover:text-blue-300 font-bold text-xs"
-                      >
-                        {copiedFacebookKit ? 'Copied Post!' : 'Copy FB Post'}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* DIRECT CHANNELS QUICK LAUNCH */}
-              <div className="rounded-2xl bg-slate-900/90 border border-slate-800 p-5 space-y-4">
-                <div className="flex items-center gap-2 text-white font-bold text-xs uppercase tracking-wider">
-                  <ExternalLink className="h-4 w-4 text-sky-400" />
-                  <span>One-Click Channel Publishing</span>
-                </div>
-
-                <div className="grid grid-cols-2 gap-2 text-xs">
-                  <a
-                    href="https://www.instagram.com/"
-                    target="_blank"
-                    rel="noreferrer"
-                    className="flex items-center gap-2 p-2.5 rounded-lg bg-pink-500/10 border border-pink-500/30 text-pink-300 hover:bg-pink-500 hover:text-white transition font-semibold"
-                  >
-                    <Camera className="h-4 w-4" />
-                    <span>Open Instagram</span>
-                  </a>
-                  <a
-                    href="https://www.facebook.com/"
-                    target="_blank"
-                    rel="noreferrer"
-                    className="flex items-center gap-2 p-2.5 rounded-lg bg-blue-500/10 border border-blue-500/30 text-blue-300 hover:bg-blue-500 hover:text-white transition font-semibold"
-                  >
-                    <Globe className="h-4 w-4" />
-                    <span>Open Facebook</span>
-                  </a>
-                  <a
-                    href="https://www.youtube.com/"
-                    target="_blank"
-                    rel="noreferrer"
-                    className="flex items-center gap-2 p-2.5 rounded-lg bg-red-500/10 border border-red-500/30 text-red-300 hover:bg-red-500 hover:text-white transition font-semibold"
-                  >
-                    <Play className="h-4 w-4" />
-                    <span>Open YouTube</span>
-                  </a>
-                  <a
-                    href={directAreaSmsHref}
-                    className="flex items-center gap-2 p-2.5 rounded-lg bg-sky-500/10 border border-sky-500/30 text-sky-300 hover:bg-sky-500 hover:text-white transition font-semibold"
-                  >
-                    <MessageSquare className="h-4 w-4" />
-                    <span>Send Area SMS</span>
-                  </a>
-                </div>
-              </div>
-            </div>
-          </div>
+          )}
         </div>
-      )}
 
-      {/* ========================================================================= */}
-      {/* SUB-MODE 3: PROMOTE COMPANY VIA SOCIAL ADS (₹500 PER AD) */}
-      {/* ========================================================================= */}
-      {activeSubMode === 'ads' && (
-        <div id="social-ads-promotions-section" className="space-y-6">
-          <div className="rounded-2xl border border-amber-500/40 bg-slate-900/90 p-5 space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-3">
-              <div className="flex items-center gap-2.5">
-                <div className="h-8 w-8 rounded-lg bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400">
-                  <Megaphone className="h-4 w-4" />
-                </div>
-                <div>
-                  <h3 className="text-sm font-bold text-white uppercase tracking-wider">
-                    Company Sponsored Ads Studio • Lead Acquisition
-                  </h3>
-                  <p className="text-xs text-slate-400">
-                    Acquire prospective villa &amp; commercial turnkey clients via Instagram, Facebook &amp; YouTube Ads.
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="rounded-full bg-amber-500/20 px-3 py-1 text-xs font-mono font-bold text-amber-300 border border-amber-500/30">
-                  Budget: ₹{adBudgetTier} INR / Ad
-                </span>
-              </div>
+        {/* Stakeholder Role Filter Row + Category Sub-Filter */}
+        {(platformMode === 'instagram' || platformMode === 'facebook' || platformMode === 'dual') && (
+          <div className="space-y-2.5 pt-1">
+            {/* Industry Role Filter */}
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5">
+              {roleTabs.map((rt) => {
+                const Icon = rt.icon;
+                const active = roleFilter === rt.id;
+                return (
+                  <button
+                    key={rt.id}
+                    type="button"
+                    onClick={() => setRoleFilter(rt.id)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition whitespace-nowrap shrink-0 border ${
+                      active
+                        ? 'bg-sky-500/15 text-sky-300 border-sky-500/50'
+                        : 'bg-slate-950/70 text-slate-300 border-slate-800 hover:border-slate-700'
+                    }`}
+                  >
+                    <Icon className="w-3.5 h-3.5" />
+                    <span>{rt.label}</span>
+                  </button>
+                );
+              })}
             </div>
 
-            {/* AD CREATIVE SELECTOR (USES CURRENT ACTIVE MEDIA) */}
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
-              {/* Left Column: Ad Settings & Copy (7 cols) */}
-              <div className="md:col-span-7 space-y-4">
-                <div className="rounded-xl bg-slate-950 border border-slate-800 p-4 space-y-3">
-                  <span className="text-xs font-bold text-amber-400 uppercase tracking-wider block">
-                    1. Select Ad Creative Visual:
-                  </span>
-                  <div className="flex items-center gap-3 p-3 rounded-lg bg-slate-900 border border-slate-800">
-                    <div className="h-12 w-20 rounded bg-black overflow-hidden relative shrink-0">
-                      {activeMedia.type === 'video' ? (
-                        <video src={activeMedia.url} className="h-full w-full object-cover" muted />
-                      ) : (
-                        <img src={activeMedia.url} alt={activeMedia.title} className="h-full w-full object-cover" />
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-xs font-bold text-white truncate">{activeMedia.title}</div>
-                      <div className="text-[10px] text-slate-400 font-mono">
-                        {activeMedia.type.toUpperCase()} • {activeMedia.aspectRatio} • {activeMedia.category}
-                      </div>
-                    </div>
+            {/* Category Filter */}
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <div className="flex items-center gap-1.5 overflow-x-auto">
+                {categoryTabs.map((cat) => {
+                  const active = categoryFilter === cat.id;
+                  return (
                     <button
-                      type="button"
-                      onClick={() => setActiveSubMode('gallery')}
-                      className="px-2.5 py-1 text-xs rounded bg-slate-800 text-sky-300 hover:bg-slate-700 transition font-semibold"
-                    >
-                      Change Media
-                    </button>
-                  </div>
-                </div>
-
-                {/* Ad Copy Box */}
-                <div className="rounded-xl bg-slate-950 border border-slate-800 p-4 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-amber-400 uppercase tracking-wider">
-                      2. Auto-Generated High-Converting Ad Copy:
-                    </span>
-                    <button
+                      key={cat.id}
                       type="button"
                       onClick={() => {
-                        const copy = `Looking to build a luxury turnkey villa in Bangalore without cost escalation?\n\nArchitectural Design & Turnkey Construction by Ar. S. Gouse\nPhone / SMS: ${companyPhone}\nNBC 2016 Compliant • Zero Escalation Contract\n\nCall now for free site visit and 3D concept layout!`;
-                        copyToClipboard(copy, setCopiedAdCopy);
+                        if (cat.id === 'for_rent') {
+                          setCategoryFilter(categoryFilter === 'for_rent' ? 'pg_coliving' : 'for_rent');
+                        } else {
+                          setCategoryFilter(cat.id);
+                        }
                       }}
-                      className="flex items-center gap-1 text-xs text-amber-300 font-mono font-bold"
-                    >
-                      {copiedAdCopy ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-                      <span>{copiedAdCopy ? 'Copied!' : 'Copy Ad Copy'}</span>
-                    </button>
-                  </div>
-                  <div className="text-xs text-slate-200 bg-slate-900/60 p-3 rounded border border-slate-800/80 leading-relaxed font-sans">
-                    <strong>Headline:</strong> NBC 2016 Compliant Luxury Turnkey Villas in Bengaluru<br />
-                    <strong>Primary Text:</strong> Experience architectural excellence with biophilic courtyards, precision BOQ estimation, and zero cost escalations. Call Ar. S. Gouse at {companyPhone} for an architectural blueprint consultation.<br />
-                    <strong>Call To Action:</strong> Call +91 8073947241 / Send Area SMS
-                  </div>
-                </div>
-              </div>
-
-              {/* Right Column: Live Sponsored Ad Preview Mockup (5 cols) */}
-              <div className="md:col-span-5 space-y-3">
-                <span className="text-xs font-bold text-slate-300 uppercase tracking-wider block">
-                  Live Sponsored Ad Mockup:
-                </span>
-                <div className="rounded-xl border border-amber-500/40 bg-slate-950 overflow-hidden shadow-xl">
-                  {/* Sponsored Header */}
-                  <div className="p-3 border-b border-slate-800 flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <div className="h-7 w-7 rounded-full bg-gradient-to-tr from-amber-500 to-sky-500 flex items-center justify-center text-[10px] font-bold text-slate-950">
-                        GA
-                      </div>
-                      <div>
-                        <div className="text-xs font-bold text-white">Gouse Architectural Design</div>
-                        <div className="text-[10px] text-amber-400 font-mono">Sponsored Ad • ₹500 Tier</div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Ad Media Display */}
-                  <div className="relative aspect-video bg-black">
-                    {activeMedia.type === 'video' ? (
-                      <video src={activeMedia.url} className="h-full w-full object-cover" autoPlay loop muted playsInline />
-                    ) : (
-                      <img src={activeMedia.url} alt={activeMedia.title} className="h-full w-full object-cover" />
-                    )}
-                    <div className="absolute bottom-2 left-2 px-2 py-0.5 rounded bg-black/70 text-white text-[10px] font-mono">
-                      NBC 2016 COMPLIANT
-                    </div>
-                  </div>
-
-                  {/* CTA Bar */}
-                  <div className="p-3 bg-slate-900 border-t border-slate-800 flex items-center justify-between gap-2">
-                    <div>
-                      <div className="text-xs font-bold text-white">Ar. S. Gouse Lead Architect</div>
-                      <div className="text-[10px] text-slate-400">{companyPhone}</div>
-                    </div>
-                    <a
-                      href={directCallHref}
-                      className="px-3.5 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs transition"
-                    >
-                      Call Now
-                    </a>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ========================================================================= */}
-      {/* SUB-MODE 4: STAKEHOLDER MEDIA FEED (COLLABORATION WALL) */}
-      {/* ========================================================================= */}
-      {activeSubMode === 'wall' && (
-        <div id="stakeholder-wall-section" className="space-y-6">
-          <div className="rounded-2xl border border-slate-800 bg-slate-900/90 p-5 space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <div className="flex items-center gap-2">
-                <MessageSquare className="h-5 w-5 text-emerald-400" />
-                <h3 className="text-sm font-bold text-white uppercase tracking-wider">
-                  Stakeholder Media &amp; Feedback Wall ({wallComments.length})
-                </h3>
-              </div>
-              <span className="text-[11px] font-mono text-slate-400">Team, Architect &amp; Client Feed</span>
-            </div>
-
-            {/* Post Note Form with Media Attachment */}
-            <form onSubmit={handleAddWallComment} className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                <select
-                  value={newWallAuthor}
-                  onChange={(e) => setNewWallAuthor(e.target.value)}
-                  className="rounded-lg border border-slate-800 bg-slate-900 px-3 py-1.5 text-xs text-white outline-none focus:border-sky-500"
-                >
-                  <option value="Ar. S. Gouse">Ar. S. Gouse (Lead Architect)</option>
-                  <option value="Client Representative">Client Partner</option>
-                  <option value="Er. Ramesh Babu">Structural Lead</option>
-                  <option value="Site Project Manager">Site Project Manager</option>
-                </select>
-
-                <select
-                  value={newWallTag}
-                  onChange={(e) => setNewWallTag(e.target.value)}
-                  className="rounded-lg border border-slate-800 bg-slate-900 px-3 py-1.5 text-xs text-white outline-none focus:border-sky-500"
-                >
-                  <option value="Site Progress Update">Site Progress Update</option>
-                  <option value="3D Walkthrough Release">3D Walkthrough Release</option>
-                  <option value="Client Approval">Client Approval</option>
-                  <option value="Material Inspection">Material Inspection</option>
-                </select>
-
-                <select
-                  value={selectedWallMediaId}
-                  onChange={(e) => setSelectedWallMediaId(e.target.value)}
-                  className="rounded-lg border border-slate-800 bg-slate-900 px-3 py-1.5 text-xs text-white outline-none focus:border-sky-500"
-                >
-                  <option value="">Attach Media (Optional)...</option>
-                  {mediaItems.map((m) => (
-                    <option key={m.id} value={m.id}>
-                      [{m.type.toUpperCase()}] {m.title.substring(0, 30)}...
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  placeholder="Share architectural note, revision request or inspection finding..."
-                  value={newWallComment}
-                  onChange={(e) => setNewWallComment(e.target.value)}
-                  className="flex-1 rounded-lg border border-slate-800 bg-slate-900 px-3 py-2 text-xs text-white placeholder-slate-500 outline-none focus:border-sky-500"
-                />
-                <button
-                  type="submit"
-                  className="px-4 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs flex items-center gap-1.5 transition shrink-0"
-                >
-                  <Send className="h-3.5 w-3.5" />
-                  <span>Post Update</span>
-                </button>
-              </div>
-            </form>
-
-            {/* Comments List */}
-            <div className="space-y-3">
-              {wallComments.map((comment) => (
-                <div key={comment.id} className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2.5">
-                      <div className="h-8 w-8 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-xs font-bold text-sky-300">
-                        {comment.avatarText}
-                      </div>
-                      <div>
-                        <div className="text-xs font-bold text-white">{comment.author}</div>
-                        <div className="text-[10px] text-slate-400 font-mono">{comment.role}</div>
-                      </div>
-                    </div>
-                    <span className="text-[10px] text-slate-500 font-mono">{comment.timestamp}</span>
-                  </div>
-
-                  <p className="text-xs text-slate-200 leading-relaxed pl-10">
-                    {comment.content}
-                  </p>
-
-                  {/* Attached Media Thumbnail */}
-                  {comment.mediaItem && (
-                    <div
-                      className="ml-10 rounded-lg overflow-hidden border border-slate-800 bg-slate-900 max-w-sm cursor-pointer"
-                      onClick={() => setLightboxItem(comment.mediaItem!)}
-                    >
-                      <div className="relative aspect-video bg-black">
-                        {comment.mediaItem.type === 'video' ? (
-                          <video src={comment.mediaItem.url} className="h-full w-full object-cover" muted />
-                        ) : (
-                          <img src={comment.mediaItem.url} alt={comment.mediaItem.title} className="h-full w-full object-cover" />
-                        )}
-                        <div className="absolute top-2 left-2 px-1.5 py-0.5 rounded bg-black/80 text-[10px] font-mono text-white">
-                          ATTACHED {comment.mediaItem.type.toUpperCase()}
-                        </div>
-                      </div>
-                      <div className="p-2 text-xs font-semibold text-white truncate">
-                        {comment.mediaItem.title}
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="flex items-center justify-between pl-10 pt-1 text-[11px]">
-                    <span className="rounded bg-sky-500/10 text-sky-300 border border-sky-500/20 px-2 py-0.5 font-mono text-[10px]">
-                      {comment.tag}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setWallComments(
-                          wallComments.map((c) =>
-                            c.id === comment.id
-                              ? { ...c, likes: c.hasLiked ? c.likes - 1 : c.likes + 1, hasLiked: !c.hasLiked }
-                              : c
-                          )
-                        );
-                      }}
-                      className={`flex items-center gap-1 font-mono transition ${
-                        comment.hasLiked ? 'text-rose-400 font-bold' : 'text-slate-400 hover:text-rose-400'
+                      className={`px-2.5 py-1 rounded-md text-xs font-medium transition whitespace-nowrap shrink-0 ${
+                        active || (cat.id === 'for_rent' && categoryFilter === 'pg_coliving')
+                          ? 'bg-amber-400/15 text-amber-300 border border-amber-400/40'
+                          : 'bg-slate-950/50 text-slate-400 border border-slate-800/80 hover:text-slate-200'
                       }`}
                     >
-                      <Heart className={`h-3.5 w-3.5 ${comment.hasLiked ? 'fill-current' : ''}`} />
-                      <span>{comment.likes}</span>
+                      {cat.label}
                     </button>
-                  </div>
-                </div>
-              ))}
+                  );
+                })}
+              </div>
+              <span className="text-xs text-slate-400 tabular-nums whitespace-nowrap">
+                Showing {filteredPosts.length} of {posts.length} projects
+              </span>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
-      {/* ========================================================================= */}
-      {/* MODAL 1: UPLOAD PHOTO / VIDEO DIALOG */}
-      {/* ========================================================================= */}
-      {isUploadModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm overflow-y-auto">
-          <div className="relative w-full max-w-2xl rounded-2xl bg-slate-900 border-2 border-sky-500/40 p-6 shadow-2xl space-y-5 my-8">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-xl bg-gradient-to-tr from-pink-500 via-purple-600 to-sky-500 flex items-center justify-center text-white">
-                  <Upload className="h-5 w-5" />
+      {/* ===================================================================== */}
+      {/* VIEW 1: INSTAGRAM MODEL                                                */}
+      {/* ===================================================================== */}
+      {platformMode === 'instagram' && (
+        <div className="space-y-6">
+          {/* Instagram Profile + Stories */}
+          <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-6">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-5">
+              <div className="flex items-center gap-4 sm:gap-6">
+                <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full p-[3px] bg-gradient-to-tr from-amber-500 via-rose-500 to-fuchsia-600 shrink-0">
+                  <img
+                    src={activeAccount.avatar}
+                    alt={activeAccount.defaultName}
+                    referrerPolicy="no-referrer"
+                    className="w-full h-full rounded-full object-cover border-4 border-slate-950"
+                  />
+                </div>
+                <div className="space-y-1.5 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h2 className="text-lg sm:text-xl font-bold text-white tracking-tight">
+                      {activeAccount.defaultHandle}
+                    </h2>
+                    <CheckCircle2 className="w-4 h-4 text-sky-400 shrink-0" />
+                    <span className={`text-xs font-semibold ${activeAccount.accentText}`}>
+                      · {activeAccount.label} Account
+                    </span>
+                  </div>
+                  <p className="text-xs sm:text-sm font-medium text-slate-200">
+                    {activeAccount.defaultName} · Realstate Media Network (Real Estate, Architects, Builders, Suppliers &amp; Clients)
+                  </p>
+                  <p className="text-xs text-slate-400">
+                    Bengaluru Verified Hub · Direct Project Posting &amp; Inquiry · +91 80739 47241
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-6 sm:gap-8 border-t md:border-t-0 pt-3 md:pt-0 border-slate-800 tabular-nums shrink-0">
+                <div>
+                  <p className="text-lg font-bold text-white">{posts.length}</p>
+                  <p className="text-xs text-slate-400">Projects</p>
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-white">
-                    Upload Photos &amp; Videos to Social Media Area
-                  </h3>
-                  <p className="text-xs text-slate-400">
-                    Supports 4K architectural renderings, Lumion 3D walkthroughs, and drone video reels.
-                  </p>
+                  <p className="text-lg font-bold text-white">5 Roles</p>
+                  <p className="text-xs text-slate-400">Verified</p>
                 </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  setIsUploadModalOpen(false);
-                  setPreviewError(null);
-                }}
-                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
-            {/* Source Mode Tabs (File Dropzone vs Paste URL vs Presets) */}
-            <div className="grid grid-cols-3 gap-2 p-1 rounded-xl bg-slate-950 border border-slate-800 text-xs">
-              <button
-                type="button"
-                onClick={() => setUploadSourceMode('file')}
-                className={`py-2 rounded-lg font-bold transition flex items-center justify-center gap-1.5 ${
-                  uploadSourceMode === 'file' ? 'bg-sky-500 text-slate-950' : 'text-slate-400 hover:text-white'
-                }`}
-              >
-                <Upload className="h-3.5 w-3.5" />
-                <span>Upload From Device</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setUploadSourceMode('url')}
-                className={`py-2 rounded-lg font-bold transition flex items-center justify-center gap-1.5 ${
-                  uploadSourceMode === 'url' ? 'bg-sky-500 text-slate-950' : 'text-slate-400 hover:text-white'
-                }`}
-              >
-                <Globe className="h-3.5 w-3.5" />
-                <span>Paste Web URL</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setUploadSourceMode('sample')}
-                className={`py-2 rounded-lg font-bold transition flex items-center justify-center gap-1.5 ${
-                  uploadSourceMode === 'sample' ? 'bg-sky-500 text-slate-950' : 'text-slate-400 hover:text-white'
-                }`}
-              >
-                <Sparkles className="h-3.5 w-3.5" />
-                <span>Sample Architectural Assets</span>
-              </button>
-            </div>
-
-            {previewError && (
-              <div className="p-3 rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs font-semibold">
-                {previewError}
-              </div>
-            )}
-
-            {/* MODE A: DRAG & DROP FILE ZONE */}
-            {uploadSourceMode === 'file' && (
-              <div
-                onDragOver={handleDragOver}
-                onDragLeave={handleDragLeave}
-                onDrop={handleDrop}
-                onClick={() => fileInputRef.current?.click()}
-                className={`cursor-pointer rounded-2xl border-2 border-dashed p-6 text-center transition-all ${
-                  isDragging
-                    ? 'border-sky-400 bg-sky-500/10 scale-[1.01]'
-                    : uploadUrl
-                    ? 'border-emerald-500/50 bg-emerald-500/5'
-                    : 'border-slate-700 bg-slate-950 hover:border-sky-500 hover:bg-slate-950/80'
-                }`}
-              >
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*,video/*"
-                  onChange={(e) => {
-                    if (e.target.files && e.target.files[0]) {
-                      processSelectedFile(e.target.files[0]);
-                    }
-                  }}
-                  className="hidden"
-                />
-
-                {uploadUrl ? (
-                  <div className="space-y-3">
-                    <div className="max-h-48 max-w-sm mx-auto rounded-lg overflow-hidden border border-slate-700 bg-black">
-                      {uploadType === 'video' ? (
-                        <video src={uploadUrl} className="max-h-48 w-full object-contain" controls />
-                      ) : (
-                        <img src={uploadUrl} alt="Preview" className="max-h-48 w-full object-contain" />
-                      )}
-                    </div>
-                    <div className="text-xs text-emerald-400 font-bold flex items-center justify-center gap-1.5">
-                      <Check className="h-4 w-4" />
-                      <span>{uploadFileName || 'File selected successfully'} ({uploadFileSize})</span>
-                    </div>
-                    <span className="text-[11px] text-slate-400 underline">Click to choose a different file</span>
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-tr from-pink-500/20 to-sky-500/20 text-sky-400 border border-sky-500/30">
-                      <Upload className="h-6 w-6" />
-                    </div>
-                    <h4 className="text-sm font-bold text-white">
-                      Drag &amp; Drop Photo or Video Here, or Click to Browse
-                    </h4>
-                    <p className="text-xs text-slate-400">
-                      Supports PNG, JPG, WEBP, GIF, SVG • MP4, WEBM, MOV (Up to 100MB)
-                    </p>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* MODE B: URL INPUT */}
-            {uploadSourceMode === 'url' && (
-              <div className="space-y-2">
-                <label className="text-xs font-semibold text-slate-300">Image or Video URL Link:</label>
-                <input
-                  type="url"
-                  placeholder="https://example.com/walkthrough.mp4 or https://example.com/render.jpg"
-                  value={uploadUrl}
-                  onChange={(e) => {
-                    const url = e.target.value;
-                    setUploadUrl(url);
-                    if (url.match(/\.(mp4|webm|mov)(\?.*)?$/i)) {
-                      setUploadType('video');
-                      setUploadAspectRatio('16:9');
-                    } else if (url.match(/\.(jpg|jpeg|png|webp|gif|svg)(\?.*)?$/i)) {
-                      setUploadType('photo');
-                      setUploadAspectRatio('1:1');
-                    }
-                  }}
-                  className="w-full rounded-lg bg-slate-950 border border-slate-800 px-3.5 py-2 text-xs text-white placeholder-slate-500 outline-none focus:border-sky-500 font-mono"
-                />
-              </div>
-            )}
-
-            {/* MODE C: SAMPLE PRESETS */}
-            {uploadSourceMode === 'sample' && (
-              <div className="space-y-2">
-                <span className="text-xs font-semibold text-slate-300 block mb-1">
-                  Click any sample to load into form:
-                </span>
-                <div className="grid grid-cols-2 gap-2 text-xs">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setUploadType('video');
-                      setUploadUrl(SAMPLE_WALKTHROUGH_VIDEO);
-                      setUploadTitle('3D Lumion Walkthrough • Courtyard & Daylight Analysis');
-                      setUploadAspectRatio('16:9');
-                      setUploadCategory('3d_walkthrough');
-                      setUploadDuration('02:14');
-                      setUploadFileSize('42.8 MB');
-                    }}
-                    className="p-3 rounded-xl bg-slate-950 border border-slate-800 hover:border-red-500 text-left transition space-y-1"
-                  >
-                    <div className="flex items-center gap-1.5 text-red-400 font-bold">
-                      <Play className="h-3.5 w-3.5 fill-current" />
-                      <span>4K Lumion Walkthrough (MP4)</span>
-                    </div>
-                    <div className="text-[10px] text-slate-400 font-mono">1080p 60fps • 02:14</div>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setUploadType('video');
-                      setUploadUrl(SAMPLE_DRONE_VIDEO);
-                      setUploadTitle('Drone Aerial Setback Verification Reel');
-                      setUploadAspectRatio('9:16');
-                      setUploadCategory('drone_aerial');
-                      setUploadDuration('00:54');
-                      setUploadFileSize('28.4 MB');
-                    }}
-                    className="p-3 rounded-xl bg-slate-950 border border-slate-800 hover:border-pink-500 text-left transition space-y-1"
-                  >
-                    <div className="flex items-center gap-1.5 text-pink-400 font-bold">
-                      <Film className="h-3.5 w-3.5" />
-                      <span>Drone Vertical Reel (9:16)</span>
-                    </div>
-                    <div className="text-[10px] text-slate-400 font-mono">Instagram 9:16 • 00:54</div>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setUploadType('photo');
-                      setUploadUrl(villaExteriorImg);
-                      setUploadTitle('Signature Villa Exterior Evening Elevation');
-                      setUploadAspectRatio('1:1');
-                      setUploadCategory('site_elevation');
-                      setUploadFileSize('4.8 MB');
-                    }}
-                    className="p-3 rounded-xl bg-slate-950 border border-slate-800 hover:border-sky-500 text-left transition space-y-1"
-                  >
-                    <div className="flex items-center gap-1.5 text-sky-400 font-bold">
-                      <Camera className="h-3.5 w-3.5" />
-                      <span>Signature 4K Elevation (JPG)</span>
-                    </div>
-                    <div className="text-[10px] text-slate-400 font-mono">1:1 Square Post • 4K UHD</div>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setUploadType('photo');
-                      setUploadUrl(courtyardInteriorImg);
-                      setUploadTitle('Double-Height Biophilic Courtyard Photo');
-                      setUploadAspectRatio('4:5');
-                      setUploadCategory('interior_design');
-                      setUploadFileSize('5.2 MB');
-                    }}
-                    className="p-3 rounded-xl bg-slate-950 border border-slate-800 hover:border-amber-500 text-left transition space-y-1"
-                  >
-                    <div className="flex items-center gap-1.5 text-amber-400 font-bold">
-                      <Camera className="h-3.5 w-3.5" />
-                      <span>Biophilic Courtyard (Photo)</span>
-                    </div>
-                    <div className="text-[10px] text-slate-400 font-mono">4:5 Portrait • Daylight Finishes</div>
-                  </button>
+                <div>
+                  <p className="text-lg font-bold text-white">{savedPosts.length}</p>
+                  <p className="text-xs text-slate-400">Shortlisted</p>
                 </div>
-              </div>
-            )}
-
-            {/* FORM METADATA FIELDS */}
-            <form onSubmit={handleCreateMediaItem} className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                {/* Title */}
-                <div className="space-y-1 sm:col-span-2">
-                  <label className="font-semibold text-slate-300">Title / Showcase Headline:</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. Signature Biophilic Courtyard 3D Lumion Walkthrough"
-                    value={uploadTitle}
-                    onChange={(e) => setUploadTitle(e.target.value)}
-                    className="w-full rounded-lg bg-slate-950 border border-slate-800 px-3 py-2 text-xs text-white placeholder-slate-500 outline-none focus:border-sky-500"
-                  />
-                </div>
-
-                {/* Media Type */}
-                <div className="space-y-1">
-                  <label className="font-semibold text-slate-300">Media Type:</label>
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setUploadType('photo')}
-                      className={`py-1.5 rounded-lg font-bold border transition flex items-center justify-center gap-1.5 ${
-                        uploadType === 'photo'
-                          ? 'bg-gradient-to-r from-pink-500 to-purple-600 text-white border-pink-400'
-                          : 'bg-slate-950 text-slate-400 border-slate-800'
-                      }`}
-                    >
-                      <Camera className="h-3.5 w-3.5" />
-                      <span>Photo</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setUploadType('video')}
-                      className={`py-1.5 rounded-lg font-bold border transition flex items-center justify-center gap-1.5 ${
-                        uploadType === 'video'
-                          ? 'bg-gradient-to-r from-red-500 to-rose-600 text-white border-red-400'
-                          : 'bg-slate-950 text-slate-400 border-slate-800'
-                      }`}
-                    >
-                      <Film className="h-3.5 w-3.5" />
-                      <span>Video</span>
-                    </button>
-                  </div>
-                </div>
-
-                {/* Aspect Ratio */}
-                <div className="space-y-1">
-                  <label className="font-semibold text-slate-300">Aspect Ratio:</label>
-                  <select
-                    value={uploadAspectRatio}
-                    onChange={(e) => setUploadAspectRatio(e.target.value as any)}
-                    className="w-full rounded-lg bg-slate-950 border border-slate-800 px-3 py-2 text-xs text-white outline-none focus:border-sky-500"
-                  >
-                    <option value="16:9">16:9 Landscape (YouTube / TV)</option>
-                    <option value="9:16">9:16 Vertical (Instagram Reel / Story)</option>
-                    <option value="1:1">1:1 Square (Instagram Feed)</option>
-                    <option value="4:5">4:5 Portrait (Facebook / Mobile Feed)</option>
-                  </select>
-                </div>
-
-                {/* Category */}
-                <div className="space-y-1">
-                  <label className="font-semibold text-slate-300">Portfolio Category:</label>
-                  <select
-                    value={uploadCategory}
-                    onChange={(e) => setUploadCategory(e.target.value as any)}
-                    className="w-full rounded-lg bg-slate-950 border border-slate-800 px-3 py-2 text-xs text-white outline-none focus:border-sky-500"
-                  >
-                    <option value="3d_walkthrough">3D Walkthrough / Lumion</option>
-                    <option value="site_elevation">Site Elevation Render</option>
-                    <option value="drone_aerial">Drone Aerial Survey</option>
-                    <option value="interior_design">Interior Styling &amp; Finishes</option>
-                    <option value="slab_casting">RCC Column &amp; Slab Casting</option>
-                    <option value="handover">Handover Ceremony</option>
-                  </select>
-                </div>
-
-                {/* Platform Target */}
-                <div className="space-y-1">
-                  <label className="font-semibold text-slate-300">Target Channel:</label>
-                  <select
-                    value={uploadPlatform}
-                    onChange={(e) => setUploadPlatform(e.target.value as any)}
-                    className="w-full rounded-lg bg-slate-950 border border-slate-800 px-3 py-2 text-xs text-white outline-none focus:border-sky-500"
-                  >
-                    <option value="all">All Channels (Instagram, FB, YT)</option>
-                    <option value="instagram">Instagram Reels &amp; Posts</option>
-                    <option value="youtube">YouTube 3D Walkthrough</option>
-                    <option value="facebook">Facebook Page Post</option>
-                    <option value="linkedin">LinkedIn Architectural Showcase</option>
-                  </select>
-                </div>
-
-                {/* Caption */}
-                <div className="space-y-1 sm:col-span-2">
-                  <label className="font-semibold text-slate-300">Caption &amp; Project Description:</label>
-                  <textarea
-                    rows={2}
-                    placeholder="Enter project specifications, NBC 2016 bylaws notes, or hashtags..."
-                    value={uploadCaption}
-                    onChange={(e) => setUploadCaption(e.target.value)}
-                    className="w-full rounded-lg bg-slate-950 border border-slate-800 px-3 py-2 text-xs text-white placeholder-slate-500 outline-none focus:border-sky-500"
-                  />
-                </div>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-800">
-                <button
-                  type="button"
-                  onClick={() => setIsUploadModalOpen(false)}
-                  className="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={!uploadUrl}
-                  className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-pink-500 via-purple-600 to-sky-500 px-5 py-2 text-xs font-bold text-white shadow-lg shadow-pink-500/20 hover:opacity-95 transition disabled:opacity-50"
-                >
-                  <Upload className="h-4 w-4" />
-                  <span>Upload &amp; Add to Social Portfolio</span>
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* ========================================================================= */}
-      {/* MODAL 2: FULLSCREEN LIGHTBOX & THEATER VIDEO PLAYER */}
-      {/* ========================================================================= */}
-      {lightboxItem && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/95 backdrop-blur-md">
-          <div className="relative w-full max-w-5xl rounded-2xl bg-slate-950 border border-slate-800 p-5 shadow-2xl space-y-4 max-h-[90vh] flex flex-col">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <div>
-                <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase mr-2 ${
-                  lightboxItem.type === 'video' ? 'bg-red-600 text-white' : 'bg-pink-600 text-white'
-                }`}>
-                  {lightboxItem.type.toUpperCase()}
-                </span>
-                <span className="text-sm font-bold text-white">{lightboxItem.title}</span>
-              </div>
-              <button
-                type="button"
-                onClick={() => setLightboxItem(null)}
-                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
-            {/* Main Visual Display */}
-            <div className="flex-1 min-h-[300px] flex items-center justify-center bg-black rounded-xl overflow-hidden relative">
-              {lightboxItem.type === 'video' ? (
-                <video
-                  ref={theaterVideoRef}
-                  src={lightboxItem.url}
-                  className="max-h-[60vh] w-full object-contain"
-                  controls
-                  autoPlay
-                  loop={isLooping}
-                  muted={isMuted}
-                />
-              ) : (
-                <img
-                  src={lightboxItem.url}
-                  alt={lightboxItem.title}
-                  className="max-h-[60vh] max-w-full object-contain"
-                />
-              )}
-            </div>
-
-            {/* Video Speed Controls & Details */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs border-t border-slate-800 pt-3">
-              <div className="text-slate-400 space-y-0.5">
-                <div className="text-white font-semibold">{lightboxItem.caption}</div>
-                <div className="text-[11px] font-mono text-slate-500">
-                  {lightboxItem.dimensions} • {lightboxItem.fileSize} • {lightboxItem.architectAttribution}
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2 shrink-0">
                 <button
                   type="button"
                   onClick={() => {
-                    setActiveMediaId(lightboxItem.id);
-                    setLightboxItem(null);
-                    setUploadSuccessToast(`Set "${lightboxItem.title}" as active creative.`);
-                    setTimeout(() => setUploadSuccessToast(null), 3000);
+                    setModalRole(activePosterRole);
+                    setIsComposerOpen(true);
                   }}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-sky-500 hover:bg-sky-400 text-slate-950 font-bold text-xs transition"
+                  className="px-3.5 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-semibold text-white transition whitespace-nowrap"
                 >
-                  <Check className="h-3.5 w-3.5" />
-                  <span>Set as Active Creative</span>
+                  + Share Project
+                </button>
+              </div>
+            </div>
+
+            {/* Interactive Stories Strip Across All 4 Roles */}
+            <div className="pt-4 border-t border-slate-800">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+                  Story Highlights (Real Estate · Architect · Builder · Supplier · Client)
+                </span>
+                <span className="text-xs text-slate-500">Tap any story circle</span>
+              </div>
+              <div className="flex items-center gap-4 overflow-x-auto pb-1">
+                {STORY_HIGHLIGHTS.map((story, index) => (
+                  <button
+                    key={story.id}
+                    type="button"
+                    onClick={() => setActiveStoryIdx(index)}
+                    className="flex flex-col items-center gap-1.5 group shrink-0 w-24 focus:outline-none"
+                  >
+                    <div className="w-16 h-16 rounded-full p-[2.5px] bg-gradient-to-tr from-amber-400 via-rose-500 to-fuchsia-600 group-hover:scale-105 transition-transform">
+                      <img
+                        src={story.imageUrl}
+                        alt={story.label}
+                        referrerPolicy="no-referrer"
+                        className="w-full h-full rounded-full object-cover border-2 border-slate-950"
+                      />
+                    </div>
+                    <span className="text-xs font-medium text-slate-200 group-hover:text-white truncate w-full text-center">
+                      {story.label}
+                    </span>
+                    <span className={`text-[10px] font-medium ${ROLE_DIRECTORY[story.role].accentText} -mt-1`}>
+                      {ROLE_DIRECTORY[story.role].shortLabel}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* IG Sub-View Switcher */}
+            <div className="pt-3 border-t border-slate-800 flex items-center justify-between gap-3 flex-wrap">
+              <div className="flex items-center gap-2">
+                {[
+                  { id: 'feed', label: 'IG Feed', icon: LayoutList },
+                  { id: 'grid', label: '3-Col Profile Grid', icon: Grid3X3 },
+                  { id: 'reels', label: 'Project Reels', icon: Film },
+                ].map((sub) => {
+                  const Icon = sub.icon;
+                  const active = igSubView === sub.id;
+                  return (
+                    <button
+                      key={sub.id}
+                      type="button"
+                      onClick={() => setIgSubView(sub.id as IgSubView)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition whitespace-nowrap ${
+                        active
+                          ? 'bg-slate-800 text-white border border-slate-600'
+                          : 'text-slate-400 hover:text-slate-200 border border-transparent'
+                      }`}
+                    >
+                      <Icon className="w-3.5 h-3.5" />
+                      <span>{sub.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+              <span className="text-xs text-slate-400">
+                Click any project card to inspect full specs, BOQ rate &amp; comments
+              </span>
+            </div>
+          </div>
+
+          {/* IG Sub-View Content */}
+          {filteredPosts.length === 0 ? (
+            <div className="bg-slate-900 border border-slate-800 rounded-xl p-10 text-center space-y-2">
+              <p className="text-sm font-semibold text-white">No projects match this filter</p>
+              <p className="text-xs text-slate-400">
+                Switch back to All Ecosystem or post a new project using the button above.
+              </p>
+            </div>
+          ) : igSubView === 'feed' ? (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+              {filteredPosts.map((post) => renderInstagramCard(post, false))}
+            </div>
+          ) : igSubView === 'grid' ? (
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3">
+              {filteredPosts.map((post) => {
+                const roleMeta = ROLE_DIRECTORY[post.posterRole];
+                return (
+                  <button
+                    key={`grid-${post.id}`}
+                    type="button"
+                    onClick={() => setDetailPostId(post.id)}
+                    className="group relative aspect-square bg-slate-900 border border-slate-800 overflow-hidden rounded-lg text-left focus:outline-none"
+                  >
+                    <img
+                      src={post.thumbnailUrl || post.url}
+                      alt={post.title}
+                      referrerPolicy="no-referrer"
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                    />
+                    {(post.isReel || post.type === 'video') && (
+                      <div className="absolute top-2.5 right-2.5 w-7 h-7 rounded-lg bg-slate-950/75 flex items-center justify-center text-white">
+                        <Play className="w-3.5 h-3.5 fill-white" />
+                      </div>
+                    )}
+                    <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-950/20 to-transparent flex flex-col justify-end p-3">
+                      <span className={`text-[11px] font-semibold ${roleMeta.accentText}`}>
+                        {roleMeta.label} · {post.posterHandle}
+                      </span>
+                      <div className="flex items-center justify-between gap-2 mt-0.5">
+                        <span className="text-xs font-bold text-white tabular-nums">
+                          {post.priceLabel}
+                        </span>
+                        <div className="flex items-center gap-2.5 text-xs text-slate-200 tabular-nums">
+                          <span className="flex items-center gap-1">
+                            <Heart className="w-3.5 h-3.5 fill-white" />
+                            {post.likesCount || 0}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <MessageCircle className="w-3.5 h-3.5" />
+                            {post.comments.length}
+                          </span>
+                        </div>
+                      </div>
+                      <p className="text-[11px] text-slate-300 truncate mt-0.5">
+                        {post.title}
+                      </p>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+              {filteredPosts.map((post) => {
+                const roleMeta = ROLE_DIRECTORY[post.posterRole];
+                return (
+                  <div
+                    key={`reel-${post.id}`}
+                    className="group relative aspect-[9/16] max-h-[540px] w-full bg-slate-900 border border-slate-800 rounded-xl overflow-hidden flex flex-col justify-end"
+                  >
+                    <img
+                      src={post.thumbnailUrl || post.url}
+                      alt={post.title}
+                      referrerPolicy="no-referrer"
+                      onClick={() => setDetailPostId(post.id)}
+                      className="absolute inset-0 w-full h-full object-cover cursor-pointer group-hover:scale-105 transition-transform duration-500"
+                    />
+                    <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/35 to-transparent" />
+
+                    <div className="relative z-10 p-4 flex items-end justify-between gap-3">
+                      <div className="space-y-1 min-w-0">
+                        <p className={`text-xs font-semibold ${roleMeta.accentText} tabular-nums`}>
+                          {roleMeta.label} · {post.priceLabel}
+                        </p>
+                        <h4 className="text-sm font-bold text-white leading-snug line-clamp-2">
+                          {post.title}
+                        </h4>
+                        <p className="text-xs text-slate-300 truncate">
+                          {post.posterName} · {post.location}
+                        </p>
+                      </div>
+
+                      <div className="flex flex-col items-center gap-3 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => toggleLike(post.id)}
+                          className="flex flex-col items-center gap-0.5 text-white"
+                        >
+                          <Heart
+                            className={`w-6 h-6 ${
+                              post.liked ? 'fill-rose-500 text-rose-500' : ''
+                            }`}
+                          />
+                          <span className="text-[11px] font-semibold tabular-nums">
+                            {formatCompact(post.likesCount || 0)}
+                          </span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => setDetailPostId(post.id)}
+                          className="flex flex-col items-center gap-0.5 text-white"
+                        >
+                          <MessageCircle className="w-6 h-6" />
+                          <span className="text-[11px] font-semibold tabular-nums">
+                            {post.comments.length}
+                          </span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => toggleSave(post.id)}
+                          className="flex flex-col items-center gap-0.5 text-white"
+                        >
+                          <Bookmark
+                            className={`w-5 h-5 ${
+                              post.saved ? 'fill-amber-400 text-amber-400' : ''
+                            }`}
+                          />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ===================================================================== */}
+      {/* VIEW 2: FACEBOOK INDUSTRY PAGE & MARKETPLACE FEED MODEL                */}
+      {/* ===================================================================== */}
+      {platformMode === 'facebook' && (
+        <div className="space-y-6">
+          {/* Facebook Cover & Page Banner */}
+          <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
+            <div className="relative h-44 sm:h-56 w-full bg-slate-950">
+              <img
+                src={villaExteriorImg}
+                alt="Gouse Construction & Real Estate Community"
+                referrerPolicy="no-referrer"
+                className="w-full h-full object-cover"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/50 to-transparent" />
+              <div className="absolute bottom-4 left-4 right-4 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+                <div className="flex items-end gap-3.5">
+                  <img
+                    src={activeAccount.avatar}
+                    alt={activeAccount.defaultName}
+                    referrerPolicy="no-referrer"
+                    className="w-16 h-16 sm:w-20 sm:h-20 rounded-full object-cover border-4 border-slate-900 shrink-0"
+                  />
+                  <div>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <h2 className="text-lg sm:text-xl font-bold text-white">
+                        {activeAccount.defaultName}
+                      </h2>
+                      <CheckCircle2 className="w-4 h-4 text-[#1877F2] shrink-0" />
+                      <span className={`text-xs font-semibold ${activeAccount.accentText}`}>
+                        · {activeAccount.label}
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-300">
+                      Real Estate · Architects · Turnkey Builders · Material Suppliers Hub · Bengaluru
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0">
+                  <a
+                    href="tel:+918073947241"
+                    className="px-3.5 py-2 rounded-lg bg-slate-900/90 hover:bg-slate-800 border border-slate-700 text-xs font-semibold text-white flex items-center gap-1.5 transition whitespace-nowrap"
+                  >
+                    <Phone className="w-3.5 h-3.5" />
+                    <span>+91 80739 47241</span>
+                  </a>
+                  <a
+                    href="https://wa.me/918073947241?text=Hello%20Gouse%20Hub%2C%20I%20would%20like%20to%20connect%20with%20your%20Real%20Estate%2C%20Architect%2C%20Builder%20or%20Material%20Supplier%20desk."
+                    target="_blank"
+                    rel="noreferrer"
+                    className="px-4 py-2 rounded-lg bg-[#1877F2] hover:bg-[#166fe5] text-white text-xs font-semibold transition whitespace-nowrap"
+                  >
+                    Message Desk
+                  </a>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* 2-Column Facebook Desktop Layout */}
+          <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-6 items-start">
+            {/* Left Main FB Feed + Multi-Role Inline Composer */}
+            <div className="space-y-5 min-w-0">
+              <form
+                onSubmit={handleQuickFbPublish}
+                className="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-3"
+              >
+                {/* Role Pills Row inside Composer */}
+                <div className="flex items-center justify-between gap-2 flex-wrap pb-2 border-b border-slate-800/80">
+                  <span className="text-xs font-semibold text-slate-400">
+                    Create Post As:
+                  </span>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    {(['real_estate', 'architect', 'builder', 'material_supplier', 'client'] as PosterRole[]).map(
+                      (r) => {
+                        const selected = activePosterRole === r;
+                        return (
+                          <button
+                            key={`fb-role-${r}`}
+                            type="button"
+                            onClick={() => handleSelectActiveRole(r)}
+                            className={`px-2.5 py-1 rounded-md text-xs font-semibold transition ${
+                              selected
+                                ? 'bg-[#1877F2] text-white'
+                                : 'bg-slate-950 text-slate-400 hover:text-white border border-slate-800'
+                            }`}
+                          >
+                            {ROLE_DIRECTORY[r].shortLabel}
+                          </button>
+                        );
+                      }
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3">
+                  <img
+                    src={activeAccount.avatar}
+                    alt={activeAccount.defaultName}
+                    referrerPolicy="no-referrer"
+                    className="w-9 h-9 rounded-full object-cover border border-slate-700 shrink-0"
+                  />
+                  <div className="flex-1 space-y-2">
+                    {fbShowAttachBar && (
+                      <input
+                        type="text"
+                        value={fbDraftTitle}
+                        onChange={(e) => setFbDraftTitle(e.target.value)}
+                        placeholder={`Project headline (e.g. ${
+                          activePosterRole === 'architect'
+                            ? 'Modern 40x60 Villa 3D Elevation & GFC Plan'
+                            : activePosterRole === 'builder'
+                            ? 'G+2 Turnkey RCC Slab Casting Complete'
+                            : activePosterRole === 'material_supplier'
+                            ? 'Italian Marble & Fe-550D TMT Ready Stock'
+                            : activePosterRole === 'client'
+                            ? 'Our Completed 30x40 Home or Looking for Architect & Builder'
+                            : 'Whitefield 3 BHK Ready Villa Open House'
+                        })`}
+                        className="w-full bg-slate-950 border border-slate-800 focus:border-[#1877F2] rounded-lg px-3 py-1.5 text-xs text-white placeholder:text-slate-500 focus:outline-none"
+                      />
+                    )}
+                    <textarea
+                      rows={2}
+                      value={fbDraftText}
+                      onChange={(e) => {
+                        setFbDraftText(e.target.value);
+                        if (!fbShowAttachBar && e.target.value.length > 0) setFbShowAttachBar(true);
+                      }}
+                      placeholder={`Post as ${activeAccount.defaultName} (${activeAccount.label}) — share project photos, rates, build requirements, or reviews...`}
+                      className="w-full bg-slate-950 border border-slate-800 focus:border-[#1877F2] rounded-xl px-3.5 py-2.5 text-sm text-white placeholder:text-slate-500 focus:outline-none resize-none"
+                    />
+                  </div>
+                </div>
+
+                {fbShowAttachBar && (
+                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-2.5 pt-1">
+                    <select
+                      value={fbDraftCategory}
+                      onChange={(e) =>
+                        setFbDraftCategory(e.target.value as Exclude<RealEstateCategory, 'all'>)
+                      }
+                      className="bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none"
+                    >
+                      <option value="for_sale">For Sale (Property)</option>
+                      <option value="for_rent">For Rent</option>
+                      <option value="pg_coliving">PG &amp; Co-Living</option>
+                      <option value="land_plots">Land &amp; Plots</option>
+                      <option value="architectural_design">Architecture &amp; 3D</option>
+                      <option value="turnkey_build">Builder Site / Turnkey</option>
+                      <option value="materials_supply">Materials Supply</option>
+                      <option value="client_post">Client Story / Requirement</option>
+                    </select>
+                    <input
+                      type="text"
+                      value={fbDraftPrice}
+                      onChange={(e) => setFbDraftPrice(e.target.value)}
+                      placeholder="Price / Rate"
+                      className="bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none"
+                    />
+                    <input
+                      type="text"
+                      value={fbDraftLocation}
+                      onChange={(e) => setFbDraftLocation(e.target.value)}
+                      placeholder="Location"
+                      className="bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none"
+                    />
+                    <select
+                      value={fbDraftImageUrl}
+                      onChange={(e) => setFbDraftImageUrl(e.target.value)}
+                      className="bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none"
+                    >
+                      <option value={villaExteriorImg}>Photo: Whitefield Villa</option>
+                      <option value={villaElevationImg}>Photo: Architect 3D Facade</option>
+                      <option value={siteFramingImg}>Photo: Builder Site RCC</option>
+                      <option value={modernBathImg}>Photo: Stone &amp; Bath Supply</option>
+                      <option value={rccFramingImg}>Photo: TMT Steel &amp; Slab</option>
+                      <option value={apartmentTowerImg}>Photo: 3BHK Tower</option>
+                      <option value={pgBedroomSuiteImg}>Photo: Executive PG Suite</option>
+                      <option value={courtyardDiningImg}>Photo: Interior Courtyard</option>
+                    </select>
+                  </div>
+                )}
+
+                <div className="flex items-center justify-between pt-2 border-t border-slate-800 flex-wrap gap-2">
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setFbShowAttachBar((v) => !v)}
+                      className="px-3 py-1.5 rounded-lg hover:bg-slate-800 text-xs font-medium text-slate-300 flex items-center gap-1.5 transition"
+                    >
+                      <SlidersHorizontal className="w-3.5 h-3.5 text-sky-400" />
+                      <span>Project Specs</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => fbFileInputRef.current?.click()}
+                      className="px-3 py-1.5 rounded-lg hover:bg-slate-800 text-xs font-medium text-slate-300 flex items-center gap-1.5 transition"
+                    >
+                      <UploadCloud className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>Upload Photo</span>
+                    </button>
+                    <input
+                      ref={fbFileInputRef}
+                      type="file"
+                      accept="image/*"
+                      onChange={handleQuickFbFile}
+                      className="hidden"
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={!fbDraftText.trim()}
+                    className="px-4 py-1.5 rounded-lg bg-[#1877F2] hover:bg-[#166fe5] disabled:bg-slate-800 disabled:text-slate-500 text-white text-xs font-semibold transition whitespace-nowrap"
+                  >
+                    Publish as {activeAccount.shortLabel}
+                  </button>
+                </div>
+              </form>
+
+              {filteredPosts.length === 0 ? (
+                <div className="bg-slate-900 border border-slate-800 rounded-xl p-10 text-center">
+                  <p className="text-sm font-semibold text-white">No projects match this filter</p>
+                </div>
+              ) : (
+                filteredPosts.map((post) => renderFacebookCard(post))
+              )}
+            </div>
+
+            {/* Right Sticky Sidebar: Partner Directory + Saved + Contact */}
+            <aside className="space-y-5 lg:sticky lg:top-6">
+              {/* Industry Contributors Directory */}
+              <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-semibold text-white">Verified Ecosystem Posters</h3>
+                  <span className="text-xs text-slate-400">Filter feed</span>
+                </div>
+                <div className="divide-y divide-slate-800">
+                  {(['real_estate', 'architect', 'builder', 'material_supplier', 'client'] as PosterRole[]).map(
+                    (roleKey) => {
+                      const info = ROLE_DIRECTORY[roleKey];
+                      const count = roleCounts[roleKey];
+                      const active = roleFilter === roleKey;
+                      return (
+                        <button
+                          key={`dir-${roleKey}`}
+                          type="button"
+                          onClick={() => setRoleFilter(active ? 'all' : roleKey)}
+                          className={`w-full py-2.5 flex items-center gap-3 text-left rounded-lg px-2 transition ${
+                            active ? 'bg-slate-800/80' : 'hover:bg-slate-800/40'
+                          }`}
+                        >
+                          <img
+                            src={info.avatar}
+                            alt={info.defaultName}
+                            referrerPolicy="no-referrer"
+                            className="w-10 h-10 rounded-full object-cover shrink-0 border border-slate-700"
+                          />
+                          <div className="min-w-0 flex-1">
+                            <p className="text-xs font-semibold text-white truncate">
+                              {info.defaultName}
+                            </p>
+                            <p className={`text-[11px] font-medium ${info.accentText}`}>
+                              {info.label} · {count} posts
+                            </p>
+                          </div>
+                        </button>
+                      );
+                    }
+                  )}
+                </div>
+              </div>
+
+              {/* Saved Projects */}
+              <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-semibold text-white">Saved Shortlist</h3>
+                  <span className="text-xs text-amber-300 tabular-nums">{savedPosts.length} saved</span>
+                </div>
+                {savedPosts.length === 0 ? (
+                  <p className="text-xs text-slate-400">
+                    Bookmark properties, architectural elevations, builder sites, or material quotes to pin them here.
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {savedPosts.map((sp) => (
+                      <button
+                        key={`saved-${sp.id}`}
+                        type="button"
+                        onClick={() => setDetailPostId(sp.id)}
+                        className="w-full flex items-center justify-between gap-2 text-left py-1.5 px-2 rounded-lg bg-slate-950/70 hover:bg-slate-800 transition"
+                      >
+                        <div className="min-w-0">
+                          <p className="text-xs text-slate-200 truncate">{sp.title}</p>
+                          <p className="text-[10px] text-slate-500">
+                            {ROLE_DIRECTORY[sp.posterRole].shortLabel}
+                          </p>
+                        </div>
+                        <span className="text-xs font-semibold text-emerald-400 tabular-nums shrink-0">
+                          {sp.priceLabel}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Direct Desk */}
+              <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-3">
+                <h3 className="text-sm font-semibold text-white">Direct Project &amp; Supply Desk</h3>
+                <p className="text-xs text-slate-400 leading-relaxed">
+                  Connect directly with Real Estate advisors, Architects, Turnkey Civil Builders, and Material Suppliers.
+                </p>
+                <div className="space-y-1.5 text-xs text-slate-300">
+                  <div className="flex items-center gap-2">
+                    <Phone className="w-3.5 h-3.5 text-slate-400" />
+                    <span>+91 80739 47241</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Mail className="w-3.5 h-3.5 text-slate-400" />
+                    <span>sgouse14@gmail.com</span>
+                  </div>
+                </div>
+              </div>
+            </aside>
+          </div>
+        </div>
+      )}
+
+      {/* ===================================================================== */}
+      {/* VIEW 3: DUAL INSTAGRAM + FACEBOOK SPLIT PREVIEW                        */}
+      {/* ===================================================================== */}
+      {platformMode === 'dual' && dualSelectedPost && (
+        <div className="space-y-5">
+          <div className="bg-slate-900 border border-slate-800 rounded-xl p-3 flex items-center gap-2 overflow-x-auto">
+            <span className="text-xs font-semibold text-slate-400 px-2 whitespace-nowrap shrink-0">
+              Preview Project:
+            </span>
+            {filteredPosts.map((item) => {
+              const selected = item.id === dualSelectedPost.id;
+              return (
+                <button
+                  key={`dual-pick-${item.id}`}
+                  type="button"
+                  onClick={() => setDualPostId(item.id)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition whitespace-nowrap shrink-0 border ${
+                    selected
+                      ? 'bg-slate-800 border-amber-400/60 text-white'
+                      : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  [{ROLE_DIRECTORY[item.posterRole].shortLabel}] {item.title.slice(0, 26)} ({item.priceLabel})
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 items-start">
+            <div className="space-y-2.5">
+              <div className="flex items-center justify-between px-1">
+                <span className="text-xs font-semibold uppercase tracking-wider text-rose-400">
+                  Instagram Project Card (4:5 / 1:1)
+                </span>
+                <button
+                  type="button"
+                  onClick={() => handleShare(dualSelectedPost)}
+                  className="text-xs text-slate-400 hover:text-white flex items-center gap-1"
+                >
+                  <Copy className="w-3.5 h-3.5" />
+                  <span>{copiedId === dualSelectedPost.id ? 'Caption Copied' : 'Copy IG Caption'}</span>
+                </button>
+              </div>
+              {renderInstagramCard(dualSelectedPost, true)}
+            </div>
+
+            <div className="space-y-2.5">
+              <div className="flex items-center justify-between px-1">
+                <span className="text-xs font-semibold uppercase tracking-wider text-[#1877F2]">
+                  Facebook Page &amp; Marketplace Card (16:10)
+                </span>
+                <span className="text-xs text-slate-400">Synced Live Likes &amp; Comments</span>
+              </div>
+              {renderFacebookCard(dualSelectedPost)}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ===================================================================== */}
+      {/* VIEW 4: SUB-TOOLS (360 VIRTUAL TOUR / LOOKBOOK / ADS)                  */}
+      {/* ===================================================================== */}
+      {platformMode === 'virtual_tour' && (
+        <SocialVirtualTourAndCampaigns activeProject={activeProject} mode="virtual_tour" />
+      )}
+      {platformMode === 'brochure' && (
+        <SocialVirtualTourAndCampaigns activeProject={activeProject} mode="brochure" />
+      )}
+      {platformMode === 'campaigns' && (
+        <SocialVirtualTourAndCampaigns activeProject={activeProject} mode="campaigns" />
+      )}
+
+      {/* ===================================================================== */}
+      {/* MODAL 1: INSTAGRAM STORY VIEWER                                        */}
+      {/* ===================================================================== */}
+      {activeStoryIdx !== null && STORY_HIGHLIGHTS[activeStoryIdx] && (
+        <div
+          className="fixed inset-0 z-50 bg-slate-950/95 flex items-center justify-center p-4"
+          onClick={() => setActiveStoryIdx(null)}
+        >
+          <div
+            className="relative w-full max-w-sm aspect-[9/16] max-h-[88vh] bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-2xl flex flex-col justify-between"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <img
+              src={STORY_HIGHLIGHTS[activeStoryIdx].imageUrl}
+              alt={STORY_HIGHLIGHTS[activeStoryIdx].headline}
+              referrerPolicy="no-referrer"
+              className="absolute inset-0 w-full h-full object-cover"
+            />
+            <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-slate-950/80 via-transparent to-slate-950/95" />
+
+            <div className="relative z-10 p-4 space-y-3">
+              <div className="flex gap-1">
+                {STORY_HIGHLIGHTS.map((s, idx) => (
+                  <div
+                    key={s.id}
+                    className={`h-1 flex-1 rounded-full ${
+                      idx <= activeStoryIdx ? 'bg-white' : 'bg-white/30'
+                    }`}
+                  />
+                ))}
+              </div>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <img
+                    src={ROLE_DIRECTORY[STORY_HIGHLIGHTS[activeStoryIdx].role].avatar}
+                    alt={STORY_HIGHLIGHTS[activeStoryIdx].posterHandle}
+                    referrerPolicy="no-referrer"
+                    className="w-8 h-8 rounded-full object-cover border border-white/40"
+                  />
+                  <div>
+                    <p className="text-xs font-semibold text-white">
+                      {STORY_HIGHLIGHTS[activeStoryIdx].posterHandle}
+                    </p>
+                    <p className="text-[11px] text-slate-300">
+                      {ROLE_DIRECTORY[STORY_HIGHLIGHTS[activeStoryIdx].role].label} ·{' '}
+                      {STORY_HIGHLIGHTS[activeStoryIdx].postedAgo}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setActiveStoryIdx(null)}
+                  className="p-1.5 rounded-lg bg-slate-950/60 text-white hover:bg-slate-900"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+
+            <div className="relative z-10 flex items-center justify-between px-2">
+              <button
+                type="button"
+                onClick={() =>
+                  setActiveStoryIdx((prev) =>
+                    prev === null
+                      ? null
+                      : (prev - 1 + STORY_HIGHLIGHTS.length) % STORY_HIGHLIGHTS.length
+                  )
+                }
+                className="w-9 h-9 rounded-full bg-slate-950/65 hover:bg-slate-900 text-white flex items-center justify-center"
+              >
+                <ChevronLeft className="w-5 h-5" />
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  setActiveStoryIdx((prev) =>
+                    prev === null ? null : (prev + 1) % STORY_HIGHLIGHTS.length
+                  )
+                }
+                className="w-9 h-9 rounded-full bg-slate-950/65 hover:bg-slate-900 text-white flex items-center justify-center"
+              >
+                <ChevronRight className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="relative z-10 p-5 space-y-3">
+              <div className="flex items-baseline justify-between gap-2">
+                <span className="text-xs font-semibold text-slate-300">
+                  {STORY_HIGHLIGHTS[activeStoryIdx].location}
+                </span>
+                <span className="text-base font-bold text-amber-300 tabular-nums">
+                  {STORY_HIGHLIGHTS[activeStoryIdx].priceTag}
+                </span>
+              </div>
+              <h3 className="text-base font-bold text-white leading-snug">
+                {STORY_HIGHLIGHTS[activeStoryIdx].headline}
+              </h3>
+              <p className="text-xs text-slate-300">
+                {STORY_HIGHLIGHTS[activeStoryIdx].subline}
+              </p>
+              <div className="flex items-center gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRoleFilter(STORY_HIGHLIGHTS[activeStoryIdx].role);
+                    setActiveStoryIdx(null);
+                  }}
+                  className="flex-1 py-2 rounded-lg bg-slate-900/90 border border-slate-700 text-xs font-semibold text-white hover:bg-slate-800 transition"
+                >
+                  View {ROLE_DIRECTORY[STORY_HIGHLIGHTS[activeStoryIdx].role].shortLabel} Posts
                 </button>
                 <a
-                  href={lightboxItem.url}
-                  download={lightboxItem.fileName || 'architectural_media'}
+                  href={`https://wa.me/918073947241?text=${encodeURIComponent(
+                    `Hello, I saw your "${STORY_HIGHLIGHTS[activeStoryIdx].headline}" story (${STORY_HIGHLIGHTS[activeStoryIdx].priceTag}) and want details.`
+                  )}`}
                   target="_blank"
                   rel="noreferrer"
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition"
+                  className="flex-1 py-2 rounded-lg bg-sky-500 hover:bg-sky-400 text-slate-950 text-xs font-semibold text-center transition"
                 >
-                  <Download className="h-3.5 w-3.5" />
-                  <span>Download</span>
+                  Inquire Now
                 </a>
               </div>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* ===================================================================== */}
+      {/* MODAL 2: PROJECT LIGHTBOX & COMMENTS DETAIL VIEW                       */}
+      {/* ===================================================================== */}
+      {detailPost && (
+        <div
+          className="fixed inset-0 z-50 bg-slate-950/90 flex items-center justify-center p-4"
+          onClick={() => setDetailPostId(null)}
+        >
+          <div
+            className="w-full max-w-4xl bg-slate-900 border border-slate-800 rounded-xl overflow-hidden grid grid-cols-1 md:grid-cols-[1.2fr_1fr] max-h-[90vh]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="bg-slate-950 flex items-center justify-center min-h-[280px] max-h-[55vh] md:max-h-[90vh]">
+              {detailPost.type === 'video' ? (
+                <video
+                  src={detailPost.url}
+                  poster={detailPost.thumbnailUrl || villaExteriorImg}
+                  controls
+                  autoPlay
+                  className="w-full h-full object-contain"
+                />
+              ) : (
+                <img
+                  src={detailPost.url}
+                  alt={detailPost.title}
+                  referrerPolicy="no-referrer"
+                  className="w-full h-full object-contain"
+                />
+              )}
+            </div>
+
+            <div className="flex flex-col border-t md:border-t-0 md:border-l border-slate-800 max-h-[90vh]">
+              <div className="p-4 border-b border-slate-800 flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <img
+                    src={detailPost.posterAvatar}
+                    alt={detailPost.posterName}
+                    referrerPolicy="no-referrer"
+                    className="w-8 h-8 rounded-full object-cover border border-slate-700 shrink-0"
+                  />
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold text-white truncate">
+                      {detailPost.posterName} · {ROLE_DIRECTORY[detailPost.posterRole].label}
+                    </p>
+                    <p className="text-[11px] text-slate-400 truncate">{detailPost.location}</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setDetailPostId(null)}
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="p-4 overflow-y-auto flex-1 space-y-4">
+                <div>
+                  <div className="flex items-baseline justify-between gap-2">
+                    <h3 className="text-base font-bold text-white">{detailPost.title}</h3>
+                    <span className="text-base font-bold text-amber-300 tabular-nums shrink-0">
+                      {detailPost.priceLabel}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 mt-3 p-3 rounded-lg bg-slate-950 border border-slate-800 text-xs">
+                    <div>
+                      <span className="text-slate-500 block">Scope / Config</span>
+                      <span className="text-slate-200 font-medium">{detailPost.bhkOrType}</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-500 block">Scale / Quantity</span>
+                      <span className="text-slate-200 font-medium tabular-nums">
+                        {detailPost.areaSpec}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-slate-500 block">Specification</span>
+                      <span className="text-slate-200 font-medium">{detailPost.facing}</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-500 block">Status</span>
+                      <span className="text-slate-200 font-medium">
+                        {detailPost.possessionStatus}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <p className="text-xs text-slate-300 leading-relaxed">{detailPost.caption}</p>
+                <p className="text-xs text-sky-400">{detailPost.hashtags.join(' ')}</p>
+
+                <div className="pt-2 border-t border-slate-800 space-y-2.5">
+                  <p className="text-xs font-semibold text-slate-400">
+                    Comments ({detailPost.comments.length})
+                  </p>
+                  {detailPost.comments.length === 0 ? (
+                    <p className="text-xs text-slate-500">No comments yet. Ask a question below.</p>
+                  ) : (
+                    detailPost.comments.map((c) => (
+                      <div key={c.id} className="text-xs text-slate-300 flex justify-between gap-2">
+                        <p>
+                          <span className="font-semibold text-white mr-1.5">{c.author}</span>
+                          {c.text}
+                        </p>
+                        <span className="text-slate-500 shrink-0">{c.timeAgo}</span>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              <div className="p-4 border-t border-slate-800 space-y-3 bg-slate-950/60">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <button
+                      type="button"
+                      onClick={() => toggleLike(detailPost.id)}
+                      className="flex items-center gap-1.5 text-xs font-semibold text-white"
+                    >
+                      <Heart
+                        className={`w-4 h-4 ${
+                          detailPost.liked ? 'fill-rose-500 text-rose-500' : ''
+                        }`}
+                      />
+                      <span className="tabular-nums">{detailPost.likesCount || 0}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleShare(detailPost)}
+                      className="flex items-center gap-1.5 text-xs text-slate-300 hover:text-white"
+                    >
+                      <Share2 className="w-4 h-4" />
+                      <span>{copiedId === detailPost.id ? 'Copied' : 'Share'}</span>
+                    </button>
+                  </div>
+                  <a
+                    href={whatsappInquiryUrl(detailPost)}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="px-3 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-semibold transition"
+                  >
+                    WhatsApp Inquiry
+                  </a>
+                </div>
+
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    handleAddComment(detailPost.id);
+                  }}
+                  className="flex items-center gap-2"
+                >
+                  <input
+                    type="text"
+                    value={commentDrafts[detailPost.id] || ''}
+                    onChange={(e) =>
+                      setCommentDrafts((prev) => ({
+                        ...prev,
+                        [detailPost.id]: e.target.value,
+                      }))
+                    }
+                    placeholder="Add comment or inquiry..."
+                    className="flex-1 bg-slate-900 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-sky-500"
+                  />
+                  <button
+                    type="submit"
+                    className="px-3 py-1.5 rounded-lg bg-sky-500 hover:bg-sky-400 text-slate-950 text-xs font-semibold"
+                  >
+                    Post
+                  </button>
+                </form>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ===================================================================== */}
+      {/* MODAL 3: POST YOUR PROJECT (REAL ESTATE / ARCHITECT / BUILDER / SUPP)  */}
+      {/* ===================================================================== */}
+      {isComposerOpen && (
+        <div
+          className="fixed inset-0 z-50 bg-slate-950/90 flex items-center justify-center p-4"
+          onClick={() => setIsComposerOpen(false)}
+        >
+          <form
+            onSubmit={handleCreateModalPost}
+            className="w-full max-w-xl bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-5 py-4 border-b border-slate-800 flex items-center justify-between">
+              <div>
+                <h3 className="text-base font-bold text-white">
+                  Post Your Project to Instagram &amp; Facebook Feeds
+                </h3>
+                <p className="text-xs text-slate-400">
+                  Choose your role — Real Estate, Architect, Builder, Material Supplier, or Client.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsComposerOpen(false)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4 max-h-[75vh] overflow-y-auto">
+              {/* Role Selector */}
+              <div>
+                <label className="block text-xs font-medium text-slate-300 mb-1.5">
+                  I am posting as
+                </label>
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                  {(['real_estate', 'architect', 'builder', 'material_supplier', 'client'] as PosterRole[]).map(
+                    (r) => {
+                      const selected = modalRole === r;
+                      const info = ROLE_DIRECTORY[r];
+                      return (
+                        <button
+                          key={`modal-role-${r}`}
+                          type="button"
+                          onClick={() => {
+                            setModalRole(r);
+                            setNewCompanyName(info.defaultName);
+                            setNewPrice(info.placeholderRate);
+                            setNewCategory(info.defaultCategory);
+                          }}
+                          className={`py-2 px-2 rounded-lg border text-xs font-semibold transition text-center ${
+                            selected
+                              ? 'bg-sky-500/15 border-sky-400 text-white'
+                              : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-slate-200'
+                          }`}
+                        >
+                          {info.label}
+                        </button>
+                      );
+                    }
+                  )}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-slate-300 mb-1">
+                    {modalRole === 'client' ? 'Your Name / Plot Owner' : 'Studio / Company / Supplier Name'}
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={newCompanyName}
+                    onChange={(e) => setNewCompanyName(e.target.value)}
+                    placeholder="e.g. Studio Gouse Architects"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-sky-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-300 mb-1">
+                    Project / Requirement / Product Title
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={newTitle}
+                    onChange={(e) => setNewTitle(e.target.value)}
+                    placeholder={
+                      modalRole === 'material_supplier'
+                        ? 'e.g. Italian Travertine & Fe-550D Steel Lot'
+                        : modalRole === 'architect'
+                        ? 'e.g. 40x60 Contemporary Villa 3D & GFC'
+                        : modalRole === 'builder'
+                        ? 'e.g. Sarjapur G+2 Turnkey Handover'
+                        : modalRole === 'client'
+                        ? 'e.g. Need Architect & Builder for 30x40 Plot'
+                        : 'e.g. Whitefield 4 BHK Corner Villa'
+                    }
+                    className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-sky-500"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-slate-300 mb-1">
+                    Category
+                  </label>
+                  <select
+                    value={newCategory}
+                    onChange={(e) =>
+                      setNewCategory(e.target.value as Exclude<RealEstateCategory, 'all'>)
+                    }
+                    className="w-full bg-slate-950 border border-slate-800 rounded-lg px-2 py-2 text-xs text-white focus:outline-none"
+                  >
+                    <option value="for_sale">For Sale</option>
+                    <option value="for_rent">For Rent</option>
+                    <option value="pg_coliving">PG &amp; Co-Living</option>
+                    <option value="land_plots">Land &amp; Plots</option>
+                    <option value="architectural_design">Architecture &amp; 3D</option>
+                    <option value="turnkey_build">Builder Turnkey</option>
+                    <option value="materials_supply">Materials Supply</option>
+                    <option value="client_post">Client Story / Request</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-300 mb-1">
+                    Price / Rate
+                  </label>
+                  <input
+                    type="text"
+                    value={newPrice}
+                    onChange={(e) => setNewPrice(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-2 text-xs text-white focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-300 mb-1">
+                    Location
+                  </label>
+                  <input
+                    type="text"
+                    value={newLocation}
+                    onChange={(e) => setNewLocation(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-2 text-xs text-white focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-300 mb-1">
+                    Area / MOQ Spec
+                  </label>
+                  <input
+                    type="text"
+                    value={newAreaSpec}
+                    onChange={(e) => setNewAreaSpec(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-2 text-xs text-white focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-slate-300 mb-1">
+                  Project Description &amp; Technical Highlights
+                </label>
+                <textarea
+                  rows={3}
+                  value={newCaption}
+                  onChange={(e) => setNewCaption(e.target.value)}
+                  placeholder="Share plot size, design concept, structural grade, material brand, or open house availability..."
+                  className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-sky-500"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-medium text-slate-300">
+                    Project Photo / Walkthrough Video
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="text-xs font-semibold text-sky-400 hover:text-sky-300 flex items-center gap-1"
+                  >
+                    <UploadCloud className="w-3.5 h-3.5" />
+                    <span>Upload from Device</span>
+                  </button>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*,video/*"
+                    onChange={handleModalFileChange}
+                    className="hidden"
+                  />
+                </div>
+
+                <div className="grid grid-cols-4 gap-2">
+                  {[
+                    { label: 'Villa (Real Estate)', url: villaExteriorImg },
+                    { label: '3D Facade (Arch)', url: villaElevationImg },
+                    { label: 'RCC Site (Builder)', url: siteFramingImg },
+                    { label: 'Stone/Bath (Supplier)', url: modernBathImg },
+                  ].map((preset) => (
+                    <button
+                      key={preset.label}
+                      type="button"
+                      onClick={() => {
+                        setNewMediaType('photo');
+                        setNewMediaUrl(preset.url);
+                      }}
+                      className={`rounded-lg overflow-hidden border text-left transition ${
+                        newMediaUrl === preset.url
+                          ? 'border-sky-400 ring-1 ring-sky-400'
+                          : 'border-slate-800 opacity-80 hover:opacity-100'
+                      }`}
+                    >
+                      <img
+                        src={preset.url}
+                        alt={preset.label}
+                        referrerPolicy="no-referrer"
+                        className="w-full h-14 object-cover"
+                      />
+                      <span className="block px-1.5 py-1 text-[10px] text-slate-300 bg-slate-950 truncate">
+                        {preset.label}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="px-5 py-3.5 border-t border-slate-800 bg-slate-950/60 flex items-center justify-end gap-2.5">
+              <button
+                type="button"
+                onClick={() => setIsComposerOpen(false)}
+                className="px-4 py-2 rounded-lg border border-slate-700 text-xs font-semibold text-slate-300 hover:text-white"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="px-4 py-2 rounded-lg bg-sky-500 hover:bg-sky-400 text-slate-950 text-xs font-semibold"
+              >
+                Publish as {ROLE_DIRECTORY[modalRole].label}
+              </button>
+            </div>
+          </form>
         </div>
       )}
     </div>

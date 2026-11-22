@@ -57,68 +57,66 @@ import {
 } from 'lucide-react';
 import { Project, TeamMember, AuditEvent } from '../types';
 import { formatDate, CurrencyCode } from '../utils/formatters';
+import { AVATARS } from '../utils/mediaAssets';
 
 export const PRESET_PORTRAITS = [
   {
     label: 'Executive Lead',
     role: 'Principal Architect',
-    url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=600&q=80',
+    url: AVATARS.principal,
   },
   {
     label: 'Senior Architect',
     role: 'Lead Architect',
-    url: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=600&q=80',
+    url: AVATARS.seniorArchitect,
   },
   {
     label: 'Structural Lead',
     role: 'Structural Engineer',
-    url: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=600&q=80',
+    url: AVATARS.structuralEngineer,
   },
   {
     label: 'Design Specialist',
     role: 'Interior & Facade',
-    url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=600&q=80',
+    url: AVATARS.seniorArchitect,
   },
   {
     label: 'Commercial Director',
     role: 'Quantity Surveyor',
-    url: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=600&q=80',
+    url: AVATARS.qsDirector,
   },
   {
     label: 'Client Liaison',
     role: 'Project Stakeholder',
-    url: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?auto=format&fit=crop&w=600&q=80',
+    url: AVATARS.principal,
   },
   {
     label: 'Civil Site Engineer',
     role: 'Site Operations',
-    url: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=600&q=80',
+    url: AVATARS.structuralEngineer,
   },
   {
     label: 'MEP Consultant',
     role: 'HVAC & Electrical',
-    url: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?auto=format&fit=crop&w=600&q=80',
+    url: AVATARS.qsDirector,
   },
 ];
 
 export const getDefaultAvatar = (name: string, role?: string): string => {
   const lowerName = name.toLowerCase();
   if (role === 'owner' || lowerName.includes('gouse') || lowerName.includes('lead') || lowerName.includes('principal')) {
-    return 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=600&q=80';
+    return AVATARS.principal;
   }
-  if (lowerName.includes('priya') || role === 'architect') {
-    return 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=600&q=80';
+  if (lowerName.includes('priya') || role === 'architect' || role === 'mep_engineer') {
+    return AVATARS.seniorArchitect;
   }
   if (lowerName.includes('rajesh') || role === 'structural_engineer') {
-    return 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=600&q=80';
+    return AVATARS.structuralEngineer;
   }
   if (role === 'client' || lowerName.includes('sameer') || lowerName.includes('client')) {
-    return 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?auto=format&fit=crop&w=600&q=80';
+    return AVATARS.principal;
   }
-  if (role === 'mep_engineer') {
-    return 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=600&q=80';
-  }
-  return 'https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=600&q=80';
+  return AVATARS.qsDirector;
 };
 
 interface ProjectsViewProps {
@@ -281,12 +279,113 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
   return (
     <div id="projects-workspace-view" className="max-w-7xl mx-auto px-4 lg:px-8 py-6 space-y-6">
 
+      {/* Executive Active Project Header & KPI Strip */}
+      <section className="rounded-xl bg-slate-900 border border-slate-800 p-5 sm:p-6 space-y-5">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+          <div className="space-y-1.5 min-w-0">
+            <div className="flex items-center gap-2 text-xs text-slate-400">
+              <span>{activeProject.projectType}</span>
+              <span aria-hidden="true">·</span>
+              <span>{activeProject.location}</span>
+              <span aria-hidden="true">·</span>
+              <span className="capitalize text-amber-400 font-medium">
+                {activeProject.status.replace('_', ' ')}
+              </span>
+            </div>
+            <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight text-balance">
+              {activeProject.name}
+            </h1>
+            {activeProject.description && (
+              <p className="text-sm text-slate-400 max-w-3xl leading-relaxed">
+                {activeProject.description}
+              </p>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2.5 shrink-0 flex-wrap">
+            <button
+              id="btn-open-create-project"
+              type="button"
+              onClick={() => setIsCreatingProject(true)}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold text-xs transition-colors whitespace-nowrap shrink-0"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>New Project</span>
+            </button>
+
+            {onOpenWorkflowEngine && (
+              <button
+                id="btn-projects-launch-workflow"
+                type="button"
+                onClick={onOpenWorkflowEngine}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-slate-950 border border-slate-800 hover:border-slate-700 px-3.5 py-2 text-xs font-medium text-slate-200 hover:text-white transition-colors whitespace-nowrap shrink-0"
+              >
+                <Zap className="h-3.5 w-3.5 text-amber-400" />
+                <span>CAD Workflow</span>
+              </button>
+            )}
+
+            {onOpenSiteCamera && (
+              <button
+                id="btn-projects-open-site-camera"
+                type="button"
+                onClick={onOpenSiteCamera}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-slate-950 border border-slate-800 hover:border-slate-700 text-slate-200 hover:text-white font-medium text-xs transition-colors whitespace-nowrap shrink-0"
+                title="Open Site Visit Camera & Snap Photos for AI Visual Progress Audit"
+              >
+                <Camera className="w-3.5 h-3.5 text-amber-400" />
+                <span>Site Camera</span>
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* 4-Column Project KPI Summary */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 pt-4 border-t border-slate-800/80">
+          <div className="px-3.5 py-3 rounded-lg bg-slate-950/70 border border-slate-800/80">
+            <div className="text-xs text-slate-400">Built-Up Area</div>
+            <div className="text-lg font-semibold text-white font-mono tabular-nums mt-0.5">
+              {(activeProject.builtUpAreaSqFt || 0).toLocaleString()} sq.ft
+            </div>
+          </div>
+          <div className="px-3.5 py-3 rounded-lg bg-slate-950/70 border border-slate-800/80">
+            <div className="text-xs text-slate-400">Assigned Specialists</div>
+            <div className="text-lg font-semibold text-white font-mono tabular-nums mt-0.5">
+              {members.length} Members
+            </div>
+          </div>
+          <div className="px-3.5 py-3 rounded-lg bg-slate-950/70 border border-slate-800/80">
+            <div className="text-xs text-slate-400">Site Audits Logged</div>
+            <div className="text-lg font-semibold text-white font-mono tabular-nums mt-0.5">
+              {activeProject.siteAudits?.length || 0} Inspections
+            </div>
+          </div>
+          <div className="px-3.5 py-3 rounded-lg bg-slate-950/70 border border-slate-800/80">
+            <div className="text-xs text-slate-400">Portfolio Workspace</div>
+            <div className="mt-0.5">
+              <select
+                id="select-active-project-dropdown"
+                value={activeProject.id}
+                onChange={(e) => onSelectProject(e.target.value)}
+                className="w-full bg-transparent border-0 text-sm font-semibold text-amber-400 focus:outline-none cursor-pointer truncate p-0"
+              >
+                {projects.map((proj) => (
+                  <option key={proj.id} value={proj.id} className="bg-slate-900 text-white">
+                    {proj.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* Modal for new project creation */}
       {isCreatingProject && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4">
           <div className="bg-slate-900 border border-slate-700 rounded-xl max-w-lg w-full p-6 shadow-2xl space-y-4">
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <h3 className="text-lg font-bold text-white font-serif-classic">
+              <h3 className="text-lg font-bold text-white">
                 Create Architectural Project
               </h3>
               <button
@@ -365,7 +464,7 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
 
               <div>
                 <label className="block text-xs font-medium text-slate-300 mb-1">
-                  Architectural Brief & Scope
+                  Architectural Brief &amp; Scope
                 </label>
                 <textarea
                   id="input-project-desc"
@@ -398,95 +497,35 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
         </div>
       )}
 
-      {/* Sub-tabs & Action Bar */}
-      <div className="border-b border-slate-800 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-1">
-        <div className="flex items-center gap-1 sm:gap-2 flex-wrap">
-          <button
-            id="tab-btn-team"
-            onClick={() => setActiveTab('team')}
-            className={`flex items-center gap-2 px-4 py-2.5 text-xs font-medium border-b-2 transition ${
-              activeTab === 'team'
-                ? 'border-amber-400 text-amber-400 bg-amber-500/5'
-                : 'border-transparent text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            <Users className="w-3.5 h-3.5" />
-            <span>Company Employee ({members.length})</span>
-            <span className="rounded bg-gradient-to-r from-amber-500/20 to-orange-500/20 text-amber-300 border border-amber-500/30 text-[10px] px-2 py-0.2 font-mono font-bold">
-              PHOTO IDS
-            </span>
-          </button>
+      {/* Sub-tabs Bar */}
+      <div className="border-b border-slate-800 flex items-center gap-2">
+        <button
+          id="tab-btn-team"
+          type="button"
+          onClick={() => setActiveTab('team')}
+          className={`flex items-center gap-2 px-4 py-2.5 text-xs font-medium border-b-2 transition-colors whitespace-nowrap ${
+            activeTab === 'team'
+              ? 'border-amber-400 text-amber-400'
+              : 'border-transparent text-slate-400 hover:text-slate-200'
+          }`}
+        >
+          <Users className="w-3.5 h-3.5" />
+          <span>Project Team &amp; Specialists ({members.length})</span>
+        </button>
 
-          <button
-            id="tab-btn-site-audits"
-            onClick={() => setActiveTab('site_audits')}
-            className={`flex items-center gap-2 px-4 py-2.5 text-xs font-medium border-b-2 transition ${
-              activeTab === 'site_audits'
-                ? 'border-amber-400 text-amber-400 bg-amber-500/5'
-                : 'border-transparent text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            <Camera className="w-3.5 h-3.5 text-amber-400" />
-            <span>Site Visit &amp; Audits ({activeProject.siteAudits?.length || 0})</span>
-            <span className="rounded bg-gradient-to-r from-amber-500/20 to-yellow-500/20 text-amber-300 border border-amber-500/30 text-[10px] px-2 py-0.2 font-mono font-bold">
-              AI CAMERA • IS 456
-            </span>
-          </button>
-
-        </div>
-
-        {/* Compact Right Actions */}
-        <div className="flex items-center gap-2 pb-1.5 sm:pb-0">
-          <div className="flex items-center gap-1.5 bg-slate-950/80 border border-slate-800 rounded-lg px-2.5 py-1 text-xs">
-            <span className="text-[11px] text-slate-400 font-mono">Switch:</span>
-            <select
-              id="select-active-project-dropdown"
-              value={activeProject.id}
-              onChange={(e) => onSelectProject(e.target.value)}
-              className="bg-transparent border-0 text-amber-300 text-xs font-semibold focus:outline-none cursor-pointer max-w-[160px] truncate"
-            >
-              {projects.map((proj) => (
-                <option key={proj.id} value={proj.id} className="bg-slate-900 text-white">
-                  {proj.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <button
-            id="btn-open-create-project"
-            onClick={() => setIsCreatingProject(true)}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs transition shadow-sm shrink-0"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            <span>New Project</span>
-          </button>
-
-          {onOpenWorkflowEngine && (
-            <button
-              id="btn-projects-launch-workflow"
-              type="button"
-              onClick={onOpenWorkflowEngine}
-              className="whitespace-nowrap flex items-center gap-1.5 rounded-lg bg-slate-800 border border-slate-700 px-3 py-1.5 text-xs font-bold text-slate-200 hover:bg-slate-700 transition shrink-0"
-            >
-              <Zap className="h-3.5 w-3.5 text-amber-400" />
-              <span>4-Step Engine</span>
-            </button>
-          )}
-
-          {onOpenSiteCamera && (
-            <button
-              id="btn-projects-open-site-camera"
-              type="button"
-              onClick={onOpenSiteCamera}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-amber-500/20 via-yellow-500/15 to-slate-900 hover:from-amber-500/30 border border-amber-500/40 text-amber-300 font-bold text-xs transition shadow-sm shrink-0"
-              title="Open Site Visit Camera & Snap Photos for AI Visual Progress Audit"
-            >
-              <Camera className="w-3.5 h-3.5 text-amber-400" />
-              <span>Site Camera</span>
-            </button>
-          )}
-        </div>
+        <button
+          id="tab-btn-site-audits"
+          type="button"
+          onClick={() => setActiveTab('site_audits')}
+          className={`flex items-center gap-2 px-4 py-2.5 text-xs font-medium border-b-2 transition-colors whitespace-nowrap ${
+            activeTab === 'site_audits'
+              ? 'border-amber-400 text-amber-400'
+              : 'border-transparent text-slate-400 hover:text-slate-200'
+          }`}
+        >
+          <Camera className="w-3.5 h-3.5" />
+          <span>Site Audits &amp; Inspections ({activeProject.siteAudits?.length || 0})</span>
+        </button>
       </div>
 
       {/* Tab: Company Employee */}
@@ -998,7 +1037,7 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
                       type="url"
                       value={photoModalUrl}
                       onChange={(e) => setPhotoModalUrl(e.target.value)}
-                      placeholder="https://images.unsplash.com/..."
+                      placeholder="Paste portrait URL or upload photo"
                       className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-400 font-mono"
                     />
                   </div>

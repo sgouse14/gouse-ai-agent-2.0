@@ -113,9 +113,9 @@ export const BuyHouseLandSection: React.FC<BuyHouseLandSectionProps> = ({
   currency = 'INR',
 }) => {
   // -------------------------------------------------------------
-  // INITIAL BUY HOUSES DATA
+  // INITIAL BUY HOUSES DATA (hydrated with custom saved listings)
   // -------------------------------------------------------------
-  const [houseListings, setHouseListings] = useState<BuyHouseItem[]>([
+  const DEFAULT_HOUSES: BuyHouseItem[] = [
     {
       id: 'house-1',
       title: 'The Palm Crest Biophilic 4BHK Luxury Villa',
@@ -224,12 +224,23 @@ export const BuyHouseLandSection: React.FC<BuyHouseLandSectionProps> = ({
       ownerOrBuilder: 'Direct Developer Handover',
       contactPhone: '+91 80739 47241',
     },
-  ]);
+  ];
+
+  const [houseListings, setHouseListings] = useState<BuyHouseItem[]>(() => {
+    try {
+      const saved = localStorage.getItem('gouse_custom_houses_v1');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return [...parsed, ...DEFAULT_HOUSES];
+      }
+    } catch {}
+    return DEFAULT_HOUSES;
+  });
 
   // -------------------------------------------------------------
   // INITIAL LAND & PLOTS DATA
   // -------------------------------------------------------------
-  const [plotListings, setPlotListings] = useState<LandPlotItem[]>([
+  const DEFAULT_PLOTS: LandPlotItem[] = [
     {
       id: 'plot-1',
       title: 'BDA Approved 30x40 Corner Residential Plot',
@@ -338,7 +349,18 @@ export const BuyHouseLandSection: React.FC<BuyHouseLandSectionProps> = ({
       ownerOrBroker: 'Direct Family Landlord',
       contactPhone: '+91 80739 47241',
     },
-  ]);
+  ];
+
+  const [plotListings, setPlotListings] = useState<LandPlotItem[]>(() => {
+    try {
+      const saved = localStorage.getItem('gouse_custom_plots_v1');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return [...parsed, ...DEFAULT_PLOTS];
+      }
+    } catch {}
+    return DEFAULT_PLOTS;
+  });
 
   // Selected Detail Modal State
   const [selectedHouse, setSelectedHouse] = useState<BuyHouseItem | null>(null);
@@ -377,6 +399,7 @@ export const BuyHouseLandSection: React.FC<BuyHouseLandSectionProps> = ({
     projectedRentalYield?: string;
   } | null>(null);
   const [listingSuccessMessage, setListingSuccessMessage] = useState<string | null>(null);
+  const [listingError, setListingError] = useState<string | null>(null);
 
   // Instant AI Valuation Engine Handler
   const handleRunAiValuation = () => {
@@ -411,9 +434,10 @@ export const BuyHouseLandSection: React.FC<BuyHouseLandSectionProps> = ({
   const handlePublishListing = (e: React.FormEvent) => {
     e.preventDefault();
     if (!sellTitle.trim()) {
-      alert('Please enter a property title');
+      setListingError('Please enter a property title before publishing.');
       return;
     }
+    setListingError(null);
 
     if (sellGoal === 'sell_house') {
       const newHouse: BuyHouseItem = {
@@ -444,6 +468,10 @@ export const BuyHouseLandSection: React.FC<BuyHouseLandSectionProps> = ({
         contactPhone: sellPhone || '+91 80739 47241',
       };
       setHouseListings((prev) => [newHouse, ...prev]);
+      try {
+        const existing = JSON.parse(localStorage.getItem('gouse_custom_houses_v1') || '[]');
+        localStorage.setItem('gouse_custom_houses_v1', JSON.stringify([newHouse, ...(Array.isArray(existing) ? existing : [])]));
+      } catch {}
     } else if (sellGoal === 'sell_land') {
       const newPlot: LandPlotItem = {
         id: `user-plot-${Date.now()}`,
@@ -473,6 +501,71 @@ export const BuyHouseLandSection: React.FC<BuyHouseLandSectionProps> = ({
         contactPhone: sellPhone || '+91 80739 47241',
       };
       setPlotListings((prev) => [newPlot, ...prev]);
+      try {
+        const existing = JSON.parse(localStorage.getItem('gouse_custom_plots_v1') || '[]');
+        localStorage.setItem('gouse_custom_plots_v1', JSON.stringify([newPlot, ...(Array.isArray(existing) ? existing : [])]));
+      } catch {}
+    } else if (sellGoal === 'rent_house' || sellGoal === 'rent_pg') {
+      const isPg = sellGoal === 'rent_pg';
+      const newRentalListing = {
+        id: `user-rental-${Date.now()}`,
+        name: sellTitle,
+        propertyType: isPg ? 'PG / Co-Living Facility' : 'Independent House / Rental Floors',
+        genderCategory: isPg ? 'Coliving (Unisex)' : 'Family & Working Professionals',
+        locationAddress: sellLocality,
+        zone: sellLocality.split(',')[0],
+        contactPerson: sellOwnerName || 'Verified Direct Owner',
+        contactPhone: sellPhone || '+91 8073947241',
+        depositMonths: isPg ? 2 : 3,
+        noticePeriodDays: 30,
+        gateClosingTime: isPg ? '11:00 PM (Biometric)' : 'Independent Gate (24/7)',
+        foodIncluded: isPg,
+        foodType: isPg ? '3 Times Hygienic Meals' : 'Self-Cooking Modular Kitchen',
+        bbmpApprovalKhata: sellKhata === 'BDA' ? 'BDA Approved' : `BBMP ${sellKhata} Verified`,
+        totalFloors: 'G+2 Floors',
+        bhkConfig: sellBhkOrType,
+        carpetAreaSqFt: sellAreaSqFt,
+        monthlyRentTotal: sellExpectedPrice,
+        maintenanceMonthly: isPg ? 0 : 2500,
+        furnishingType: 'Semi-Furnished',
+        parkingDetails: 'Covered Parking Available',
+        facingVastu: 'East Facing Vastu',
+        gallery: [
+          {
+            id: `img-${Date.now()}-1`,
+            title: sellTitle,
+            category: 'Exterior',
+            imageUrl: isPg ? pgTerraceImg : villaExteriorImg,
+            caption: sellNotes || 'Listed directly via 0% Brokerage Desk',
+          },
+        ],
+        rooms: [
+          {
+            id: `room-${Date.now()}`,
+            roomNumber: isPg ? 'Suite 101' : sellBhkOrType,
+            floorName: '1st Floor',
+            roomType: isPg ? 'Single Private Room' : 'Single Private Room',
+            totalBeds: 1,
+            occupiedBeds: 0,
+            rentPerBedMonthly: sellExpectedPrice,
+            securityDeposit: sellExpectedPrice * (isPg ? 2 : 3),
+            furnishing: 'Semi-Furnished',
+            hasAttachedBath: true,
+            hasBalcony: true,
+            hasAirConditioning: false,
+            notes: sellNotes || 'Ready for immediate move-in with 0% brokerage',
+            imageUrl: masterSuiteImg,
+          },
+        ],
+      };
+      try {
+        const existing = JSON.parse(localStorage.getItem('gouse_custom_pg_house_listings_v1') || '[]');
+        localStorage.setItem(
+          'gouse_custom_pg_house_listings_v1',
+          JSON.stringify([newRentalListing, ...(Array.isArray(existing) ? existing : [])])
+        );
+        window.dispatchEvent(new Event('gouse_listings_updated'));
+      } catch {}
     }
 
     setListingSuccessMessage(
@@ -517,27 +610,22 @@ export const BuyHouseLandSection: React.FC<BuyHouseLandSectionProps> = ({
     });
 
     return (
-      <div className="space-y-6 animate-in fade-in duration-200">
+      <div className="space-y-6">
         {/* Banner */}
-        <div className="p-6 rounded-3xl bg-gradient-to-r from-amber-950/60 via-slate-900 to-slate-950 border border-amber-500/30 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-xl">
-          <div className="space-y-2 max-w-2xl text-left">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[10px] font-mono font-bold flex items-center gap-1">
-                <Sparkles className="w-3 h-3 text-amber-400" />
-                BUY HOUSES &amp; LUXURY VILLAS
-              </span>
-              <span className="px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 text-[10px] font-mono">
-                0% BUYER BROKERAGE
-              </span>
-              <span className="px-2 py-0.5 rounded-full bg-sky-500/15 text-sky-300 border border-sky-500/30 text-[10px] font-mono">
-                RERA &amp; A-KHATA AUDITED
-              </span>
+        <div className="p-6 rounded-xl bg-slate-900 border border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="space-y-1.5 max-w-2xl text-left">
+            <div className="flex items-center gap-2 flex-wrap text-[11px] font-mono uppercase tracking-wider text-slate-400">
+              <span className="text-amber-400 font-semibold">Buy Houses &amp; Villas</span>
+              <span>·</span>
+              <span className="text-emerald-400">0% Buyer Brokerage</span>
+              <span>·</span>
+              <span>RERA &amp; A-Khata Audited</span>
             </div>
-            <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight">
-              Curated Houses, Designer Penthouses &amp; Turnkey Villas for Sale
+            <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight">
+              Curated Houses, Designer Penthouses &amp; Turnkey Villas
             </h2>
-            <p className="text-xs text-slate-300 leading-relaxed font-light">
-              Direct developer and owner homes architecturally vetted by Ar. S. Gouse Studio. Transparent carpet area pricing, structural IS 456 certification, and instant bank loan approval support.
+            <p className="text-xs text-slate-400 leading-relaxed">
+              Direct developer and owner homes architecturally vetted by Ar. S. Gouse Studio with transparent carpet area pricing and IS 456 verification.
             </p>
           </div>
 
@@ -546,7 +634,7 @@ export const BuyHouseLandSection: React.FC<BuyHouseLandSectionProps> = ({
               href="https://wa.me/918073947241?text=Hello%20Ar.%20Gouse,%20I%20am%20interested%20in%20buying%20a%20house%20or%20villa%20in%20Bangalore."
               target="_blank"
               rel="noreferrer"
-              className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-2 shadow-lg shadow-emerald-600/20 transition"
+              className="px-4 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs flex items-center gap-2 transition"
             >
               <MessageSquare className="w-4 h-4" />
               <span>Direct WhatsApp Inquiry</span>
@@ -555,7 +643,7 @@ export const BuyHouseLandSection: React.FC<BuyHouseLandSectionProps> = ({
         </div>
 
         {/* Filter Toolbar */}
-        <div className="bg-slate-900 border border-slate-800 p-3.5 rounded-2xl flex flex-wrap items-center justify-between gap-3 shadow-md">
+        <div className="bg-slate-900 border border-slate-800 p-3.5 rounded-xl flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2 flex-1 min-w-[240px]">
             <Search className="w-4 h-4 text-slate-400 shrink-0" />
             <input
@@ -577,51 +665,70 @@ export const BuyHouseLandSection: React.FC<BuyHouseLandSectionProps> = ({
           </div>
 
           <div className="flex items-center gap-2 flex-wrap text-xs">
-            {/* Zone Filter */}
             <select
               value={zoneFilter}
               onChange={(e) => setZoneFilter(e.target.value)}
-              className="bg-slate-950 border border-slate-700 text-slate-200 text-xs px-3 py-1.5 rounded-xl focus:outline-none focus:border-amber-400"
+              className="bg-slate-950 border border-slate-700 text-slate-200 text-xs px-3 py-1.5 rounded-lg focus:outline-none focus:border-amber-400"
             >
               <option value="all">All Localities</option>
               <option value="whitefield">Whitefield</option>
               <option value="hsr">HSR Layout</option>
               <option value="indiranagar">Indiranagar</option>
               <option value="koramangala">Koramangala</option>
+              <option value="bangalore">User Published</option>
             </select>
 
-            {/* Price Filter */}
             <select
               value={priceRangeFilter}
               onChange={(e) => setPriceRangeFilter(e.target.value as any)}
-              className="bg-slate-950 border border-slate-700 text-slate-200 text-xs px-3 py-1.5 rounded-xl focus:outline-none focus:border-amber-400"
+              className="bg-slate-950 border border-slate-700 text-slate-200 text-xs px-3 py-1.5 rounded-lg focus:outline-none focus:border-amber-400"
             >
               <option value="all">All Budgets</option>
               <option value="budget">Under ₹2.00 Cr</option>
-              <option value="mid">₹2.00 Cr - ₹3.00 Cr</option>
+              <option value="mid">₹2.00 Cr – ₹3.00 Cr</option>
               <option value="luxury">Luxury Above ₹3.00 Cr</option>
             </select>
 
-            <span className="text-slate-400 font-mono text-[11px] px-2">
-              Showing {filteredHouses.length} Properties
+            <span className="text-slate-400 font-mono text-[11px] px-2 tabular-nums">
+              {filteredHouses.length} Properties
             </span>
           </div>
         </div>
 
+        {/* Empty State */}
+        {filteredHouses.length === 0 && (
+          <div className="p-8 rounded-xl bg-slate-900 border border-slate-800 text-center space-y-2">
+            <div className="text-sm font-semibold text-white">No matching houses or villas found</div>
+            <p className="text-xs text-slate-400">Clear your locality or budget filter to view all verified properties.</p>
+            <button
+              type="button"
+              onClick={() => {
+                setSearchQuery('');
+                setZoneFilter('all');
+                setPriceRangeFilter('all');
+              }}
+              className="mt-2 px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-semibold transition"
+            >
+              Reset All Filters
+            </button>
+          </div>
+        )}
+
         {/* Houses Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 tabular-nums">
           {filteredHouses.map((house) => {
             const emiEst = calculateEMI(house.price * 0.8, 20, 8.5);
             return (
               <div
                 key={house.id}
-                className="group rounded-3xl bg-slate-900/80 border border-slate-800 hover:border-amber-500/50 overflow-hidden shadow-xl hover:shadow-2xl hover:shadow-amber-500/10 transition-all flex flex-col text-left"
+                className="group rounded-xl bg-slate-900 border border-slate-800 hover:border-amber-500/40 overflow-hidden transition-all flex flex-col text-left"
               >
-                {/* Image Header with Badges */}
+                {/* Image Header with Scrim */}
                 <div className="relative h-64 w-full overflow-hidden bg-slate-950">
                   <img
                     src={house.featuredImage}
                     alt={house.title}
+                    referrerPolicy="no-referrer"
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/20 to-transparent" />
@@ -948,36 +1055,31 @@ export const BuyHouseLandSection: React.FC<BuyHouseLandSectionProps> = ({
     });
 
     return (
-      <div className="space-y-6 animate-in fade-in duration-200">
+      <div className="space-y-6">
         {/* Banner */}
-        <div className="p-6 rounded-3xl bg-gradient-to-r from-emerald-950/60 via-slate-900 to-slate-950 border border-emerald-500/30 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-xl">
-          <div className="space-y-2 max-w-2xl text-left">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[10px] font-mono font-bold flex items-center gap-1">
-                <Map className="w-3 h-3 text-emerald-400" />
-                LAND &amp; PLOTS COMMAND CENTER
-              </span>
-              <span className="px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30 text-[10px] font-mono">
-                BDA &amp; DTCP SANCTIONED
-              </span>
-              <span className="px-2 py-0.5 rounded-full bg-sky-500/15 text-sky-300 border border-sky-500/30 text-[10px] font-mono">
-                30+ YRS CLEAR ENCUMBRANCE
-              </span>
+        <div className="p-6 rounded-xl bg-slate-900 border border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="space-y-1.5 max-w-2xl text-left">
+            <div className="flex items-center gap-2 flex-wrap text-[11px] font-mono uppercase tracking-wider text-slate-400">
+              <span className="text-amber-400 font-semibold">Land &amp; Plots Desk</span>
+              <span>·</span>
+              <span className="text-emerald-400">BDA &amp; DTCP Sanctioned</span>
+              <span>·</span>
+              <span>30+ Yrs Clear Encumbrance</span>
             </div>
-            <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight">
+            <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight">
               Verified Residential Plots, Commercial Land &amp; Villa Layouts
             </h2>
-            <p className="text-xs text-slate-300 leading-relaxed font-light">
-              Demarcated land parcels with physical boundary walls, verified chain of parent title deeds, Cauvery water, and immediate G+3 construction sanctions across Bangalore’s high-yield tech corridors.
+            <p className="text-xs text-slate-400 leading-relaxed">
+              Demarcated land parcels with boundary walls, verified chain of parent title deeds, Cauvery water, and G+3 construction sanctions.
             </p>
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
             <a
-              href="https://wa.me/918073947241?text=Hello%20Ar.%20Gouse,%20I%20am%20inquiry%20about%20land%20and%20plots%20for%20sale%20in%20Bangalore."
+              href="https://wa.me/918073947241?text=Hello%20Ar.%20Gouse,%20I%20am%20inquiring%20about%20land%20and%20plots%20for%20sale%20in%20Bangalore."
               target="_blank"
               rel="noreferrer"
-              className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-2 shadow-lg shadow-emerald-600/20 transition"
+              className="px-4 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs flex items-center gap-2 transition"
             >
               <MessageSquare className="w-4 h-4" />
               <span>Inquire on Land Parcel</span>
@@ -986,7 +1088,7 @@ export const BuyHouseLandSection: React.FC<BuyHouseLandSectionProps> = ({
         </div>
 
         {/* Filter Toolbar */}
-        <div className="bg-slate-900 border border-slate-800 p-3.5 rounded-2xl flex flex-wrap items-center justify-between gap-3 shadow-md">
+        <div className="bg-slate-900 border border-slate-800 p-3.5 rounded-xl flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2 flex-1 min-w-[240px]">
             <Search className="w-4 h-4 text-slate-400 shrink-0" />
             <input
@@ -1008,37 +1110,56 @@ export const BuyHouseLandSection: React.FC<BuyHouseLandSectionProps> = ({
           </div>
 
           <div className="flex items-center gap-2 flex-wrap text-xs">
-            {/* Locality Filter */}
             <select
               value={zoneFilter}
               onChange={(e) => setZoneFilter(e.target.value)}
-              className="bg-slate-950 border border-slate-700 text-slate-200 text-xs px-3 py-1.5 rounded-xl focus:outline-none focus:border-emerald-400"
+              className="bg-slate-950 border border-slate-700 text-slate-200 text-xs px-3 py-1.5 rounded-lg focus:outline-none focus:border-amber-400"
             >
               <option value="all">All Growth Zones</option>
               <option value="hsr">HSR Layout (Sector 2)</option>
               <option value="devanahalli">Devanahalli (Airport Corridor)</option>
               <option value="sarjapur">Sarjapur Main Road</option>
               <option value="whitefield">Whitefield Inner Circle</option>
+              <option value="bangalore">User Published</option>
             </select>
 
-            <span className="text-slate-400 font-mono text-[11px] px-2">
-              Showing {filteredPlots.length} Land Assets
+            <span className="text-slate-400 font-mono text-[11px] px-2 tabular-nums">
+              {filteredPlots.length} Land Assets
             </span>
           </div>
         </div>
 
+        {/* Empty State */}
+        {filteredPlots.length === 0 && (
+          <div className="p-8 rounded-xl bg-slate-900 border border-slate-800 text-center space-y-2">
+            <div className="text-sm font-semibold text-white">No matching land parcels found</div>
+            <p className="text-xs text-slate-400">Adjust your search or zone filter to inspect all BDA and DTCP plots.</p>
+            <button
+              type="button"
+              onClick={() => {
+                setSearchQuery('');
+                setZoneFilter('all');
+              }}
+              className="mt-2 px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-semibold transition"
+            >
+              Reset Filters
+            </button>
+          </div>
+        )}
+
         {/* Plots Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 tabular-nums">
           {filteredPlots.map((plot) => (
             <div
               key={plot.id}
-              className="group rounded-3xl bg-slate-900/80 border border-slate-800 hover:border-emerald-500/50 overflow-hidden shadow-xl hover:shadow-2xl hover:shadow-emerald-500/10 transition-all flex flex-col text-left"
+              className="group rounded-xl bg-slate-900 border border-slate-800 hover:border-amber-500/40 overflow-hidden transition-all flex flex-col text-left"
             >
-              {/* Image Header with Badges */}
+              {/* Image Header with Scrim */}
               <div className="relative h-60 w-full overflow-hidden bg-slate-950">
                 <img
                   src={plot.featuredImage}
                   alt={plot.title}
+                  referrerPolicy="no-referrer"
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/20 to-transparent" />
@@ -1286,27 +1407,22 @@ export const BuyHouseLandSection: React.FC<BuyHouseLandSectionProps> = ({
   // RENDER: SELL HOUSE / LAND / RENT OUT DESK
   // -------------------------------------------------------------
   return (
-    <div className="space-y-6 animate-in fade-in duration-200 text-left">
+    <div className="space-y-6 text-left">
       {/* Banner */}
-      <div className="p-6 rounded-3xl bg-gradient-to-r from-purple-950/60 via-slate-900 to-slate-950 border border-purple-500/30 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-xl">
-        <div className="space-y-2 max-w-2xl">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="px-2.5 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/40 text-[10px] font-mono font-bold flex items-center gap-1">
-              <PlusCircle className="w-3 h-3 text-purple-400" />
-              SELL HOUSE, LAND &amp; LIST FOR RENT
-            </span>
-            <span className="px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 text-[10px] font-mono">
-              0% BROKERAGE LISTING
-            </span>
-            <span className="px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30 text-[10px] font-mono">
-              AI MARKET VALUATION
-            </span>
+      <div className="p-6 rounded-xl bg-slate-900 border border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="space-y-1.5 max-w-2xl">
+          <div className="flex items-center gap-2 flex-wrap text-[11px] font-mono uppercase tracking-wider text-slate-400">
+            <span className="text-amber-400 font-semibold">Direct Owner Listing Desk</span>
+            <span>·</span>
+            <span className="text-emerald-400">0% Brokerage Listing</span>
+            <span>·</span>
+            <span>AI Market Valuation</span>
           </div>
-          <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight">
+          <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight">
             Direct Owner &amp; Builder Real Estate Listing Desk
           </h2>
-          <p className="text-xs text-slate-300 leading-relaxed font-light">
-            List your house for sale, sell land/plots, or rent out floors and PG buildings with zero brokerage commission. Leverage Gouse AI Agent’s autonomous valuation engine to price your asset accurately against recent Bangalore registrar transactions.
+          <p className="text-xs text-slate-400 leading-relaxed">
+            List your house for sale, sell land/plots, or rent out floors and PG buildings with zero brokerage commission and instant market valuation.
           </p>
         </div>
 
@@ -1315,7 +1431,7 @@ export const BuyHouseLandSection: React.FC<BuyHouseLandSectionProps> = ({
             href="https://wa.me/918073947241?text=Hello%20Ar.%20Gouse,%20I%20want%20to%20list%20my%20property%20for%20sale%20or%20rent%20with%20zero%20brokerage."
             target="_blank"
             rel="noreferrer"
-            className="px-4 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs flex items-center gap-2 shadow-lg shadow-purple-600/20 transition"
+            className="px-4 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs flex items-center gap-2 transition"
           >
             <MessageSquare className="w-4 h-4" />
             <span>Consult Listing Agent</span>
@@ -1324,7 +1440,7 @@ export const BuyHouseLandSection: React.FC<BuyHouseLandSectionProps> = ({
       </div>
 
       {listingSuccessMessage && (
-        <div className="p-4 rounded-2xl bg-emerald-950/80 border border-emerald-500/50 text-emerald-200 text-xs flex items-center gap-3 animate-in fade-in">
+        <div className="p-4 rounded-xl bg-emerald-950/70 border border-emerald-500/40 text-emerald-200 text-xs flex items-center gap-3">
           <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
           <div className="flex-1 font-medium">{listingSuccessMessage}</div>
         </div>
@@ -1527,6 +1643,19 @@ export const BuyHouseLandSection: React.FC<BuyHouseLandSectionProps> = ({
               />
             </div>
 
+            {listingError && (
+              <div className="p-3 rounded-lg bg-red-950/60 border border-red-500/40 text-red-300 text-xs flex items-center justify-between gap-2">
+                <span>{listingError}</span>
+                <button
+                  type="button"
+                  onClick={() => setListingError(null)}
+                  className="text-red-400 hover:text-white"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
+
             {/* Submit & Valuation buttons */}
             <div className="flex flex-col sm:flex-row items-center gap-3 pt-2 border-t border-slate-800">
               <button
@@ -1541,7 +1670,7 @@ export const BuyHouseLandSection: React.FC<BuyHouseLandSectionProps> = ({
 
               <button
                 type="submit"
-                className="w-full sm:flex-1 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-purple-600/25 transition"
+                className="w-full sm:flex-1 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs flex items-center justify-center gap-2 transition"
               >
                 <PlusCircle className="w-4 h-4" />
                 <span>Publish 0% Brokerage Listing Live</span>

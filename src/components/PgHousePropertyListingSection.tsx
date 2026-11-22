@@ -38,6 +38,8 @@ import {
   ImagePlus,
   PlusCircle,
   Sparkles,
+  Globe,
+  Search,
 } from 'lucide-react';
 import { Project, PgHouseRoomUnit, PgRoomType, PgGalleryImage } from '../types';
 import { formatCurrency, CurrencyCode } from '../utils/formatters';
@@ -885,39 +887,66 @@ export const PgHousePropertyListingSection: React.FC<PgHousePropertyListingSecti
     return 'pg';
   });
 
+  // Helper to read custom PG/House listings saved from Sell Desk
+  const loadCustomPgHouseListings = (): CompletePropertyListing[] => {
+    try {
+      const saved = localStorage.getItem('gouse_custom_pg_house_listings_v1');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch {}
+    return [];
+  };
+
   // Listings State
   const [listings, setListings] = useState<CompletePropertyListing[]>(() => {
+    const customSaved = loadCustomPgHouseListings();
     if (project && project.pgPropertyDetails && project.pgPropertyDetails.propertyName) {
       const isProjHouse = project.pgPropertyDetails.propertyType?.includes('House') || project.pgPropertyDetails.propertyType?.includes('Villa');
-      return [
-        {
-          id: 'listing-project-current',
-          name: project.pgPropertyDetails.propertyName,
-          propertyType: project.pgPropertyDetails.propertyType || (isProjHouse ? 'Independent House / Rental Floors' : 'PG / Co-Living Facility'),
-          genderCategory: project.pgPropertyDetails.genderCategory || (isProjHouse ? 'Family & Working Professionals' : 'Coliving (Unisex)'),
-          locationAddress: project.location || 'Sector 2, HSR Layout, Bangalore',
-          zone: 'South Bangalore / ORR',
-          contactPerson: project.pgPropertyDetails.contactPerson || 'Ar. S. Gouse / Estate Manager',
-          contactPhone: project.pgPropertyDetails.contactPhone || '+91 8073947241',
-          depositMonths: project.pgPropertyDetails.depositMonths || (isProjHouse ? 3 : 2),
-          noticePeriodDays: project.pgPropertyDetails.noticePeriodDays || 30,
-          gateClosingTime: project.pgPropertyDetails.gateClosingTime || (isProjHouse ? 'Independent Gate (24/7)' : '11:00 PM (Biometric)'),
-          foodIncluded: project.pgPropertyDetails.foodIncluded ?? !isProjHouse,
-          foodType: project.pgPropertyDetails.foodType || (isProjHouse ? 'Self-Cooking (Modular Kitchen)' : 'North & South Indian (3 Times Daily)'),
-          bbmpApprovalKhata: 'BBMP A-Khata Verified',
-          totalFloors: 'G+3 Floors',
-          gallery: project.pgPropertyDetails.images && project.pgPropertyDetails.images.length > 0
-            ? project.pgPropertyDetails.images
-            : INITIAL_LISTINGS[0].gallery,
-          rooms: project.pgPropertyDetails.rooms && project.pgPropertyDetails.rooms.length > 0
-            ? project.pgPropertyDetails.rooms
-            : INITIAL_LISTINGS[0].rooms,
-        },
-        ...INITIAL_LISTINGS,
-      ];
+      const projectListing: CompletePropertyListing = {
+        id: 'listing-project-current',
+        name: project.pgPropertyDetails.propertyName,
+        propertyType: project.pgPropertyDetails.propertyType || (isProjHouse ? 'Independent House / Rental Floors' : 'PG / Co-Living Facility'),
+        genderCategory: project.pgPropertyDetails.genderCategory || (isProjHouse ? 'Family & Working Professionals' : 'Coliving (Unisex)'),
+        locationAddress: project.location || 'Sector 2, HSR Layout, Bangalore',
+        zone: 'South Bangalore / ORR',
+        contactPerson: project.pgPropertyDetails.contactPerson || 'Ar. S. Gouse / Estate Manager',
+        contactPhone: project.pgPropertyDetails.contactPhone || '+91 8073947241',
+        depositMonths: project.pgPropertyDetails.depositMonths || (isProjHouse ? 3 : 2),
+        noticePeriodDays: project.pgPropertyDetails.noticePeriodDays || 30,
+        gateClosingTime: project.pgPropertyDetails.gateClosingTime || (isProjHouse ? 'Independent Gate (24/7)' : '11:00 PM (Biometric)'),
+        foodIncluded: project.pgPropertyDetails.foodIncluded ?? !isProjHouse,
+        foodType: project.pgPropertyDetails.foodType || (isProjHouse ? 'Self-Cooking (Modular Kitchen)' : 'North & South Indian (3 Times Daily)'),
+        bbmpApprovalKhata: 'BBMP A-Khata Verified',
+        totalFloors: 'G+3 Floors',
+        gallery: project.pgPropertyDetails.images && project.pgPropertyDetails.images.length > 0
+          ? project.pgPropertyDetails.images
+          : INITIAL_LISTINGS[0].gallery,
+        rooms: project.pgPropertyDetails.rooms && project.pgPropertyDetails.rooms.length > 0
+          ? project.pgPropertyDetails.rooms
+          : INITIAL_LISTINGS[0].rooms,
+      };
+      return [projectListing, ...customSaved, ...INITIAL_LISTINGS];
     }
-    return INITIAL_LISTINGS;
+    return [...customSaved, ...INITIAL_LISTINGS];
   });
+
+  // Sync newly posted listings from Sell Desk ("Rent Out House" / "Rent PG / Co-Living")
+  useEffect(() => {
+    const handleCustomListingsUpdated = () => {
+      const customSaved = loadCustomPgHouseListings();
+      if (customSaved.length === 0) return;
+      setListings((prev) => {
+        const existingIds = new Set(prev.map((item) => item.id));
+        const newEntries = customSaved.filter((item) => !existingIds.has(item.id));
+        if (newEntries.length === 0) return prev;
+        return [...newEntries, ...prev];
+      });
+    };
+    window.addEventListener('gouse_listings_updated', handleCustomListingsUpdated);
+    return () => window.removeEventListener('gouse_listings_updated', handleCustomListingsUpdated);
+  }, []);
 
   // React to mode prop changes
   useEffect(() => {
@@ -951,6 +980,7 @@ export const PgHousePropertyListingSection: React.FC<PgHousePropertyListingSecti
 
   // Filters & Views
   const [selectedFilter, setSelectedFilter] = useState<'all' | 'single' | 'double' | 'triple' | 'available' | 'ac'>('all');
+  const [roomSearchQuery, setRoomSearchQuery] = useState('');
   const [activeImageIndex, setActiveImageIndex] = useState<number | null>(null);
   const [mapType, setMapType] = useState<'roadmap' | 'satellite'>('roadmap');
 
@@ -1024,6 +1054,13 @@ export const PgHousePropertyListingSection: React.FC<PgHousePropertyListingSecti
 
   // Filtered Rooms
   const filteredRooms = rooms.filter((r) => {
+    const matchesSearch =
+      !roomSearchQuery.trim() ||
+      r.roomNumber.toLowerCase().includes(roomSearchQuery.toLowerCase()) ||
+      r.floorName.toLowerCase().includes(roomSearchQuery.toLowerCase()) ||
+      r.roomType.toLowerCase().includes(roomSearchQuery.toLowerCase()) ||
+      (r.notes || '').toLowerCase().includes(roomSearchQuery.toLowerCase());
+    if (!matchesSearch) return false;
     if (selectedFilter === 'single') return r.roomType === 'Single Private Room';
     if (selectedFilter === 'double') return r.roomType === 'Double Sharing';
     if (selectedFilter === 'triple') return r.roomType === 'Triple Sharing';
@@ -1353,37 +1390,36 @@ export const PgHousePropertyListingSection: React.FC<PgHousePropertyListingSecti
       {/* ========================================================================= */}
       {/* TRILINGUAL LANGUAGE SWITCHER: ENGLISH • हिन्दी (HINDI) • ಕನ್ನಡ (KANNADA)  */}
       {/* ========================================================================= */}
-      <div className="bg-gradient-to-r from-slate-900 via-indigo-950/40 to-slate-900 border border-amber-500/30 p-3.5 rounded-2xl flex flex-wrap items-center justify-between gap-3 shadow-xl">
+      <div className="bg-slate-900 border border-slate-800 p-3.5 rounded-xl flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center font-bold text-sm shrink-0">
-            🌐
+          <div className="w-8 h-8 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center shrink-0">
+            <Globe className="w-4 h-4" />
           </div>
           <div>
-            <div className="text-xs font-black text-white flex items-center gap-2">
+            <div className="text-xs font-bold text-white flex flex-wrap items-center gap-2">
               <span>{t('languageSelectorLabel', activeLanguage)}</span>
-              <span className="text-[10px] font-mono text-amber-300 bg-amber-500/15 px-2 py-0.5 rounded-full border border-amber-500/30 font-bold">
-                English • हिन्दी • ಕನ್ನಡ
+              <span className="text-[10px] font-mono uppercase tracking-wider text-amber-400">
+                English · हिन्दी · ಕನ್ನಡ
               </span>
             </div>
-            <p className="text-[11px] text-slate-300">
+            <p className="text-[11px] text-slate-400">
               {t('trilingualSupportNote', activeLanguage)}
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-1.5 bg-slate-950 p-1.5 rounded-xl border border-slate-800">
+        <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-lg border border-slate-800">
           {LISTING_LANGUAGES.map((lang) => (
             <button
               key={lang.code}
               type="button"
               onClick={() => handleSelectLanguage(lang.code)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
+              className={`px-3 py-1.5 rounded-md text-xs font-semibold transition flex items-center gap-1.5 ${
                 activeLanguage === lang.code
-                  ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 shadow-md font-extrabold ring-1 ring-amber-300'
+                  ? 'bg-amber-500 text-slate-950 font-bold'
                   : 'text-slate-300 hover:text-white hover:bg-slate-800'
               }`}
             >
-              <span>{lang.flag}</span>
               <span>{lang.nativeLabel}</span>
               {lang.code !== 'en' && <span className="text-[10px] opacity-75">({lang.label})</span>}
             </button>
@@ -1394,7 +1430,7 @@ export const PgHousePropertyListingSection: React.FC<PgHousePropertyListingSecti
       {/* ========================================================================= */}
       {/* 0. DEDICATED CATEGORY SWITCHER: SEPARATE PG & RENT HOUSE                  */}
       {/* ========================================================================= */}
-      <div className="bg-slate-900 border border-slate-800 p-2.5 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-3 shadow-xl">
+      <div className="bg-slate-900 border border-slate-800 p-2.5 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-3">
         <div className="flex items-center gap-2 w-full sm:w-auto">
           <button
             type="button"
@@ -1407,16 +1443,16 @@ export const PgHousePropertyListingSection: React.FC<PgHousePropertyListingSecti
                 persistListingToProject(firstPg);
               }
             }}
-            className={`flex-1 sm:flex-none px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition ${
+            className={`flex-1 sm:flex-none px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold flex items-center justify-center gap-2 transition ${
               currentCategoryTab === 'pg'
-                ? 'bg-amber-500 text-slate-950 shadow-md shadow-amber-500/25 ring-2 ring-amber-400'
+                ? 'bg-amber-500 text-slate-950 font-bold'
                 : 'bg-slate-950 hover:bg-slate-800 text-slate-300 border border-slate-800'
             }`}
           >
             <Building className="w-4 h-4" />
-            <span>🏢 {t('pgColiving', activeLanguage)}</span>
-            <span className={`text-[11px] font-mono px-2 py-0.5 rounded-full font-extrabold ${
-              currentCategoryTab === 'pg' ? 'bg-slate-950/20 text-slate-950' : 'bg-amber-500/20 text-amber-300'
+            <span>{t('pgColiving', activeLanguage)}</span>
+            <span className={`text-[11px] font-mono tabular-nums px-1.5 py-0.5 rounded font-bold ${
+              currentCategoryTab === 'pg' ? 'bg-slate-950/15 text-slate-950' : 'bg-slate-800 text-amber-300'
             }`}>
               {pgCount}
             </span>
@@ -1433,16 +1469,16 @@ export const PgHousePropertyListingSection: React.FC<PgHousePropertyListingSecti
                 persistListingToProject(firstHouse);
               }
             }}
-            className={`flex-1 sm:flex-none px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition ${
+            className={`flex-1 sm:flex-none px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold flex items-center justify-center gap-2 transition ${
               currentCategoryTab === 'rent_house'
-                ? 'bg-emerald-500 text-slate-950 shadow-md shadow-emerald-500/25 ring-2 ring-emerald-400'
+                ? 'bg-emerald-500 text-slate-950 font-bold'
                 : 'bg-slate-950 hover:bg-slate-800 text-slate-300 border border-slate-800'
             }`}
           >
             <Home className="w-4 h-4" />
-            <span>🏡 {t('rentalHouses', activeLanguage)}</span>
-            <span className={`text-[11px] font-mono px-2 py-0.5 rounded-full font-extrabold ${
-              currentCategoryTab === 'rent_house' ? 'bg-slate-950/20 text-slate-950' : 'bg-emerald-500/20 text-emerald-300'
+            <span>{t('rentalHouses', activeLanguage)}</span>
+            <span className={`text-[11px] font-mono tabular-nums px-1.5 py-0.5 rounded font-bold ${
+              currentCategoryTab === 'rent_house' ? 'bg-slate-950/15 text-slate-950' : 'bg-slate-800 text-emerald-300'
             }`}>
               {houseCount}
             </span>
@@ -1458,10 +1494,10 @@ export const PgHousePropertyListingSection: React.FC<PgHousePropertyListingSecti
               setListingFoodIncluded(currentCategoryTab === 'pg');
               setShowNewListingModal(true);
             }}
-            className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 via-emerald-500 to-teal-500 hover:opacity-90 text-slate-950 font-black text-xs flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20 shrink-0 transition"
+            className="w-full sm:w-auto px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs flex items-center justify-center gap-2 shrink-0 transition"
           >
             <PlusCircle className="w-4 h-4" />
-            <span>+ Add {currentCategoryTab === 'pg' ? 'PG Facility' : 'Rental House'}</span>
+            <span>Add {currentCategoryTab === 'pg' ? 'PG Facility' : 'Rental House'}</span>
           </button>
         </div>
       </div>
@@ -1536,224 +1572,216 @@ export const PgHousePropertyListingSection: React.FC<PgHousePropertyListingSecti
 
         return (
           <div className="space-y-4">
-            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl">
+            <div className="bg-slate-900 border border-slate-800 rounded-xl p-5">
               <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                 <div className="space-y-2">
-                  <div className="flex flex-wrap items-center gap-2">
-                    {currentCategoryTab === 'pg' ? (
-                      <span className="bg-rose-500/20 text-rose-300 border border-rose-500/40 text-[11px] font-mono px-2.5 py-0.5 rounded-full font-bold flex items-center gap-1">
-                        <CheckCircle className="w-3.5 h-3.5" />
-                        🏢 {t('verifiedTitle', activeLanguage)}
-                      </span>
-                    ) : (
-                      <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[11px] font-mono px-2.5 py-0.5 rounded-full font-bold flex items-center gap-1">
-                        <CheckCircle className="w-3.5 h-3.5" />
-                        🏡 {t('verifiedTitle', activeLanguage)}
-                      </span>
-                    )}
-                    <span className="bg-teal-500/20 text-teal-300 border border-teal-500/40 text-[11px] font-mono px-2.5 py-0.5 rounded-full font-semibold">
-                      {activeListing.bbmpApprovalKhata}
+                  <div className="flex flex-wrap items-center gap-2 text-[11px] font-mono uppercase tracking-wider text-slate-400">
+                    <span className={`font-semibold flex items-center gap-1 ${currentCategoryTab === 'pg' ? 'text-amber-400' : 'text-emerald-400'}`}>
+                      <CheckCircle className="w-3.5 h-3.5" />
+                      {t('verifiedTitle', activeLanguage)}
                     </span>
-                    <span className="bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[11px] font-mono px-2.5 py-0.5 rounded-full font-semibold">
-                      {t('zeroBrokerageBadge', activeLanguage)}
-                    </span>
+                    <span>·</span>
+                    <span className="text-slate-300">{activeListing.bbmpApprovalKhata}</span>
+                    <span>·</span>
+                    <span className="text-emerald-400 font-semibold">{t('zeroBrokerageBadge', activeLanguage)}</span>
                     {currentCategoryTab === 'rent_house' && activeListing.bhkConfig && (
-                      <span className="bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 text-[11px] font-mono px-2.5 py-0.5 rounded-full font-bold">
-                        {activeListing.bhkConfig}
-                      </span>
+                      <>
+                        <span>·</span>
+                        <span className="text-sky-300 font-semibold">{activeListing.bhkConfig}</span>
+                      </>
                     )}
                   </div>
 
-                  <h1 className="text-xl sm:text-2xl lg:text-3xl font-extrabold text-white tracking-tight">
+                  <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-white tracking-tight">
                     {localizedActiveListing.title}
                   </h1>
 
-                  <div className="flex flex-wrap items-center gap-4 text-xs sm:text-sm text-slate-300">
+                  <div className="flex flex-wrap items-center gap-3 text-xs sm:text-sm text-slate-300">
                     <span className="flex items-center gap-1.5 text-amber-400 font-medium">
-                      <MapPin className="w-4 h-4 text-rose-400 shrink-0" />
+                      <MapPin className="w-4 h-4 text-amber-400 shrink-0" />
                       {localizedActiveListing.subtitle}
                     </span>
-                    <span className="text-slate-500">•</span>
-                    <span className="text-slate-300 font-semibold">{activeListing.totalFloors}</span>
-              <span className="text-slate-500">•</span>
+                    <span className="text-slate-600">·</span>
+                    <span className="text-slate-300 font-medium">{activeListing.totalFloors}</span>
+                    <span className="text-slate-600">·</span>
+                    {currentCategoryTab === 'pg' ? (
+                      <>
+                        <span className="text-emerald-400 font-semibold tabular-nums">{totalBeds} Total Beds</span>
+                        <span className="text-slate-600">·</span>
+                        <span className="text-sky-400 font-medium">{activeListing.genderCategory}</span>
+                      </>
+                    ) : (
+                      <>
+                        <span className="text-emerald-400 font-semibold tabular-nums">{activeListing.carpetAreaSqFt ? `${activeListing.carpetAreaSqFt} sq.ft Built-up` : `${activeListing.rooms.length} Rooms`}</span>
+                        <span className="text-slate-600">·</span>
+                        <span className="text-sky-400 font-medium">{activeListing.furnishingType || 'Semi-Furnished'}</span>
+                        <span className="text-slate-600">·</span>
+                        <span className="text-amber-300 font-medium">{activeListing.tenantPreference || 'Family & Tech Professionals'}</span>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                {/* Quick CTAs */}
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setImagePreviewUrl('');
+                      setShowAddImageModal(true);
+                    }}
+                    className="px-3.5 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-semibold flex items-center gap-1.5 transition"
+                  >
+                    <ImagePlus className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Add Image</span>
+                  </button>
+
+                  <a
+                    href="#google-live-section"
+                    className="px-3.5 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-semibold flex items-center gap-1.5 transition"
+                  >
+                    <Navigation className="w-3.5 h-3.5 text-sky-400" />
+                    <span>Google Live Map</span>
+                  </a>
+
+                  <a
+                    href={whatsappUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-3.5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center gap-1.5 transition"
+                  >
+                    <MessageSquare className="w-3.5 h-3.5" />
+                    <span>WhatsApp Inquiry</span>
+                  </a>
+
+                  <button
+                    type="button"
+                    onClick={() => setShowContactModal(true)}
+                    className="px-3.5 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-semibold flex items-center gap-1.5 transition"
+                  >
+                    <Phone className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Call Manager</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setShowAddRoomModal(true)}
+                    className="px-3.5 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold flex items-center gap-1.5 transition"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>{currentCategoryTab === 'pg' ? 'Add Room' : 'Add Unit/Floor'}</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Tailored Performance HUD for PG vs Rent House */}
               {currentCategoryTab === 'pg' ? (
-                <>
-                  <span className="text-emerald-400 font-semibold">{totalBeds} Total Beds</span>
-                  <span className="text-slate-500">•</span>
-                  <span className="text-sky-400 font-semibold">{activeListing.genderCategory}</span>
-                </>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-5 mt-5 border-t border-slate-800">
+                  <div className="bg-slate-950/70 p-3 rounded-lg border border-slate-800">
+                    <span className="text-[11px] font-mono uppercase tracking-wider text-slate-400 block">Total Bed Capacity</span>
+                    <div className="text-lg font-bold text-white tabular-nums mt-0.5 flex items-center gap-1.5">
+                      <Bed className="w-4 h-4 text-amber-400" />
+                      <span>{totalBeds} Beds</span>
+                      <span className="text-xs text-slate-500 font-normal">({rooms.length} Suites)</span>
+                    </div>
+                  </div>
+
+                  <div className="bg-slate-950/70 p-3 rounded-lg border border-slate-800">
+                    <span className="text-[11px] font-mono uppercase tracking-wider text-slate-400 block">Current Occupancy</span>
+                    <div className="text-lg font-bold text-emerald-400 tabular-nums mt-0.5 flex items-center gap-1.5">
+                      <Users className="w-4 h-4" />
+                      <span>{occupancyRate}%</span>
+                      <span className="text-xs text-slate-400 font-normal">({occupiedBeds} occupied)</span>
+                    </div>
+                  </div>
+
+                  <div className="bg-slate-950/70 p-3 rounded-lg border border-slate-800">
+                    <span className="text-[11px] font-mono uppercase tracking-wider text-slate-400 block">Vacant Beds</span>
+                    <div className="text-lg font-bold text-sky-400 tabular-nums mt-0.5 flex items-center gap-1.5">
+                      <Check className="w-4 h-4" />
+                      <span>{availableBeds} Ready</span>
+                    </div>
+                  </div>
+
+                  <div className="bg-slate-950/70 p-3 rounded-lg border border-slate-800">
+                    <span className="text-[11px] font-mono uppercase tracking-wider text-slate-400 block">Gross Monthly Rental</span>
+                    <div className="text-lg font-bold text-amber-300 tabular-nums mt-0.5">
+                      {formatCurrency(monthlyGrossYield, currency)}/mo
+                    </div>
+                  </div>
+                </div>
               ) : (
-                <>
-                  <span className="text-emerald-400 font-semibold">{activeListing.carpetAreaSqFt ? `${activeListing.carpetAreaSqFt} sq.ft Built-up` : `${activeListing.rooms.length} Rooms`}</span>
-                  <span className="text-slate-500">•</span>
-                  <span className="text-sky-400 font-semibold">{activeListing.furnishingType || 'Semi-Furnished'}</span>
-                  <span className="text-slate-500">•</span>
-                  <span className="text-amber-300 font-semibold">{activeListing.tenantPreference || 'Family & Tech Professionals'}</span>
-                </>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-5 mt-5 border-t border-slate-800">
+                  <div className="bg-slate-950/70 p-3 rounded-lg border border-slate-800">
+                    <span className="text-[11px] font-mono uppercase tracking-wider text-slate-400 block">House Typology &amp; Area</span>
+                    <div className="text-lg font-bold text-white tabular-nums mt-0.5 flex items-center gap-1.5">
+                      <Home className="w-4 h-4 text-emerald-400" />
+                      <span>{activeListing.bhkConfig || '3 BHK Flat'}</span>
+                      <span className="text-xs text-slate-400 font-normal">({activeListing.carpetAreaSqFt || 1650} sq.ft)</span>
+                    </div>
+                  </div>
+
+                  <div className="bg-slate-950/70 p-3 rounded-lg border border-slate-800">
+                    <span className="text-[11px] font-mono uppercase tracking-wider text-slate-400 block">Monthly House Rent</span>
+                    <div className="text-lg font-bold text-emerald-400 tabular-nums mt-0.5">
+                      {formatCurrency(activeListing.monthlyRentTotal || 46000, currency)}/mo
+                      {activeListing.maintenanceMonthly ? (
+                        <span className="text-xs text-slate-400 font-normal block">
+                          + {formatCurrency(activeListing.maintenanceMonthly, currency)} Maint.
+                        </span>
+                      ) : null}
+                    </div>
+                  </div>
+
+                  <div className="bg-slate-950/70 p-3 rounded-lg border border-slate-800">
+                    <span className="text-[11px] font-mono uppercase tracking-wider text-slate-400 block">Security Deposit</span>
+                    <div className="text-lg font-bold text-sky-400 tabular-nums mt-0.5 flex items-center gap-1.5">
+                      <Check className="w-4 h-4" />
+                      <span>
+                        {formatCurrency((activeListing.monthlyRentTotal || 46000) * (activeListing.depositMonths || 3), currency)}
+                      </span>
+                      <span className="text-xs text-slate-400 font-normal">({activeListing.depositMonths || 3} Mo.)</span>
+                    </div>
+                  </div>
+
+                  <div className="bg-slate-950/70 p-3 rounded-lg border border-slate-800">
+                    <span className="text-[11px] font-mono uppercase tracking-wider text-slate-400 block">Parking &amp; Orientation</span>
+                    <div className="text-sm font-bold text-amber-300 mt-1 truncate" title={`${activeListing.facingVastu || 'East Facing'} · ${activeListing.parkingDetails || '1 Car + 2 Bikes'}`}>
+                      {activeListing.facingVastu || 'East Facing Vastu'}
+                      <span className="text-xs text-slate-400 block font-normal truncate">
+                        {activeListing.parkingDetails || '1 Car + 2 Bikes'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
               )}
             </div>
-          </div>
 
-          {/* Quick CTAs */}
-          <div className="flex flex-wrap items-center gap-2.5">
-            <button
-              type="button"
-              onClick={() => {
-                setImagePreviewUrl('');
-                setShowAddImageModal(true);
-              }}
-              className="px-3.5 py-2.5 rounded-xl bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 text-white text-xs font-bold flex items-center gap-1.5 shadow-lg shadow-rose-600/20 transition"
-            >
-              <ImagePlus className="w-4 h-4" />
-              <span>+ Add Image</span>
-            </button>
-
-            <a
-              href="#google-live-section"
-              className="px-3.5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-semibold flex items-center gap-1.5 shadow-sm transition"
-            >
-              <Navigation className="w-3.5 h-3.5 text-blue-400" />
-              <span>Google Live Map</span>
-            </a>
-
-            <a
-              href={whatsappUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="px-3.5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center gap-1.5 shadow-lg shadow-emerald-600/20 transition"
-            >
-              <MessageSquare className="w-3.5 h-3.5" />
-              <span>WhatsApp Inquiry</span>
-            </a>
-
-            <button
-              type="button"
-              onClick={() => setShowContactModal(true)}
-              className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-bold flex items-center gap-1.5 transition"
-            >
-              <Phone className="w-3.5 h-3.5 text-rose-400" />
-              <span>Call Manager</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setShowAddRoomModal(true)}
-              className="px-3.5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold flex items-center gap-1.5 shadow-lg shadow-amber-500/20 transition"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              <span>{currentCategoryTab === 'pg' ? 'Add Room' : 'Add Unit/Floor'}</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Tailored Performance HUD for PG vs Rent House */}
-        {currentCategoryTab === 'pg' ? (
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-5 mt-5 border-t border-slate-800">
-            <div className="bg-slate-950/60 p-3 rounded-xl border border-slate-800/80">
-              <span className="text-[11px] text-slate-400 font-medium block">Total Bed Capacity</span>
-              <div className="text-lg font-bold text-white mt-0.5 flex items-center gap-1.5">
-                <Bed className="w-4 h-4 text-amber-400" />
-                <span>{totalBeds} Beds</span>
-                <span className="text-xs text-slate-500 font-normal">({rooms.length} Suites)</span>
-              </div>
-            </div>
-
-            <div className="bg-slate-950/60 p-3 rounded-xl border border-slate-800/80">
-              <span className="text-[11px] text-slate-400 font-medium block">Current Occupancy</span>
-              <div className="text-lg font-bold text-emerald-400 mt-0.5 flex items-center gap-1.5">
-                <Users className="w-4 h-4" />
-                <span>{occupancyRate}%</span>
-                <span className="text-xs text-slate-400 font-normal">({occupiedBeds} occupied)</span>
-              </div>
-            </div>
-
-            <div className="bg-slate-950/60 p-3 rounded-xl border border-slate-800/80">
-              <span className="text-[11px] text-slate-400 font-medium block">Vacant Beds Available</span>
-              <div className="text-lg font-bold text-sky-400 mt-0.5 flex items-center gap-1.5">
-                <Check className="w-4 h-4" />
-                <span>{availableBeds} Ready to Move</span>
-              </div>
-            </div>
-
-            <div className="bg-slate-950/60 p-3 rounded-xl border border-slate-800/80">
-              <span className="text-[11px] text-slate-400 font-medium block">Gross Monthly Rental</span>
-              <div className="text-lg font-bold text-amber-300 mt-0.5">
-                {formatCurrency(monthlyGrossYield, currency)}/mo
-              </div>
-            </div>
-          </div>
-        ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-5 mt-5 border-t border-slate-800">
-            <div className="bg-slate-950/60 p-3 rounded-xl border border-slate-800/80">
-              <span className="text-[11px] text-slate-400 font-medium block">House Typology &amp; Area</span>
-              <div className="text-lg font-bold text-white mt-0.5 flex items-center gap-1.5">
-                <Home className="w-4 h-4 text-emerald-400" />
-                <span>{activeListing.bhkConfig || '3 BHK Flat'}</span>
-                <span className="text-xs text-slate-400 font-normal">({activeListing.carpetAreaSqFt || 1650} sq.ft)</span>
-              </div>
-            </div>
-
-            <div className="bg-slate-950/60 p-3 rounded-xl border border-slate-800/80">
-              <span className="text-[11px] text-slate-400 font-medium block">Monthly House Rent</span>
-              <div className="text-lg font-bold text-emerald-400 mt-0.5">
-                {formatCurrency(activeListing.monthlyRentTotal || 46000, currency)}/mo
-                {activeListing.maintenanceMonthly ? (
-                  <span className="text-xs text-slate-400 font-normal block">
-                    + {formatCurrency(activeListing.maintenanceMonthly, currency)} Maint.
+            {/* Trilingual Verified Highlights Card */}
+            {localizedActiveListing.highlights && localizedActiveListing.highlights.length > 0 && (
+              <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-xs font-bold text-amber-400 font-mono uppercase tracking-wider">
+                    <Sparkles className="w-4 h-4" />
+                    <span>{t('verifiedTitle', activeLanguage)} · {t('zeroBrokerageBadge', activeLanguage)}</span>
+                  </div>
+                  <span className="text-[11px] font-mono text-slate-400">
+                    {LISTING_LANGUAGES.find((l) => l.code === activeLanguage)?.nativeLabel} ({LISTING_LANGUAGES.find((l) => l.code === activeLanguage)?.label})
                   </span>
-                ) : null}
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                  {localizedActiveListing.highlights.map((hl, idx) => (
+                    <div key={idx} className="p-2.5 rounded-lg bg-slate-950 border border-slate-800 flex items-start gap-2">
+                      <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                      <span className="text-slate-200 leading-snug">{hl}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
-
-            <div className="bg-slate-950/60 p-3 rounded-xl border border-slate-800/80">
-              <span className="text-[11px] text-slate-400 font-medium block">Security Deposit</span>
-              <div className="text-lg font-bold text-sky-400 mt-0.5 flex items-center gap-1.5">
-                <Check className="w-4 h-4" />
-                <span>
-                  {formatCurrency((activeListing.monthlyRentTotal || 46000) * (activeListing.depositMonths || 3), currency)}
-                </span>
-                <span className="text-xs text-slate-400 font-normal">({activeListing.depositMonths || 3} Mo.)</span>
-              </div>
-            </div>
-
-            <div className="bg-slate-950/60 p-3 rounded-xl border border-slate-800/80">
-              <span className="text-[11px] text-slate-400 font-medium block">Parking &amp; Orientation</span>
-              <div className="text-sm font-bold text-amber-300 mt-1 truncate" title={`${activeListing.facingVastu || 'East Facing'} • ${activeListing.parkingDetails || '1 Car + 2 Bikes'}`}>
-                {activeListing.facingVastu || 'East Facing Vastu'}
-                <span className="text-xs text-slate-400 block font-normal truncate">
-                  {activeListing.parkingDetails || '1 Car + 2 Bikes'}
-                </span>
-              </div>
-            </div>
+            )}
           </div>
-        )}
-      </div>
-
-      {/* Trilingual Verified Highlights Card */}
-      {localizedActiveListing.highlights && localizedActiveListing.highlights.length > 0 && (
-        <div className="p-4 rounded-2xl bg-gradient-to-r from-amber-950/40 via-slate-900 to-indigo-950/40 border border-amber-500/30 space-y-2.5 shadow-md">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 text-xs font-bold text-amber-300 font-mono">
-              <Sparkles className="w-4 h-4 text-amber-400" />
-              <span>{t('verifiedTitle', activeLanguage)} • {t('zeroBrokerageBadge', activeLanguage)}</span>
-            </div>
-            <span className="text-[10px] font-mono px-2.5 py-0.5 rounded-full bg-slate-950 text-amber-300 border border-amber-500/30 font-bold">
-              {LISTING_LANGUAGES.find((l) => l.code === activeLanguage)?.nativeLabel} ({LISTING_LANGUAGES.find((l) => l.code === activeLanguage)?.label})
-            </span>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-            {localizedActiveListing.highlights.map((hl, idx) => (
-              <div key={idx} className="p-2.5 rounded-xl bg-slate-950/80 border border-slate-800/80 flex items-start gap-2">
-                <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
-                <span className="text-slate-200 leading-snug">{hl}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-})()}
+        );
+      })()}
 
       {/* ========================================================================= */}
       {/* 2. VISUAL PHOTO SHOWCASE (5-TILE MOSAIC + LIGHTBOX + ADD IMAGE CTA)       */}
@@ -1802,11 +1830,12 @@ export const PgHousePropertyListingSection: React.FC<PgHousePropertyListingSecti
             <img
               src={gallery[0]?.imageUrl}
               alt={gallery[0]?.title}
+              referrerPolicy="no-referrer"
               className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-black/20" />
             <div className="absolute bottom-3.5 left-3.5 right-3.5 text-white">
-              <span className="bg-rose-600/90 text-white text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider mb-1 inline-block">
+              <span className="bg-amber-500 text-slate-950 text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider mb-1 inline-block">
                 {gallery[0]?.category}
               </span>
               <h3 className="text-sm sm:text-base font-bold drop-shadow">
@@ -1829,6 +1858,7 @@ export const PgHousePropertyListingSection: React.FC<PgHousePropertyListingSecti
                 <img
                   src={img.imageUrl}
                   alt={img.title}
+                  referrerPolicy="no-referrer"
                   className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-transparent opacity-80 group-hover:opacity-90 transition" />
@@ -1844,8 +1874,8 @@ export const PgHousePropertyListingSection: React.FC<PgHousePropertyListingSecti
                 {/* Overlaid "+N More Photos" on the last thumbnail */}
                 {idx === 3 && gallery.length > 5 && (
                   <div className="absolute inset-0 bg-slate-950/70 backdrop-blur-xs flex flex-col items-center justify-center text-white p-2">
-                    <ImageIcon className="w-5 h-5 text-rose-400 mb-1" />
-                    <span className="text-xs font-bold">+{gallery.length - 4} More</span>
+                    <ImageIcon className="w-5 h-5 text-amber-400 mb-1" />
+                    <span className="text-xs font-bold tabular-nums">+{gallery.length - 4} More</span>
                     <span className="text-[10px] text-slate-300">Open Gallery</span>
                   </div>
                 )}
@@ -1859,21 +1889,21 @@ export const PgHousePropertyListingSection: React.FC<PgHousePropertyListingSecti
       {/* 3. GOOGLE LIVE INTERACTIVE MAP, STREET VIEW & COMMUTE RADAR               */}
       {/* ========================================================================= */}
       <div id="google-live-section" className="space-y-4 pt-2">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-gradient-to-r from-blue-950/40 to-slate-900 border border-blue-900/40 p-4 rounded-2xl shadow-lg">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-900 border border-slate-800 p-4 rounded-xl">
           <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-blue-600/20 text-blue-400 border border-blue-500/30">
-              <Compass className="w-6 h-6 animate-pulse" />
+            <div className="p-2.5 rounded-lg bg-sky-500/10 text-sky-400 border border-sky-500/20">
+              <Compass className="w-5 h-5" />
             </div>
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="text-base sm:text-lg font-bold text-white">
                   Google Live Location, Street View &amp; Commute Radar
                 </h3>
-                <span className="bg-blue-500 text-slate-950 text-[10px] font-extrabold px-2 py-0.5 rounded font-mono">
-                  LIVE NAVIGATION
+                <span className="text-[10px] font-mono uppercase tracking-wider text-sky-400">
+                  · Live Navigation
                 </span>
               </div>
-              <p className="text-xs text-slate-300 mt-0.5">
+              <p className="text-xs text-slate-400 mt-0.5">
                 Explore surrounding roads, street level view, and live driving ETA to major Bangalore IT corridors.
               </p>
             </div>
@@ -2038,86 +2068,118 @@ export const PgHousePropertyListingSection: React.FC<PgHousePropertyListingSecti
             </p>
           </div>
 
-          {/* Filters */}
-          <div className="flex flex-wrap items-center gap-1.5 bg-slate-950 p-1.5 rounded-xl border border-slate-800">
-            <button
-              type="button"
-              onClick={() => setSelectedFilter('all')}
-              className={`px-3 py-1.5 text-xs rounded-lg font-semibold transition ${
-                selectedFilter === 'all'
-                  ? currentCategoryTab === 'pg'
-                    ? 'bg-amber-500 text-slate-950 shadow'
-                    : 'bg-emerald-500 text-slate-950 shadow'
-                  : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              {currentCategoryTab === 'pg' ? 'All Suites' : 'All Rooms'}
-            </button>
-            <button
-              type="button"
-              onClick={() => setSelectedFilter('single')}
-              className={`px-3 py-1.5 text-xs rounded-lg font-semibold transition ${
-                selectedFilter === 'single'
-                  ? currentCategoryTab === 'pg'
-                    ? 'bg-amber-500 text-slate-950 shadow'
-                    : 'bg-emerald-500 text-slate-950 shadow'
-                  : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              {currentCategoryTab === 'pg' ? 'Single Private' : 'Master Suite'}
-            </button>
-            <button
-              type="button"
-              onClick={() => setSelectedFilter('double')}
-              className={`px-3 py-1.5 text-xs rounded-lg font-semibold transition ${
-                selectedFilter === 'double'
-                  ? currentCategoryTab === 'pg'
-                    ? 'bg-amber-500 text-slate-950 shadow'
-                    : 'bg-emerald-500 text-slate-950 shadow'
-                  : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              {currentCategoryTab === 'pg' ? 'Double Sharing' : 'Bedroom 2'}
-            </button>
-            {currentCategoryTab === 'pg' && (
+          {/* Filters & Room Search */}
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="relative">
+              <Search className="w-3.5 h-3.5 text-slate-500 absolute left-2.5 top-2.5" />
+              <input
+                type="text"
+                value={roomSearchQuery}
+                onChange={(e) => setRoomSearchQuery(e.target.value)}
+                placeholder="Search suite, floor..."
+                className="bg-slate-950 border border-slate-800 rounded-lg pl-8 pr-3 py-1.5 text-xs text-slate-200 focus:border-amber-500 focus:outline-none w-44"
+              />
+            </div>
+
+            <div className="flex flex-wrap items-center gap-1 bg-slate-950 p-1 rounded-lg border border-slate-800">
               <button
                 type="button"
-                onClick={() => setSelectedFilter('triple')}
-                className={`px-3 py-1.5 text-xs rounded-lg font-semibold transition ${
-                  selectedFilter === 'triple'
-                    ? 'bg-amber-500 text-slate-950 shadow'
+                onClick={() => setSelectedFilter('all')}
+                className={`px-3 py-1.5 text-xs rounded-md font-semibold transition ${
+                  selectedFilter === 'all'
+                    ? currentCategoryTab === 'pg'
+                      ? 'bg-amber-500 text-slate-950'
+                      : 'bg-emerald-500 text-slate-950'
                     : 'text-slate-400 hover:text-white'
                 }`}
               >
-                Triple Sharing
+                {currentCategoryTab === 'pg' ? 'All Suites' : 'All Rooms'}
               </button>
-            )}
-            <button
-              type="button"
-              onClick={() => setSelectedFilter('available')}
-              className={`px-3 py-1.5 text-xs rounded-lg font-semibold transition ${
-                selectedFilter === 'available'
-                  ? 'bg-emerald-500 text-slate-950 shadow'
-                  : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              Vacant Ready
-            </button>
-            <button
-              type="button"
-              onClick={() => setSelectedFilter('ac')}
-              className={`px-3 py-1.5 text-xs rounded-lg font-semibold transition ${
-                selectedFilter === 'ac'
-                  ? 'bg-sky-500 text-slate-950 shadow'
-                  : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              AC Only
-            </button>
+              <button
+                type="button"
+                onClick={() => setSelectedFilter('single')}
+                className={`px-3 py-1.5 text-xs rounded-md font-semibold transition ${
+                  selectedFilter === 'single'
+                    ? currentCategoryTab === 'pg'
+                      ? 'bg-amber-500 text-slate-950'
+                      : 'bg-emerald-500 text-slate-950'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                {currentCategoryTab === 'pg' ? 'Single Private' : 'Master Suite'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedFilter('double')}
+                className={`px-3 py-1.5 text-xs rounded-md font-semibold transition ${
+                  selectedFilter === 'double'
+                    ? currentCategoryTab === 'pg'
+                      ? 'bg-amber-500 text-slate-950'
+                      : 'bg-emerald-500 text-slate-950'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                {currentCategoryTab === 'pg' ? 'Double Sharing' : 'Bedroom 2'}
+              </button>
+              {currentCategoryTab === 'pg' && (
+                <button
+                  type="button"
+                  onClick={() => setSelectedFilter('triple')}
+                  className={`px-3 py-1.5 text-xs rounded-md font-semibold transition ${
+                    selectedFilter === 'triple'
+                      ? 'bg-amber-500 text-slate-950'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  Triple Sharing
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => setSelectedFilter('available')}
+                className={`px-3 py-1.5 text-xs rounded-md font-semibold transition ${
+                  selectedFilter === 'available'
+                    ? 'bg-emerald-500 text-slate-950'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                Vacant Ready
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedFilter('ac')}
+                className={`px-3 py-1.5 text-xs rounded-md font-semibold transition ${
+                  selectedFilter === 'ac'
+                    ? 'bg-sky-500 text-slate-950'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                AC Only
+              </button>
+            </div>
           </div>
         </div>
 
-        {/* Room Cards Grid */}
+        {/* Empty State */}
+        {filteredRooms.length === 0 ? (
+          <div className="p-8 rounded-xl bg-slate-900 border border-slate-800 text-center space-y-3">
+            <Bed className="w-8 h-8 text-slate-600 mx-auto" />
+            <div className="text-sm font-semibold text-white">No suites match your active room filter</div>
+            <p className="text-xs text-slate-400 max-w-md mx-auto">
+              Clear the search query or switch back to all room typologies to view full bed availability.
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedFilter('all');
+                setRoomSearchQuery('');
+              }}
+              className="px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold transition"
+            >
+              Show All Suites
+            </button>
+          </div>
+        ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredRooms.map((room) => {
             const isVacant = room.totalBeds - room.occupiedBeds > 0;
@@ -2126,13 +2188,14 @@ export const PgHousePropertyListingSection: React.FC<PgHousePropertyListingSecti
             return (
               <div
                 key={room.id}
-                className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-xl hover:border-slate-700 transition flex flex-col justify-between"
+                className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden hover:border-slate-700 transition flex flex-col justify-between"
               >
                 {/* Room Card Top Image */}
                 <div className="relative aspect-[16/10] bg-slate-950 overflow-hidden group">
                   <img
                     src={room.imageUrl || (currentCategoryTab === 'rent_house' ? floorVillaImg : pgBedroomImg)}
                     alt={room.roomNumber}
+                    referrerPolicy="no-referrer"
                     className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-transparent opacity-80" />
@@ -2250,6 +2313,7 @@ export const PgHousePropertyListingSection: React.FC<PgHousePropertyListingSecti
             );
           })}
         </div>
+        )}
       </div>
 
       {/* ========================================================================= */}
@@ -2737,7 +2801,7 @@ export const PgHousePropertyListingSection: React.FC<PgHousePropertyListingSecti
                       setNewImageUrl(e.target.value);
                       setImagePreviewUrl(e.target.value);
                     }}
-                    placeholder="https://images.unsplash.com/... or image web address"
+                    placeholder="Paste verified photo URL or upload image"
                     className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-white text-xs focus:outline-none focus:border-rose-400"
                   />
                 </div>

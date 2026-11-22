@@ -37,6 +37,7 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { CurrencyCode, formatCurrency } from '../utils/formatters';
+import { AVATARS, PROJECT_MEDIA } from '../utils/mediaAssets';
 
 interface PlatformDemoProps {
   isClientRestricted?: boolean;
@@ -379,7 +380,7 @@ For confidential consultations or full workspace onboarding, contact Ar. S. Gous
                 <img
                   src={
                     user.avatarUrl ||
-                    'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?auto=format&fit=crop&w=120&q=80'
+                    AVATARS.principal
                   }
                   alt={user.name}
                   className="w-7 h-7 rounded-full object-cover border border-amber-400/60"
@@ -767,13 +768,12 @@ For confidential consultations or full workspace onboarding, contact Ar. S. Gous
               {/* Photo Simulation Box */}
               <div className="lg:col-span-6 relative rounded-2xl overflow-hidden border border-slate-800 shadow-xl bg-slate-950">
                 <img
-                  src="https://images.unsplash.com/photo-1541888946425-d0fbb1861564?auto=format&fit=crop&w=800&q=80"
+                  src={PROJECT_MEDIA.siteRccFraming}
                   alt="Construction Site Audit"
                   className="w-full h-56 object-cover"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/20 to-transparent" />
                 <div className="absolute top-3 left-3 bg-slate-950/80 backdrop-blur-md px-2.5 py-1 rounded-md text-[10px] font-mono text-emerald-400 border border-emerald-500/30 flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
                   <span>GPS: 12.9698° N, 77.7499° E (Whitefield BLR)</span>
                 </div>
                 <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between text-xs">
@@ -1003,7 +1003,7 @@ For confidential consultations or full workspace onboarding, contact Ar. S. Gous
 
               <div className="lg:col-span-7 rounded-2xl overflow-hidden border border-slate-800 shadow-2xl relative min-h-[280px]">
                 <img
-                  src="https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1000&q=80"
+                  src={PROJECT_MEDIA.bangaloreHouseExterior}
                   alt="Palm Crest Villa"
                   className="w-full h-full object-cover"
                 />

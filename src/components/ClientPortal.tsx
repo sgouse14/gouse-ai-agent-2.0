@@ -53,6 +53,7 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { CurrencyCode, formatCurrency } from '../utils/formatters';
+import { AVATARS, PROJECT_MEDIA } from '../utils/mediaAssets';
 import { SmartHomeSkaAgent } from './SmartHomeSkaAgent';
 import { AgentFloatingHUD } from './AgentFloatingHUD';
 import { AgentDecisionTicker } from './AgentDecisionTicker';
@@ -370,7 +371,7 @@ For inquiries or project bookings, contact Principal Architect Ar. S. Gouse at s
       budget: '₹3,85,00,000',
       status: 'Under Execution (82% Completed)',
       statusColor: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30',
-      image: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=80',
+      image: PROJECT_MEDIA.bangaloreHouseExterior,
       highlights: [
         'Open-plan Italian Statuario marble double-height atrium',
         'Fe550D TMT earthquake-resistant RCC frame with M30 concrete',
@@ -389,7 +390,7 @@ For inquiries or project bookings, contact Principal Architect Ar. S. Gouse at s
       budget: '₹2,40,00,000',
       status: 'Concept & Structural Approved',
       statusColor: 'text-amber-400 bg-amber-500/10 border-amber-500/30',
-      image: 'https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?auto=format&fit=crop&w=1200&q=80',
+      image: PROJECT_MEDIA.pgTerrace,
       highlights: [
         'Acoustic fluted walnut paneling and indirect warm cove LEDs',
         'Motorized low-E German double-glazed curtain wall systems',
@@ -408,7 +409,7 @@ For inquiries or project bookings, contact Principal Architect Ar. S. Gouse at s
       budget: '₹6,75,00,000',
       status: 'Tender & Procurement Phase',
       statusColor: 'text-cyan-400 bg-cyan-500/10 border-cyan-500/30',
-      image: 'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=1200&q=80',
+      image: PROJECT_MEDIA.mantriTower,
       highlights: [
         'Modular private studio apartments with dual-key layouts',
         'Projected 12.8% annual net rental yield with smart IoT submetering',
@@ -602,7 +603,7 @@ For inquiries or project bookings, contact Principal Architect Ar. S. Gouse at s
                 className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-sky-500/15 hover:bg-sky-500/25 border border-sky-500/40 text-sky-300 font-bold text-xs transition"
               >
                 <Users className="w-3.5 h-3.5 text-sky-400" />
-                <span>Dashboard</span>
+                <span>{isClientRestricted ? 'Dashboard' : 'Back to Studio'}</span>
               </button>
             )}
             <a
@@ -1030,13 +1031,12 @@ For inquiries or project bookings, contact Principal Architect Ar. S. Gouse at s
 
                       <div className="relative h-44 rounded-xl overflow-hidden border border-slate-800">
                         <img
-                          src="https://images.unsplash.com/photo-1541888946425-d0fbb18615f3?auto=format&fit=crop&w=1000&q=80"
+                          src={PROJECT_MEDIA.siteRccFraming}
                           alt="Live Site Feed"
                           className="w-full h-full object-cover"
                         />
                         <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-black/40" />
                         <div className="absolute top-2 left-3 text-[10px] font-mono text-emerald-400 flex items-center gap-1.5 bg-black/60 px-2 py-0.5 rounded">
-                          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
                           <span>FEED ACTIVE: 4K 60FPS HDR</span>
                         </div>
                         <div className="absolute bottom-2 left-3 right-3 flex items-center justify-between text-xs text-white">
@@ -1062,7 +1062,7 @@ For inquiries or project bookings, contact Principal Architect Ar. S. Gouse at s
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 flex items-center gap-3">
                           <img
-                            src="https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=120&q=80"
+                            src={AVATARS.seniorArchitect}
                             alt="Ar. Priya Sharma"
                             className="w-10 h-10 rounded-xl object-cover"
                           />
@@ -1075,7 +1075,7 @@ For inquiries or project bookings, contact Principal Architect Ar. S. Gouse at s
 
                         <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 flex items-center gap-3">
                           <img
-                            src="https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=120&q=80"
+                            src={AVATARS.structuralEngineer}
                             alt="Er. Rajesh Kumar"
                             className="w-10 h-10 rounded-xl object-cover"
                           />
@@ -1549,17 +1549,16 @@ For inquiries or project bookings, contact Principal Architect Ar. S. Gouse at s
                     <img
                       src={
                         selectedCameraAngle === 'entrance'
-                          ? 'https://images.unsplash.com/photo-1541888946425-d0fbb18615f3?auto=format&fit=crop&w=1200&q=80'
+                          ? PROJECT_MEDIA.siteRccFraming
                           : selectedCameraAngle === 'crane'
-                          ? 'https://images.unsplash.com/photo-1504307651254-35680f356dfd?auto=format&fit=crop&w=1200&q=80'
-                          : 'https://images.unsplash.com/photo-1581094794329-c8112a89af12?auto=format&fit=crop&w=1200&q=80'
+                          ? PROJECT_MEDIA.builderProj1
+                          : PROJECT_MEDIA.builderProj2
                       }
                       alt="Site Inspection Angle"
                       className="w-full h-full object-cover"
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-black/50" />
                     <div className="absolute top-3 left-3 bg-black/70 px-3 py-1 rounded-full text-xs font-mono text-emerald-400 flex items-center gap-2 border border-emerald-500/40">
-                      <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
                       <span>CAM {selectedCameraAngle.toUpperCase()} • 4K STREAM ACTIVE</span>
                     </div>
 
@@ -1589,7 +1588,7 @@ For inquiries or project bookings, contact Principal Architect Ar. S. Gouse at s
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800 space-y-3">
                       <img
-                        src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=300&q=80"
+                        src={AVATARS.principal}
                         alt="Ar. S. Gouse"
                         className="w-14 h-14 rounded-2xl object-cover border border-amber-500/40"
                       />
@@ -1606,7 +1605,7 @@ For inquiries or project bookings, contact Principal Architect Ar. S. Gouse at s
 
                     <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800 space-y-3">
                       <img
-                        src="https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=300&q=80"
+                        src={AVATARS.seniorArchitect}
                         alt="Ar. Priya Sharma"
                         className="w-14 h-14 rounded-2xl object-cover border border-slate-700"
                       />
@@ -1623,7 +1622,7 @@ For inquiries or project bookings, contact Principal Architect Ar. S. Gouse at s
 
                     <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800 space-y-3">
                       <img
-                        src="https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=300&q=80"
+                        src={AVATARS.structuralEngineer}
                         alt="Er. Rajesh Kumar"
                         className="w-14 h-14 rounded-2xl object-cover border border-slate-700"
                       />

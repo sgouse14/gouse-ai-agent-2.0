@@ -26,6 +26,7 @@ import {
   FileCheck,
 } from 'lucide-react';
 import { Project, SiteAuditResult, SiteAuditObservation } from '../types';
+import { PROJECT_MEDIA } from '../utils/mediaAssets';
 
 interface SiteVisitCameraModalProps {
   isOpen: boolean;
@@ -41,7 +42,7 @@ const PRESET_SITE_BENCHMARKS = [
     title: 'First Floor Slab Shuttering & Cantilever Beam Detailing',
     stage: 'Slab & Cantilever Beam',
     focus: 'Cantilever top steel anchorage, shuttering levels, conduit tie-downs',
-    url: 'https://images.unsplash.com/photo-1541888946425-d0fbb186c5f9?auto=format&fit=crop&w=1200&q=80',
+    url: PROJECT_MEDIA.siteRccFraming,
     description: 'Active superstructure deck showing steel acrow props, ply shuttering, and Fe550D rebar grid.',
   },
   {
@@ -49,7 +50,7 @@ const PRESET_SITE_BENCHMARKS = [
     title: 'RCC Column Cages & Confinement Stirrup Detailing',
     stage: 'Superstructure Columns',
     focus: 'Column vertical bars, 135° seismic cross-ties, cover block spacing',
-    url: 'https://images.unsplash.com/photo-1504307651254-35680f356dfd?auto=format&fit=crop&w=1200&q=80',
+    url: PROJECT_MEDIA.builderProj1,
     description: 'Column reinforcement cage with 8mm confinement ties at 100mm c/c per IS 13920.',
   },
   {
@@ -57,7 +58,7 @@ const PRESET_SITE_BENCHMARKS = [
     title: 'Substructure Raft Foundation & Mat Rebar Detailing',
     stage: 'Foundation & Raft',
     focus: 'Raft rebar mat, column starter bars, concrete cover blocks',
-    url: 'https://images.unsplash.com/photo-1589939705384-5185137a7f0f?auto=format&fit=crop&w=1200&q=80',
+    url: PROJECT_MEDIA.builderProj2,
     description: 'Excavated plinth pit with bottom and top high-yield TMT rebar mesh ready for M25 pour.',
   },
   {
@@ -65,7 +66,7 @@ const PRESET_SITE_BENCHMARKS = [
     title: 'Envelope Masonry - AAC Blocks & RCC Lintel Bands',
     stage: 'Masonry & Enclosure',
     focus: 'AAC block joint adhesive, plumb alignment, 100mm lintel band',
-    url: 'https://images.unsplash.com/photo-1590381105924-c72589b9ef3f?auto=format&fit=crop&w=1200&q=80',
+    url: PROJECT_MEDIA.builderProj3,
     description: 'Precision AAC block wall construction with horizontal mortar bed lines and lintel support.',
   },
   {
@@ -73,7 +74,7 @@ const PRESET_SITE_BENCHMARKS = [
     title: 'Finishes & MEP - Internal Plastering & Electrical Conduit Chasing',
     stage: 'Finishes & Services',
     focus: 'Plaster coat thickness, chicken mesh over conduit grooves, curing',
-    url: 'https://images.unsplash.com/photo-1503387762-592deb58ef4e?auto=format&fit=crop&w=1200&q=80',
+    url: PROJECT_MEDIA.pgDining,
     description: 'Internal wall surfacing with concealed electrical conduit chase lines and plumb markers.',
   },
 ];

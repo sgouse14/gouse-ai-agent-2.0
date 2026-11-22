@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   Building,
   Home,
@@ -28,6 +28,12 @@ import {
   LogOut,
   Lock,
   PlusCircle,
+  Copy,
+  Printer,
+  Download,
+  RotateCcw,
+  Clock,
+  Bell,
 } from 'lucide-react';
 import { Project } from '../types';
 import { CurrencyCode, formatCurrency } from '../utils/formatters';
@@ -63,6 +69,46 @@ export const GouseAiAgentBrokerView: React.FC<GouseAiAgentBrokerViewProps> = ({
     'all' | 'pg' | 'rent_house' | 'buy_house' | 'land_plot' | 'sell_property' | 'matchmaker' | 'agreement' | 'analytics'
   >(initialSubTab);
 
+  // Coming Soon Launch Gate & Priority Waitlist State
+  const [showBetaWorkspace, setShowBetaWorkspace] = useState<boolean>(false);
+  const [waitlistName, setWaitlistName] = useState('');
+  const [waitlistContact, setWaitlistContact] = useState('');
+  const [waitlistInterest, setWaitlistInterest] = useState<'pg' | 'rent_house' | 'buy_house' | 'land_plot' | 'sell_property'>('pg');
+  const [waitlistSubmitted, setWaitlistSubmitted] = useState(false);
+  const [waitlistCount, setWaitlistCount] = useState<number>(() => {
+    try {
+      const saved = localStorage.getItem('gouse_broker_waitlist_v1');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed.length;
+      }
+    } catch {}
+    return 0;
+  });
+
+  const handleJoinWaitlist = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!waitlistName.trim() || !waitlistContact.trim()) return;
+    try {
+      const existing = JSON.parse(localStorage.getItem('gouse_broker_waitlist_v1') || '[]');
+      const next = [
+        {
+          id: `wl-${Date.now()}`,
+          name: waitlistName.trim(),
+          contact: waitlistContact.trim(),
+          interest: waitlistInterest,
+          createdAt: new Date().toISOString(),
+        },
+        ...(Array.isArray(existing) ? existing : []),
+      ];
+      localStorage.setItem('gouse_broker_waitlist_v1', JSON.stringify(next));
+      setWaitlistCount(next.length);
+    } catch {}
+    setWaitlistSubmitted(true);
+    setWaitlistName('');
+    setWaitlistContact('');
+  };
+
   // AI Broker Matchmaker Form State
   const [matchTenantType, setMatchTenantType] = useState<'individual' | 'couple' | 'family' | 'students'>('individual');
   const [matchPropertyCategory, setMatchPropertyCategory] = useState<'any' | 'pg' | 'house'>('any');
@@ -74,10 +120,16 @@ export const GouseAiAgentBrokerView: React.FC<GouseAiAgentBrokerViewProps> = ({
   const [aiMatchResults, setAiMatchResults] = useState<Array<{
     id: string;
     name: string;
+    category: 'pg' | 'house';
     type: string;
     location: string;
+    zone: string;
     price: number;
+    foodIncluded: boolean;
+    furnishing: 'fully' | 'semi';
+    suitableFor: Array<'individual' | 'couple' | 'family' | 'students'>;
     matchScore: number;
+    matchReasons: string[];
     highlights: string[];
     contactPhone: string;
   }> | null>(null);
@@ -90,65 +142,322 @@ export const GouseAiAgentBrokerView: React.FC<GouseAiAgentBrokerViewProps> = ({
   const [agDeposit, setAgDeposit] = useState(37000);
   const [agTenureMonths, setAgTenureMonths] = useState(11);
   const [agNoticeDays, setAgNoticeDays] = useState(30);
+  const [agStartDate, setAgStartDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [agEscalationPercent, setAgEscalationPercent] = useState(5);
   const [agAgreementGenerated, setAgAgreementGenerated] = useState(false);
+  const [agCopied, setAgCopied] = useState(false);
 
-  // AI Broker Matchmaker run handler
-  const handleRunAiMatchmaker = (e: React.FormEvent) => {
+  // Yield & ROI Simulator State
+  const [simPlotAreaSqFt, setSimPlotAreaSqFt] = useState(3000);
+  const [simTotalCapex, setSimTotalCapex] = useState(21500000);
+  const [simPgBeds, setSimPgBeds] = useState(24);
+  const [simPgRentPerBed, setSimPgRentPerBed] = useState(11500);
+  const [simFlatMonthlyRent, setSimFlatMonthlyRent] = useState(75000);
+  const [simOccupancyPct, setSimOccupancyPct] = useState(90);
+
+  const deterministicAgreementId = useMemo(() => {
+    const seed = `${agOwnerName}-${agTenantName}-${agMonthlyRent}-${agTenureMonths}`;
+    let hash = 0;
+    for (let i = 0; i < seed.length; i++) {
+      hash = (hash * 31 + seed.charCodeAt(i)) % 900000;
+    }
+    return `GOUSE-AGR-${String(100000 + Math.abs(hash))}`;
+  }, [agOwnerName, agTenantName, agMonthlyRent, agTenureMonths]);
+
+  const karnatakaStampDutyEstimate = useMemo(() => {
+    const avgAnnualRent = agMonthlyRent * 12;
+    const baseDuty = Math.max(500, Math.round(avgAnnualRent * 0.005));
+    return agTenureMonths <= 11 ? 500 : baseDuty;
+  }, [agMonthlyRent, agTenureMonths]);
+
+  const simMetrics = useMemo(() => {
+    const pgGrossMonthly = Math.round(simPgBeds * simPgRentPerBed * (simOccupancyPct / 100));
+    const pgNetAnnual = Math.round(pgGrossMonthly * 12 * 0.86);
+    const pgYieldPct = simTotalCapex > 0 ? (pgNetAnnual / simTotalCapex) * 100 : 0;
+
+    const flatAnnual = Math.round(simFlatMonthlyRent * 12 * 0.92);
+    const flatYieldPct = simTotalCapex > 0 ? (flatAnnual / simTotalCapex) * 100 : 0;
+
+    const monthlyUplift = pgGrossMonthly - simFlatMonthlyRent;
+    const yieldDelta = pgYieldPct - flatYieldPct;
+    const paybackYears = pgNetAnnual > 0 ? simTotalCapex / pgNetAnnual : 0;
+
+    return {
+      pgGrossMonthly,
+      pgNetAnnual,
+      pgYieldPct,
+      flatAnnual,
+      flatYieldPct,
+      monthlyUplift,
+      yieldDelta,
+      paybackYears,
+    };
+  }, [simTotalCapex, simPgBeds, simPgRentPerBed, simFlatMonthlyRent, simOccupancyPct]);
+
+  // Verified Inventory Catalog for Real Multi-Criteria AI Matchmaker
+  const BROKER_INVENTORY = useMemo(
+    () => [
+      {
+        id: 'match-hsr-pg-1',
+        name: 'UrbanNest Executive PG & Co-Living House',
+        category: 'pg' as const,
+        type: 'Single Private Executive Suite (Attached Bath + Balcony)',
+        location: 'Sector 2, 27th Main Rd, HSR Layout, Bangalore',
+        zone: 'hsr',
+        price: 18500,
+        foodIncluded: true,
+        furnishing: 'fully' as const,
+        suitableFor: ['individual' as const, 'students' as const],
+        highlights: [
+          '3 Times Hygienic Meals Included + Sunday Special',
+          '300 Mbps Fiber WiFi & 24/7 Power Backup',
+          'Biometric Access Control & Daily Housekeeping',
+          'Zero Brokerage Direct Owner Booking',
+        ],
+        contactPhone: '+91 8073947241',
+      },
+      {
+        id: 'match-hsr-pg-2',
+        name: 'UrbanNest Double Sharing Executive Room',
+        category: 'pg' as const,
+        type: 'Double Sharing AC Co-Living Suite',
+        location: 'Sector 2, HSR Layout, Bangalore',
+        zone: 'hsr',
+        price: 12500,
+        foodIncluded: true,
+        furnishing: 'fully' as const,
+        suitableFor: ['individual' as const, 'students' as const],
+        highlights: [
+          'East-facing balcony with ergonomic study desks',
+          'Breakfast, lunch & dinner included in rent',
+          'Solar hot water + RO drinking water plant',
+          'Direct owner onboarding with 0% brokerage',
+        ],
+        contactPhone: '+91 8073947241',
+      },
+      {
+        id: 'match-bellandur-pg-1',
+        name: 'TechHub Executive Gents PG & Co-Living',
+        category: 'pg' as const,
+        type: 'Double Sharing Studio Suite with AC',
+        location: 'Outer Ring Road, Near RMZ Ecospace, Bellandur',
+        zone: 'bellandur',
+        price: 11500,
+        foodIncluded: true,
+        furnishing: 'fully' as const,
+        suitableFor: ['individual' as const, 'students' as const],
+        highlights: [
+          '5-minute walk to RMZ Ecospace & EcoWorld',
+          'Unlimited 3-times buffet meals + tiffin option',
+          'Rooftop fitness zone & table tennis lounge',
+          '1-month low security deposit policy',
+        ],
+        contactPhone: '+91 8073947241',
+      },
+      {
+        id: 'match-indiranagar-pg-1',
+        name: 'PalmGrove Luxury Ladies PG & Suites',
+        category: 'pg' as const,
+        type: 'Single Deluxe Suite (Indiranagar Metro Walk)',
+        location: '100ft Road, Near 12th Main, Indiranagar, Bangalore',
+        zone: 'indiranagar',
+        price: 19000,
+        foodIncluded: true,
+        furnishing: 'fully' as const,
+        suitableFor: ['individual' as const, 'students' as const],
+        highlights: [
+          '400m from Indiranagar Metro Station',
+          '24/7 Female Guard, CCTV & Biometric Entry',
+          'Pure Veg & Non-Veg 3-times dining mess',
+          'Lift access + corner balcony ventilation',
+        ],
+        contactPhone: '+91 8073947241',
+      },
+      {
+        id: 'match-bellandur-house-1',
+        name: 'GreenGlen 3BHK Independent Rental Floor',
+        category: 'house' as const,
+        type: '3BHK Luxury Builder Floor (1,550 sq.ft)',
+        location: 'Green Glen Layout, Bellandur, Bangalore',
+        zone: 'bellandur',
+        price: 36000,
+        foodIncluded: false,
+        furnishing: 'semi' as const,
+        suitableFor: ['family' as const, 'couple' as const, 'individual' as const],
+        highlights: [
+          '100% Vastu Compliant East Facing Entrance',
+          'Covered Car Parking + 2 Bike Bays (EV Ready)',
+          '24/7 Borewell & Cauvery Water Supply',
+          'A-Khata BBMP Approved Independent Structure',
+        ],
+        contactPhone: '+91 8073947241',
+      },
+      {
+        id: 'match-whitefield-house-1',
+        name: 'Shantiniketan Courtyard 2BHK Independent Floor',
+        category: 'house' as const,
+        type: '2BHK Modern Builder Floor (1,240 sq.ft)',
+        location: 'Whitefield Main Rd, Near ITPL Metro, Bangalore',
+        zone: 'whitefield',
+        price: 28000,
+        foodIncluded: false,
+        furnishing: 'fully' as const,
+        suitableFor: ['couple' as const, 'family' as const, 'individual' as const],
+        highlights: [
+          'Modular kitchen with Faber chimney & wardrobes',
+          'Walkable to Whitefield ITPL & Purple Line Metro',
+          'Separate BESCOM tariff meter + DG backup',
+          'Zero brokerage direct landlord agreement',
+        ],
+        contactPhone: '+91 8073947241',
+      },
+      {
+        id: 'match-koramangala-house-1',
+        name: 'Koramangala 4th Block 3BHK Villa Residence',
+        category: 'house' as const,
+        type: '3BHK Independent Corner House (2,100 sq.ft)',
+        location: '4th Block, Near Sony World, Koramangala, Bangalore',
+        zone: 'koramangala',
+        price: 48000,
+        foodIncluded: false,
+        furnishing: 'semi' as const,
+        suitableFor: ['family' as const, 'couple' as const],
+        highlights: [
+          'Private landscaped courtyard & car porch',
+          'Zero curfew independent gated access',
+          'Pet friendly residential avenue',
+          '11-month Karnataka registered lease included',
+        ],
+        contactPhone: '+91 8073947241',
+      },
+      {
+        id: 'match-ecity-pg-1',
+        name: 'Electronic City Tech Courtyard Co-Living',
+        category: 'pg' as const,
+        type: 'Triple & Double Sharing Smart Suite',
+        location: 'Neeladri Nagar, Electronic City Phase 1, Bangalore',
+        zone: 'electronic_city',
+        price: 9500,
+        foodIncluded: true,
+        furnishing: 'fully' as const,
+        suitableFor: ['students' as const, 'individual' as const],
+        highlights: [
+          'Shuttle proximity to Infosys & Wipro campuses',
+          'High-speed fiber WiFi + study desks',
+          'Hygienic 3-times meals & laundry included',
+          'Zero brokerage onboarding',
+        ],
+        contactPhone: '+91 8073947241',
+      },
+    ],
+    []
+  );
+
+  // AI Broker Matchmaker real filtering & ranking handler
+  const handleRunAiMatchmaker = (e: React.FormEvent, overrideBudget?: number) => {
     e.preventDefault();
+    const activeBudget = overrideBudget ?? matchBudget;
     setIsAiMatching(true);
 
     setTimeout(() => {
       setIsAiMatching(false);
 
-      const mockMatches = [
-        {
-          id: 'match-1',
-          name: 'UrbanNest Executive PG & Co-Living House',
-          type: 'Single Private Executive Suite (Attached Bath + Balcony)',
-          location: 'Sector 2, HSR Layout (Walk to 27th Main Hub)',
-          price: 18500,
-          matchScore: 98,
-          highlights: [
-            '3 Times Hygienic Meals Included + Sunday Special',
-            '300 Mbps Fiber WiFi & 24/7 Power Backup',
-            'Biometric Access Control & Daily Housekeeping',
-            'Zero Brokerage Direct Owner Booking',
-          ],
-          contactPhone: '+91 8073947241',
-        },
-        {
-          id: 'match-2',
-          name: 'GreenGlen 3BHK Independent Rental Floor',
-          type: '3BHK Luxury Builder Floor (1,550 sq.ft)',
-          location: 'Green Glen Layout, Bellandur (Near RMZ Ecospace)',
-          price: 36000,
-          matchScore: 92,
-          highlights: [
-            '100% Vastu Compliant East Facing Entrance',
-            'Covered Car Parking + 2 Bike Bays',
-            '24/7 Borewell & Cauvery Water Supply',
-            'A-Khata BBMP Approved Structure',
-          ],
-          contactPhone: '+91 8073947241',
-        },
-        {
-          id: 'match-3',
-          name: 'TechHub Executive Gents PG & Co-Living',
-          type: 'Double Sharing Studio Suite with AC',
-          location: 'Bellandur ORR (Near EcoWorld / RMZ Ecospace)',
-          price: 11500,
-          matchScore: 89,
-          highlights: [
-            'Walking distance to Outer Ring Road tech hubs',
-            'Unlimited buffet meals & modular kitchen access',
-            'Rooftop recreation lounge & workout gym',
-          ],
-          contactPhone: '+91 8073947241',
-        },
-      ];
+      const scored = BROKER_INVENTORY.filter((item) => {
+        if (matchPropertyCategory !== 'any' && item.category !== matchPropertyCategory) {
+          return false;
+        }
+        return item.price <= activeBudget + 3000;
+      })
+        .map((item) => {
+          let score = 60;
+          const matchReasons: string[] = [];
 
-      setAiMatchResults(mockMatches);
-    }, 700);
+          if (item.price <= activeBudget) {
+            score += 15;
+            matchReasons.push(`Within ${formatCurrency(activeBudget, currency)} budget`);
+          } else {
+            score += 5;
+            matchReasons.push(`Near budget (+${formatCurrency(item.price - activeBudget, currency)})`);
+          }
+
+          if (item.zone === matchZone) {
+            score += 14;
+            matchReasons.push('Exact corridor match');
+          }
+
+          if ((item.suitableFor as readonly ('individual' | 'couple' | 'family' | 'students')[]).includes(matchTenantType)) {
+            score += 6;
+            matchReasons.push('Suited for tenant profile');
+          }
+
+          if (matchFurnishing === 'any' || item.furnishing === matchFurnishing) {
+            score += 3;
+          }
+
+          if (!matchFoodRequired || item.foodIncluded) {
+            score += 2;
+            if (matchFoodRequired && item.foodIncluded) {
+              matchReasons.push('3-time meals included');
+            }
+          }
+
+          return {
+            ...item,
+            matchScore: Math.min(99, score),
+            matchReasons: matchReasons.length > 0 ? matchReasons : ['Verified zero-brokerage inventory'],
+          };
+        })
+        .sort((a, b) => b.matchScore - a.matchScore);
+
+      setAiMatchResults(scored);
+    }, 350);
+  };
+
+  const handleCopyAgreement = () => {
+    const agreementText = `MEMORANDUM OF RESIDENTIAL RENTAL AGREEMENT
+Reference: ${deterministicAgreementId}
+Executed Date: ${agStartDate} | Place: Bengaluru, Karnataka
+
+LESSOR / OWNER: ${agOwnerName} (via Gouse AI Architecture & Real Estate Studio)
+LESSEE / TENANT: ${agTenantName}
+SCHEDULE PROPERTY: ${agPropertyAddress}
+
+1. MONTHLY RENT: INR ${agMonthlyRent.toLocaleString('en-IN')} payable on or before the 5th of each month.
+2. SECURITY DEPOSIT: INR ${agDeposit.toLocaleString('en-IN')} interest-free refundable deposit.
+3. TENURE: ${agTenureMonths} months commencing ${agStartDate} (${agEscalationPercent}% annual renewal escalation).
+4. NOTICE PERIOD: ${agNoticeDays} days written notice by either party.
+5. BROKERAGE WAIVER: 0% Direct Owner Tenancy Agreement. Estimated Karnataka e-Stamp Duty: INR ${karnatakaStampDutyEstimate.toLocaleString('en-IN')}.`;
+
+    navigator.clipboard?.writeText(agreementText);
+    setAgCopied(true);
+    setTimeout(() => setAgCopied(false), 2500);
+  };
+
+  const handleDownloadAgreement = () => {
+    const agreementText = `MEMORANDUM OF RESIDENTIAL RENTAL AGREEMENT
+Document Reference: ${deterministicAgreementId}
+Start Date: ${agStartDate}
+Jurisdiction: Bengaluru, Karnataka
+
+LESSOR / OWNER: ${agOwnerName}
+LESSEE / TENANT: ${agTenantName}
+PROPERTY SCHEDULE: ${agPropertyAddress}
+
+TERMS & CONDITIONS:
+1. Monthly Rent: INR ${agMonthlyRent.toLocaleString('en-IN')} payable on or before the 5th of each month.
+2. Security Deposit: INR ${agDeposit.toLocaleString('en-IN')} refundable upon handover.
+3. Tenure: ${agTenureMonths} Months (Annual Escalation: ${agEscalationPercent}%).
+4. Notice Period: ${agNoticeDays} Days.
+5. Brokerage Fee: INR 0 (Zero-Brokerage Direct Owner Guarantee).
+6. Estimated e-Stamp Duty: INR ${karnatakaStampDutyEstimate.toLocaleString('en-IN')}.
+`;
+    const blob = new Blob([agreementText], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${deterministicAgreementId}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   return (
@@ -157,18 +466,15 @@ export const GouseAiAgentBrokerView: React.FC<GouseAiAgentBrokerViewProps> = ({
       {isOutsidePlatform && (
         <div
           id="banner-agent-broker-governance"
-          className="bg-gradient-to-r from-amber-950/90 via-slate-900 to-indigo-950/90 border-b border-amber-500/40 px-4 py-2.5 text-xs text-slate-300 shadow-md sticky top-0 z-50 backdrop-blur-md"
+          className="bg-slate-900 border-b border-slate-800 px-4 py-2.5 text-xs text-slate-300 sticky top-0 z-50"
         >
           <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2.5">
             <div className="flex items-center gap-2.5 text-left">
-              <span className="p-1 rounded-md bg-amber-500/20 text-amber-300 border border-amber-500/40">
+              <span className="p-1 rounded-md bg-amber-500/15 text-amber-400 border border-amber-500/30">
                 <Key className="w-3.5 h-3.5" />
               </span>
               <span>
-                <strong className="text-white">Outside Platform Portal:</strong> Gouse AI Agent Broker • Verified PGs, Co-Living &amp; House Rentals.{' '}
-                <span className="hidden md:inline text-slate-400">
-                  Direct owner listings, 0% brokerage, automated lease drafting.
-                </span>
+                <strong className="text-white">Gouse AI Brokerage Portal</strong> · Verified PGs, Co-Living &amp; House Rentals · Direct Owner Listings (0% Brokerage)
               </span>
             </div>
 
@@ -187,43 +493,11 @@ export const GouseAiAgentBrokerView: React.FC<GouseAiAgentBrokerViewProps> = ({
 
               {user ? (
                 <div className="flex items-center gap-2">
-                  <div
-                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-mono font-bold"
-                    style={{
-                      backgroundColor:
-                        user.role === 'tenant'
-                          ? 'rgba(245, 158, 11, 0.15)'
-                          : user.role === 'property_owner'
-                          ? 'rgba(16, 185, 129, 0.15)'
-                          : user.role === 'broker_agent'
-                          ? 'rgba(14, 165, 233, 0.15)'
-                          : 'rgba(168, 85, 247, 0.15)',
-                      borderColor:
-                        user.role === 'tenant'
-                          ? 'rgba(245, 158, 11, 0.35)'
-                          : user.role === 'property_owner'
-                          ? 'rgba(16, 185, 129, 0.35)'
-                          : user.role === 'broker_agent'
-                          ? 'rgba(14, 165, 233, 0.35)'
-                          : 'rgba(168, 85, 247, 0.35)',
-                      color:
-                        user.role === 'tenant'
-                          ? '#fde68a'
-                          : user.role === 'property_owner'
-                          ? '#a7f3d0'
-                          : user.role === 'broker_agent'
-                          ? '#bae6fd'
-                          : '#e9d5ff',
-                    }}
-                  >
+                  <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-950 border border-slate-700 text-xs font-mono font-semibold text-amber-300">
                     <span>
-                      {user.role === 'tenant' && '🏠 Tenant: '}
-                      {user.role === 'property_owner' && '🏢 Landlord: '}
-                      {user.role === 'broker_agent' && '🛡️ Broker: '}
-                      {user.role !== 'tenant' &&
-                        user.role !== 'property_owner' &&
-                        user.role !== 'broker_agent' &&
-                        '👤 '}
+                      {user.role === 'tenant' && 'Tenant: '}
+                      {user.role === 'property_owner' && 'Landlord: '}
+                      {user.role === 'broker_agent' && 'Broker: '}
                       {user.name}
                     </span>
                   </div>
@@ -283,71 +557,252 @@ export const GouseAiAgentBrokerView: React.FC<GouseAiAgentBrokerViewProps> = ({
         </div>
       )}
 
+      {!showBetaWorkspace ? (
+        <div className="max-w-5xl mx-auto px-4 lg:px-8 py-10 space-y-8 text-left">
+          {/* Coming Soon Hero Card */}
+          <div className="rounded-xl bg-slate-900 border border-slate-800 p-6 sm:p-8 space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-5">
+              <div className="space-y-2">
+                <div className="flex flex-wrap items-center gap-2 text-[11px] font-mono uppercase tracking-wider text-slate-400">
+                  <span className="text-amber-400 font-semibold flex items-center gap-1.5">
+                    <Clock className="w-3.5 h-3.5" />
+                    Coming Soon
+                  </span>
+                  <span>·</span>
+                  <span>Property &amp; Brokerage Desk</span>
+                  <span>·</span>
+                  <span className="text-emerald-400">0% Direct Owner Brokerage</span>
+                </div>
+                <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
+                  Property &amp; Brokerage Is Coming Soon
+                </h1>
+                <p className="text-sm text-slate-300 max-w-2xl leading-relaxed">
+                  We are finalizing verified BBMP A-Khata property audits, live PG &amp; rental house inventory, BDA/DTCP land parcels, and automated Karnataka tenancy agreements for launch.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                id="btn-broker-beta-preview"
+                onClick={() => setShowBetaWorkspace(true)}
+                className="px-3.5 py-2 rounded-lg bg-slate-950 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-700 text-xs font-semibold flex items-center gap-1.5 shrink-0 transition self-start"
+              >
+                <Key className="w-3.5 h-3.5 text-amber-400" />
+                <span>Owner Beta Preview</span>
+              </button>
+            </div>
+
+            {/* Upcoming Modules Overview */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              <div className="p-4 rounded-lg bg-slate-950 border border-slate-800 space-y-1.5">
+                <Building className="w-4 h-4 text-amber-400" />
+                <div className="text-sm font-semibold text-white">PG &amp; Co-Living</div>
+                <p className="text-xs text-slate-400 leading-relaxed">
+                  Bed-level availability, trilingual listings, meals schedule, and Google Live street access.
+                </p>
+              </div>
+
+              <div className="p-4 rounded-lg bg-slate-950 border border-slate-800 space-y-1.5">
+                <Home className="w-4 h-4 text-emerald-400" />
+                <div className="text-sm font-semibold text-white">Rent Houses &amp; Floors</div>
+                <p className="text-xs text-slate-400 leading-relaxed">
+                  Independent 2BHK &amp; 3BHK builder floors with Vastu verification and direct owner leasing.
+                </p>
+              </div>
+
+              <div className="p-4 rounded-lg bg-slate-950 border border-slate-800 space-y-1.5">
+                <MapPin className="w-4 h-4 text-sky-400" />
+                <div className="text-sm font-semibold text-white">Buy Villas &amp; Land</div>
+                <p className="text-xs text-slate-400 leading-relaxed">
+                  RERA-verified residences and BDA/DTCP plots with built-in EMI and 30-year EC audits.
+                </p>
+              </div>
+
+              <div className="p-4 rounded-lg bg-slate-950 border border-slate-800 space-y-1.5">
+                <FileText className="w-4 h-4 text-amber-400" />
+                <div className="text-sm font-semibold text-white">Agreements &amp; ROI</div>
+                <p className="text-xs text-slate-400 leading-relaxed">
+                  Karnataka e-Stamp rental agreement desk, AI property matchmaker, and yield simulator.
+                </p>
+              </div>
+            </div>
+
+            {/* Priority Launch Notification + Direct Studio Contact */}
+            <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 pt-2">
+              <form
+                onSubmit={handleJoinWaitlist}
+                className="lg:col-span-3 p-5 rounded-xl bg-slate-950 border border-slate-800 space-y-4"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 text-sm font-semibold text-white">
+                    <Bell className="w-4 h-4 text-amber-400" />
+                    <span>Notify Me at Launch</span>
+                  </div>
+                  {waitlistCount > 0 && (
+                    <span className="text-[11px] font-mono text-emerald-400 tabular-nums">
+                      {waitlistCount} registered
+                    </span>
+                  )}
+                </div>
+
+                {waitlistSubmitted && (
+                  <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 shrink-0" />
+                    <span>
+                      Registered for early access. Our brokerage desk will reach out prior to public launch.
+                    </span>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-slate-300 mb-1">Full Name</label>
+                    <input
+                      type="text"
+                      required
+                      value={waitlistName}
+                      onChange={(e) => setWaitlistName(e.target.value)}
+                      placeholder="e.g. Karthik Rao"
+                      className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white focus:border-amber-500 focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-300 mb-1">Phone or Email</label>
+                    <input
+                      type="text"
+                      required
+                      value={waitlistContact}
+                      onChange={(e) => setWaitlistContact(e.target.value)}
+                      placeholder="+91 98450 00000 or email"
+                      className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white focus:border-amber-500 focus:outline-none"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-slate-300 mb-1">Primary Interest</label>
+                  <select
+                    value={waitlistInterest}
+                    onChange={(e) => setWaitlistInterest(e.target.value as any)}
+                    className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white focus:border-amber-500 focus:outline-none"
+                  >
+                    <option value="pg">PG &amp; Co-Living Accommodation</option>
+                    <option value="rent_house">Rental House / Independent Floor</option>
+                    <option value="buy_house">Buy House / Turnkey Villa</option>
+                    <option value="land_plot">BDA / DTCP Land &amp; Plots</option>
+                    <option value="sell_property">List My Property (0% Brokerage)</option>
+                  </select>
+                </div>
+
+                <button
+                  type="submit"
+                  className="px-5 py-2.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold text-xs inline-flex items-center gap-2 transition"
+                >
+                  <Bell className="w-3.5 h-3.5" />
+                  <span>Request Early Access</span>
+                </button>
+              </form>
+
+              <div className="lg:col-span-2 p-5 rounded-xl bg-slate-950 border border-slate-800 flex flex-col justify-between space-y-4">
+                <div className="space-y-2">
+                  <div className="text-[11px] font-mono uppercase tracking-wider text-amber-400">
+                    Direct Brokerage Desk
+                  </div>
+                  <div className="text-base font-bold text-white">Ar. S. Gouse Studio</div>
+                  <p className="text-xs text-slate-400 leading-relaxed">
+                    Need immediate assistance leasing a PG suite, renting a floor, or verifying land titles in Bangalore before launch? Reach our desk directly.
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <a
+                    href="https://wa.me/918073947241?text=Hello%20Ar.%20Gouse,%20I%20would%20like%20early%20access%20to%20Property%20%26%20Brokerage%20listings."
+                    target="_blank"
+                    rel="noreferrer"
+                    className="w-full py-2.5 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs flex items-center justify-center gap-2 transition"
+                  >
+                    <MessageSquare className="w-3.5 h-3.5" />
+                    <span>WhatsApp +91 80739 47241</span>
+                  </a>
+                  <a
+                    href="tel:+918073947241"
+                    className="w-full py-2 px-3 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-800 font-semibold text-xs flex items-center justify-center gap-2 transition"
+                  >
+                    <Phone className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Call Studio Desk</span>
+                  </a>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : (
       <div className="max-w-7xl mx-auto px-4 lg:px-8 py-6 space-y-6">
+        <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5 rounded-lg bg-slate-900 border border-slate-800 text-xs">
+          <div className="flex items-center gap-2 text-slate-300 font-mono">
+            <Clock className="w-3.5 h-3.5 text-amber-400" />
+            <span>Owner Beta Preview · Public status is set to Coming Soon</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowBetaWorkspace(false)}
+            className="px-3 py-1 rounded-md bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold transition"
+          >
+            Back to Coming Soon View
+          </button>
+        </div>
         {/* ========================================================================= */}
         {/* 1. GOUSE AI AGENT BROKER: MASTER BRANDING & HERO BANNER                    */}
         {/* ========================================================================= */}
-        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950/80 border border-amber-500/30 p-6 md:p-8 shadow-2xl">
-        <div className="absolute top-0 right-0 -mt-12 -mr-12 w-96 h-96 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute bottom-0 left-0 -mb-12 -ml-12 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
-
-        <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+        <div className="rounded-xl bg-slate-900 border border-slate-800 p-6 md:p-7">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
           <div className="space-y-3 max-w-3xl">
-            {/* Top Tagline Badges */}
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="px-3 py-1 rounded-full bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 font-black text-xs font-mono tracking-wider flex items-center gap-1.5 shadow-md">
-                <Sparkles className="w-3.5 h-3.5 fill-slate-950" />
-                GOUSE AI AGENT BROKER
-              </span>
-              <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[11px] font-mono font-semibold flex items-center gap-1">
-                <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-                ZERO BROKERAGE DIRECT
-              </span>
-              <span className="px-2.5 py-0.5 rounded-full bg-sky-500/20 text-sky-300 border border-sky-500/40 text-[11px] font-mono font-semibold">
-                BBMP A-KHATA &amp; IS 456 VERIFIED
-              </span>
-              <span className="px-2.5 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/40 text-[11px] font-mono font-semibold">
-                BANGALORE TECH CORRIDOR
-              </span>
+            <div className="flex flex-wrap items-center gap-2 text-[11px] font-mono uppercase tracking-wider text-slate-400">
+              <span className="text-amber-400 font-semibold">Gouse AI Brokerage</span>
+              <span>·</span>
+              <span className="text-emerald-400">Zero Brokerage Direct</span>
+              <span>·</span>
+              <span>BBMP A-Khata &amp; IS 456 Verified</span>
+              <span>·</span>
+              <span>Bangalore Tech Corridor</span>
             </div>
 
             {/* Main Headline */}
-            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-white tracking-tight leading-tight">
-              Gouse AI Agent Broker:{' '}
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-400 via-amber-200 to-amber-500">
+            <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight leading-tight">
+              Property &amp; Brokerage Desk:{' '}
+              <span className="text-amber-400">
                 PG, Rental House, Buy &amp; Sell, Land &amp; Plots
-              </span>{' '}
-              Command Center
+              </span>
             </h1>
 
             {/* Subtitle */}
-            <p className="text-xs sm:text-sm text-slate-300 leading-relaxed font-light">
+            <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
               Autonomous real estate brokerage and inventory management platform. Buy luxury villas, lease executive PG rooms &amp; rental floors, acquire BDA/DTCP approved land parcels, or list your house/land with zero hidden markups, instant AI property valuations, and automated digital agreements.
             </p>
 
             {/* Key Value Points */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
-              <div className="p-2.5 rounded-xl bg-slate-900/80 border border-slate-800 text-left">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2 tabular-nums">
+              <div className="p-3 rounded-lg bg-slate-950 border border-slate-800 text-left">
                 <div className="text-[10px] font-mono text-slate-400 uppercase tracking-wide">Listed Assets</div>
                 <div className="text-base font-bold text-white mt-0.5">16+ Verified Assets</div>
                 <div className="text-[10px] text-amber-400">Houses, PGs &amp; Land Parcels</div>
               </div>
 
-              <div className="p-2.5 rounded-xl bg-slate-900/80 border border-slate-800 text-left">
+              <div className="p-3 rounded-lg bg-slate-950 border border-slate-800 text-left">
                 <div className="text-[10px] font-mono text-slate-400 uppercase tracking-wide">Live Inventory</div>
                 <div className="text-base font-bold text-emerald-400 mt-0.5">48 Beds &amp; Units</div>
                 <div className="text-[10px] text-slate-400">82% Verified Occupancy</div>
               </div>
 
-              <div className="p-2.5 rounded-xl bg-slate-900/80 border border-slate-800 text-left">
+              <div className="p-3 rounded-lg bg-slate-950 border border-slate-800 text-left">
                 <div className="text-[10px] font-mono text-slate-400 uppercase tracking-wide">Tenant Fee</div>
                 <div className="text-base font-bold text-amber-300 mt-0.5">₹0 Brokerage</div>
                 <div className="text-[10px] text-emerald-400">Direct Owner Leasing</div>
               </div>
 
-              <div className="p-2.5 rounded-xl bg-slate-900/80 border border-slate-800 text-left">
+              <div className="p-3 rounded-lg bg-slate-950 border border-slate-800 text-left">
                 <div className="text-[10px] font-mono text-slate-400 uppercase tracking-wide">Turnkey Yield</div>
-                <div className="text-base font-bold text-sky-400 mt-0.5">11.8% - 14.2%</div>
+                <div className="text-base font-bold text-white mt-0.5">11.8% – 14.2%</div>
                 <div className="text-[10px] text-slate-400">Annual Return p.a.</div>
               </div>
             </div>
@@ -424,133 +879,183 @@ export const GouseAiAgentBrokerView: React.FC<GouseAiAgentBrokerViewProps> = ({
       {/* ========================================================================= */}
       {/* 2. BROKER SUB-NAV SWITCHER                                                */}
       {/* ========================================================================= */}
-      <div className="bg-slate-900 border border-slate-800 p-2 rounded-2xl flex items-center gap-2 overflow-x-auto scrollbar-none shadow-md">
+      <div className="bg-slate-900 border border-slate-800 p-1.5 rounded-xl flex items-center gap-1.5 overflow-x-auto scrollbar-none">
         <button
           type="button"
           onClick={() => setActiveBrokerTab('all')}
-          className={`flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition whitespace-nowrap ${
+          className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold transition whitespace-nowrap ${
             activeBrokerTab === 'all'
-              ? 'bg-amber-500 text-slate-950 shadow-md shadow-amber-500/25 ring-2 ring-amber-400'
+              ? 'bg-amber-500 text-slate-950'
               : 'text-slate-400 hover:text-white hover:bg-slate-800'
           }`}
         >
-          <Layers className="w-4 h-4" />
+          <Layers className="w-3.5 h-3.5" />
           <span>All Properties Hub</span>
         </button>
 
         <button
           type="button"
           onClick={() => setActiveBrokerTab('pg')}
-          className={`flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition whitespace-nowrap ${
+          className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold transition whitespace-nowrap ${
             activeBrokerTab === 'pg'
-              ? 'bg-amber-500 text-slate-950 shadow-md shadow-amber-500/25 ring-2 ring-amber-400'
+              ? 'bg-amber-500 text-slate-950'
               : 'text-slate-400 hover:text-white hover:bg-slate-800'
           }`}
         >
-          <Building className="w-4 h-4" />
-          <span>🏢 PG &amp; Co-Living</span>
+          <Building className="w-3.5 h-3.5" />
+          <span>PG &amp; Co-Living</span>
         </button>
 
         <button
           type="button"
           onClick={() => setActiveBrokerTab('rent_house')}
-          className={`flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition whitespace-nowrap ${
+          className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold transition whitespace-nowrap ${
             activeBrokerTab === 'rent_house'
-              ? 'bg-emerald-500 text-slate-950 shadow-md shadow-emerald-500/25 ring-2 ring-emerald-400'
+              ? 'bg-amber-500 text-slate-950'
               : 'text-slate-400 hover:text-white hover:bg-slate-800'
           }`}
         >
-          <Home className="w-4 h-4" />
-          <span>🏡 Rent House</span>
+          <Home className="w-3.5 h-3.5" />
+          <span>Rent House</span>
         </button>
 
         <button
           type="button"
           onClick={() => setActiveBrokerTab('buy_house')}
-          className={`flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition whitespace-nowrap ${
+          className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold transition whitespace-nowrap ${
             activeBrokerTab === 'buy_house'
-              ? 'bg-amber-400 text-slate-950 shadow-md shadow-amber-400/25 ring-2 ring-amber-300'
+              ? 'bg-amber-500 text-slate-950'
               : 'text-slate-400 hover:text-white hover:bg-slate-800'
           }`}
         >
-          <Building className="w-4 h-4 text-amber-400" />
-          <span>🏰 Buy House &amp; Villas</span>
-          <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 font-bold">
-            FOR SALE
-          </span>
+          <Building className="w-3.5 h-3.5" />
+          <span>Buy House &amp; Villas</span>
         </button>
 
         <button
           type="button"
           onClick={() => setActiveBrokerTab('land_plot')}
-          className={`flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition whitespace-nowrap ${
+          className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold transition whitespace-nowrap ${
             activeBrokerTab === 'land_plot'
-              ? 'bg-emerald-400 text-slate-950 shadow-md shadow-emerald-400/25 ring-2 ring-emerald-300'
+              ? 'bg-amber-500 text-slate-950'
               : 'text-slate-400 hover:text-white hover:bg-slate-800'
           }`}
         >
-          <MapPin className="w-4 h-4 text-emerald-400" />
-          <span>🗺️ Land &amp; Plots</span>
-          <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 font-bold">
-            BDA/DTCP
-          </span>
+          <MapPin className="w-3.5 h-3.5" />
+          <span>Land &amp; Plots</span>
         </button>
 
         <button
           type="button"
           onClick={() => setActiveBrokerTab('sell_property')}
-          className={`flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition whitespace-nowrap ${
+          className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold transition whitespace-nowrap ${
             activeBrokerTab === 'sell_property'
-              ? 'bg-purple-500 text-white shadow-md shadow-purple-500/25 ring-2 ring-purple-400'
+              ? 'bg-amber-500 text-slate-950'
               : 'text-slate-400 hover:text-white hover:bg-slate-800'
           }`}
         >
-          <PlusCircle className="w-4 h-4 text-purple-400" />
-          <span>📢 Sell House / Land</span>
-          <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-purple-500/20 text-purple-300 font-bold">
-            0% FEE
-          </span>
+          <PlusCircle className="w-3.5 h-3.5" />
+          <span>Sell House / Land (0% Fee)</span>
         </button>
 
         <button
           type="button"
           onClick={() => setActiveBrokerTab('matchmaker')}
-          className={`flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition whitespace-nowrap ${
+          className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold transition whitespace-nowrap ${
             activeBrokerTab === 'matchmaker'
-              ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/25 ring-2 ring-indigo-400'
+              ? 'bg-amber-500 text-slate-950'
               : 'text-slate-400 hover:text-white hover:bg-slate-800'
           }`}
         >
-          <Sparkles className="w-4 h-4 text-indigo-400" />
-          <span>🤖 AI Matchmaker</span>
+          <Sparkles className="w-3.5 h-3.5" />
+          <span>AI Matchmaker</span>
         </button>
 
         <button
           type="button"
           onClick={() => setActiveBrokerTab('agreement')}
-          className={`flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition whitespace-nowrap ${
+          className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold transition whitespace-nowrap ${
             activeBrokerTab === 'agreement'
-              ? 'bg-teal-600 text-white shadow-md shadow-teal-600/25 ring-2 ring-teal-400'
+              ? 'bg-amber-500 text-slate-950'
               : 'text-slate-400 hover:text-white hover:bg-slate-800'
           }`}
         >
-          <FileText className="w-4 h-4 text-teal-400" />
-          <span>📑 Agreement Desk</span>
+          <FileText className="w-3.5 h-3.5" />
+          <span>Agreement Desk</span>
         </button>
 
         <button
           type="button"
           onClick={() => setActiveBrokerTab('analytics')}
-          className={`flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition whitespace-nowrap ${
+          className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold transition whitespace-nowrap ${
             activeBrokerTab === 'analytics'
-              ? 'bg-purple-600 text-white shadow-md shadow-purple-600/25 ring-2 ring-purple-400'
+              ? 'bg-amber-500 text-slate-950'
               : 'text-slate-400 hover:text-white hover:bg-slate-800'
           }`}
         >
-          <TrendingUp className="w-4 h-4 text-purple-400" />
-          <span>📊 Yield Analytics</span>
+          <TrendingUp className="w-3.5 h-3.5" />
+          <span>Yield Analytics</span>
         </button>
       </div>
+
+      {/* ========================================================================= */}
+      {/* 2.5 ALL PROPERTIES PORTFOLIO HUB QUICK LAUNCHER                           */}
+      {/* ========================================================================= */}
+      {activeBrokerTab === 'all' && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-left">
+          <button
+            type="button"
+            onClick={() => setActiveBrokerTab('pg')}
+            className="p-4 rounded-xl bg-slate-900 border border-slate-800 hover:border-amber-500/50 transition text-left space-y-1.5 group"
+          >
+            <div className="flex items-center justify-between text-xs font-mono text-amber-400">
+              <span>PG &amp; Co-Living</span>
+              <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+            </div>
+            <div className="text-base font-bold text-white tabular-nums">₹8,500 – ₹19,500/mo</div>
+            <div className="text-[11px] text-slate-400">HSR, Indiranagar &amp; Bellandur · Meals &amp; WiFi</div>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveBrokerTab('rent_house')}
+            className="p-4 rounded-xl bg-slate-900 border border-slate-800 hover:border-amber-500/50 transition text-left space-y-1.5 group"
+          >
+            <div className="flex items-center justify-between text-xs font-mono text-emerald-400">
+              <span>Rental Houses &amp; Floors</span>
+              <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+            </div>
+            <div className="text-base font-bold text-white tabular-nums">₹24,000 – ₹48,000/mo</div>
+            <div className="text-[11px] text-slate-400">2BHK &amp; 3BHK Independent Floors · A-Khata</div>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveBrokerTab('buy_house')}
+            className="p-4 rounded-xl bg-slate-900 border border-slate-800 hover:border-amber-500/50 transition text-left space-y-1.5 group"
+          >
+            <div className="flex items-center justify-between text-xs font-mono text-amber-400">
+              <span>Villas &amp; Houses For Sale</span>
+              <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+            </div>
+            <div className="text-base font-bold text-white tabular-nums">₹1.85 Cr – ₹4.20 Cr</div>
+            <div className="text-[11px] text-slate-400">RERA Audited · Turnkey &amp; Ready to Move</div>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveBrokerTab('land_plot')}
+            className="p-4 rounded-xl bg-slate-900 border border-slate-800 hover:border-amber-500/50 transition text-left space-y-1.5 group"
+          >
+            <div className="flex items-center justify-between text-xs font-mono text-emerald-400">
+              <span>BDA &amp; DTCP Land Plots</span>
+              <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+            </div>
+            <div className="text-base font-bold text-white tabular-nums">₹4,200 – ₹18,500/sq.ft</div>
+            <div className="text-[11px] text-slate-400">30+ Yr Clear EC · Immediate Sanction Ready</div>
+          </button>
+        </div>
+      )}
 
       {/* ========================================================================= */}
       {/* 3. SUB-VIEW: PROPERTY LISTINGS (ALL / PG / RENT HOUSE)                    */}
@@ -589,43 +1094,41 @@ export const GouseAiAgentBrokerView: React.FC<GouseAiAgentBrokerViewProps> = ({
       {/* 4. SUB-VIEW: AI BROKER MATCHMAKER                                         */}
       {/* ========================================================================= */}
       {activeBrokerTab === 'matchmaker' && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-in fade-in duration-200">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Matchmaker Input Form */}
-          <div className="lg:col-span-1 p-6 rounded-2xl bg-slate-900 border border-slate-800 space-y-4 text-left shadow-xl">
-            <div className="flex items-center gap-2 text-indigo-400 font-bold text-sm">
+          <div className="lg:col-span-1 p-6 rounded-xl bg-slate-900 border border-slate-800 space-y-4 text-left">
+            <div className="flex items-center gap-2 text-amber-400 font-semibold text-sm">
               <Sparkles className="w-4 h-4" />
-              <span>AI Tenant &amp; Accommodation Matchmaker</span>
+              <span>AI Tenant &amp; Property Matchmaker</span>
             </div>
             <p className="text-xs text-slate-400">
-              Set tenant preferences, budget bracket, and target tech park corridor. The Gouse AI Broker agent filters verified inventory and ranks the best options.
+              Set tenant profile, monthly budget bracket, and corridor. Matches verified inventory with real compatibility scoring.
             </p>
 
-            <form onSubmit={handleRunAiMatchmaker} className="space-y-4 pt-2">
-              {/* Tenant Occupancy Category */}
+            <form onSubmit={(e) => handleRunAiMatchmaker(e)} className="space-y-4 pt-2">
               <div>
                 <label className="block text-xs font-semibold text-slate-300 mb-1">Tenant Profile</label>
                 <select
                   value={matchTenantType}
                   onChange={(e) => setMatchTenantType(e.target.value as any)}
-                  className="w-full bg-slate-950 text-white text-xs px-3 py-2 rounded-xl border border-slate-700 focus:outline-none focus:border-indigo-400"
+                  className="w-full bg-slate-950 text-white text-xs px-3 py-2 rounded-lg border border-slate-700 focus:outline-none focus:border-amber-400"
                 >
-                  <option value="individual">Single Working Professional (IT / Fintech / Doctor)</option>
+                  <option value="individual">Single Working Professional (IT / Fintech / Medical)</option>
                   <option value="couple">Working Couple (Independent Floor / Studio)</option>
                   <option value="family">Family (2BHK / 3BHK Independent House)</option>
                   <option value="students">College / Interns (Budget Sharing PG)</option>
                 </select>
               </div>
 
-              {/* Property Category */}
               <div>
                 <label className="block text-xs font-semibold text-slate-300 mb-1">Property Type Preference</label>
                 <div className="grid grid-cols-3 gap-1.5">
                   <button
                     type="button"
                     onClick={() => setMatchPropertyCategory('any')}
-                    className={`py-1.5 px-2 rounded-lg text-xs font-semibold border ${
+                    className={`py-1.5 px-2 rounded-lg text-xs font-semibold border transition ${
                       matchPropertyCategory === 'any'
-                        ? 'bg-indigo-600 text-white border-indigo-500'
+                        ? 'bg-amber-500 text-slate-950 border-amber-400'
                         : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-white'
                     }`}
                   >
@@ -634,9 +1137,9 @@ export const GouseAiAgentBrokerView: React.FC<GouseAiAgentBrokerViewProps> = ({
                   <button
                     type="button"
                     onClick={() => setMatchPropertyCategory('pg')}
-                    className={`py-1.5 px-2 rounded-lg text-xs font-semibold border ${
+                    className={`py-1.5 px-2 rounded-lg text-xs font-semibold border transition ${
                       matchPropertyCategory === 'pg'
-                        ? 'bg-amber-500 text-slate-950 font-bold border-amber-400'
+                        ? 'bg-amber-500 text-slate-950 border-amber-400'
                         : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-white'
                     }`}
                   >
@@ -645,9 +1148,9 @@ export const GouseAiAgentBrokerView: React.FC<GouseAiAgentBrokerViewProps> = ({
                   <button
                     type="button"
                     onClick={() => setMatchPropertyCategory('house')}
-                    className={`py-1.5 px-2 rounded-lg text-xs font-semibold border ${
+                    className={`py-1.5 px-2 rounded-lg text-xs font-semibold border transition ${
                       matchPropertyCategory === 'house'
-                        ? 'bg-emerald-500 text-slate-950 font-bold border-emerald-400'
+                        ? 'bg-amber-500 text-slate-950 border-amber-400'
                         : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-white'
                     }`}
                   >
@@ -656,12 +1159,11 @@ export const GouseAiAgentBrokerView: React.FC<GouseAiAgentBrokerViewProps> = ({
                 </div>
               </div>
 
-              {/* Monthly Budget Slider */}
               <div>
-                <div className="flex items-center justify-between text-xs font-semibold text-slate-300 mb-1">
-                  <span>Monthly Budget:</span>
-                  <span className="text-amber-400 font-mono font-bold">
-                    {formatCurrency(matchBudget, currency)} / month
+                <div className="flex items-center justify-between text-xs font-semibold text-slate-300 mb-1 tabular-nums">
+                  <span>Monthly Budget Cap</span>
+                  <span className="text-amber-400 font-mono">
+                    {formatCurrency(matchBudget, currency)} / mo
                   </span>
                 </div>
                 <input
@@ -673,72 +1175,69 @@ export const GouseAiAgentBrokerView: React.FC<GouseAiAgentBrokerViewProps> = ({
                   onChange={(e) => setMatchBudget(Number(e.target.value))}
                   className="w-full accent-amber-500 cursor-pointer"
                 />
-                <div className="flex justify-between text-[10px] text-slate-500 font-mono mt-0.5">
-                  <span>₹8k (Budget PG)</span>
-                  <span>₹25k (Suite / 1BHK)</span>
-                  <span>₹60k (3BHK Villa)</span>
+                <div className="flex justify-between text-[10px] text-slate-500 font-mono mt-0.5 tabular-nums">
+                  <span>₹8k PG</span>
+                  <span>₹25k Suite/2BHK</span>
+                  <span>₹60k 3BHK Villa</span>
                 </div>
               </div>
 
-              {/* Location Corridor */}
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">Target Bangalore Zone</label>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">Target Bangalore Corridor</label>
                 <select
                   value={matchZone}
                   onChange={(e) => setMatchZone(e.target.value)}
-                  className="w-full bg-slate-950 text-white text-xs px-3 py-2 rounded-xl border border-slate-700 focus:outline-none focus:border-indigo-400"
+                  className="w-full bg-slate-950 text-white text-xs px-3 py-2 rounded-lg border border-slate-700 focus:outline-none focus:border-amber-400"
                 >
-                  <option value="hsr">HSR Layout (Sectors 1 to 7 • Startups &amp; Cafes)</option>
-                  <option value="bellandur">Bellandur &amp; Outer Ring Road (RMZ Ecospace, EcoWorld)</option>
-                  <option value="whitefield">Whitefield (ITPB, Kadugodi, Prestige Shantiniketan)</option>
-                  <option value="koramangala">Koramangala (Sony World, 4th &amp; 5th Blocks)</option>
-                  <option value="indiranagar">Indiranagar (100 Feet Rd &amp; Defence Colony)</option>
-                  <option value="electronic_city">Electronic City Phase 1 &amp; 2 (Infosys, Wipro)</option>
+                  <option value="hsr">HSR Layout (Sectors 1 to 7)</option>
+                  <option value="bellandur">Bellandur &amp; Outer Ring Road (RMZ Ecospace)</option>
+                  <option value="whitefield">Whitefield (ITPB, Metro Corridor)</option>
+                  <option value="koramangala">Koramangala (4th &amp; 5th Blocks)</option>
+                  <option value="indiranagar">Indiranagar (100 Feet Rd &amp; Metro)</option>
+                  <option value="electronic_city">Electronic City Phase 1 &amp; 2</option>
                 </select>
               </div>
 
-              {/* Furnishing Preference */}
               <div>
                 <label className="block text-xs font-semibold text-slate-300 mb-1">Furnishing</label>
                 <div className="grid grid-cols-3 gap-1.5">
                   <button
                     type="button"
                     onClick={() => setMatchFurnishing('fully')}
-                    className={`py-1.5 px-2 rounded-lg text-xs font-semibold border ${
+                    className={`py-1.5 px-2 rounded-lg text-xs font-semibold border transition ${
                       matchFurnishing === 'fully'
-                        ? 'bg-indigo-600 text-white border-indigo-500'
+                        ? 'bg-amber-500 text-slate-950 border-amber-400'
                         : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-white'
                     }`}
                   >
-                    Fully Furnished
+                    Fully
                   </button>
                   <button
                     type="button"
                     onClick={() => setMatchFurnishing('semi')}
-                    className={`py-1.5 px-2 rounded-lg text-xs font-semibold border ${
+                    className={`py-1.5 px-2 rounded-lg text-xs font-semibold border transition ${
                       matchFurnishing === 'semi'
-                        ? 'bg-indigo-600 text-white border-indigo-500'
+                        ? 'bg-amber-500 text-slate-950 border-amber-400'
                         : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-white'
                     }`}
                   >
-                    Semi-Furnished
+                    Semi
                   </button>
                   <button
                     type="button"
                     onClick={() => setMatchFurnishing('any')}
-                    className={`py-1.5 px-2 rounded-lg text-xs font-semibold border ${
+                    className={`py-1.5 px-2 rounded-lg text-xs font-semibold border transition ${
                       matchFurnishing === 'any'
-                        ? 'bg-indigo-600 text-white border-indigo-500'
+                        ? 'bg-amber-500 text-slate-950 border-amber-400'
                         : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-white'
                     }`}
                   >
-                    No Preference
+                    Any
                   </button>
                 </div>
               </div>
 
-              {/* Food Inclusion Toggle */}
-              <div className="flex items-center justify-between p-3 rounded-xl bg-slate-950 border border-slate-800 text-xs">
+              <div className="flex items-center justify-between p-3 rounded-lg bg-slate-950 border border-slate-800 text-xs">
                 <div>
                   <div className="font-semibold text-white">Daily Meals Included?</div>
                   <div className="text-[10px] text-slate-400">Breakfast, lunch and dinner mess</div>
@@ -751,136 +1250,133 @@ export const GouseAiAgentBrokerView: React.FC<GouseAiAgentBrokerViewProps> = ({
                 />
               </div>
 
-              {/* Submit Search */}
               <button
                 type="submit"
                 disabled={isAiMatching}
-                className="w-full py-3 rounded-xl bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 hover:opacity-95 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-indigo-600/25 transition disabled:opacity-50"
+                className="w-full py-2.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs flex items-center justify-center gap-2 transition disabled:opacity-50"
               >
                 <Sparkles className="w-4 h-4" />
-                <span>{isAiMatching ? 'AI Broker Searching...' : 'Run AI Broker Matchmaker'}</span>
+                <span>{isAiMatching ? 'Scoring Inventory...' : 'Find Matched Properties'}</span>
               </button>
             </form>
           </div>
 
           {/* Results Display */}
           <div className="lg:col-span-2 space-y-4 text-left">
-            <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800 flex items-center justify-between">
+            <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 flex flex-wrap items-center justify-between gap-2">
               <div>
-                <h3 className="font-bold text-white text-sm flex items-center gap-2">
-                  <span>Matched Properties &amp; Units</span>
-                  <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[10px] font-mono">
-                    Zero Brokerage Verified
-                  </span>
+                <h3 className="font-bold text-white text-sm">
+                  Matched Properties &amp; Units
                 </h3>
                 <p className="text-xs text-slate-400 mt-0.5">
-                  Ranked by AI compatibility index, commute distance, and pricing efficiency.
+                  Zero Brokerage Verified · Ranked by budget fit, zone proximity &amp; tenant profile
                 </p>
               </div>
 
-              <div className="text-right text-xs font-mono text-slate-400">
-                Corridor: <span className="text-amber-400 font-bold uppercase">{matchZone}</span>
+              <div className="text-xs font-mono text-slate-400 tabular-nums">
+                Corridor: <span className="text-amber-400 font-semibold uppercase">{matchZone.replace('_', ' ')}</span>
+                {aiMatchResults !== null && <span className="ml-2 text-slate-300">· {aiMatchResults.length} Matches</span>}
               </div>
             </div>
 
-            {/* List of Matched Cards */}
-            <div className="space-y-3">
-              {(aiMatchResults || [
-                {
-                  id: 'default-1',
-                  name: 'UrbanNest Executive PG & Co-Living House',
-                  type: 'Single Private Executive Suite (Attached Bath + Balcony)',
-                  location: 'Sector 2, HSR Layout, Bangalore',
-                  price: 18500,
-                  matchScore: 98,
-                  highlights: [
-                    '3 Times Hygienic Meals Included + Sunday Special',
-                    '300 Mbps Fiber WiFi & 24/7 Power Backup',
-                    'Biometric Access Control & Daily Housekeeping',
-                    'Zero Brokerage Direct Owner Booking',
-                  ],
-                  contactPhone: '+91 8073947241',
-                },
-                {
-                  id: 'default-2',
-                  name: 'GreenGlen 3BHK Independent Rental Floor',
-                  type: '3BHK Luxury Builder Floor (1,550 sq.ft)',
-                  location: 'Green Glen Layout, Bellandur, Bangalore',
-                  price: 36000,
-                  matchScore: 92,
-                  highlights: [
-                    '100% Vastu Compliant East Facing Entrance',
-                    'Covered Car Parking + 2 Bike Bays',
-                    '24/7 Borewell & Cauvery Water Supply',
-                    'A-Khata BBMP Approved Structure',
-                  ],
-                  contactPhone: '+91 8073947241',
-                },
-              ]).map((match) => (
-                <div
-                  key={match.id}
-                  className="p-5 rounded-2xl bg-slate-900/90 border border-slate-800 hover:border-indigo-500/50 transition shadow-lg space-y-3"
-                >
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <h4 className="font-bold text-white text-base">{match.name}</h4>
-                        <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                          {match.matchScore}% Match
-                        </span>
-                      </div>
-                      <div className="text-xs text-amber-400 font-medium mt-0.5">{match.type}</div>
-                      <div className="text-xs text-slate-400 flex items-center gap-1 mt-1">
-                        <MapPin className="w-3.5 h-3.5 text-rose-400 shrink-0" />
-                        <span>{match.location}</span>
-                      </div>
-                    </div>
-
-                    <div className="sm:text-right">
-                      <div className="text-lg font-bold font-mono text-white">
-                        {formatCurrency(match.price, currency)}
-                        <span className="text-xs text-slate-400 font-normal"> / mo</span>
-                      </div>
-                      <span className="text-[10px] font-mono text-emerald-400">Direct Brokerage: ₹0</span>
-                    </div>
-                  </div>
-
-                  {/* Highlights */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 pt-2 border-t border-slate-800/80">
-                    {match.highlights.map((h, idx) => (
-                      <div key={idx} className="flex items-center gap-2 text-xs text-slate-300">
-                        <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                        <span>{h}</span>
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Actions */}
-                  <div className="flex flex-wrap items-center gap-2.5 pt-2">
-                    <a
-                      href={`https://wa.me/918073947241?text=Hello%20Ar.%20Gouse,%20I%20matched%20with%20${encodeURIComponent(match.name)}%20via%20Gouse%20AI%20Agent%20Broker%20and%20want%20to%20schedule%20a%20site%20visit.`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition"
-                    >
-                      <MessageSquare className="w-3.5 h-3.5" />
-                      <span>Book Site Visit on WhatsApp</span>
-                    </a>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setActiveBrokerTab(match.type.includes('PG') ? 'pg' : 'rent_house');
-                      }}
-                      className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-xs flex items-center gap-1.5 transition"
-                    >
-                      <span>View Full Property Listing</span>
-                      <ArrowRight className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
+            {aiMatchResults && aiMatchResults.length === 0 ? (
+              <div className="p-8 rounded-xl bg-slate-900 border border-slate-800 text-center space-y-3">
+                <div className="text-sm font-semibold text-white">
+                  No direct matches under {formatCurrency(matchBudget, currency)}/mo for {matchPropertyCategory === 'house' ? 'Rent Houses' : 'your filter'}.
                 </div>
-              ))}
-            </div>
+                <p className="text-xs text-slate-400 max-w-md mx-auto">
+                  Independent houses start around ₹28,000/mo while private PG rooms start at ₹9,500/mo. Adjust your budget or switch to Any property type.
+                </p>
+                <div className="flex items-center justify-center gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      const nextBudget = Math.min(60000, matchBudget + 15000);
+                      setMatchBudget(nextBudget);
+                      setMatchPropertyCategory('any');
+                      handleRunAiMatchmaker(e, nextBudget);
+                    }}
+                    className="px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold text-xs transition"
+                  >
+                    Expand Budget +₹15,000 &amp; Show All Types
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {(aiMatchResults || BROKER_INVENTORY.slice(0, 3).map((item, idx) => ({
+                  ...item,
+                  matchScore: 98 - idx * 4,
+                  matchReasons: ['Featured HSR / Bellandur Inventory', 'Zero Brokerage Verified'],
+                }))).map((match) => (
+                  <div
+                    key={match.id}
+                    className="p-5 rounded-xl bg-slate-900 border border-slate-800 hover:border-amber-500/40 transition space-y-3"
+                  >
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      <div>
+                        <div className="flex items-center gap-2.5 flex-wrap">
+                          <h4 className="font-bold text-white text-base">{match.name}</h4>
+                          <span className="text-[11px] font-mono font-semibold text-emerald-400 tabular-nums">
+                            {match.matchScore}% Fit
+                          </span>
+                        </div>
+                        <div className="text-xs text-amber-400 font-medium mt-0.5">{match.type}</div>
+                        <div className="text-xs text-slate-400 flex items-center gap-1 mt-1">
+                          <MapPin className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                          <span>{match.location}</span>
+                        </div>
+                        {match.matchReasons && (
+                          <div className="text-[11px] font-mono text-slate-400 mt-1.5">
+                            {match.matchReasons.join(' · ')}
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="sm:text-right tabular-nums shrink-0">
+                        <div className="text-lg font-bold font-mono text-white">
+                          {formatCurrency(match.price, currency)}
+                          <span className="text-xs text-slate-400 font-normal"> / mo</span>
+                        </div>
+                        <span className="text-[10px] font-mono text-emerald-400">Direct Brokerage: ₹0</span>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 pt-2 border-t border-slate-800">
+                      {match.highlights.map((h, idx) => (
+                        <div key={idx} className="flex items-center gap-2 text-xs text-slate-300">
+                          <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                          <span>{h}</span>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2 pt-2">
+                      <a
+                        href={`https://wa.me/918073947241?text=Hello%20Ar.%20Gouse,%20I%20matched%20with%20${encodeURIComponent(match.name)}%20via%20Gouse%20AI%20Agent%20Broker%20and%20want%20to%20schedule%20a%20site%20visit.`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs flex items-center gap-1.5 transition"
+                      >
+                        <MessageSquare className="w-3.5 h-3.5" />
+                        <span>Book Site Visit on WhatsApp</span>
+                      </a>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setActiveBrokerTab(match.category === 'pg' ? 'pg' : 'rent_house');
+                        }}
+                        className="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-xs flex items-center gap-1.5 transition"
+                      >
+                        <span>View Full Property Listing</span>
+                        <ArrowRight className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -889,25 +1385,24 @@ export const GouseAiAgentBrokerView: React.FC<GouseAiAgentBrokerViewProps> = ({
       {/* 5. SUB-VIEW: DIGITAL RENTAL AGREEMENT & BROKERAGE DESK                     */}
       {/* ========================================================================= */}
       {activeBrokerTab === 'agreement' && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-in fade-in duration-200">
-          {/* Agreement Configurator Form */}
-          <div className="lg:col-span-1 p-6 rounded-2xl bg-slate-900 border border-slate-800 space-y-4 text-left shadow-xl">
-            <div className="flex items-center gap-2 text-teal-400 font-bold text-sm">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-1 p-6 rounded-xl bg-slate-900 border border-slate-800 space-y-4 text-left">
+            <div className="flex items-center gap-2 text-amber-400 font-semibold text-sm">
               <FileText className="w-4 h-4" />
-              <span>Standard 11-Month Rental Agreement Generator</span>
+              <span>Rental Agreement Generator</span>
             </div>
             <p className="text-xs text-slate-400">
-              Generates legal tenancy contract terms compliant with Karnataka Rent Control guidelines, e-stamp validation parameters, and security deposit escrow rules.
+              Generates Karnataka tenancy contract terms, e-stamp duty guidance, and zero-brokerage waiver clauses.
             </p>
 
-            <div className="space-y-3 pt-2">
+            <div className="space-y-3 pt-1">
               <div>
                 <label className="block text-xs font-semibold text-slate-300 mb-1">Landlord / Owner Name</label>
                 <input
                   type="text"
                   value={agOwnerName}
                   onChange={(e) => setAgOwnerName(e.target.value)}
-                  className="w-full bg-slate-950 text-white text-xs px-3 py-2 rounded-xl border border-slate-700 focus:outline-none focus:border-teal-400"
+                  className="w-full bg-slate-950 text-white text-xs px-3 py-2 rounded-lg border border-slate-700 focus:outline-none focus:border-amber-400"
                 />
               </div>
 
@@ -917,7 +1412,7 @@ export const GouseAiAgentBrokerView: React.FC<GouseAiAgentBrokerViewProps> = ({
                   type="text"
                   value={agTenantName}
                   onChange={(e) => setAgTenantName(e.target.value)}
-                  className="w-full bg-slate-950 text-white text-xs px-3 py-2 rounded-xl border border-slate-700 focus:outline-none focus:border-teal-400"
+                  className="w-full bg-slate-950 text-white text-xs px-3 py-2 rounded-lg border border-slate-700 focus:outline-none focus:border-amber-400"
                 />
               </div>
 
@@ -927,7 +1422,7 @@ export const GouseAiAgentBrokerView: React.FC<GouseAiAgentBrokerViewProps> = ({
                   rows={2}
                   value={agPropertyAddress}
                   onChange={(e) => setAgPropertyAddress(e.target.value)}
-                  className="w-full bg-slate-950 text-white text-xs px-3 py-2 rounded-xl border border-slate-700 focus:outline-none focus:border-teal-400"
+                  className="w-full bg-slate-950 text-white text-xs px-3 py-2 rounded-lg border border-slate-700 focus:outline-none focus:border-amber-400"
                 />
               </div>
 
@@ -938,7 +1433,7 @@ export const GouseAiAgentBrokerView: React.FC<GouseAiAgentBrokerViewProps> = ({
                     type="number"
                     value={agMonthlyRent}
                     onChange={(e) => setAgMonthlyRent(Number(e.target.value))}
-                    className="w-full bg-slate-950 text-white text-xs px-3 py-2 rounded-xl border border-slate-700 font-mono"
+                    className="w-full bg-slate-950 text-white text-xs px-3 py-2 rounded-lg border border-slate-700 font-mono tabular-nums"
                   />
                 </div>
 
@@ -948,7 +1443,31 @@ export const GouseAiAgentBrokerView: React.FC<GouseAiAgentBrokerViewProps> = ({
                     type="number"
                     value={agDeposit}
                     onChange={(e) => setAgDeposit(Number(e.target.value))}
-                    className="w-full bg-slate-950 text-white text-xs px-3 py-2 rounded-xl border border-slate-700 font-mono"
+                    className="w-full bg-slate-950 text-white text-xs px-3 py-2 rounded-lg border border-slate-700 font-mono tabular-nums"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">Lease Start Date</label>
+                  <input
+                    type="date"
+                    value={agStartDate}
+                    onChange={(e) => setAgStartDate(e.target.value)}
+                    className="w-full bg-slate-950 text-white text-xs px-3 py-2 rounded-lg border border-slate-700 font-mono tabular-nums"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">Annual Escalation (%)</label>
+                  <input
+                    type="number"
+                    min={0}
+                    max={15}
+                    value={agEscalationPercent}
+                    onChange={(e) => setAgEscalationPercent(Number(e.target.value))}
+                    className="w-full bg-slate-950 text-white text-xs px-3 py-2 rounded-lg border border-slate-700 font-mono tabular-nums"
                   />
                 </div>
               </div>
@@ -959,7 +1478,7 @@ export const GouseAiAgentBrokerView: React.FC<GouseAiAgentBrokerViewProps> = ({
                   <select
                     value={agTenureMonths}
                     onChange={(e) => setAgTenureMonths(Number(e.target.value))}
-                    className="w-full bg-slate-950 text-white text-xs px-3 py-2 rounded-xl border border-slate-700"
+                    className="w-full bg-slate-950 text-white text-xs px-3 py-2 rounded-lg border border-slate-700"
                   >
                     <option value={11}>11 Months (Standard)</option>
                     <option value={24}>24 Months</option>
@@ -972,7 +1491,7 @@ export const GouseAiAgentBrokerView: React.FC<GouseAiAgentBrokerViewProps> = ({
                   <select
                     value={agNoticeDays}
                     onChange={(e) => setAgNoticeDays(Number(e.target.value))}
-                    className="w-full bg-slate-950 text-white text-xs px-3 py-2 rounded-xl border border-slate-700"
+                    className="w-full bg-slate-950 text-white text-xs px-3 py-2 rounded-lg border border-slate-700"
                   >
                     <option value={30}>30 Days</option>
                     <option value={60}>60 Days</option>
@@ -983,38 +1502,60 @@ export const GouseAiAgentBrokerView: React.FC<GouseAiAgentBrokerViewProps> = ({
               <button
                 type="button"
                 onClick={() => setAgAgreementGenerated(true)}
-                className="w-full py-2.5 rounded-xl bg-teal-600 hover:bg-teal-500 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-md transition"
+                className="w-full py-2.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs flex items-center justify-center gap-2 transition"
               >
                 <FileText className="w-4 h-4" />
-                <span>Generate Verified Agreement Preview</span>
+                <span>{agAgreementGenerated ? 'Updated Agreement Ready' : 'Lock Draft & Stamp Estimate'}</span>
               </button>
             </div>
           </div>
 
-          {/* Agreement Preview Draft */}
-          <div className="lg:col-span-2 p-6 rounded-2xl bg-slate-900 border border-slate-800 space-y-4 text-left shadow-xl">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+          <div className="lg:col-span-2 p-6 rounded-xl bg-slate-900 border border-slate-800 space-y-4 text-left">
+            <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-800">
               <div>
-                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-teal-500/20 text-teal-300 border border-teal-500/30 uppercase tracking-wider font-bold">
-                  E-Stamp Ready Draft • Gouse AI Broker Desk
-                </span>
-                <h3 className="font-bold text-white text-base mt-1">
+                <div className="text-[11px] font-mono uppercase tracking-wider text-amber-400">
+                  E-Stamp Ready Draft · Karnataka Rent Compliance
+                </div>
+                <h3 className="font-bold text-white text-base mt-0.5">
                   Residential Tenancy Agreement Preview
                 </h3>
               </div>
 
-              <span className="text-xs font-mono text-emerald-400">
-                Brokerage: Direct Owner (0% Fee)
-              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleCopyAgreement}
+                  className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-semibold flex items-center gap-1.5 transition"
+                >
+                  {agCopied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                  <span>{agCopied ? 'Copied' : 'Copy Text'}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDownloadAgreement}
+                  className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-semibold flex items-center gap-1.5 transition"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>Download .txt</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => window.print()}
+                  className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-semibold flex items-center gap-1.5 transition"
+                >
+                  <Printer className="w-3.5 h-3.5" />
+                  <span>Print</span>
+                </button>
+              </div>
             </div>
 
-            <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 font-mono text-xs text-slate-300 space-y-3 leading-relaxed max-h-[500px] overflow-y-auto scrollbar-thin">
+            <div className="p-4 rounded-lg bg-slate-950 border border-slate-800 font-mono text-xs text-slate-300 space-y-3 leading-relaxed max-h-[500px] overflow-y-auto scrollbar-thin tabular-nums">
               <div className="text-center font-bold text-amber-400 pb-2 border-b border-slate-800">
                 MEMORANDUM OF RESIDENTIAL RENTAL AGREEMENT
               </div>
 
               <p>
-                This agreement is entered into on this <strong>{new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}</strong> at Bangalore, Karnataka, between:
+                This agreement is entered into effective <strong>{agStartDate}</strong> at Bangalore, Karnataka, between:
               </p>
 
               <p>
@@ -1026,15 +1567,15 @@ export const GouseAiAgentBrokerView: React.FC<GouseAiAgentBrokerViewProps> = ({
               </p>
 
               <p>
-                <strong>SCHEDULE OF THE PROPERTY:</strong> {agPropertyAddress}. Total building structure with verified BBMP approvals and standard fixtures.
+                <strong>SCHEDULE OF THE PROPERTY:</strong> {agPropertyAddress}. Verified BBMP approvals and standard fixtures.
               </p>
 
-              <div className="p-3 rounded-lg bg-slate-900 border border-slate-800 space-y-1">
-                <div>1. <strong>MONTHLY RENT:</strong> ₹{agMonthlyRent.toLocaleString('en-IN')} payable on or before the 5th of each English calendar month.</div>
-                <div>2. <strong>INTEREST-FREE SECURITY DEPOSIT:</strong> ₹{agDeposit.toLocaleString('en-IN')} paid via digital transfer to be refunded at termination.</div>
-                <div>3. <strong>TENURE &amp; DURATION:</strong> This agreement is valid for a period of {agTenureMonths} months.</div>
-                <div>4. <strong>NOTICE PERIOD:</strong> Either party can terminate this agreement by providing {agNoticeDays} days written notice.</div>
-                <div>5. <strong>BROKERAGE WAIVER:</strong> Executed under Gouse AI Agent Broker Zero-Brokerage direct owner guarantee.</div>
+              <div className="p-3 rounded-lg bg-slate-900 border border-slate-800 space-y-1.5">
+                <div>1. <strong>MONTHLY RENT:</strong> ₹{agMonthlyRent.toLocaleString('en-IN')} payable on or before the 5th of each calendar month.</div>
+                <div>2. <strong>INTEREST-FREE SECURITY DEPOSIT:</strong> ₹{agDeposit.toLocaleString('en-IN')} refunded at lease termination.</div>
+                <div>3. <strong>TENURE &amp; ESCALATION:</strong> Valid for {agTenureMonths} months from {agStartDate} ({agEscalationPercent}% annual renewal escalation).</div>
+                <div>4. <strong>NOTICE PERIOD:</strong> Either party may terminate by providing {agNoticeDays} days written notice.</div>
+                <div>5. <strong>BROKERAGE WAIVER:</strong> Executed under Gouse AI Zero-Brokerage direct owner guarantee (Est. e-Stamp Duty: ₹{karnatakaStampDutyEstimate.toLocaleString('en-IN')}).</div>
               </div>
 
               <p className="text-[11px] text-slate-400">
@@ -1043,15 +1584,15 @@ export const GouseAiAgentBrokerView: React.FC<GouseAiAgentBrokerViewProps> = ({
             </div>
 
             <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
-              <span className="text-xs text-slate-400">
-                Digital document verification hash: <code className="text-amber-400 font-mono">GOUSE-AGR-{Date.now().toString().slice(-6)}</code>
+              <span className="text-xs text-slate-400 tabular-nums">
+                Reference ID: <code className="text-amber-400 font-mono">{deterministicAgreementId}</code> · Est. e-Stamp: <strong className="text-slate-200 font-mono">₹{karnatakaStampDutyEstimate.toLocaleString('en-IN')}</strong>
               </span>
 
               <a
-                href={`https://wa.me/918073947241?text=Hello%20Ar.%20Gouse,%20I%20have%20drafted%20a%20rental%20agreement%20for%20${encodeURIComponent(agTenantName)}%20at%20${encodeURIComponent(agPropertyAddress)}%20via%20Gouse%20AI%20Agent%20Broker.`}
+                href={`https://wa.me/918073947241?text=Hello%20Ar.%20Gouse,%20I%20have%20drafted%20rental%20agreement%20${deterministicAgreementId}%20for%20${encodeURIComponent(agTenantName)}%20at%20${encodeURIComponent(agPropertyAddress)}.`}
                 target="_blank"
                 rel="noreferrer"
-                className="px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-500 text-white font-bold text-xs flex items-center gap-1.5 shadow-md transition"
+                className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs flex items-center gap-1.5 transition"
               >
                 <CheckCircle2 className="w-3.5 h-3.5" />
                 <span>Confirm &amp; Dispatch to Ar. S. Gouse</span>
@@ -1065,55 +1606,173 @@ export const GouseAiAgentBrokerView: React.FC<GouseAiAgentBrokerViewProps> = ({
       {/* 6. SUB-VIEW: YIELD & BROKERAGE ROI ANALYTICS                               */}
       {/* ========================================================================= */}
       {activeBrokerTab === 'analytics' && (
-        <div className="space-y-6 animate-in fade-in duration-200 text-left">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="p-5 rounded-2xl bg-slate-900 border border-slate-800 space-y-2">
-              <div className="flex items-center justify-between text-xs text-slate-400 font-mono">
-                <span>ESTIMATED ANNUAL RENTAL YIELD</span>
-                <span className="text-emerald-400 font-bold">13.8% p.a.</span>
+        <div className="space-y-6 text-left tabular-nums">
+          {/* Interactive ROI Simulator Controls */}
+          <div className="p-6 rounded-xl bg-slate-900 border border-slate-800 space-y-5">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-4">
+              <div>
+                <div className="text-[11px] font-mono uppercase tracking-wider text-amber-400">
+                  Interactive Financial Model · Bangalore Rental Benchmark
+                </div>
+                <h3 className="text-base font-bold text-white mt-0.5">
+                  Co-Living PG vs. Traditional Flat Yield Simulator
+                </h3>
               </div>
-              <div className="text-2xl font-bold font-mono text-white">₹48,50,000</div>
+              <button
+                type="button"
+                onClick={() => {
+                  setSimPlotAreaSqFt(3000);
+                  setSimTotalCapex(21500000);
+                  setSimPgBeds(24);
+                  setSimPgRentPerBed(11500);
+                  setSimFlatMonthlyRent(75000);
+                  setSimOccupancyPct(90);
+                }}
+                className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold flex items-center gap-1.5 transition"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>Reset Benchmark</span>
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 text-xs">
+              <div>
+                <div className="flex justify-between text-slate-400 mb-1">
+                  <span>Plot / Built-up Area</span>
+                  <span className="font-mono text-white font-semibold">{simPlotAreaSqFt.toLocaleString('en-IN')} sq.ft</span>
+                </div>
+                <input
+                  type="range"
+                  min={1200}
+                  max={6000}
+                  step={200}
+                  value={simPlotAreaSqFt}
+                  onChange={(e) => setSimPlotAreaSqFt(Number(e.target.value))}
+                  className="w-full accent-amber-500"
+                />
+              </div>
+
+              <div>
+                <div className="flex justify-between text-slate-400 mb-1">
+                  <span>Total Capex</span>
+                  <span className="font-mono text-white font-semibold">{formatCurrency(simTotalCapex, currency)}</span>
+                </div>
+                <input
+                  type="range"
+                  min={10000000}
+                  max={60000000}
+                  step={500000}
+                  value={simTotalCapex}
+                  onChange={(e) => setSimTotalCapex(Number(e.target.value))}
+                  className="w-full accent-amber-500"
+                />
+              </div>
+
+              <div>
+                <div className="flex justify-between text-slate-400 mb-1">
+                  <span>PG Bed Count</span>
+                  <span className="font-mono text-amber-400 font-semibold">{simPgBeds} Beds</span>
+                </div>
+                <input
+                  type="range"
+                  min={8}
+                  max={60}
+                  step={2}
+                  value={simPgBeds}
+                  onChange={(e) => setSimPgBeds(Number(e.target.value))}
+                  className="w-full accent-amber-500"
+                />
+              </div>
+
+              <div>
+                <div className="flex justify-between text-slate-400 mb-1">
+                  <span>Avg Bed Rent</span>
+                  <span className="font-mono text-emerald-400 font-semibold">₹{simPgRentPerBed.toLocaleString('en-IN')}/mo</span>
+                </div>
+                <input
+                  type="range"
+                  min={7500}
+                  max={20000}
+                  step={500}
+                  value={simPgRentPerBed}
+                  onChange={(e) => setSimPgRentPerBed(Number(e.target.value))}
+                  className="w-full accent-amber-500"
+                />
+              </div>
+
+              <div>
+                <div className="flex justify-between text-slate-400 mb-1">
+                  <span>Occupancy Rate</span>
+                  <span className="font-mono text-emerald-400 font-semibold">{simOccupancyPct}%</span>
+                </div>
+                <input
+                  type="range"
+                  min={60}
+                  max={100}
+                  step={2}
+                  value={simOccupancyPct}
+                  onChange={(e) => setSimOccupancyPct(Number(e.target.value))}
+                  className="w-full accent-amber-500"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="p-5 rounded-xl bg-slate-900 border border-slate-800 space-y-1.5">
+              <div className="text-[11px] text-slate-400 font-mono uppercase">PG Monthly Gross Revenue</div>
+              <div className="text-2xl font-bold font-mono text-emerald-400">
+                {formatCurrency(simMetrics.pgGrossMonthly, currency)}
+              </div>
               <p className="text-[11px] text-slate-400">
-                Across managed PG beds and residential floor inventory with 85%+ occupancy benchmark.
+                At {simOccupancyPct}% occupancy across {simPgBeds} beds
               </p>
             </div>
 
-            <div className="p-5 rounded-2xl bg-slate-900 border border-slate-800 space-y-2">
-              <div className="flex items-center justify-between text-xs text-slate-400 font-mono">
-                <span>OCCUPANCY VELOCITY</span>
-                <span className="text-amber-400 font-bold">14 Days</span>
+            <div className="p-5 rounded-xl bg-slate-900 border border-slate-800 space-y-1.5">
+              <div className="text-[11px] text-slate-400 font-mono uppercase">Net Annual Rental Yield</div>
+              <div className="text-2xl font-bold font-mono text-white">
+                {simMetrics.pgYieldPct.toFixed(1)}% p.a.
               </div>
-              <div className="text-2xl font-bold font-mono text-white">88.4%</div>
-              <p className="text-[11px] text-slate-400">
-                Average turnaround time to fill a vacant bed or independent 2BHK/3BHK unit in tech parks.
+              <p className="text-[11px] text-emerald-400">
+                +{simMetrics.yieldDelta.toFixed(1)}% vs flat rental ({simMetrics.flatYieldPct.toFixed(1)}%)
               </p>
             </div>
 
-            <div className="p-5 rounded-2xl bg-slate-900 border border-slate-800 space-y-2">
-              <div className="flex items-center justify-between text-xs text-slate-400 font-mono">
-                <span>TENANT RETENTION</span>
-                <span className="text-sky-400 font-bold">14.2 Months</span>
+            <div className="p-5 rounded-xl bg-slate-900 border border-slate-800 space-y-1.5">
+              <div className="text-[11px] text-slate-400 font-mono uppercase">Monthly Cashflow Uplift</div>
+              <div className="text-2xl font-bold font-mono text-amber-400">
+                +{formatCurrency(Math.max(0, simMetrics.monthlyUplift), currency)}
               </div>
-              <div className="text-2xl font-bold font-mono text-white">92.1%</div>
               <p className="text-[11px] text-slate-400">
-                High satisfaction driven by sound-proofing, hygienic catering, and fast maintenance resolution.
+                Extra monthly income vs ₹{simFlatMonthlyRent.toLocaleString('en-IN')} flat lease
+              </p>
+            </div>
+
+            <div className="p-5 rounded-xl bg-slate-900 border border-slate-800 space-y-1.5">
+              <div className="text-[11px] text-slate-400 font-mono uppercase">Capital Payback Period</div>
+              <div className="text-2xl font-bold font-mono text-white">
+                {simMetrics.paybackYears.toFixed(1)} Years
+              </div>
+              <p className="text-[11px] text-slate-400">
+                Net annual cashflow: {formatCurrency(simMetrics.pgNetAnnual, currency)}
               </p>
             </div>
           </div>
 
-          {/* Comparison Matrix: Co-living vs Traditional Unfurnished House */}
-          <div className="p-6 rounded-2xl bg-slate-900 border border-slate-800 space-y-4">
-            <div className="flex items-center justify-between">
+          {/* Comparison Matrix */}
+          <div className="p-6 rounded-xl bg-slate-900 border border-slate-800 space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
                 <h3 className="font-bold text-white text-base">
                   Broker Yield Comparison: Co-Living PG vs. Traditional Flat Rental
                 </h3>
                 <p className="text-xs text-slate-400 mt-0.5">
-                  Simulated on a 3,000 sq.ft building plot (G+3 Floors) in HSR Layout / Bellandur corridor.
+                  Live comparison for a {simPlotAreaSqFt.toLocaleString('en-IN')} sq.ft building in HSR Layout / Bellandur corridor
                 </p>
               </div>
-              <span className="px-2.5 py-1 rounded-full bg-purple-500/20 text-purple-300 text-xs font-mono font-bold border border-purple-500/40">
-                +180% Yield Premium
+              <span className="text-xs font-mono font-semibold text-amber-400">
+                {simMetrics.flatYieldPct > 0 ? `${(simMetrics.pgYieldPct / simMetrics.flatYieldPct).toFixed(1)}x Yield Advantage` : 'High Yield'}
               </span>
             </div>
 
@@ -1123,32 +1782,32 @@ export const GouseAiAgentBrokerView: React.FC<GouseAiAgentBrokerViewProps> = ({
                   <tr>
                     <th className="py-3 px-4">Financial Metric</th>
                     <th className="py-3 px-4 text-emerald-400">Gouse AI Co-Living &amp; Executive PG</th>
-                    <th className="py-3 px-4 text-slate-400">Traditional Unfurnished 3BHK Flat</th>
+                    <th className="py-3 px-4 text-slate-400">Traditional Unfurnished Flat</th>
                     <th className="py-3 px-4 text-amber-400">Strategic Advantage</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800">
                   <tr className="hover:bg-slate-800/40">
                     <td className="py-3 px-4 font-semibold text-white">Monthly Gross Revenue</td>
-                    <td className="py-3 px-4 font-mono font-bold text-emerald-400">₹2,45,000 / month</td>
-                    <td className="py-3 px-4 font-mono text-slate-300">₹75,000 / month</td>
-                    <td className="py-3 px-4 text-slate-300">+226% Gross Cash Flow via Bed Density</td>
+                    <td className="py-3 px-4 font-mono font-bold text-emerald-400">{formatCurrency(simMetrics.pgGrossMonthly, currency)} / mo</td>
+                    <td className="py-3 px-4 font-mono text-slate-300">{formatCurrency(simFlatMonthlyRent, currency)} / mo</td>
+                    <td className="py-3 px-4 text-slate-300">+{formatCurrency(Math.max(0, simMetrics.monthlyUplift), currency)}/mo uplift</td>
                   </tr>
                   <tr className="hover:bg-slate-800/40">
                     <td className="py-3 px-4 font-semibold text-white">Net Annual Rental Yield</td>
-                    <td className="py-3 px-4 font-mono font-bold text-emerald-400">12.5% - 14.8% p.a.</td>
-                    <td className="py-3 px-4 font-mono text-slate-300">3.6% - 4.2% p.a.</td>
-                    <td className="py-3 px-4 text-slate-300">3x Capital Payback Acceleration</td>
+                    <td className="py-3 px-4 font-mono font-bold text-emerald-400">{simMetrics.pgYieldPct.toFixed(1)}% p.a.</td>
+                    <td className="py-3 px-4 font-mono text-slate-300">{simMetrics.flatYieldPct.toFixed(1)}% p.a.</td>
+                    <td className="py-3 px-4 text-slate-300">+{simMetrics.yieldDelta.toFixed(1)}% annual yield spread</td>
                   </tr>
                   <tr className="hover:bg-slate-800/40">
                     <td className="py-3 px-4 font-semibold text-white">Tenant Vacancy Risk</td>
-                    <td className="py-3 px-4 text-emerald-400 font-semibold">Low (Fractional multi-tenant loss)</td>
-                    <td className="py-3 px-4 text-rose-400 font-semibold">High (100% loss during vacancy)</td>
+                    <td className="py-3 px-4 text-emerald-400 font-semibold">Low (Fractional bed diversification)</td>
+                    <td className="py-3 px-4 text-rose-400 font-semibold">High (100% loss when empty)</td>
                     <td className="py-3 px-4 text-slate-300">Continuous cash flow continuity</td>
                   </tr>
                   <tr className="hover:bg-slate-800/40">
                     <td className="py-3 px-4 font-semibold text-white">Broker Commission Model</td>
-                    <td className="py-3 px-4 font-mono text-amber-300">Zero Brokerage to Direct Tenants</td>
+                    <td className="py-3 px-4 font-mono text-amber-300">Zero Brokerage Direct</td>
                     <td className="py-3 px-4 font-mono text-slate-400">1 Month Traditional Broker Fee</td>
                     <td className="py-3 px-4 text-emerald-400">Zero friction tenant onboarding</td>
                   </tr>
@@ -1159,6 +1818,9 @@ export const GouseAiAgentBrokerView: React.FC<GouseAiAgentBrokerViewProps> = ({
         </div>
       )}
 
+      </div>
+      )}
+
       {/* DEDICATED SEPARATE GOUSE AI AGENT BROKER AUTHENTICATION MODAL */}
       <BrokerAuthModal
         isOpen={isBrokerAuthModalOpen}
@@ -1166,6 +1828,5 @@ export const GouseAiAgentBrokerView: React.FC<GouseAiAgentBrokerViewProps> = ({
         defaultRole={brokerAuthDefaultRole}
       />
     </div>
-  </div>
   );
 };

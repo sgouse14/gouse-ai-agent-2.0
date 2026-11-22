@@ -1,4 +1,5 @@
 import { Project, BOQItem, ProfessionalProfile, MarketplaceEnquiry, MaterialComparisonItem, LiveMaterialPrice } from '../types';
+import { AVATARS, PROJECT_MEDIA } from '../utils/mediaAssets';
 
 export const INITIAL_PROJECTS: Project[] = [
   {
@@ -185,7 +186,7 @@ This project represents a unified design-to-build approach where architectural m
         progressPercentage: 82,
         isInspectionVerified: true,
         mediaUrls: [
-          'https://images.unsplash.com/photo-1541888946425-d0fbb18615f3?auto=format&fit=crop&w=800&q=80'
+          PROJECT_MEDIA.siteRccFraming
         ]
       },
       {
@@ -200,7 +201,7 @@ This project represents a unified design-to-build approach where architectural m
         progressPercentage: 80,
         isInspectionVerified: true,
         mediaUrls: [
-          'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=800&q=80'
+          PROJECT_MEDIA.bangaloreHouseExterior
         ]
       },
       {
@@ -483,7 +484,7 @@ A purpose-built 5,200 sq.ft co-living asset yielding ~11.8% gross annual ROI in 
         name: 'Gouse AI',
         email: 'sgouse14@gmail.com',
         role: 'owner',
-        avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=600&q=80',
+        avatarUrl: AVATARS.principal,
         department: 'Executive Leadership & AI Architecture',
         phone: '+91 80739 47241',
       }
@@ -532,7 +533,7 @@ Features 14 high-demand residential flats generating solid recurring monthly cas
         name: 'Gouse AI',
         email: 'sgouse14@gmail.com',
         role: 'owner',
-        avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=600&q=80',
+        avatarUrl: AVATARS.principal,
         department: 'Executive Leadership & Principal Architecture',
         phone: '+91 80739 47241',
       },
@@ -541,7 +542,7 @@ Features 14 high-demand residential flats generating solid recurring monthly cas
         name: 'Leasing & Property Management',
         email: 'sgouse14@gmail.com',
         role: 'quantity_surveyor',
-        avatarUrl: 'https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?auto=format&fit=crop&w=600&q=80',
+        avatarUrl: AVATARS.qsDirector,
         department: 'Asset Leasing, Tenant Relations & Operations',
         phone: '+91 80412 89001',
       }
@@ -614,7 +615,7 @@ The Villa Serenity project presents a well-articulated biophilic response to the
         name: 'Gouse AI',
         email: 'principal@gouseai.com',
         role: 'owner',
-        avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=600&q=80',
+        avatarUrl: AVATARS.principal,
         department: 'Executive Leadership & Principal Architecture',
         phone: '+91 80739 47241',
       },
@@ -623,7 +624,7 @@ The Villa Serenity project presents a well-articulated biophilic response to the
         name: 'Priya Sundaram',
         email: 'priya@studioformvoid.com',
         role: 'architect',
-        avatarUrl: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=600&q=80',
+        avatarUrl: AVATARS.seniorArchitect,
         department: 'Senior Architectural Design & Sustainable Modeling',
         phone: '+91 98450 12890',
       },
@@ -632,7 +633,7 @@ The Villa Serenity project presents a well-articulated biophilic response to the
         name: 'Er. Rajesh K.',
         email: 'rajesh@apexstructures.in',
         role: 'structural_engineer',
-        avatarUrl: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=600&q=80',
+        avatarUrl: AVATARS.structuralEngineer,
         department: 'Structural Dynamics & Foundation Engineering',
         phone: '+91 94480 34112',
       },
@@ -641,7 +642,7 @@ The Villa Serenity project presents a well-articulated biophilic response to the
         name: 'Sameer Sen (Client)',
         email: 'client.sen@outlook.com',
         role: 'client',
-        avatarUrl: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?auto=format&fit=crop&w=600&q=80',
+        avatarUrl: AVATARS.principal,
         department: 'Client Representative & Project Stakeholder',
         phone: '+91 99001 56789',
       }
@@ -678,7 +679,7 @@ The Villa Serenity project presents a well-articulated biophilic response to the
         name: 'Gouse AI',
         email: 'principal@gouseai.com',
         role: 'owner',
-        avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=600&q=80',
+        avatarUrl: AVATARS.principal,
         department: 'Executive Leadership & Principal Architecture',
         phone: '+91 80739 47241',
       },
@@ -687,7 +688,7 @@ The Villa Serenity project presents a well-articulated biophilic response to the
         name: 'Vikramaditya Buildcon',
         email: 'contracts@vikramaditya.co.in',
         role: 'quantity_surveyor',
-        avatarUrl: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=600&q=80',
+        avatarUrl: AVATARS.structuralEngineer,
         department: 'Quantity Surveying, Estimation & Procurement',
         phone: '+91 98200 45671',
       }
@@ -713,7 +714,7 @@ The Villa Serenity project presents a well-articulated biophilic response to the
         name: 'Gouse AI',
         email: 'principal@gouseai.com',
         role: 'owner',
-        avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=600&q=80',
+        avatarUrl: AVATARS.principal,
         department: 'Executive Leadership & Principal Architecture',
         phone: '+91 80739 47241',
       }
@@ -842,7 +843,7 @@ The Villa Serenity project presents a well-articulated biophilic response to the
         progressPercentage: 65,
         isInspectionVerified: true,
         mediaUrls: [
-          'https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?auto=format&fit=crop&w=800&q=80'
+          PROJECT_MEDIA.pgTerrace
         ]
       }
     ],

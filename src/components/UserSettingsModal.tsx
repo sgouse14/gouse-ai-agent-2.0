@@ -397,7 +397,7 @@ export const UserSettingsModal: React.FC<UserSettingsModalProps> = ({ isOpen, on
               <span>Workspace Specifications &amp; Engine</span>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-[11px]">
-              <div>Engine: <span className="text-slate-200">Gemini 3.8 Flash (Server-side)</span></div>
+              <div>Engine: <span className="text-slate-200">Gemini 4 Hydrogen &amp; 3.8 Flash</span></div>
               <div>License: <span className="text-emerald-400">Ar. Gouse Pro Studio</span></div>
               <div>Sync: <span className="text-slate-200">Client-Side Persistence (LocalStorage)</span></div>
               <div>Grid: <span className="text-slate-200">{gridIntensity.toUpperCase()} Overlay</span></div>

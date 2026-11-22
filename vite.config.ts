@@ -9,8 +9,13 @@ import {
   searchProfessionalsWithGoogle,
   fetchLiveMaterialPricesWithGoogle,
   getDomainFallbackResponse,
+  getDomainFallbackAgentResponse,
   generateSpeechAudio,
   generateCompanyWithAi,
+  generateLiveEnquiryQuote,
+  parseMaterialStandardsFromPDFOrText,
+  translateArchitecturalText,
+  generateMaterialPriceAlerts,
   processVoiceCommandWithGemini,
   processAudioWithGemini,
   analyzeConstructionSiteVisualAudit,
@@ -74,13 +79,14 @@ function apiMiddlewarePlugin() {
           if (url === '/api/health') {
             return sendJson(res, {
               status: 'ok',
-              agent: "ALVI's Architecture, Interior Designers & Construction - AI Intelligence",
+              agent: 'Gouse AI - Architecture & Construction Intelligence',
               owner: 'Ar. S. Gouse',
               phone: '+91 8073947241',
               whatsapp: '+918073947241',
               email: 'sgouse14@gmail.com',
-              version: '3.8.0',
-              model: 'gemini-3.8-flash',
+              version: '4.0.0',
+              model: 'gemini-4-hydrogen',
+              models: ['gemini-4-hydrogen', 'gemini-3.8-flash'],
               features: [
                 'chat',
                 'multilingual_voice',
@@ -96,22 +102,32 @@ function apiMiddlewarePlugin() {
 
           if (url === '/api/chat' && req.method === 'POST') {
             const body = await getRequestBody(req);
+            const selectedEngine = (body.engine || body.aiEngine || 'gemini') as 'gemini' | 'hydrogen' | 'chatgpt' | 'hybrid';
             try {
-              const response = await generateChatResponse(
+              const result = await generateChatResponse(
                 body.message || '',
                 body.specialist || 'general',
                 body.projectContext || '',
-                body.language || 'en-IN'
+                body.language || 'en-IN',
+                body.boqContext,
+                body.projectData,
+                selectedEngine
               );
-              return sendJson(res, { response });
+              if (typeof result === 'object' && result !== null) {
+                return sendJson(res, result);
+              }
+              return sendJson(res, { response: result });
             } catch (_err) {
-              const fallback = getDomainFallbackResponse(
+              const fallback = getDomainFallbackAgentResponse(
                 body.message || '',
                 body.specialist || 'general',
                 body.projectContext,
-                body.language || 'en-IN'
+                body.language || 'en-IN',
+                body.boqContext,
+                body.projectData,
+                selectedEngine
               );
-              return sendJson(res, { response: fallback });
+              return sendJson(res, fallback);
             }
           }
 
@@ -184,11 +200,84 @@ function apiMiddlewarePlugin() {
 
           if (url === '/api/boq/generate' && req.method === 'POST') {
             const body = await getRequestBody(req);
-            const result = await generateAI_BOQ(
-              body.description || 'Standard residential building construction',
-              body.projectType || 'Architecture'
-            );
-            return sendJson(res, result);
+            try {
+              const result = await generateAI_BOQ(
+                body.description || 'Standard residential building construction',
+                body.projectType || 'Architecture',
+                body.builtUpAreaSqFt ? Number(body.builtUpAreaSqFt) : undefined,
+                body.qualityTier || 'Standard',
+                body.image,
+                body.mimeType,
+                body.model || 'gemini-4-hydrogen'
+              );
+              return sendJson(res, result);
+            } catch (_err) {
+              const area = body.builtUpAreaSqFt ? Number(body.builtUpAreaSqFt) : 3000;
+              const fallback = await generateAI_BOQ(
+                body.description || 'Architectural project',
+                body.projectType || 'Architecture',
+                area,
+                body.qualityTier || 'Standard',
+                body.image,
+                body.mimeType,
+                body.model || 'gemini-4-hydrogen'
+              );
+              return sendJson(res, fallback);
+            }
+          }
+
+          if (url === '/api/translate' && req.method === 'POST') {
+            const body = await getRequestBody(req);
+            try {
+              const result = await translateArchitecturalText(
+                body.text || '',
+                body.targetLanguage || 'kn-IN',
+                body.sourceLanguage || 'auto'
+              );
+              return sendJson(res, result);
+            } catch (_err) {
+              return sendJson(res, {
+                error: 'Failed to translate',
+                translatedText: body?.text || '',
+                targetLanguage: body?.targetLanguage || 'kn-IN',
+              }, 500);
+            }
+          }
+
+          if (url === '/api/materials/radar-alerts' && req.method === 'POST') {
+            const body = await getRequestBody(req);
+            try {
+              const alerts = await generateMaterialPriceAlerts(body.projectData);
+              return sendJson(res, { alerts, timestamp: new Date().toISOString() });
+            } catch (_err) {
+              return sendJson(res, { error: 'Failed to generate price alerts' }, 500);
+            }
+          }
+
+          if (url === '/api/enquiries/live-quote' && req.method === 'POST') {
+            const body = await getRequestBody(req);
+            const quote = await generateLiveEnquiryQuote({
+              enquiryId: body.enquiryId,
+              professionalName: body.professionalName,
+              company: body.company,
+              professionalType: body.professionalType,
+              projectTitle: body.projectTitle || 'Architectural & Construction Project Scope',
+              message: body.message || 'Request for Quotation and Scope Execution',
+              budget: body.budget,
+              clientName: body.clientName,
+            });
+            return sendJson(res, quote);
+          }
+
+          if (url === '/api/materials/parse-pdf-specs' && req.method === 'POST') {
+            const body = await getRequestBody(req);
+            const extractedStandards = await parseMaterialStandardsFromPDFOrText({
+              pdfBase64: body.pdfBase64,
+              text: body.text,
+              fileName: body.fileName,
+              mimeType: body.mimeType,
+            });
+            return sendJson(res, extractedStandards);
           }
 
           if (url === '/api/architecture/render-prompt' && req.method === 'POST') {
