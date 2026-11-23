@@ -18,8 +18,11 @@ import {
   generateMaterialPriceAlerts,
   processVoiceCommandWithGemini,
   processAudioWithGemini,
+  processNaturalVoiceChat,
   analyzeConstructionSiteVisualAudit,
+  generateProjectBriefWithAi,
 } from './server/apiService';
+import { runSuperAgentOrchestration } from './server/superAgentService';
 
 const app = express();
 app.use(express.json({ limit: '20mb' }));
@@ -61,7 +64,7 @@ app.get('/api/health', (req, res) => {
     email: 'sgouse14@gmail.com',
     version: '4.0.0',
     model: 'gemini-4-hydrogen',
-    models: ['gemini-4-hydrogen', 'gemini-3.8-flash'],
+    models: ['gemini-4-hydrogen', 'gemini-3.8-flash-lite-tts'],
     features: [
       'chat',
       'multilingual_voice',
@@ -108,6 +111,25 @@ app.post('/api/chat', async (req, res) => {
   }
 });
 
+// Unified 8-Agent Super Orchestrator endpoint
+app.post('/api/agent/super-run', async (req, res) => {
+  try {
+    const result = await runSuperAgentOrchestration({
+      objective: req.body?.objective || 'Run complete project audit and cost optimization',
+      mode: req.body?.mode || 'auto_orchestrate',
+      projectData: req.body?.projectData,
+      boqItems: req.body?.boqItems,
+      language: req.body?.language || 'en-IN',
+      useLiveMarketData: req.body?.useLiveMarketData !== false,
+      attachment: req.body?.attachment,
+    });
+    res.json(result);
+  } catch (err: any) {
+    console.error('[Server] Super agent orchestration error:', err);
+    res.status(500).json({ error: err?.message || 'Super agent execution failed' });
+  }
+});
+
 // Multi-lingual Voice TTS endpoint powered by Gemini (gemini-3.1-flash-tts-preview)
 app.post('/api/voice/tts', async (req, res) => {
   try {
@@ -141,7 +163,7 @@ app.post('/api/voice/tts', async (req, res) => {
   }
 });
 
-// Intelligent Voice Command Parser via Gemini (gemini-3.8-flash)
+// Intelligent Voice Command Parser via Gemini (gemini-4-hydrogen)
 app.post('/api/voice/process-command', async (req, res) => {
   try {
     const result = await processVoiceCommandWithGemini(req.body);
@@ -151,13 +173,33 @@ app.post('/api/voice/process-command', async (req, res) => {
   }
 });
 
-// Multimodal Voice Audio Processor via Gemini (gemini-3.8-flash)
+// Multimodal Voice Audio Processor via Gemini (gemini-4-hydrogen)
 app.post('/api/voice/gemini-audio', async (req, res) => {
   try {
     const result = await processAudioWithGemini(req.body);
     res.json(result);
   } catch (err: any) {
     res.status(500).json({ error: 'Failed to process voice audio', details: err?.message });
+  }
+});
+
+// Natural Conversational Voice Chat endpoint (Gemini 4 Hydrogen + Gemini 3.8 Flash Lite TTS)
+app.post('/api/voice/natural-chat', async (req, res) => {
+  try {
+    const result = await processNaturalVoiceChat(req.body || {});
+    res.json(result);
+  } catch (err: any) {
+    res.status(500).json({ error: 'Failed to process natural voice chat', details: err?.message });
+  }
+});
+
+// AI Project Brief Auto-Draft endpoint (gemini-4-hydrogen)
+app.post('/api/projects/ai-brief', async (req, res) => {
+  try {
+    const result = await generateProjectBriefWithAi(req.body || {});
+    res.json(result);
+  } catch (err: any) {
+    res.status(500).json({ error: err?.message || 'Failed to draft project brief' });
   }
 });
 
@@ -254,7 +296,7 @@ app.post('/api/architecture/render-prompt', async (req, res) => {
   }
 });
 
-// Vision / image analysis & Site Visit Visual Audit endpoint via Gemini (gemini-3.8-flash)
+// Vision / image analysis & Site Visit Visual Audit endpoint via Gemini (gemini-4-hydrogen)
 app.post('/api/architecture/analyze-image', async (req, res) => {
   try {
     const { image, imageBase64, mimeType, filename, focus, projectName, projectType, projectContext } = req.body;

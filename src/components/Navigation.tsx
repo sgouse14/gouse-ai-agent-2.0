@@ -14,7 +14,7 @@ export const Navigation: React.FC<NavigationProps> = ({ activeTab, onSelectTab }
     { id: 'boq' as TabType, label: 'BOQ & Estimation', icon: Calculator, count: null },
     { id: 'marketplace' as TabType, label: 'Marketplace & Enquiries', icon: Store, count: null },
     { id: 'materials' as TabType, label: 'Materials & Standards', icon: Layers, count: null },
-    { id: 'specialist' as TabType, label: 'Gouse AI Specialist', icon: Sparkles, badge: 'AGENT GUI' },
+    { id: 'specialist' as TabType, label: 'Gouse AI Super Agent', icon: Sparkles, count: null },
   ];
 
   return (
@@ -36,11 +36,6 @@ export const Navigation: React.FC<NavigationProps> = ({ activeTab, onSelectTab }
             >
               <Icon className={`w-4 h-4 ${isActive ? 'text-amber-400' : 'text-slate-400'}`} />
               <span>{tab.label}</span>
-              {tab.badge && (
-                <span className="text-[10px] font-mono font-semibold px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                  {tab.badge}
-                </span>
-              )}
             </button>
           );
         })}

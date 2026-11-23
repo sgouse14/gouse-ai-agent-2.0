@@ -1701,6 +1701,34 @@ export const SocialMediaStudio: React.FC<SocialMediaStudioProps> = ({
             </button>
 
             <button
+              id="btn-social-import-active-project"
+              type="button"
+              onClick={() => {
+                setModalRole('architect');
+                setNewCompanyName(ROLE_DIRECTORY.architect.defaultName);
+                setNewTitle(`${activeProject.name} — ${activeProject.projectType}`);
+                setNewLocation(activeProject.location || 'Bengaluru');
+                setNewAreaSpec(
+                  activeProject.builtUpAreaSqFt
+                    ? `${activeProject.builtUpAreaSqFt.toLocaleString()} sq.ft`
+                    : '3,200 sq.ft'
+                );
+                setNewSpecType(activeProject.projectType || 'Architectural Project');
+                setNewCategory('architectural_design');
+                setNewCaption(
+                  activeProject.description ||
+                    `Active studio showcase for ${activeProject.name} in ${activeProject.location}. Stage: ${activeProject.status.replace(/_/g, ' ')}. Reach out for drawings, BOQ consultation, or site visit.`
+                );
+                setIsComposerOpen(true);
+              }}
+              className="px-3 py-2 rounded-lg bg-slate-950 border border-slate-700 hover:border-amber-500/60 text-amber-300 font-semibold text-xs flex items-center gap-1.5 transition whitespace-nowrap shrink-0"
+              title="Prefill showcase post from your currently active studio project"
+            >
+              <Building2 className="w-3.5 h-3.5" />
+              <span>Post Active Project</span>
+            </button>
+
+            <button
               type="button"
               onClick={() => {
                 setModalRole(activePosterRole);

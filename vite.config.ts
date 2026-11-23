@@ -18,8 +18,11 @@ import {
   generateMaterialPriceAlerts,
   processVoiceCommandWithGemini,
   processAudioWithGemini,
+  processNaturalVoiceChat,
   analyzeConstructionSiteVisualAudit,
+  generateProjectBriefWithAi,
 } from './server/apiService';
+import { runSuperAgentOrchestration } from './server/superAgentService';
 
 function getRequestBody(req: any): Promise<any> {
   if (req.body && typeof req.body === 'object') {
@@ -86,7 +89,7 @@ function apiMiddlewarePlugin() {
               email: 'sgouse14@gmail.com',
               version: '4.0.0',
               model: 'gemini-4-hydrogen',
-              models: ['gemini-4-hydrogen', 'gemini-3.8-flash'],
+              models: ['gemini-4-hydrogen', 'gemini-3.8-flash-lite-tts'],
               features: [
                 'chat',
                 'multilingual_voice',
@@ -129,6 +132,20 @@ function apiMiddlewarePlugin() {
               );
               return sendJson(res, fallback);
             }
+          }
+
+          if (url === '/api/agent/super-run' && req.method === 'POST') {
+            const body = await getRequestBody(req);
+            const result = await runSuperAgentOrchestration({
+              objective: body.objective || 'Run complete project audit and cost optimization',
+              mode: body.mode || 'auto_orchestrate',
+              projectData: body.projectData,
+              boqItems: body.boqItems,
+              language: body.language || 'en-IN',
+              useLiveMarketData: body.useLiveMarketData !== false,
+              attachment: body.attachment,
+            });
+            return sendJson(res, result);
           }
 
           if (url === '/api/voice/tts' && req.method === 'POST') {
@@ -184,6 +201,22 @@ function apiMiddlewarePlugin() {
             } catch (err: any) {
               return sendJson(res, { error: 'Failed to process voice audio', details: err?.message }, 500);
             }
+          }
+
+          if (url === '/api/voice/natural-chat' && req.method === 'POST') {
+            const body = await getRequestBody(req);
+            try {
+              const result = await processNaturalVoiceChat(body || {});
+              return sendJson(res, result);
+            } catch (err: any) {
+              return sendJson(res, { error: 'Failed to process natural voice chat', details: err?.message }, 500);
+            }
+          }
+
+          if (url === '/api/projects/ai-brief' && req.method === 'POST') {
+            const body = await getRequestBody(req);
+            const result = await generateProjectBriefWithAi(body || {});
+            return sendJson(res, result);
           }
 
           if (url === '/api/intelligence' && req.method === 'POST') {

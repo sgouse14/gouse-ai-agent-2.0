@@ -10,13 +10,16 @@ import { SpecialistChatView } from './components/SpecialistChatView';
 import { SequentialWorkflowEngineModal } from './components/SequentialWorkflowEngineModal';
 import { GouseAiAgentBrokerView } from './components/GouseAiAgentBrokerView';
 import { SocialMediaStudio } from './components/SocialMediaStudio';
-import { GlobalVoiceCommandListener } from './components/GlobalVoiceCommandListener';
 import { SiteVisitCameraModal } from './components/SiteVisitCameraModal';
 import { AuthModal } from './components/AuthModal';
 import { ClientPortal } from './components/ClientPortal';
 import { ClientView } from './components/ClientView';
 import { PlatformDemo } from './components/PlatformDemo';
 import { SocialMediaHubPage } from './components/SocialMediaHubPage';
+import { StudioToolkitModal, StudioToolkitTab } from './components/StudioToolkitModal';
+import { BimBoqSubscriptionModal } from './components/BimBoqSubscriptionModal';
+import { NaturalVoiceChatDrawer } from './components/NaturalVoiceChatDrawer';
+import { AudioWaveform } from 'lucide-react';
 import { useAuth } from './context/AuthContext';
 import { useTheme } from './context/ThemeContext';
 import { AVATARS } from './utils/mediaAssets';
@@ -209,7 +212,31 @@ export function App() {
     }
   });
 
-  const [contingencyPercent, setContingencyPercent] = useState<number>(10);
+  const [contingencyPercent, setContingencyPercent] = useState<number>(() => {
+    return activeProject?.contingencyPercent ?? 10;
+  });
+
+  // Keep contingencyPercent synchronized whenever activeProject changes or is updated (e.g., via Super Agent)
+  useEffect(() => {
+    if (typeof activeProject?.contingencyPercent === 'number') {
+      setContingencyPercent(activeProject.contingencyPercent);
+    } else {
+      setContingencyPercent(10);
+    }
+  }, [activeProject?.id, activeProject?.contingencyPercent]);
+
+  const handleChangeContingency = (nextPercent: number) => {
+    setContingencyPercent(nextPercent);
+    if (activeProject) {
+      setProjects((prev) =>
+        prev.map((p) =>
+          p.id === activeProject.id
+            ? { ...p, contingencyPercent: nextPercent, updatedAt: new Date().toISOString() }
+            : p
+        )
+      );
+    }
+  };
 
   useEffect(() => {
     localStorage.setItem('gouse_ai_boq_items', JSON.stringify(boqItems));
@@ -266,6 +293,20 @@ export function App() {
   // Project Handlers
   const handleUpdateProject = (updated: Project) => {
     setProjects((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
+    if (updated.id === activeProjectId && typeof updated.contingencyPercent === 'number') {
+      setContingencyPercent(updated.contingencyPercent);
+    }
+  };
+
+  const handleDeleteProject = (projectId: string) => {
+    setProjects((prev) => {
+      if (prev.length <= 1) return prev;
+      const remaining = prev.filter((p) => p.id !== projectId);
+      if (activeProjectId === projectId && remaining[0]) {
+        setActiveProjectId(remaining[0].id);
+      }
+      return remaining;
+    });
   };
 
   const handleCreateProject = (newProj: Partial<Project>) => {
@@ -349,7 +390,15 @@ export function App() {
   const [marketplaceCategory, setMarketplaceCategory] = useState<string | undefined>(undefined);
   const [marketplaceQuery, setMarketplaceQuery] = useState<string | undefined>(undefined);
   const [isWorkflowEngineOpen, setIsWorkflowEngineOpen] = useState(false);
-  const [isGlobalVoiceListening, setIsGlobalVoiceListening] = useState(false);
+  const [isStudioToolkitOpen, setIsStudioToolkitOpen] = useState(false);
+  const [studioToolkitTab, setStudioToolkitTab] = useState<StudioToolkitTab>('render');
+  const [isBimSubscriptionOpen, setIsBimSubscriptionOpen] = useState(false);
+  const [isVoiceChatOpen, setIsVoiceChatOpen] = useState(false);
+
+  const handleOpenStudioToolkit = (tab: StudioToolkitTab = 'render') => {
+    setStudioToolkitTab(tab);
+    setIsStudioToolkitOpen(true);
+  };
 
   const handleNavigateToMarketplace = (category?: string, query?: string) => {
     setMarketplaceCategory(category);
@@ -510,13 +559,13 @@ export function App() {
         onCloseMobile={() => setIsMobileSidebarOpen(false)}
         onOpenWorkflowEngine={() => setIsWorkflowEngineOpen(true)}
         onOpenSiteCamera={() => setIsSiteCameraOpen(true)}
-        onToggleVoiceListener={() => setIsGlobalVoiceListening((prev) => !prev)}
-        isVoiceListening={isGlobalVoiceListening}
         onOpenPlatformDemo={() => setIsShowingPlatformDemo(true)}
         onOpenClientPortal={() => {
           setIsShowingClientPortal(true);
           setClientActiveView('portal');
         }}
+        onOpenStudioToolkit={handleOpenStudioToolkit}
+        onOpenNaturalVoiceChat={() => setIsVoiceChatOpen(true)}
       />
 
       {/* Right Main Column: Contextual Top Bar + Viewport + Clean Footer */}
@@ -539,8 +588,10 @@ export function App() {
               onSelectProject={setActiveProjectId}
               onUpdateProject={handleUpdateProject}
               onCreateProject={handleCreateProject}
+              onDeleteProject={handleDeleteProject}
               onOpenWorkflowEngine={() => setIsWorkflowEngineOpen(true)}
               onOpenSiteCamera={() => setIsSiteCameraOpen(true)}
+              onOpenStudioToolkit={handleOpenStudioToolkit}
               currency={currency}
             />
           )}
@@ -572,7 +623,7 @@ export function App() {
               currency={currency}
               activeProject={activeProject}
               onUpdateItems={setBoqItems}
-              onChangeContingency={setContingencyPercent}
+              onChangeContingency={handleChangeContingency}
               onUpdateProject={handleUpdateProject}
               onAddEnquiry={handleAddEnquiry}
               onOpenWorkflowEngine={() => setIsWorkflowEngineOpen(true)}
@@ -617,6 +668,7 @@ export function App() {
               onUpdateProject={handleUpdateProject}
               onNavigateToBOQ={() => setActiveTab('boq')}
               onOpenWorkflowEngine={() => setIsWorkflowEngineOpen(true)}
+              onOpenNaturalVoiceChat={() => setIsVoiceChatOpen(true)}
             />
           )}
         </main>
@@ -624,7 +676,7 @@ export function App() {
         <footer className="border-t border-slate-800/80 bg-slate-950/90 px-4 lg:px-8 py-4 text-xs text-slate-500">
           <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
             <span>Gouse AI · Architecture &amp; Construction Cost Intelligence</span>
-            <span>Bangalore, India · Ar. S. Gouse · Gemini 4 Hydrogen &amp; 3.8 Flash</span>
+            <span>Bangalore, India · Ar. S. Gouse · Gemini 4 Hydrogen</span>
           </div>
         </footer>
       </div>
@@ -649,29 +701,57 @@ export function App() {
         currency={currency}
       />
 
-      {/* Global Voice Command Listener */}
-      <GlobalVoiceCommandListener
-        activeTab={activeTab}
-        onNavigateTab={setActiveTab}
-        projects={projects}
+      {/* Studio Toolkit & Utilities Hub Modal */}
+      <StudioToolkitModal
+        isOpen={isStudioToolkitOpen}
+        onClose={() => setIsStudioToolkitOpen(false)}
+        initialTab={studioToolkitTab}
         activeProject={activeProject}
-        onSelectProject={setActiveProjectId}
-        onUpdateProject={handleUpdateProject}
-        onCreateProject={handleCreateProject}
-        currency={currency}
-        onChangeCurrency={setCurrency}
-        contingencyPercent={contingencyPercent}
-        onChangeContingency={setContingencyPercent}
-        onOpenWorkflowEngine={() => setIsWorkflowEngineOpen(true)}
-        onOpenSettings={() => {
-          const btn = document.getElementById('btn-open-user-settings');
-          btn?.click();
-        }}
         boqItems={boqItems}
+        contingencyPercent={contingencyPercent}
+        currency={currency}
+        onUpdateProject={handleUpdateProject}
         onUpdateBOQItems={setBoqItems}
-        isExternalListening={isGlobalVoiceListening}
-        onToggleExternalListening={() => setIsGlobalVoiceListening((prev) => !prev)}
+        onNavigateTab={setActiveTab}
+        onOpenBimLicense={() => setIsBimSubscriptionOpen(true)}
       />
+
+      {/* BIM & BOQ Studio License Modal */}
+      <BimBoqSubscriptionModal
+        isOpen={isBimSubscriptionOpen}
+        onClose={() => setIsBimSubscriptionOpen(false)}
+        currency={currency}
+      />
+
+      {/* Natural Two-Way Voice Chat Drawer */}
+      <NaturalVoiceChatDrawer
+        isOpen={isVoiceChatOpen}
+        onClose={() => setIsVoiceChatOpen(false)}
+        activeTab={activeTab}
+        activeProject={activeProject}
+        boqItems={boqItems}
+        contingencyPercent={contingencyPercent}
+        currency={currency}
+        onNavigateTab={setActiveTab}
+        onUpdateProject={handleUpdateProject}
+        onUpdateBOQItems={setBoqItems}
+        onChangeContingency={handleChangeContingency}
+        onChangeCurrency={setCurrency}
+      />
+
+      {/* Global Quick Voice Chat Launcher */}
+      {!isVoiceChatOpen && !isStudioToolkitOpen && !isWorkflowEngineOpen && !isSiteCameraOpen && (
+        <button
+          id="btn-global-voice-chat"
+          type="button"
+          onClick={() => setIsVoiceChatOpen(true)}
+          className="fixed bottom-5 right-5 z-40 inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold text-xs shadow-lg border border-amber-400 transition-colors"
+          title="Open Natural Two-Way Voice Chat"
+        >
+          <AudioWaveform className="w-4 h-4 shrink-0" />
+          <span>Voice Chat</span>
+        </button>
+      )}
 
       {/* Authentication Modal */}
       <AuthModal />

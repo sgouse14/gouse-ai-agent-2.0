@@ -69,15 +69,10 @@ export const GouseAiAgentBrokerView: React.FC<GouseAiAgentBrokerViewProps> = ({
     'all' | 'pg' | 'rent_house' | 'buy_house' | 'land_plot' | 'sell_property' | 'matchmaker' | 'agreement' | 'analytics'
   >(initialSubTab);
 
-  // Coming Soon Launch Gate & Priority Waitlist State
-  const [showBetaWorkspace, setShowBetaWorkspace] = useState<boolean>(false);
-  const [waitlistName, setWaitlistName] = useState('');
-  const [waitlistContact, setWaitlistContact] = useState('');
-  const [waitlistInterest, setWaitlistInterest] = useState<'pg' | 'rent_house' | 'buy_house' | 'land_plot' | 'sell_property'>('pg');
-  const [waitlistSubmitted, setWaitlistSubmitted] = useState(false);
-  const [waitlistCount, setWaitlistCount] = useState<number>(() => {
+  const [waitlistCount] = useState<number>(() => {
+    if (typeof window === 'undefined') return 0;
     try {
-      const saved = localStorage.getItem('gouse_broker_waitlist_v1');
+      const saved = window.localStorage.getItem('gouse_broker_waitlist_v1');
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed)) return parsed.length;
@@ -85,29 +80,6 @@ export const GouseAiAgentBrokerView: React.FC<GouseAiAgentBrokerViewProps> = ({
     } catch {}
     return 0;
   });
-
-  const handleJoinWaitlist = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!waitlistName.trim() || !waitlistContact.trim()) return;
-    try {
-      const existing = JSON.parse(localStorage.getItem('gouse_broker_waitlist_v1') || '[]');
-      const next = [
-        {
-          id: `wl-${Date.now()}`,
-          name: waitlistName.trim(),
-          contact: waitlistContact.trim(),
-          interest: waitlistInterest,
-          createdAt: new Date().toISOString(),
-        },
-        ...(Array.isArray(existing) ? existing : []),
-      ];
-      localStorage.setItem('gouse_broker_waitlist_v1', JSON.stringify(next));
-      setWaitlistCount(next.length);
-    } catch {}
-    setWaitlistSubmitted(true);
-    setWaitlistName('');
-    setWaitlistContact('');
-  };
 
   // AI Broker Matchmaker Form State
   const [matchTenantType, setMatchTenantType] = useState<'individual' | 'couple' | 'family' | 'students'>('individual');
@@ -557,200 +529,12 @@ TERMS & CONDITIONS:
         </div>
       )}
 
-      {!showBetaWorkspace ? (
-        <div className="max-w-5xl mx-auto px-4 lg:px-8 py-10 space-y-8 text-left">
-          {/* Coming Soon Hero Card */}
-          <div className="rounded-xl bg-slate-900 border border-slate-800 p-6 sm:p-8 space-y-6">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-5">
-              <div className="space-y-2">
-                <div className="flex flex-wrap items-center gap-2 text-[11px] font-mono uppercase tracking-wider text-slate-400">
-                  <span className="text-amber-400 font-semibold flex items-center gap-1.5">
-                    <Clock className="w-3.5 h-3.5" />
-                    Coming Soon
-                  </span>
-                  <span>·</span>
-                  <span>Property &amp; Brokerage Desk</span>
-                  <span>·</span>
-                  <span className="text-emerald-400">0% Direct Owner Brokerage</span>
-                </div>
-                <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
-                  Property &amp; Brokerage Is Coming Soon
-                </h1>
-                <p className="text-sm text-slate-300 max-w-2xl leading-relaxed">
-                  We are finalizing verified BBMP A-Khata property audits, live PG &amp; rental house inventory, BDA/DTCP land parcels, and automated Karnataka tenancy agreements for launch.
-                </p>
-              </div>
-
-              <button
-                type="button"
-                id="btn-broker-beta-preview"
-                onClick={() => setShowBetaWorkspace(true)}
-                className="px-3.5 py-2 rounded-lg bg-slate-950 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-700 text-xs font-semibold flex items-center gap-1.5 shrink-0 transition self-start"
-              >
-                <Key className="w-3.5 h-3.5 text-amber-400" />
-                <span>Owner Beta Preview</span>
-              </button>
-            </div>
-
-            {/* Upcoming Modules Overview */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-              <div className="p-4 rounded-lg bg-slate-950 border border-slate-800 space-y-1.5">
-                <Building className="w-4 h-4 text-amber-400" />
-                <div className="text-sm font-semibold text-white">PG &amp; Co-Living</div>
-                <p className="text-xs text-slate-400 leading-relaxed">
-                  Bed-level availability, trilingual listings, meals schedule, and Google Live street access.
-                </p>
-              </div>
-
-              <div className="p-4 rounded-lg bg-slate-950 border border-slate-800 space-y-1.5">
-                <Home className="w-4 h-4 text-emerald-400" />
-                <div className="text-sm font-semibold text-white">Rent Houses &amp; Floors</div>
-                <p className="text-xs text-slate-400 leading-relaxed">
-                  Independent 2BHK &amp; 3BHK builder floors with Vastu verification and direct owner leasing.
-                </p>
-              </div>
-
-              <div className="p-4 rounded-lg bg-slate-950 border border-slate-800 space-y-1.5">
-                <MapPin className="w-4 h-4 text-sky-400" />
-                <div className="text-sm font-semibold text-white">Buy Villas &amp; Land</div>
-                <p className="text-xs text-slate-400 leading-relaxed">
-                  RERA-verified residences and BDA/DTCP plots with built-in EMI and 30-year EC audits.
-                </p>
-              </div>
-
-              <div className="p-4 rounded-lg bg-slate-950 border border-slate-800 space-y-1.5">
-                <FileText className="w-4 h-4 text-amber-400" />
-                <div className="text-sm font-semibold text-white">Agreements &amp; ROI</div>
-                <p className="text-xs text-slate-400 leading-relaxed">
-                  Karnataka e-Stamp rental agreement desk, AI property matchmaker, and yield simulator.
-                </p>
-              </div>
-            </div>
-
-            {/* Priority Launch Notification + Direct Studio Contact */}
-            <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 pt-2">
-              <form
-                onSubmit={handleJoinWaitlist}
-                className="lg:col-span-3 p-5 rounded-xl bg-slate-950 border border-slate-800 space-y-4"
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2 text-sm font-semibold text-white">
-                    <Bell className="w-4 h-4 text-amber-400" />
-                    <span>Notify Me at Launch</span>
-                  </div>
-                  {waitlistCount > 0 && (
-                    <span className="text-[11px] font-mono text-emerald-400 tabular-nums">
-                      {waitlistCount} registered
-                    </span>
-                  )}
-                </div>
-
-                {waitlistSubmitted && (
-                  <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs flex items-center gap-2">
-                    <CheckCircle2 className="w-4 h-4 shrink-0" />
-                    <span>
-                      Registered for early access. Our brokerage desk will reach out prior to public launch.
-                    </span>
-                  </div>
-                )}
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-medium text-slate-300 mb-1">Full Name</label>
-                    <input
-                      type="text"
-                      required
-                      value={waitlistName}
-                      onChange={(e) => setWaitlistName(e.target.value)}
-                      placeholder="e.g. Karthik Rao"
-                      className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white focus:border-amber-500 focus:outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-slate-300 mb-1">Phone or Email</label>
-                    <input
-                      type="text"
-                      required
-                      value={waitlistContact}
-                      onChange={(e) => setWaitlistContact(e.target.value)}
-                      placeholder="+91 98450 00000 or email"
-                      className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white focus:border-amber-500 focus:outline-none"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-slate-300 mb-1">Primary Interest</label>
-                  <select
-                    value={waitlistInterest}
-                    onChange={(e) => setWaitlistInterest(e.target.value as any)}
-                    className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white focus:border-amber-500 focus:outline-none"
-                  >
-                    <option value="pg">PG &amp; Co-Living Accommodation</option>
-                    <option value="rent_house">Rental House / Independent Floor</option>
-                    <option value="buy_house">Buy House / Turnkey Villa</option>
-                    <option value="land_plot">BDA / DTCP Land &amp; Plots</option>
-                    <option value="sell_property">List My Property (0% Brokerage)</option>
-                  </select>
-                </div>
-
-                <button
-                  type="submit"
-                  className="px-5 py-2.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold text-xs inline-flex items-center gap-2 transition"
-                >
-                  <Bell className="w-3.5 h-3.5" />
-                  <span>Request Early Access</span>
-                </button>
-              </form>
-
-              <div className="lg:col-span-2 p-5 rounded-xl bg-slate-950 border border-slate-800 flex flex-col justify-between space-y-4">
-                <div className="space-y-2">
-                  <div className="text-[11px] font-mono uppercase tracking-wider text-amber-400">
-                    Direct Brokerage Desk
-                  </div>
-                  <div className="text-base font-bold text-white">Ar. S. Gouse Studio</div>
-                  <p className="text-xs text-slate-400 leading-relaxed">
-                    Need immediate assistance leasing a PG suite, renting a floor, or verifying land titles in Bangalore before launch? Reach our desk directly.
-                  </p>
-                </div>
-
-                <div className="space-y-2">
-                  <a
-                    href="https://wa.me/918073947241?text=Hello%20Ar.%20Gouse,%20I%20would%20like%20early%20access%20to%20Property%20%26%20Brokerage%20listings."
-                    target="_blank"
-                    rel="noreferrer"
-                    className="w-full py-2.5 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs flex items-center justify-center gap-2 transition"
-                  >
-                    <MessageSquare className="w-3.5 h-3.5" />
-                    <span>WhatsApp +91 80739 47241</span>
-                  </a>
-                  <a
-                    href="tel:+918073947241"
-                    className="w-full py-2 px-3 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-800 font-semibold text-xs flex items-center justify-center gap-2 transition"
-                  >
-                    <Phone className="w-3.5 h-3.5 text-amber-400" />
-                    <span>Call Studio Desk</span>
-                  </a>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      ) : (
       <div className="max-w-7xl mx-auto px-4 lg:px-8 py-6 space-y-6">
-        <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5 rounded-lg bg-slate-900 border border-slate-800 text-xs">
-          <div className="flex items-center gap-2 text-slate-300 font-mono">
-            <Clock className="w-3.5 h-3.5 text-amber-400" />
-            <span>Owner Beta Preview · Public status is set to Coming Soon</span>
+        {waitlistCount > 0 && (
+          <div className="flex items-center justify-between gap-2 px-4 py-2 rounded-lg bg-slate-900 border border-slate-800 text-xs text-slate-300 font-mono">
+            <span>Direct Owner Brokerage Active · Priority inquiries tracked: {waitlistCount}</span>
           </div>
-          <button
-            type="button"
-            onClick={() => setShowBetaWorkspace(false)}
-            className="px-3 py-1 rounded-md bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold transition"
-          >
-            Back to Coming Soon View
-          </button>
-        </div>
+        )}
         {/* ========================================================================= */}
         {/* 1. GOUSE AI AGENT BROKER: MASTER BRANDING & HERO BANNER                    */}
         {/* ========================================================================= */}
@@ -1819,7 +1603,6 @@ TERMS & CONDITIONS:
       )}
 
       </div>
-      )}
 
       {/* DEDICATED SEPARATE GOUSE AI AGENT BROKER AUTHENTICATION MODAL */}
       <BrokerAuthModal

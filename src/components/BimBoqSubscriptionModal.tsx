@@ -36,8 +36,14 @@ export interface SubscriptionInfo {
 }
 
 export const getBimBoqSubscription = (): SubscriptionInfo => {
+  if (typeof window === 'undefined') {
+    return {
+      isSubscribed: false,
+      amount: 1500,
+    };
+  }
   try {
-    const raw = localStorage.getItem('gouse_bim_boq_subscription');
+    const raw = window.localStorage.getItem('gouse_bim_boq_subscription');
     if (raw) {
       const parsed = JSON.parse(raw);
       if (parsed && parsed.isSubscribed) {
@@ -54,8 +60,9 @@ export const getBimBoqSubscription = (): SubscriptionInfo => {
 };
 
 export const setBimBoqSubscription = (info: SubscriptionInfo) => {
+  if (typeof window === 'undefined') return;
   try {
-    localStorage.setItem('gouse_bim_boq_subscription', JSON.stringify(info));
+    window.localStorage.setItem('gouse_bim_boq_subscription', JSON.stringify(info));
   } catch (e) {
     console.error('Error saving subscription to storage', e);
   }
@@ -73,6 +80,7 @@ export const BimBoqSubscriptionModal: React.FC<BimBoqSubscriptionModalProps> = (
   const [activationSuccess, setActivationSuccess] = useState(false);
   const [upiIdInput, setUpiIdInput] = useState('user@upi');
   const [cardNumber, setCardNumber] = useState('•••• •••• •••• 4242');
+  const [confirmCancel, setConfirmCancel] = useState(false);
 
   useEffect(() => {
     setSubInfo(getBimBoqSubscription());
@@ -110,14 +118,17 @@ export const BimBoqSubscriptionModal: React.FC<BimBoqSubscriptionModalProps> = (
   };
 
   const handleCancelSubscription = () => {
-    if (window.confirm('Are you sure you want to cancel the BIM & BOQ Agent annual subscription?')) {
-      const cancelled: SubscriptionInfo = {
-        isSubscribed: false,
-        amount: 1500,
-      };
-      setBimBoqSubscription(cancelled);
-      setSubInfo(cancelled);
+    if (!confirmCancel) {
+      setConfirmCancel(true);
+      return;
     }
+    const cancelled: SubscriptionInfo = {
+      isSubscribed: false,
+      amount: 1500,
+    };
+    setBimBoqSubscription(cancelled);
+    setSubInfo(cancelled);
+    setConfirmCancel(false);
   };
 
   const handleDownloadInvoice = () => {
@@ -229,7 +240,7 @@ Thank you for trusting Gouse AI Autonomous Execution Agent.`;
               </div>
             </div>
 
-            <div className="flex items-center gap-2 pt-1">
+            <div className="flex flex-wrap items-center gap-2 pt-1">
               <button
                 type="button"
                 onClick={handleDownloadInvoice}
@@ -238,13 +249,33 @@ Thank you for trusting Gouse AI Autonomous Execution Agent.`;
                 <Download className="w-3.5 h-3.5 text-cyan-400" />
                 <span>Download Tax Invoice</span>
               </button>
-              <button
-                type="button"
-                onClick={handleCancelSubscription}
-                className="px-3 py-1.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 text-xs font-medium transition"
-              >
-                Cancel Subscription
-              </button>
+              {!confirmCancel ? (
+                <button
+                  type="button"
+                  onClick={handleCancelSubscription}
+                  className="px-3 py-1.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 text-xs font-medium transition"
+                >
+                  Cancel Subscription
+                </button>
+              ) : (
+                <div className="flex items-center gap-2 bg-rose-950/50 border border-rose-500/40 rounded-xl px-2.5 py-1">
+                  <span className="text-[11px] text-rose-200">Confirm cancel?</span>
+                  <button
+                    type="button"
+                    onClick={handleCancelSubscription}
+                    className="px-2 py-0.5 rounded bg-rose-600 hover:bg-rose-500 text-white text-[11px] font-semibold"
+                  >
+                    Yes, Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmCancel(false)}
+                    className="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px]"
+                  >
+                    Keep
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         )}

@@ -74,6 +74,7 @@ import {
   Atom,
 } from 'lucide-react';
 import { SpecialistType, ChatMessage, Project, BOQItem, AgentAction } from '../types';
+import { SuperAgentCommandCenter } from './SuperAgentCommandCenter';
 
 export interface ArchitecturalProblem {
   id: string;
@@ -1293,6 +1294,7 @@ interface SpecialistChatViewProps {
   onUpdateProject?: (project: Project) => void;
   onNavigateToBOQ?: () => void;
   onOpenWorkflowEngine?: () => void;
+  onOpenNaturalVoiceChat?: () => void;
 }
 
 interface SpecialistConfig {
@@ -1534,6 +1536,7 @@ export const SpecialistChatView: React.FC<SpecialistChatViewProps> = ({
   onUpdateProject,
   onNavigateToBOQ,
   onOpenWorkflowEngine,
+  onOpenNaturalVoiceChat,
 }) => {
   const [selectedSpecialist, setSelectedSpecialist] = useState<SpecialistType>('general');
   const [selectedLanguage, setSelectedLanguage] = useState('en-IN');
@@ -1655,13 +1658,24 @@ export const SpecialistChatView: React.FC<SpecialistChatViewProps> = ({
   }, [autonomousPowerActive, continuousAutoPilot, activeProject]);
 
   // Advanced Voice Settings
-  const [autoSpeakEnabled, setAutoSpeakEnabled] = useState(false);
+  const [autoSpeakEnabled, setAutoSpeakEnabled] = useState(true);
   const [playbackSpeed, setPlaybackSpeed] = useState<number>(1.0);
   const [isGeneratingAudio, setIsGeneratingAudio] = useState<string | null>(null);
   const [walkieTalkieActive, setWalkieTalkieActive] = useState(false);
+  const walkieTalkieRef = useRef(false);
+  const inputMessageRef = useRef('');
+  const hasSentVoiceTurnRef = useRef(false);
+
+  useEffect(() => {
+    walkieTalkieRef.current = walkieTalkieActive;
+  }, [walkieTalkieActive]);
+
+  useEffect(() => {
+    inputMessageRef.current = inputMessage;
+  }, [inputMessage]);
 
   // Architecture GUI Problem Solver & Visual Canvas State
-  const [studioTab, setStudioTab] = useState<'gui_solver' | 'cad_canvas' | 'agent_mesh' | 'chat_voice'>('gui_solver');
+  const [studioTab, setStudioTab] = useState<'super_agent' | 'gui_solver' | 'cad_canvas' | 'agent_mesh' | 'chat_voice'>('super_agent');
   const [problems, setProblems] = useState<ArchitecturalProblem[]>(INITIAL_ARCHITECTURAL_PROBLEMS);
   const [selectedProblemId, setSelectedProblemId] = useState<string>(INITIAL_ARCHITECTURAL_PROBLEMS[0].id);
   const [problemCategoryFilter, setProblemCategoryFilter] = useState<string>('all');
@@ -2778,6 +2792,7 @@ ${autonomousPowerActive ? '*Autonomous Agent Status: All price hedge actions are
 
     setIsListening(true);
     setVoiceTranscript('');
+    hasSentVoiceTurnRef.current = false;
 
     // Start MediaRecorder in parallel for foolproof capture
     try {
@@ -2791,15 +2806,20 @@ ${autonomousPowerActive ? '*Autonomous Agent Status: All price hedge actions are
         if (e.data && e.data.size > 0) chatAudioChunksRef.current.push(e.data);
       };
       recorder.onstop = async () => {
+        if (hasSentVoiceTurnRef.current) {
+          chatAudioChunksRef.current = [];
+          return;
+        }
         if (chatAudioChunksRef.current.length > 0) {
           const blob = new Blob(chatAudioChunksRef.current, { type: mimeType });
           chatAudioChunksRef.current = [];
           const reader = new FileReader();
           reader.onloadend = async () => {
+            if (hasSentVoiceTurnRef.current) return;
             const base64Data = (reader.result as string)?.split(',')[1];
             if (base64Data) {
               try {
-                const res = await fetch('/api/voice/gemini-audio', {
+                const res = await fetch('/api/voice/natural-chat', {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({
@@ -2807,14 +2827,19 @@ ${autonomousPowerActive ? '*Autonomous Agent Status: All price hedge actions are
                     mimeType,
                     activeTab: 'specialist',
                     activeProject,
+                    language: selectedLanguage,
+                    voiceName: activeSpecialistObj.voiceName,
+                    specialist: selectedSpecialist,
                   }),
                 });
                 if (res.ok) {
                   const data = await res.json();
-                  if (data.transcript && data.transcript !== 'Voice recorded') {
+                  if (data.transcript && data.transcript !== 'Voice message' && !hasSentVoiceTurnRef.current) {
                     setVoiceTranscript(data.transcript);
                     setInputMessage(data.transcript);
-                    if (walkieTalkieActive) {
+                    inputMessageRef.current = data.transcript;
+                    if (walkieTalkieRef.current) {
+                      hasSentVoiceTurnRef.current = true;
                       handleSendMessage(data.transcript);
                     }
                   }
@@ -2833,7 +2858,7 @@ ${autonomousPowerActive ? '*Autonomous Agent Status: All price hedge actions are
       console.warn('Microphone stream notice in Specialist chat:', micErr);
     }
 
-    // Also run SpeechRecognition for instant client preview
+    // Also run SpeechRecognition for instant live transcript preview
     const SpeechRecognition =
       (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
 
@@ -2855,6 +2880,7 @@ ${autonomousPowerActive ? '*Autonomous Agent Status: All price hedge actions are
           }
           setVoiceTranscript(transcript);
           setInputMessage(transcript);
+          inputMessageRef.current = transcript;
         };
 
         recognition.onerror = (err: any) => {
@@ -2862,6 +2888,11 @@ ${autonomousPowerActive ? '*Autonomous Agent Status: All price hedge actions are
         };
 
         recognition.onend = () => {
+          const pendingText = inputMessageRef.current.trim();
+          if (walkieTalkieRef.current && pendingText && !hasSentVoiceTurnRef.current) {
+            hasSentVoiceTurnRef.current = true;
+            handleSendMessage(pendingText);
+          }
           if (chatMediaRecorderRef.current && chatMediaRecorderRef.current.state === 'recording') {
             try {
               chatMediaRecorderRef.current.stop();
@@ -2870,9 +2901,6 @@ ${autonomousPowerActive ? '*Autonomous Agent Status: All price hedge actions are
             }
           }
           setIsListening(false);
-          if (walkieTalkieActive && inputMessage.trim()) {
-            handleSendMessage(inputMessage.trim());
-          }
         };
 
         recognitionRef.current = recognition;
@@ -2957,9 +2985,8 @@ ${autonomousPowerActive ? '*Autonomous Agent Status: All price hedge actions are
       audio.onended = () => {
         setSpeakingMessageId(null);
         currentAudioRef.current = null;
-        if (walkieTalkieActive) {
-          // Auto-prompt user for next question in walkie talkie mode
-          setTimeout(() => toggleVoiceInput(), 500);
+        if (walkieTalkieRef.current) {
+          setTimeout(() => toggleVoiceInput(), 400);
         }
       };
 
@@ -2993,8 +3020,8 @@ ${autonomousPowerActive ? '*Autonomous Agent Status: All price hedge actions are
 
     utterance.onend = () => {
       setSpeakingMessageId(null);
-      if (walkieTalkieActive) {
-        setTimeout(() => toggleVoiceInput(), 500);
+      if (walkieTalkieRef.current) {
+        setTimeout(() => toggleVoiceInput(), 400);
       }
     };
 
@@ -3400,6 +3427,19 @@ For **${activeProject.name || 'this proposal'}** (${activeProject.projectType ||
             <span>Auto-Speak {autoSpeakEnabled ? 'ON' : 'OFF'}</span>
           </button>
 
+          {onOpenNaturalVoiceChat && (
+            <button
+              id="btn-specialist-open-voice-call"
+              type="button"
+              onClick={onOpenNaturalVoiceChat}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold transition bg-emerald-500/15 border-emerald-500/40 text-emerald-300 hover:bg-emerald-500/25 whitespace-nowrap"
+              title="Open hands-free two-way natural voice conversation"
+            >
+              <Radio className="w-3.5 h-3.5" />
+              <span>Live Voice Call</span>
+            </button>
+          )}
+
           {/* Walkie-Talkie Continuous Voice Mode */}
           <button
             id="toggle-walkie-talkie"
@@ -3407,7 +3447,7 @@ For **${activeProject.name || 'this proposal'}** (${activeProject.projectType ||
             onClick={() => setWalkieTalkieActive(!walkieTalkieActive)}
             className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-mono transition ${
               walkieTalkieActive
-                ? 'bg-emerald-500 text-slate-950 border-emerald-400 font-semibold shadow-sm animate-pulse'
+                ? 'bg-emerald-500 text-slate-950 border-emerald-400 font-semibold shadow-sm'
                 : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white'
             }`}
             title="Continuous hands-free voice dialogue with the specialist"
@@ -3464,6 +3504,34 @@ For **${activeProject.name || 'this proposal'}** (${activeProject.projectType ||
       {/* Gouse AI Specialist Studio Mode Selector */}
       <div className="flex items-center gap-1.5 p-1.5 bg-slate-900 border border-slate-800 rounded-xl overflow-x-auto scrollbar-none">
         <button
+          id="tab-super-agent"
+          type="button"
+          onClick={() => setStudioTab('super_agent')}
+          className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold transition whitespace-nowrap ${
+            studioTab === 'super_agent'
+              ? 'bg-amber-500 text-slate-950 font-bold'
+              : 'text-slate-300 hover:text-white hover:bg-slate-800'
+          }`}
+        >
+          <Sparkles className="w-3.5 h-3.5" />
+          <span>Super Agent Command (8 Agents)</span>
+        </button>
+
+        <button
+          id="tab-chat-voice"
+          type="button"
+          onClick={() => setStudioTab('chat_voice')}
+          className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold transition whitespace-nowrap ${
+            studioTab === 'chat_voice'
+              ? 'bg-amber-500 text-slate-950 font-bold'
+              : 'text-slate-300 hover:text-white hover:bg-slate-800'
+          }`}
+        >
+          <Mic className="w-3.5 h-3.5" />
+          <span>Voice &amp; Specialist Chat</span>
+        </button>
+
+        <button
           id="tab-gui-solver"
           type="button"
           onClick={() => setStudioTab('gui_solver')}
@@ -3504,21 +3572,27 @@ For **${activeProject.name || 'this proposal'}** (${activeProject.projectType ||
           <Network className="w-3.5 h-3.5" />
           <span>Agent Mesh (7 Active)</span>
         </button>
-
-        <button
-          id="tab-chat-voice"
-          type="button"
-          onClick={() => setStudioTab('chat_voice')}
-          className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold transition whitespace-nowrap ${
-            studioTab === 'chat_voice'
-              ? 'bg-amber-500 text-slate-950 font-bold'
-              : 'text-slate-300 hover:text-white hover:bg-slate-800'
-          }`}
-        >
-          <Mic className="w-3.5 h-3.5" />
-          <span>Voice &amp; Specialist Chat</span>
-        </button>
       </div>
+
+      {/* ========================================================================= */}
+      {/* TAB 0: SUPER AGENT COMMAND CENTER (8 COORDINATED SPECIALIST AGENTS)      */}
+      {/* ========================================================================= */}
+      {studioTab === 'super_agent' && (
+        <SuperAgentCommandCenter
+          activeProject={activeProject}
+          boqItems={boqItems || []}
+          currency={currency}
+          onUpdateBOQItems={onUpdateBOQItems}
+          onUpdateProject={onUpdateProject}
+          onNavigateToBOQ={onNavigateToBOQ}
+          onOpenWorkflowEngine={onOpenWorkflowEngine}
+          onSendToSpecialistChat={(prompt) => {
+            setStudioTab('chat_voice');
+            setInputMessage(prompt);
+          }}
+          onNotify={(message, type = 'success') => setToastNotification({ message, type })}
+        />
+      )}
 
       {/* ========================================================================= */}
       {/* TAB 1: ARCHITECTURE GUI PROBLEM SOLVER (THROUGH & THROUGH SOLVER)        */}
@@ -6123,7 +6197,7 @@ For **${activeProject.name || 'this proposal'}** (${activeProject.projectType ||
                   {selectedEngine === 'hydrogen'
                     ? 'Google Gemini 4 Hydrogen (gemini-4-hydrogen) • Next-gen adaptive reasoning, multimodal CAD & BOQ synthesis'
                     : selectedEngine === 'gemini'
-                    ? 'Google Gemini 3.8 Flash • Multi-modal CAD visual parsing, high-speed inference & native voice'
+                    ? 'Google Gemini 4 Hydrogen · Multi-modal CAD visual parsing, adaptive reasoning & natural voice'
                     : selectedEngine === 'chatgpt'
                     ? 'OpenAI ChatGPT (GPT-4o) • Granular structural engineering logic, NBC 2016 Part 4 & BOQ math'
                     : 'Dual AI Ensemble • Cross-verifies spatial geometry with structural calculations for zero-error consensus'}

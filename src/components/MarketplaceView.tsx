@@ -284,7 +284,11 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
     const text = encodeURIComponent(
       `Hello ${prof.name} (${prof.company}),\n\nI am contacting you from the Gouse AI Agent Workspace regarding an upcoming project in ${prof.location || 'Bangalore'}.\n\n${customScope ? `Scope: ${customScope}\n\n` : ''}We would like to request your quotation and discuss availability.`
     );
-    window.open(`https://wa.me/${cleanNum}?text=${text}`, '_blank');
+    const a = document.createElement('a');
+    a.href = `https://wa.me/${cleanNum}?text=${text}`;
+    a.target = '_blank';
+    a.rel = 'noopener noreferrer';
+    a.click();
   };
 
   // Request Live Vendor Quote on an Enquiry

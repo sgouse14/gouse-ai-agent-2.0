@@ -445,7 +445,11 @@ export const SiteVisitCameraModal: React.FC<SiteVisitCameraModalProps> = ({
         `Summary: ${auditResult.summary}\n\n` +
         `Inspected by Ar. S. Gouse Structural Intelligence System (+91 8073947241)`
     );
-    window.open(`https://wa.me/918073947241?text=${text}`, '_blank');
+    const a = document.createElement('a');
+    a.href = `https://wa.me/918073947241?text=${text}`;
+    a.target = '_blank';
+    a.rel = 'noopener noreferrer';
+    a.click();
   };
 
   // Print audit report

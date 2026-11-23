@@ -54,10 +54,15 @@ import {
   X,
   Mail,
   RefreshCw,
+  Pencil,
+  FileText,
+  Clock,
+  Wand2,
 } from 'lucide-react';
-import { Project, TeamMember, AuditEvent } from '../types';
+import { Project, TeamMember, AuditEvent, ProjectFile } from '../types';
 import { formatDate, CurrencyCode } from '../utils/formatters';
 import { AVATARS } from '../utils/mediaAssets';
+import { StudioToolkitTab } from './StudioToolkitModal';
 
 export const PRESET_PORTRAITS = [
   {
@@ -125,10 +130,21 @@ interface ProjectsViewProps {
   onSelectProject: (id: string) => void;
   onUpdateProject: (updated: Project) => void;
   onCreateProject: (newProj: Partial<Project>) => void;
+  onDeleteProject?: (id: string) => void;
   onOpenWorkflowEngine?: () => void;
   onOpenSiteCamera?: () => void;
+  onOpenStudioToolkit?: (tab?: StudioToolkitTab) => void;
   currency?: CurrencyCode;
 }
+
+const PROJECT_STATUS_STAGES: Array<{ id: Project['status']; label: string }> = [
+  { id: 'planning', label: 'Planning' },
+  { id: 'design_development', label: 'Design Dev' },
+  { id: 'documentation', label: 'Documentation' },
+  { id: 'tender', label: 'Tender' },
+  { id: 'construction', label: 'Construction' },
+  { id: 'completed', label: 'Completed' },
+];
 
 export const ProjectsView: React.FC<ProjectsViewProps> = ({
   projects,
@@ -136,17 +152,32 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
   onSelectProject,
   onUpdateProject,
   onCreateProject,
+  onDeleteProject,
   onOpenWorkflowEngine,
   onOpenSiteCamera,
+  onOpenStudioToolkit,
   currency = 'INR',
 }) => {
-  const [activeTab, setActiveTab] = useState<'team' | 'site_audits'>('team');
+  const [activeTab, setActiveTab] = useState<'team' | 'site_audits' | 'audit_files'>('team');
   const [isCreatingProject, setIsCreatingProject] = useState(false);
   const [newProjectName, setNewProjectName] = useState('');
   const [newProjectType, setNewProjectType] = useState('Residential Architecture');
   const [newLocation, setNewLocation] = useState('');
   const [newArea, setNewArea] = useState<number>(3500);
   const [newDescription, setNewDescription] = useState('');
+
+  // Edit / Delete Project Modal state
+  const [isEditingProject, setIsEditingProject] = useState(false);
+  const [editName, setEditName] = useState('');
+  const [editType, setEditType] = useState('Residential Architecture');
+  const [editLocation, setEditLocation] = useState('');
+  const [editArea, setEditArea] = useState<number>(3500);
+  const [editStatus, setEditStatus] = useState<Project['status']>('planning');
+  const [editContingency, setEditContingency] = useState<number>(10);
+  const [editDescription, setEditDescription] = useState('');
+  const [confirmDeleteProject, setConfirmDeleteProject] = useState(false);
+  const [isDraftingBrief, setIsDraftingBrief] = useState(false);
+  const [manualLogNote, setManualLogNote] = useState('');
 
   // Safe accessors for active project properties
   const members = activeProject?.members || [];
@@ -201,7 +232,7 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
     onCreateProject({
       name: newProjectName.trim(),
       projectType: newProjectType,
-      location: newLocation.trim() || 'Global',
+      location: newLocation.trim() || 'Bangalore, India',
       builtUpAreaSqFt: Number(newArea) || 2500,
       description: newDescription.trim() || 'Custom architectural project brief.',
       status: 'planning',
@@ -211,6 +242,197 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
     setNewLocation('');
     setNewDescription('');
     setIsCreatingProject(false);
+  };
+
+  const handleOpenEditProject = () => {
+    setEditName(activeProject.name || '');
+    setEditType(activeProject.projectType || 'Residential Architecture');
+    setEditLocation(activeProject.location || 'Bangalore, India');
+    setEditArea(activeProject.builtUpAreaSqFt || 3500);
+    setEditStatus(activeProject.status || 'planning');
+    setEditContingency(activeProject.contingencyPercent ?? 10);
+    setEditDescription(activeProject.description || '');
+    setConfirmDeleteProject(false);
+    setIsEditingProject(true);
+  };
+
+  const handleSaveEditProject = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editName.trim()) return;
+    const validArea = Math.max(100, Number(editArea) || 2500);
+    const validCont = Math.min(35, Math.max(0, Number(editContingency) || 0));
+    const currentLogs = activeProject?.auditLogs || [];
+    const updated: Project = {
+      ...activeProject,
+      name: editName.trim(),
+      projectType: editType,
+      location: editLocation.trim() || 'Bangalore, India',
+      builtUpAreaSqFt: validArea,
+      status: editStatus,
+      contingencyPercent: validCont,
+      description: editDescription.trim(),
+      updatedAt: new Date().toISOString(),
+      auditLogs: [
+        {
+          id: `log-edit-${Date.now()}`,
+          projectId: activeProject.id,
+          actor: 'Gouse AI Studio',
+          action: 'Project Parameters Updated',
+          details: `Updated ${editName.trim()} (${validArea.toLocaleString()} sq.ft · ${editStatus.replace('_', ' ')} · Contingency ${validCont}%)`,
+          timestamp: new Date().toISOString(),
+        },
+        ...currentLogs,
+      ],
+    };
+    onUpdateProject(updated);
+    setIsEditingProject(false);
+  };
+
+  const handleQuickStatusChange = (nextStatus: Project['status']) => {
+    if (nextStatus === activeProject.status) return;
+    const currentLogs = activeProject?.auditLogs || [];
+    onUpdateProject({
+      ...activeProject,
+      status: nextStatus,
+      updatedAt: new Date().toISOString(),
+      auditLogs: [
+        {
+          id: `log-status-${Date.now()}`,
+          projectId: activeProject.id,
+          actor: 'Gouse AI Studio',
+          action: 'Stage Advanced',
+          details: `Moved project stage to "${nextStatus.replace('_', ' ')}"`,
+          timestamp: new Date().toISOString(),
+        },
+        ...currentLogs,
+      ],
+    });
+  };
+
+  const handleDraftProjectBriefWithAi = async (mode: 'create' | 'edit') => {
+    setIsDraftingBrief(true);
+    try {
+      const payload =
+        mode === 'create'
+          ? {
+              name: newProjectName || 'Architectural Project',
+              projectType: newProjectType,
+              location: newLocation || 'Bangalore, India',
+              builtUpAreaSqFt: newArea,
+            }
+          : {
+              name: editName || activeProject.name,
+              projectType: editType,
+              location: editLocation || activeProject.location,
+              builtUpAreaSqFt: editArea,
+            };
+
+      const res = await fetch('/api/projects/ai-brief', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data?.description) {
+          if (mode === 'create') {
+            setNewDescription(data.description);
+          } else {
+            setEditDescription(data.description);
+            if (typeof data.recommendedContingency === 'number') {
+              setEditContingency(data.recommendedContingency);
+            }
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Failed to auto-draft project brief:', err);
+    } finally {
+      setIsDraftingBrief(false);
+    }
+  };
+
+  const handleAttachProjectFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const sizeLabel =
+      file.size >= 1024 * 1024
+        ? `${(file.size / (1024 * 1024)).toFixed(2)} MB`
+        : `${Math.max(1, Math.round(file.size / 1024))} KB`;
+    const isTextLike = /\.(txt|md|csv|json|dxf)$/i.test(file.name);
+
+    const finalizeAttach = (extractedText?: string) => {
+      const newFile: ProjectFile = {
+        id: `file-${Date.now()}`,
+        name: file.name,
+        size: sizeLabel,
+        type: file.type || file.name.split('.').pop()?.toUpperCase() || 'DOC',
+        uploadDate: new Date().toISOString(),
+        extractedText,
+      };
+      onUpdateProject({
+        ...activeProject,
+        files: [newFile, ...(activeProject.files || [])],
+        auditLogs: [
+          {
+            id: `log-file-${Date.now()}`,
+            projectId: activeProject.id,
+            actor: 'Gouse AI Studio',
+            action: 'Document Uploaded',
+            details: `Attached "${file.name}" (${sizeLabel}) to project repository`,
+            timestamp: new Date().toISOString(),
+          },
+          ...(activeProject.auditLogs || []),
+        ],
+      });
+    };
+
+    if (isTextLike && file.size < 400_000) {
+      const reader = new FileReader();
+      reader.onload = (ev) => finalizeAttach(String(ev.target?.result || '').slice(0, 6000));
+      reader.readAsText(file);
+    } else {
+      finalizeAttach();
+    }
+    e.target.value = '';
+  };
+
+  const handleRemoveProjectFile = (fileId: string, fileName: string) => {
+    onUpdateProject({
+      ...activeProject,
+      files: (activeProject.files || []).filter((f) => f.id !== fileId),
+      auditLogs: [
+        {
+          id: `log-del-file-${Date.now()}`,
+          projectId: activeProject.id,
+          actor: 'Gouse AI Studio',
+          action: 'Document Removed',
+          details: `Removed "${fileName}" from project repository`,
+          timestamp: new Date().toISOString(),
+        },
+        ...(activeProject.auditLogs || []),
+      ],
+    });
+  };
+
+  const handleAddManualLogNote = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!manualLogNote.trim()) return;
+    onUpdateProject({
+      ...activeProject,
+      auditLogs: [
+        {
+          id: `log-note-${Date.now()}`,
+          projectId: activeProject.id,
+          actor: 'Ar. S. Gouse / Studio',
+          action: 'Engineering Note',
+          details: manualLogNote.trim(),
+          timestamp: new Date().toISOString(),
+        },
+        ...(activeProject.auditLogs || []),
+      ],
+    });
+    setManualLogNote('');
   };
 
   const handleAddTeamMember = (e: React.FormEvent) => {
@@ -313,6 +535,16 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
               <span>New Project</span>
             </button>
 
+            <button
+              id="btn-open-edit-project"
+              type="button"
+              onClick={handleOpenEditProject}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-slate-950 border border-slate-800 hover:border-slate-700 px-3.5 py-2 text-xs font-medium text-slate-200 hover:text-white transition-colors whitespace-nowrap shrink-0"
+            >
+              <Pencil className="h-3.5 w-3.5 text-amber-400" />
+              <span>Edit Project</span>
+            </button>
+
             {onOpenWorkflowEngine && (
               <button
                 id="btn-projects-launch-workflow"
@@ -337,6 +569,57 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
                 <span>Site Camera</span>
               </button>
             )}
+
+            {onOpenStudioToolkit && (
+              <button
+                id="btn-projects-open-studio-toolkit"
+                type="button"
+                onClick={() => onOpenStudioToolkit('render')}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-slate-950 border border-slate-800 hover:border-amber-500/50 text-slate-200 hover:text-white font-medium text-xs transition-colors whitespace-nowrap shrink-0"
+                title="Open AI Render Studio, Smart Building SKA, Site Translator & Fee Dossier"
+              >
+                <Wand2 className="w-3.5 h-3.5 text-amber-400" />
+                <span>Studio Toolkit</span>
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Interactive Project Phase Pipeline Bar */}
+        <div className="pt-3 border-t border-slate-800/70">
+          <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+            <span className="text-[11px] font-medium text-slate-400">
+              Lifecycle Stage
+            </span>
+            <span className="text-[11px] font-mono text-slate-500">
+              Contingency Reserve: <strong className="text-slate-200 tabular-nums">{activeProject.contingencyPercent ?? 10}%</strong>
+            </span>
+          </div>
+          <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5">
+            {PROJECT_STATUS_STAGES.map((stage, idx) => {
+              const activeIdx = Math.max(
+                0,
+                PROJECT_STATUS_STAGES.findIndex((s) => s.id === activeProject.status)
+              );
+              const isCurrent = stage.id === activeProject.status;
+              const isPassed = idx < activeIdx;
+              return (
+                <button
+                  key={stage.id}
+                  type="button"
+                  onClick={() => handleQuickStatusChange(stage.id)}
+                  className={`px-2.5 py-1.5 rounded-lg text-[11px] font-medium border transition-colors text-center whitespace-nowrap ${
+                    isCurrent
+                      ? 'bg-amber-500 text-slate-950 border-amber-400 font-semibold'
+                      : isPassed
+                      ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30 hover:bg-emerald-500/20'
+                      : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-slate-200 hover:border-slate-700'
+                  }`}
+                >
+                  {stage.label}
+                </button>
+              );
+            })}
           </div>
         </div>
 
@@ -463,9 +746,20 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-slate-300 mb-1">
-                  Architectural Brief &amp; Scope
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-medium text-slate-300">
+                    Architectural Brief &amp; Scope
+                  </label>
+                  <button
+                    type="button"
+                    disabled={isDraftingBrief}
+                    onClick={() => handleDraftProjectBriefWithAi('create')}
+                    className="inline-flex items-center gap-1 text-[11px] font-medium text-amber-400 hover:text-amber-300 disabled:opacity-50"
+                  >
+                    <Sparkles className="w-3 h-3" />
+                    <span>{isDraftingBrief ? 'Drafting...' : 'AI Draft Brief'}</span>
+                  </button>
+                </div>
                 <textarea
                   id="input-project-desc"
                   rows={3}
@@ -497,8 +791,199 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
         </div>
       )}
 
+      {/* Modal for Editing & Deleting Active Project */}
+      {isEditingProject && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 overflow-y-auto">
+          <div className="bg-slate-900 border border-slate-700 rounded-xl max-w-lg w-full p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <h3 className="text-lg font-bold text-white">
+                Edit Project Details
+              </h3>
+              <button
+                type="button"
+                onClick={() => setIsEditingProject(false)}
+                className="text-slate-400 hover:text-white text-sm"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEditProject} className="space-y-4">
+              <div>
+                <label className="block text-xs font-medium text-slate-300 mb-1">
+                  Project Title *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:border-amber-500 focus:outline-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-slate-300 mb-1">
+                    Typology
+                  </label>
+                  <select
+                    value={editType}
+                    onChange={(e) => setEditType(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:border-amber-500 focus:outline-none"
+                  >
+                    <option value="Residential Architecture">Residential Architecture</option>
+                    <option value="Commercial Office High-Rise">Commercial Office High-Rise</option>
+                    <option value="PG & Co-Living Residential">PG &amp; Co-Living Residential</option>
+                    <option value="Hospitality & Eco-Resort">Hospitality &amp; Eco-Resort</option>
+                    <option value="Institutional & Educational">Institutional &amp; Educational</option>
+                    <option value="Industrial & Warehouse Facility">Industrial &amp; Warehouse</option>
+                    <option value="Adaptive Reuse & Conservation">Adaptive Reuse &amp; Conservation</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-slate-300 mb-1">
+                    Location
+                  </label>
+                  <input
+                    type="text"
+                    value={editLocation}
+                    onChange={(e) => setEditLocation(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:border-amber-500 focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-slate-300 mb-1">
+                    Built-Up Area (sq.ft)
+                  </label>
+                  <input
+                    type="number"
+                    min={100}
+                    step={50}
+                    value={editArea}
+                    onChange={(e) => setEditArea(Number(e.target.value))}
+                    className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white font-mono focus:border-amber-500 focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-slate-300 mb-1">
+                    Stage
+                  </label>
+                  <select
+                    value={editStatus}
+                    onChange={(e) => setEditStatus(e.target.value as Project['status'])}
+                    className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:border-amber-500 focus:outline-none"
+                  >
+                    {PROJECT_STATUS_STAGES.map((st) => (
+                      <option key={st.id} value={st.id}>{st.label}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-slate-300 mb-1">
+                    Contingency (%)
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    max={35}
+                    step={0.5}
+                    value={editContingency}
+                    onChange={(e) => setEditContingency(Number(e.target.value))}
+                    className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white font-mono focus:border-amber-500 focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-medium text-slate-300">
+                    Architectural Brief &amp; Scope
+                  </label>
+                  <button
+                    type="button"
+                    disabled={isDraftingBrief}
+                    onClick={() => handleDraftProjectBriefWithAi('edit')}
+                    className="inline-flex items-center gap-1 text-[11px] font-medium text-amber-400 hover:text-amber-300 disabled:opacity-50"
+                  >
+                    <Sparkles className="w-3 h-3" />
+                    <span>{isDraftingBrief ? 'Drafting...' : 'AI Draft Brief'}</span>
+                  </button>
+                </div>
+                <textarea
+                  rows={3}
+                  value={editDescription}
+                  onChange={(e) => setEditDescription(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:border-amber-500 focus:outline-none"
+                />
+              </div>
+
+              <div className="flex flex-wrap items-center justify-between gap-2 pt-3 border-t border-slate-800">
+                {projects.length > 1 && onDeleteProject ? (
+                  !confirmDeleteProject ? (
+                    <button
+                      type="button"
+                      onClick={() => setConfirmDeleteProject(true)}
+                      className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs text-rose-400 hover:bg-rose-500/10 transition"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>Delete Project</span>
+                    </button>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onDeleteProject(activeProject.id);
+                          setIsEditingProject(false);
+                        }}
+                        className="px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold"
+                      >
+                        Confirm Delete
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setConfirmDeleteProject(false)}
+                        className="px-2.5 py-1.5 rounded-lg bg-slate-800 text-slate-300 text-xs"
+                      >
+                        Keep
+                      </button>
+                    </div>
+                  )
+                ) : (
+                  <span className="text-[11px] text-slate-500">Primary workspace project</span>
+                )}
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsEditingProject(false)}
+                    className="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs text-slate-300 transition"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    id="btn-submit-edit-project"
+                    type="submit"
+                    className="px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold text-xs transition"
+                  >
+                    Save Changes
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* Sub-tabs Bar */}
-      <div className="border-b border-slate-800 flex items-center gap-2">
+      <div className="border-b border-slate-800 flex items-center gap-2 overflow-x-auto">
         <button
           id="tab-btn-team"
           type="button"
@@ -525,6 +1010,20 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
         >
           <Camera className="w-3.5 h-3.5" />
           <span>Site Audits &amp; Inspections ({activeProject.siteAudits?.length || 0})</span>
+        </button>
+
+        <button
+          id="tab-btn-audit-files"
+          type="button"
+          onClick={() => setActiveTab('audit_files')}
+          className={`flex items-center gap-2 px-4 py-2.5 text-xs font-medium border-b-2 transition-colors whitespace-nowrap ${
+            activeTab === 'audit_files'
+              ? 'border-amber-400 text-amber-400'
+              : 'border-transparent text-slate-400 hover:text-slate-200'
+          }`}
+        >
+          <History className="w-3.5 h-3.5" />
+          <span>Audit Log &amp; Documents ({auditLogs.length + (activeProject.files?.length || 0)})</span>
         </button>
       </div>
 
@@ -847,8 +1346,7 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
 
                         {/* Top-right badge: Active Status */}
                         <div className="absolute top-3 right-3 flex items-center gap-1.5">
-                          <span className="bg-emerald-950/80 backdrop-blur-md border border-emerald-500/40 text-emerald-300 text-[10px] font-mono font-bold px-2 py-0.5 rounded-full flex items-center gap-1 shadow-sm">
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                          <span className="bg-emerald-950/80 backdrop-blur-md border border-emerald-500/40 text-emerald-300 text-[10px] font-mono font-bold px-2 py-0.5 rounded flex items-center gap-1 shadow-sm">
                             ACTIVE
                           </span>
                         </div>
@@ -1079,7 +1577,7 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
                   <h3 className="text-lg font-bold text-white flex items-center gap-2">
                     <span>Site Visit Camera &amp; AI Visual Audits</span>
                     <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                      GEMINI 3.8 FLASH
+                      GEMINI 4 HYDROGEN
                     </span>
                   </h3>
                   <p className="text-xs text-slate-400">
@@ -1185,19 +1683,17 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
 
                     <div className="flex items-center justify-between pt-2 border-t border-slate-800/80 text-xs text-slate-400">
                       <span>{audit.observations?.length || 0} Observations checked</span>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const text = encodeURIComponent(
-                            `*GOUSE AI SITE AUDIT*\nProject: ${audit.projectName}\nStage: ${audit.stageName} (${audit.completionPercentage}%)\nScore: ${audit.qualityScore}/10\nSummary: ${audit.summary}`
-                          );
-                          window.open(`https://wa.me/918073947241?text=${text}`, '_blank');
-                        }}
+                      <a
+                        href={`https://wa.me/918073947241?text=${encodeURIComponent(
+                          `*GOUSE AI SITE AUDIT*\nProject: ${audit.projectName}\nStage: ${audit.stageName} (${audit.completionPercentage}%)\nScore: ${audit.qualityScore}/10\nSummary: ${audit.summary}`
+                        )}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
                         className="text-amber-400 hover:text-amber-300 font-medium flex items-center gap-1"
                       >
                         <Share2 className="w-3.5 h-3.5" />
                         <span>WhatsApp Ar. S. Gouse</span>
-                      </button>
+                      </a>
                     </div>
                   </div>
                 ))}
@@ -1227,6 +1723,125 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
               )}
             </div>
           )}
+        </div>
+      )}
+
+      {/* Tab: Project Audit Log & Documents */}
+      {activeTab === 'audit_files' && (
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          {/* Documents Repository */}
+          <section className="lg:col-span-5 rounded-xl bg-slate-900 border border-slate-800 p-5 space-y-4">
+            <div className="flex items-center justify-between gap-2 border-b border-slate-800 pb-3">
+              <div>
+                <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                  <FileText className="w-4 h-4 text-amber-400" />
+                  <span>Project Documents ({activeProject.files?.length || 0})</span>
+                </h3>
+                <p className="text-[11px] text-slate-400 mt-0.5">
+                  Drawings, specs, and reference sheets attached to this project
+                </p>
+              </div>
+              <label className="cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold text-xs transition">
+                <Upload className="w-3.5 h-3.5" />
+                <span>Attach File</span>
+                <input
+                  type="file"
+                  accept=".pdf,.dwg,.dxf,.xlsx,.csv,.txt,.md,.png,.jpg,.jpeg"
+                  onChange={handleAttachProjectFile}
+                  className="hidden"
+                />
+              </label>
+            </div>
+
+            {activeProject.files && activeProject.files.length > 0 ? (
+              <div className="space-y-2.5">
+                {activeProject.files.map((f) => (
+                  <div
+                    key={f.id}
+                    className="p-3 rounded-lg bg-slate-950 border border-slate-800 flex items-start justify-between gap-2"
+                  >
+                    <div className="min-w-0">
+                      <div className="text-xs font-semibold text-white truncate">{f.name}</div>
+                      <div className="text-[11px] font-mono text-slate-400 mt-0.5 tabular-nums">
+                        {f.size} · {formatDate(f.uploadDate)}
+                      </div>
+                      {f.extractedText && (
+                        <p className="text-[11px] text-slate-500 mt-1 line-clamp-2 font-mono">
+                          {f.extractedText}
+                        </p>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveProjectFile(f.id, f.name)}
+                      className="p-1.5 rounded-md text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition shrink-0"
+                      title={`Remove ${f.name}`}
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="p-6 rounded-lg bg-slate-950 border border-dashed border-slate-800 text-center text-xs text-slate-400">
+                No project files attached yet. Upload CAD drawings, PDFs, or BOQ spreadsheets above.
+              </div>
+            )}
+          </section>
+
+          {/* Audit Timeline & Engineering Notes */}
+          <section className="lg:col-span-7 rounded-xl bg-slate-900 border border-slate-800 p-5 space-y-4">
+            <div className="border-b border-slate-800 pb-3">
+              <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                <History className="w-4 h-4 text-amber-400" />
+                <span>Project Audit Trail ({auditLogs.length})</span>
+              </h3>
+              <p className="text-[11px] text-slate-400 mt-0.5">
+                Recorded workspace updates, BOQ actions, team changes, and field notes
+              </p>
+            </div>
+
+            <form onSubmit={handleAddManualLogNote} className="flex gap-2">
+              <input
+                type="text"
+                value={manualLogNote}
+                onChange={(e) => setManualLogNote(e.target.value)}
+                placeholder="Log an engineering decision, site directive, or client approval..."
+                className="flex-1 bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500"
+              />
+              <button
+                type="submit"
+                disabled={!manualLogNote.trim()}
+                className="px-3.5 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-white text-xs font-medium whitespace-nowrap transition"
+              >
+                Add Note
+              </button>
+            </form>
+
+            {auditLogs.length > 0 ? (
+              <div className="space-y-2.5 max-h-[440px] overflow-y-auto pr-1">
+                {auditLogs.map((ev) => (
+                  <div
+                    key={ev.id}
+                    className="p-3 rounded-lg bg-slate-950 border border-slate-800 space-y-1"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-xs font-semibold text-amber-300">{ev.action}</span>
+                      <span className="text-[11px] font-mono text-slate-500 tabular-nums shrink-0">
+                        {formatDate(ev.timestamp)}
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-300 leading-relaxed">{ev.details}</p>
+                    <div className="text-[10px] font-mono text-slate-500">Actor: {ev.actor}</div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="p-6 rounded-lg bg-slate-950 border border-dashed border-slate-800 text-center text-xs text-slate-400">
+                No audit events logged yet for this project.
+              </div>
+            )}
+          </section>
         </div>
       )}
 

@@ -220,134 +220,81 @@ export const AutonomousAgentExecutionCenter: React.FC<AutonomousAgentExecutionCe
     },
   ]);
 
-  // Handle User Prompting the Autonomous Agent
-  const handleExecuteAutonomousTask = (e: React.FormEvent) => {
+  const handleExecuteAutonomousTask = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!userGoalInput.trim()) return;
+    if (!userGoalInput.trim() || isExecutingGoal) return;
 
     const goal = userGoalInput.trim();
+    const lower = goal.toLowerCase();
     setUserGoalInput('');
     setIsExecutingGoal(true);
     setCompletedSolution(null);
-    setExecutionLog([]);
+    setExecutionLog([
+      `[STAGE 1: ANALYZE] Dispatching objective "${goal}" across 8 Gouse AI specialist agents...`,
+      `[STAGE 2: BENCHMARK] Querying live regional material mandi rates and active project parameters...`,
+    ]);
 
-    // 4-Step Autonomous Agent Workflow Steps: Analyze -> Evaluate & Feedback -> Plan -> Execute
-    const steps = [
-      `[STAGE 1: ANALYZE] Ingested user objective: "${goal}". Synthesizing site dimensions, local bylaws, and architectural parameters...`,
-      `[STAGE 2: EVALUATE & FEEDBACK] Evaluating structural constraints against IS 456 & CPWD 2026 rates. Identified opportunities for zero-cost escalation rate locking.`,
-      `[STAGE 3: PLAN] Formulated multi-step milestone roadmap: 1) Engineering takeoff, 2) Direct contractor rates, 3) Verified execution schedule.`,
-      `[STAGE 4: EXECUTE] Direct autonomous solution generated. Decisions finalized with zero intermediary overhead.`,
-    ];
+    let actionTarget = 'sec-main-platform';
+    let actionButtonText = 'Execute Architectural Blueprint & BOQ →';
+    if (lower.includes('subscribe') || lower.includes('1500') || lower.includes('license')) {
+      actionTarget = 'bim_subscription_modal';
+      actionButtonText = 'Accept Annual License (₹1,500 / Year) →';
+    } else if (lower.includes('rent') || lower.includes('pg') || lower.includes('buy') || lower.includes('land')) {
+      actionTarget = 'sec-broker-command-center';
+      actionButtonText = 'Open Broker Command Center Now →';
+    } else if (lower.includes('smart') || lower.includes('ska') || lower.includes('solar')) {
+      actionTarget = 'ska_agent_modal';
+      actionButtonText = 'Launch Smart Home SKA Agent Now →';
+    } else if (lower.includes('media') || lower.includes('video') || lower.includes('photo') || lower.includes('reel')) {
+      actionTarget = 'sec-social-media-hub';
+      actionButtonText = 'Open 4K Social & Media Hub Now →';
+    } else if (lower.includes('material') || lower.includes('cement') || lower.includes('steel') || lower.includes('rate')) {
+      actionTarget = 'daily_materials_tab';
+      actionButtonText = 'Access Daily Material Update & Lock Rates →';
+    }
 
-    steps.forEach((step, idx) => {
-      setTimeout(() => {
-        setExecutionLog((prev) => [...prev, step]);
-        if (idx === steps.length - 1) {
-          setIsExecutingGoal(false);
-          const lower = goal.toLowerCase();
+    try {
+      const res = await fetch('/api/agent/super-run', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          objective: goal,
+          mode: 'auto_orchestrate',
+          projectData: activeProject,
+          useLiveMarketData: true,
+        }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
 
-          if (
-            lower.includes('subscribe') ||
-            lower.includes('1500') ||
-            lower.includes('fee') ||
-            lower.includes('license') ||
-            lower.includes('membership')
-          ) {
-            setCompletedSolution({
-              goalTitle: `BIM & BOQ Agent Annual License: ₹1,500 / Year`,
-              decisionTaken:
-                'Gouse AI Agent verified the annual subscription terms: ₹1,500 per year unlocks unlimited IS 456 structural clash engineering, dynamic floor-by-floor takeoff ledgers with CPWD locked rates, and lead architect clearance under Ar. S. Gouse (CA/2012/55190).',
-              actionableItems: [
-                'Unlimited 3D BIM & CAD (.dwg/.dxf) Structural Scans with zero contractor variance',
-                'Live Daily Construction Material News Wire & spot mandi rate locking',
-                'Dynamic floor takeoff ledger locked against CPWD 2026 wholesale material rates',
-                'Saqlain Cyber Security SHA-256 cryptographic watermarking on all project drawings',
-              ],
-              actionTarget: 'bim_subscription_modal',
-              actionButtonText: 'Accept Annual License (₹1,500 / Year) →',
-            });
-          } else if (lower.includes('rent') || lower.includes('pg') || lower.includes('buy') || lower.includes('sell') || lower.includes('land')) {
-            setCompletedSolution({
-              goalTitle: `Autonomous Brokerage: ${goal}`,
-              decisionTaken:
-                'Decided on direct owner verification in Bangalore tech corridor. Filtered 0% brokerage inventory (Colive, 2BHK/3BHK Independent Floors, DTCP land parcels) and drafted 11-month Karnataka digital agreement.',
-              actionableItems: [
-                'Direct verified property listings matched with zero broker fee',
-                'Pre-calculated loan EMI at 8.4% p.a. with 30-year encumbrance check',
-                'Ready-to-sign digital lease agreement with automated stamp duty',
-              ],
-              actionTarget: 'sec-broker-command-center',
-              actionButtonText: 'Open Broker Command Center Now →',
-            });
-          } else if (lower.includes('smart') || lower.includes('ska') || lower.includes('solar') || lower.includes('light') || lower.includes('ac')) {
-            setCompletedSolution({
-              goalTitle: `Autonomous Smart Home SKA: ${goal}`,
-              decisionTaken:
-                'Configured 48 IoT nodes via Matter and KNX. Solar inverter programmed to export +4.58 kW to BESCOM grid, DALI-2 lighting set to 2700K warm ambient coves, and Matter biometric locks armed.',
-              actionableItems: [
-                'Rooftop solar PV generating +7.4 kW with net metering export active',
-                'Daikin VRV climate normalized to 23°C in living and master suite',
-                'One-time cryptographic guest key generated for visiting staff',
-              ],
-              actionTarget: 'ska_agent_modal',
-              actionButtonText: 'Launch Smart Home SKA Agent Now →',
-            });
-          } else if (lower.includes('media') || lower.includes('video') || lower.includes('photo') || lower.includes('tour') || lower.includes('reel')) {
-            setCompletedSolution({
-              goalTitle: `Autonomous Media Syndicate: ${goal}`,
-              decisionTaken:
-                'Synthesized 4K Lumion walkthrough and before/after construction wipe slider. Formatted multi-channel 9:16 vertical reels with verified client handover citations for Ar. S. Gouse.',
-              actionableItems: [
-                'Interactive 360° spatial room viewer with daylighting hotspots',
-                'Before/After wipe slider comparing raw RCC frame vs luxury elevation',
-                'Instagram reel kit with high-converting architectural hashtags',
-              ],
-              actionTarget: 'sec-social-media-hub',
-              actionButtonText: 'Open 4K Social & Media Hub Now →',
-            });
-          } else if (
-            lower.includes('material') ||
-            lower.includes('cement') ||
-            lower.includes('steel') ||
-            lower.includes('tmt') ||
-            lower.includes('rate') ||
-            lower.includes('price') ||
-            lower.includes('m-sand') ||
-            lower.includes('sand') ||
-            lower.includes('rmc') ||
-            lower.includes('concrete') ||
-            lower.includes('mandi') ||
-            lower.includes('daily')
-          ) {
-            setCompletedSolution({
-              goalTitle: `Daily Material Update & Mandi Rate Execution: ${goal}`,
-              decisionTaken:
-                'Gouse AI Agent ingested live wholesale spot mandi feeds for Bengaluru & South India hubs. Fe550D TMT rebar dipped -1.38% to ₹64,200/MT, UltraTech 53G cement is ₹395/bag, and M-Sand is ₹1,150/ton. Verified CPWD 2026 DSR baseline variance (-6.2% favorable) and prepared 1-click BOQ rate locks.',
-              actionableItems: [
-                'Spot Mandi vs CPWD DSR benchmark variance verified across 15 construction commodities',
-                '1-Click "Lock Daily Rate to Project BOQ" to immunize against contractor rate creep',
-                'Direct WhatsApp bulk distributor PO dispatch to Ar. S. Gouse (+91 80739 47241)',
-              ],
-              actionTarget: 'daily_materials_tab',
-              actionButtonText: 'Access Daily Material Update & Lock Rates →',
-            });
-          } else {
-            setCompletedSolution({
-              goalTitle: `Autonomous Architectural Execution: ${goal}`,
-              decisionTaken:
-                'Analyzed building typology and site footprint. Performed IS 456 rebar optimization, locked itemized floor-by-floor BOQ against CPWD 2026 rates, and verified zero column-beam clashes.',
-              actionableItems: [
-                'Dynamic BOQ with rate-locked Fe550D TMT steel and M25 ready-mix concrete',
-                'NBC 2016 solar passive daylighting and cross-ventilation verified',
-                'Geotagged AI site camera milestone inspection schedule initialized',
-              ],
-              actionTarget: 'sec-main-platform',
-              actionButtonText: 'Execute Architectural Blueprint & BOQ →',
-            });
-          }
-        }
-      }, (idx + 1) * 450);
-    });
+      setExecutionLog((prev) => [
+        ...prev,
+        `[STAGE 3: SYNTHESIZE] ${data.agentReports?.length || 8} specialist agents completed (${data.modelUsed || 'Gemini 4 Hydrogen'}).`,
+        `[STAGE 4: EXECUTE] Compliance Score: ${data.metrics?.complianceScore ?? 93}/100 · Potential Savings: ₹${Number(data.metrics?.estimatedSavings || 0).toLocaleString('en-IN')}.`,
+      ]);
+
+      const reportHighlights = Array.isArray(data.agentReports)
+        ? data.agentReports.slice(0, 4).map((r: any) => `${r.agentName}: ${r.keyFinding}`)
+        : [];
+      const actionHighlights = Array.isArray(data.executableActions)
+        ? data.executableActions.slice(0, 2).map((a: any) => `Action Ready — ${a.title} (${a.impactSummary})`)
+        : [];
+
+      setCompletedSolution({
+        goalTitle: data.missionTitle || `Autonomous Execution: ${goal}`,
+        decisionTaken: data.executiveSummary,
+        actionableItems: [...actionHighlights, ...reportHighlights].slice(0, 5),
+        actionTarget,
+        actionButtonText,
+      });
+    } catch (_err) {
+      setExecutionLog((prev) => [
+        ...prev,
+        `[ERROR] Server orchestration unreachable. Please verify backend status and retry.`,
+      ]);
+    } finally {
+      setIsExecutingGoal(false);
+    }
   };
 
   // Self-Directed File Upload Ingestion Processor

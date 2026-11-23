@@ -21,7 +21,7 @@ const TAB_LABELS: Record<TabType, string> = {
   projects: 'Projects & Operations',
   boq: 'BOQ & Cost Schedule',
   materials: 'Materials & Rate Standards',
-  specialist: 'Specialist AI Workbench',
+  specialist: 'Gouse AI Super Agent',
   marketplace: 'Vendor Marketplace',
   broker: 'Property & Brokerage',
   pg_coliving: 'PG & Co-Living Portfolio',

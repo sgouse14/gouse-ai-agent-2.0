@@ -3,10 +3,11 @@ import { GoogleGenAI, Modality, ThinkingLevel } from '@google/genai';
 const apiKey = process.env.GEMINI_API_KEY || '';
 let aiClient: GoogleGenAI | null = null;
 
-function getAiClient(): GoogleGenAI | null {
-  if (!aiClient && apiKey) {
+export function getAiClient(): GoogleGenAI | null {
+  const key = process.env.GEMINI_API_KEY || apiKey;
+  if (!aiClient && key) {
     aiClient = new GoogleGenAI({
-      apiKey,
+      apiKey: key,
       httpOptions: {
         headers: {
           'User-Agent': 'aistudio-build',
@@ -49,55 +50,87 @@ export function pcm16ToWav(pcmBase64: string, sampleRate = 24000, numChannels = 
 }
 
 /**
- * Generates natural specialist voice speech using Gemini TTS (gemini-3.1-flash-tts-preview).
- * Output is formatted as a playable WAV base64 audio URI.
+ * Generates natural specialist voice speech using Gemini TTS (gemini-3.8-flash-lite-tts).
+ * Automatically handles both pre-framed WAV responses and raw 24kHz PCM streams.
  */
 export async function generateSpeechAudio(
   text: string,
   voiceName: string = 'Zephyr',
-  _language?: string
+  _language?: string,
+  _styleHint?: string
 ): Promise<{ audioBase64: string; mimeType: string } | null> {
   const client = getAiClient();
-  if (!client || isQuotaCooldownActive()) {
+  if (!client) {
     return null;
   }
 
-  try {
-    const cleanText = text
-      .replace(/[#*`_\[\]()]/g, ' ')
-      .replace(/https?:\/\/\S+/g, '')
-      .replace(/\s+/g, ' ')
-      .trim()
-      .slice(0, 1200);
+  const cleanText = text
+    .replace(/```[\s\S]*?```/g, ' ')
+    .replace(/[#*`_~|>\[\]()]/g, ' ')
+    .replace(/https?:\/\/\S+/g, '')
+    .replace(/^\s*[-•]\s+/gm, '')
+    .replace(/₹\s*([\d,]+)/g, '$1 rupees')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 1200);
 
-    if (!cleanText) return null;
+  if (!cleanText) return null;
 
-    const validVoices = ['Puck', 'Charon', 'Kore', 'Fenrir', 'Zephyr'];
-    const chosenVoice = validVoices.includes(voiceName) ? voiceName : 'Zephyr';
+  const validVoices = ['Puck', 'Charon', 'Kore', 'Fenrir', 'Zephyr'];
+  const chosenVoice = validVoices.includes(voiceName) ? voiceName : 'Zephyr';
+  const key = process.env.GEMINI_API_KEY || apiKey;
 
-    const res = await client.models.generateContent({
-      model: 'gemini-3.1-flash-tts-preview',
-      contents: [{ parts: [{ text: cleanText }] }],
-      config: {
+  const ttsAttempts: Array<{
+    model: string;
+    withSpeechConfig: boolean;
+    apiVersion?: 'v1beta' | 'v1alpha';
+  }> = [
+    { model: 'gemini-3.8-flash-lite-tts', withSpeechConfig: true, apiVersion: 'v1beta' },
+    { model: 'gemini-3.8-flash-lite-tts', withSpeechConfig: true, apiVersion: 'v1alpha' },
+    { model: 'gemini-3.8-flash-lite-tts', withSpeechConfig: false },
+    { model: 'gemini-3.8-flash-tts', withSpeechConfig: false },
+  ];
+
+  for (const attempt of ttsAttempts) {
+    try {
+      const targetClient = attempt.apiVersion
+        ? new GoogleGenAI({
+            apiKey: key,
+            apiVersion: attempt.apiVersion,
+            httpOptions: { headers: { 'User-Agent': 'aistudio-build' } },
+          })
+        : client;
+
+      const config: any = {
         responseModalities: [Modality.AUDIO],
-        speechConfig: {
+      };
+      if (attempt.withSpeechConfig) {
+        config.speechConfig = {
           voiceConfig: {
             prebuiltVoiceConfig: { voiceName: chosenVoice },
           },
-        },
-      },
-    });
+        };
+      }
 
-    const pcmData = res.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
-    if (pcmData) {
-      const wavBase64 = pcm16ToWav(pcmData, 24000, 1);
-      return {
-        audioBase64: wavBase64,
-        mimeType: 'audio/wav',
-      };
+      const res = await targetClient.models.generateContent({
+        model: attempt.model,
+        contents: [{ role: 'user', parts: [{ text: cleanText }] }],
+        config,
+      });
+
+      const audioPart = res.candidates?.[0]?.content?.parts?.find((p: any) => p?.inlineData?.data);
+      const rawData = audioPart?.inlineData?.data;
+      if (rawData) {
+        const buf = Buffer.from(rawData, 'base64');
+        const isWav = buf.length >= 12 && buf.subarray(0, 4).toString('ascii') === 'RIFF';
+        return {
+          audioBase64: isWav ? rawData : pcm16ToWav(rawData, 24000, 1),
+          mimeType: 'audio/wav',
+        };
+      }
+    } catch (_err: any) {
+      // Try next TTS configuration cleanly without poisoning text/reasoning quota
     }
-  } catch (err: any) {
-    handleGeminiNotice('TTS speech generation', err);
   }
 
   return null;
@@ -431,7 +464,7 @@ export function getLocalFallbackVoiceCommand(
 }
 
 /**
- * Intelligent Voice Command Parser powered by Gemini (gemini-3.8-flash).
+ * Intelligent Voice Command Parser powered by Gemini (gemini-4-hydrogen).
  * Understands natural language phrasing, synonyms, parameters, and questions.
  */
 export async function processVoiceCommandWithGemini(payload: {
@@ -518,10 +551,11 @@ Determine what action the user wants to execute and output strictly valid JSON m
 Ensure "spokenResponse" is natural, authoritative, and concise.`;
 
     const res = await client.models.generateContent({
-      model: 'gemini-3.8-flash',
+      model: 'gemini-4-hydrogen',
       contents: [{ parts: [{ text: prompt }] }],
       config: {
         responseMimeType: 'application/json',
+        thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
       },
     });
 
@@ -552,7 +586,7 @@ Ensure "spokenResponse" is natural, authoritative, and concise.`;
 }
 
 /**
- * Multimodal Audio Processor powered by Gemini (gemini-3.8-flash).
+ * Multimodal Audio Processor powered by Gemini (gemini-4-hydrogen).
  * Receives raw recorded microphone audio directly from the browser,
  * transcribes what was said, understands the intent, and executes the command!
  * Eliminates browser Web Speech API failures and network bugs.
@@ -636,7 +670,7 @@ Output strictly valid JSON with this schema:
     const normalizedMime = mimeType.split(';')[0].trim() || 'audio/webm';
 
     const res = await client.models.generateContent({
-      model: 'gemini-3.8-flash',
+      model: 'gemini-4-hydrogen',
       contents: [
         {
           role: 'user',
@@ -655,6 +689,7 @@ Output strictly valid JSON with this schema:
       ],
       config: {
         responseMimeType: 'application/json',
+        thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
       },
     });
 
@@ -703,7 +738,7 @@ const CACHE_TTL_MS = 20 * 60 * 1000; // 20 minutes TTL
 let quotaCooldownUntil = 0;
 const COOLDOWN_DURATION_MS = 60 * 1000; // 60 seconds
 
-function isQuotaCooldownActive(): boolean {
+export function isQuotaCooldownActive(): boolean {
   return Date.now() < quotaCooldownUntil;
 }
 
@@ -966,19 +1001,15 @@ Respond ONLY with valid JSON (no markdown code fence outside):
     try {
       const isHydrogen = engine === 'hydrogen';
       const res = await client.models.generateContent({
-        model: isHydrogen ? 'gemini-4-hydrogen' : 'gemini-3.8-flash',
+        model: 'gemini-4-hydrogen',
         contents: agentPrompt,
-        config: isHydrogen
-          ? {
-              systemInstruction: SYSTEM_ARCHITECT_PROMPT,
-              responseMimeType: 'application/json',
-              thinkingConfig: { thinkingLevel: ThinkingLevel.HIGH },
-            }
-          : {
-              systemInstruction: SYSTEM_ARCHITECT_PROMPT,
-              temperature: 0.3,
-              responseMimeType: 'application/json',
-            },
+        config: {
+          systemInstruction: SYSTEM_ARCHITECT_PROMPT,
+          responseMimeType: 'application/json',
+          thinkingConfig: {
+            thinkingLevel: isHydrogen ? ThinkingLevel.HIGH : ThinkingLevel.MEDIUM,
+          },
+        },
       });
 
       if (res.text) {
@@ -1049,11 +1080,11 @@ Structure with these exact Markdown sections:
   if (client && !isQuotaCooldownActive()) {
     try {
       const res = await client.models.generateContent({
-        model: 'gemini-3.8-flash',
+        model: 'gemini-4-hydrogen',
         contents: prompt,
         config: {
           systemInstruction: SYSTEM_ARCHITECT_PROMPT,
-          temperature: 0.35,
+          thinkingConfig: { thinkingLevel: ThinkingLevel.MEDIUM },
         }
       });
       if (res.text) {
@@ -1373,18 +1404,13 @@ Include between 8 to 16 realistic, industry-standard line items with estimated u
       }
       contents.push({ text: prompt });
 
-      const useHydrogen = modelId === 'gemini-4-hydrogen';
       const res = await client.models.generateContent({
-        model: useHydrogen ? 'gemini-4-hydrogen' : 'gemini-3.8-flash',
+        model: 'gemini-4-hydrogen',
         contents: contents,
-        config: useHydrogen
-          ? {
-              responseMimeType: 'application/json',
-            }
-          : {
-              temperature: 0.2,
-              responseMimeType: 'application/json',
-            },
+        config: {
+          responseMimeType: 'application/json',
+          thinkingConfig: { thinkingLevel: ThinkingLevel.MEDIUM },
+        },
       });
       if (res.text) {
         let cleaned = res.text.trim();
@@ -1536,9 +1562,11 @@ Structure the output prompt with:
   if (client && !isQuotaCooldownActive()) {
     try {
       const res = await client.models.generateContent({
-        model: 'gemini-3.8-flash',
+        model: 'gemini-4-hydrogen',
         contents: prompt,
-        config: { temperature: 0.6 }
+        config: {
+          thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
+        },
       });
       if (res.text) return res.text;
     } catch (err: any) {
@@ -2096,12 +2124,12 @@ Key statutory benchmarks to verify for your proposal:
     lower.includes('agent work') ||
     lower.includes('works agent')
   ) {
-    return `### ⚡ Gouse AI Specialist: Autonomous Agent Work & Voice Command System
+    return `### ⚡ Gouse AI Specialist: Autonomous Agent Work & Natural Voice Chat
 
-**Autonomous Agent Power Granted • Live Video Reel & Voice Command Active**
+**Autonomous Agent Power Granted • Live Video Reel & Natural Two-Way Voice Chat Active**
 Operational Protocol: **Autonomous Architectural & Engineering Director (Level 5 Super-Agent)**
 
-Gouse AI Specialist is now operating with **Full Autonomous Agent Authority**, equipped with a **Live 4K Work Video Simulation Reel** and **Continuous Voice Command Listening**:
+Gouse AI Specialist is now operating with **Full Autonomous Agent Authority**, equipped with a **Live 4K Work Video Simulation Reel** and **Natural Two-Way Voice Chat**:
 
 ---
 
@@ -2111,18 +2139,16 @@ Gouse AI Specialist is now operating with **Full Autonomous Agent Authority**, e
   2. **🏗️ 3D Structural BIM & Fe550D Rebar Audit**: IS 456 / IS 13920 rebar clash analysis, column C6 shear stress, and 8mm seismic ties @ 75mm spacing.
   3. **📊 Real-Time Mandi Price Radar & Hedge Locking**: Spot radar tracking JSW Cement (₹375/bag) and A-One Gold steel rebar (₹67,800/MT).
   4. **⚡ Autonomous Turnkey BOQ & RFQ Dispatch**: Auto-allocating 3,599 sq.ft turnkey schedule with contractor tender requisitions.
-  5. **🗣️ Multilingual Voice Site Briefing**: Real-time voice translation across Kannada (ಕನ್ನಡ), Telugu (తెలుగు), Hindi (हिंदी), and English.
-- *Tip: Click the "🎥 Agent Work Video Reel" tab above or say "Play video" to watch the agent in action!*
+  5. **🗣️ Multilingual Voice Site Briefing**: Real-time voice conversation across Kannada (ಕನ್ನಡ), Telugu (తెలుగు), Hindi (हिंदी), and English.
+- *Tip: Click the "🎥 Agent Work Video Reel" tab above or ask naturally in Voice Chat to walk through each chapter!*
 
-#### 2. 🎙️ Continuous Voice Command Listener ("Listen by Voice Command")
-- **Voice Recognition Active**: Gouse AI Specialist listens to your voice commands via Web Speech synthesis and recognition.
-- **Supported Voice Commands**:
-  - *"Play agent video"* / *"Show video"* → Starts the interactive Agent Work Video player.
-  - *"Scan prices"* / *"Check market rates"* → Triggers real-time wholesale mandi price radar.
-  - *"Lock cement"* / *"Hedge JSW cement"* → Commits JSW Cement Concreel HD into your active BOQ.
-  - *"Audit structure"* / *"Check bylaws"* → Evaluates IS 456 structural safety and municipal setbacks.
-  - *"Translate to Kannada"* / *"Telugu"* → Broadcasts bilingual site work instructions.
-  - *"Enable auto pilot"* → Activates continuous background self-operating agent loop.
+#### 2. 🎙️ Natural Two-Way Voice Chat (Conversational Studio Partner)
+- **Human-Like Dialogue Active**: Talk naturally back-and-forth with Gouse AI in English, Hindi, Kannada, Telugu, Tamil, Malayalam, Marathi, Urdu, or Arabic.
+- **Natural Ways to Chat**:
+  - *"How is our BOQ budget looking right now?"* → Reviews live project costs and reads out key numbers clearly.
+  - *"Can you check live cement and steel rates?"* → Opens the materials market view and summarizes spot prices.
+  - *"Let's adjust the built-up area to 4,200 square feet."* → Updates project parameters quietly while continuing the conversation.
+  - *"Walk me through structural checks before slab pour."* → Gives concise spoken guidance without robotic jargon.
 
 #### 3. ⚡ Autonomous Self-Operating Authority ("Power Operation Himself")
 - **Direct BOQ & Schedule Execution**: Independently analyzes structural loads, computes material schedules per IS 456 / IS 1200 norms (0.42 bags cement/sq.ft, 4.2 kg rebar/sq.ft, 0.038 m³ concrete/sq.ft), and injects certified materials directly into your project without waiting for manual clicks.
@@ -2146,7 +2172,7 @@ Gouse AI Specialist is now operating with **Full Autonomous Agent Authority**, e
   - **A-One Gold Steel**: Live spot rate **₹67,800/MT** (🟢 Value discount spread: ₹6,700/MT savings).
 - **Instant Hedging Protection**: Generates immediate rate-locking orders before wholesale increases take effect.
 
-*Status: Gouse AI Specialist is fully autonomous, listening for voice commands, and streaming live agent work video.*`;
+*Status: Gouse AI Specialist is ready for natural voice conversation and live architectural guidance.*`;
   }
 
   // AI Integration inquiries (Gemini 4 Hydrogen / Gemini 3.8 + ChatGPT / OpenAI)
@@ -2341,11 +2367,11 @@ EXPERIENCE_YEARS: [Years of operational experience]
 ---`;
 
       const res = await client.models.generateContent({
-        model: 'gemini-3.8-flash',
+        model: 'gemini-4-hydrogen',
         contents: prompt,
         config: {
           tools: [{ googleSearch: {} }],
-          temperature: 0.2,
+          thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
         },
       });
 
@@ -3485,11 +3511,11 @@ Respond ONLY with valid, raw JSON (no markdown fences, no explanatory text) matc
   if (client && !isQuotaCooldownActive()) {
     try {
       const response = await client.models.generateContent({
-        model: 'gemini-3.8-flash',
+        model: 'gemini-4-hydrogen',
         contents: systemInstructions,
         config: {
-          temperature: 0.3,
           responseMimeType: 'application/json',
+          thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
         },
       });
 
@@ -4099,10 +4125,10 @@ SOURCE TEXT:
 ${text}`;
 
       const res = await client.models.generateContent({
-        model: 'gemini-3.8-flash',
+        model: 'gemini-4-hydrogen',
         contents: prompt,
         config: {
-          temperature: 0.2,
+          thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
         },
       });
 
@@ -4110,7 +4136,7 @@ ${text}`;
         return {
           translatedText: res.text.trim(),
           targetLanguage,
-          modelUsed: 'Google Gemini 3.8 Flash',
+          modelUsed: 'Google Gemini 4 Hydrogen',
         };
       }
     } catch (err) {
@@ -4177,7 +4203,7 @@ export interface SiteAuditResult {
 }
 
 /**
- * Autonomous Construction Site Visit Visual Audit Engine via Gemini (gemini-3.8-flash)
+ * Autonomous Construction Site Visit Visual Audit Engine via Gemini (gemini-4-hydrogen)
  * Evaluates real site photographs for structural progress, rebar confinement,
  * IS 456 compliance, honeycombing, cover blocks, curing status, and safety gates.
  */
@@ -4306,10 +4332,10 @@ CRITICAL: Return ONLY valid, parseable JSON conforming to this schema (do NOT su
       contents.push(promptDirective);
 
       const res = await client.models.generateContent({
-        model: 'gemini-3.8-flash',
+        model: 'gemini-4-hydrogen',
         contents,
         config: {
-          temperature: 0.2,
+          thinkingConfig: { thinkingLevel: ThinkingLevel.MEDIUM },
         },
       });
 
@@ -4515,3 +4541,274 @@ High-definition image inspection confirms active progress along designed structu
     imageUrl: params.imageUrl,
   };
 }
+
+/**
+ * Generates a structured architectural project scope brief calibrated to typology,
+ * built-up area, and location using Gemini 4 Hydrogen.
+ */
+export async function generateProjectBriefWithAi(params: {
+  name?: string;
+  projectType?: string;
+  location?: string;
+  builtUpAreaSqFt?: number;
+}): Promise<{ description: string; recommendedContingency: number; modelUsed: string }> {
+  const projectName = (params.name || 'Architectural Project').trim();
+  const projectType = (params.projectType || 'Residential Architecture').trim();
+  const location = (params.location || 'Bangalore, India').trim();
+  const area = Math.max(200, Number(params.builtUpAreaSqFt) || 3200);
+
+  const client = getAiClient();
+  if (client && !isQuotaCooldownActive()) {
+    try {
+      const prompt = `Draft a crisp, authoritative 3-4 sentence architectural & structural project brief for:
+- Project Title: ${projectName}
+- Typology: ${projectType}
+- Location: ${location}
+- Built-Up Area: ${area.toLocaleString()} sq.ft
+
+Include structural framing system (RCC / Fe550D / AAC), bioclimatic passive cooling / daylighting goals, NBC 2016 compliance, and MEP/waterproofing intent. Return JSON only: { "description": "...", "recommendedContingency": 8 }`;
+
+      const res = await client.models.generateContent({
+        model: 'gemini-4-hydrogen',
+        contents: prompt,
+        config: {
+          responseMimeType: 'application/json',
+          thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
+        },
+      });
+
+      const raw = res.text?.trim() || '';
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed.description) {
+          return {
+            description: String(parsed.description).trim(),
+            recommendedContingency:
+              typeof parsed.recommendedContingency === 'number'
+                ? Math.min(25, Math.max(3, parsed.recommendedContingency))
+                : 8,
+            modelUsed: 'gemini-4-hydrogen',
+          };
+        }
+      }
+    } catch (err: any) {
+      handleGeminiNotice('project brief generation', err);
+    }
+  }
+
+  return {
+    description: `${projectName} is a ${area.toLocaleString()} sq.ft ${projectType.toLowerCase()} development in ${location}, engineered with an M25/Fe550D RCC seismic-compliant structural grid and thermally insulated AAC block envelope. Design prioritizes natural cross-ventilation, solar passive shading, rainwater harvesting, and NBC 2016 life-safety egress compliance.`,
+    recommendedContingency: area > 8000 ? 10 : 8,
+    modelUsed: 'domain-architect-engine',
+  };
+}
+
+export interface NaturalVoiceChatResult {
+  transcript: string;
+  spokenReply: string;
+  displayText: string;
+  detectedLanguage: string;
+  audioBase64?: string | null;
+  mimeType?: string;
+  workspaceAction?: {
+    type: 'none' | 'navigate' | 'add_boq_item' | 'update_area' | 'update_contingency' | 'change_currency';
+    targetTab?:
+      | 'projects'
+      | 'social'
+      | 'pg_coliving'
+      | 'rent_house'
+      | 'boq'
+      | 'marketplace'
+      | 'materials'
+      | 'specialist';
+    newBOQItem?: {
+      name: string;
+      category?: string;
+      unit?: string;
+      quantity?: number;
+      rate?: number;
+    };
+    builtUpAreaSqFt?: number;
+    contingencyPercent?: number;
+    currency?: 'INR' | 'USD' | 'EUR' | 'GBP' | 'AED';
+  };
+}
+
+/**
+ * Natural Conversational Voice Chat powered by Gemini 4 Hydrogen + Gemini 3.8 Flash Lite TTS.
+ * Listens to live recorded audio or text turns, maintains conversational memory,
+ * replies in warm human spoken language, and quietly updates workspace state if requested.
+ */
+export async function processNaturalVoiceChat(payload: {
+  audioBase64?: string;
+  mimeType?: string;
+  text?: string;
+  history?: Array<{ role: 'user' | 'assistant'; text: string }>;
+  activeTab?: string;
+  activeProject?: any;
+  boqSummary?: { lineItemsCount?: number; subtotal?: number; grandTotal?: number; topItems?: string[] };
+  currency?: string;
+  contingencyPercent?: number;
+  language?: string;
+  voiceName?: string;
+  specialist?: string;
+}): Promise<NaturalVoiceChatResult> {
+  const {
+    audioBase64,
+    mimeType = 'audio/webm',
+    text = '',
+    history = [],
+    activeTab = 'projects',
+    activeProject,
+    boqSummary,
+    currency = 'INR',
+    contingencyPercent = 10,
+    language = 'auto',
+    voiceName = 'Zephyr',
+    specialist = 'general',
+  } = payload;
+
+  const projectName = activeProject?.name || 'Studio Project';
+  const projectArea = activeProject?.builtUpAreaSqFt || 3200;
+  const projectLocation = activeProject?.location || 'Bangalore, India';
+  const projectType = activeProject?.projectType || 'Residential Architecture';
+  const projectStatus = activeProject?.status || 'design_development';
+  const subtotalText = boqSummary?.subtotal ? `${currency} ${Math.round(boqSummary.subtotal).toLocaleString()}` : 'not calculated yet';
+  const grandTotalText = boqSummary?.grandTotal ? `${currency} ${Math.round(boqSummary.grandTotal).toLocaleString()}` : subtotalText;
+
+  const recentHistory = (Array.isArray(history) ? history : [])
+    .slice(-8)
+    .map((h) => `${h.role === 'user' ? 'Client/User' : 'Gouse AI'}: ${h.text}`)
+    .join('\n');
+
+  const client = getAiClient();
+  if (client && !isQuotaCooldownActive() && (audioBase64 || text.trim())) {
+    try {
+      const systemPrompt = `You are Gouse AI — a warm, attentive, senior architectural & construction advisor having a natural spoken phone/voice conversation with the user.
+
+STRICT CONVERSATIONAL STYLE RULES:
+- Talk like a real human studio partner sitting at the drafting table, NOT a robot or command parser.
+- Use natural spoken phrasing, contractions ("I've", "we're", "let's"), and warm pacing.
+- NEVER say "Executing command", "Navigation confirmed", or read out markdown symbols, bullet points, or asterisks.
+- Keep "spokenReply" concise and easy to listen to: 2 to 4 natural sentences (~25 to 60 words max).
+- If the user asks in Hindi, Kannada, Telugu, Tamil, Malayalam, Marathi, Urdu, Arabic, or any regional language (or if language preference "${language}" is specified and not "auto"), reply naturally in that exact language.
+- If the user casually asks to look at a section (like BOQ, Materials, Projects, Realstate Media, Marketplace, Property) or asks to add a BOQ item / adjust project area / contingency / currency, fulfill it naturally in "workspaceAction" while answering conversationally!
+
+WORKSPACE CONTEXT:
+- Current Screen: "${activeTab}"
+- Active Project: "${projectName}" (${projectType}, ${projectArea.toLocaleString()} sq.ft in ${projectLocation}, stage: ${projectStatus})
+- BOQ Summary: ${boqSummary?.lineItemsCount || 0} items, subtotal ${subtotalText}, estimated total with ${contingencyPercent}% contingency: ${grandTotalText}
+- Top BOQ Items: ${(boqSummary?.topItems || []).join(', ') || 'Concrete, TMT Steel, Masonry, MEP'}
+- Currency: ${currency}
+- Specialist Focus: ${specialist}
+${recentHistory ? `\nRECENT CONVERSATION:\n${recentHistory}\n` : ''}
+${text.trim() ? `\nUSER'S MESSAGE: "${text.trim()}"\n` : '\nListen carefully to the attached audio message from the user.\n'}
+
+Output strictly valid JSON matching this schema:
+{
+  "transcript": "Verbatim transcription of what the user said (or their typed message)",
+  "spokenReply": "Warm, natural 2-4 sentence spoken reply with zero markdown symbols or bullet lists",
+  "displayText": "Clean readable version of your reply for the conversation log",
+  "detectedLanguage": "BCP-47 tag like en-IN, kn-IN, hi-IN, te-IN, ta-IN, ml-IN, ur-IN, ar-SA",
+  "workspaceAction": {
+    "type": "none" | "navigate" | "add_boq_item" | "update_area" | "update_contingency" | "change_currency",
+    "targetTab": "projects" | "social" | "pg_coliving" | "rent_house" | "boq" | "marketplace" | "materials" | "specialist",
+    "newBOQItem": { "name": "string", "category": "string", "unit": "string", "quantity": 100, "rate": 375 },
+    "builtUpAreaSqFt": 4000,
+    "contingencyPercent": 8,
+    "currency": "INR" | "USD" | "EUR" | "GBP" | "AED"
+  }
+}`;
+
+      const parts: any[] = [];
+      if (audioBase64) {
+        const normalizedMime = mimeType.split(';')[0].trim() || 'audio/webm';
+        parts.push({
+          inlineData: {
+            mimeType: normalizedMime,
+            data: audioBase64,
+          },
+        });
+      }
+      parts.push({ text: systemPrompt });
+
+      const res = await client.models.generateContent({
+        model: 'gemini-4-hydrogen',
+        contents: [{ role: 'user', parts }],
+        config: {
+          responseMimeType: 'application/json',
+          thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
+        },
+      });
+
+      const raw = res.text?.trim() || '';
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        const spokenReply = String(parsed.spokenReply || parsed.displayText || '').trim();
+        const displayText = String(parsed.displayText || spokenReply).trim();
+        const transcript = String(parsed.transcript || text || 'Voice message').trim();
+        const detectedLanguage = String(parsed.detectedLanguage || (language === 'auto' ? 'en-IN' : language));
+
+        let audioOut: { audioBase64: string; mimeType: string } | null = null;
+        if (spokenReply) {
+          audioOut = await generateSpeechAudio(
+            spokenReply,
+            voiceName,
+            detectedLanguage,
+            'Warm, friendly, natural conversational architectural studio advisor'
+          );
+        }
+
+        return {
+          transcript,
+          spokenReply,
+          displayText,
+          detectedLanguage,
+          audioBase64: audioOut?.audioBase64 || null,
+          mimeType: audioOut?.mimeType || 'audio/wav',
+          workspaceAction: parsed.workspaceAction || { type: 'none' },
+        };
+      }
+    } catch (err: any) {
+      handleGeminiNotice('Natural voice chat processing', err);
+    }
+  }
+
+  // Natural conversational fallback
+  const fallbackText = text.trim() || 'Could you walk me through our active project estimate?';
+  const lower = fallbackText.toLowerCase();
+  let spokenReply = `We're currently looking at ${projectName} in ${projectLocation}, around ${projectArea.toLocaleString()} square feet. Your BOQ estimate with ${contingencyPercent}% contingency stands at ${grandTotalText}. What part would you like to talk through next?`;
+  let workspaceAction: NaturalVoiceChatResult['workspaceAction'] = { type: 'none' };
+
+  if (lower.includes('boq') || lower.includes('estimate') || lower.includes('cost') || lower.includes('budget')) {
+    spokenReply = `Sure thing. Looking at ${projectName}, your current BOQ across ${boqSummary?.lineItemsCount || 0} items comes to around ${grandTotalText} including ${contingencyPercent}% contingency. I've pulled up the BOQ schedule so we can review any line items together.`;
+    workspaceAction = { type: 'navigate', targetTab: 'boq' };
+  } else if (lower.includes('material') || lower.includes('cement') || lower.includes('steel') || lower.includes('rate')) {
+    spokenReply = `Let's take a look at live material rates. Right now JSW Cement is hovering near 375 rupees a bag and Fe550D steel is around 67,800 per metric ton in Bangalore. I'm opening the materials sheet for you.`;
+    workspaceAction = { type: 'navigate', targetTab: 'materials' };
+  } else if (lower.includes('social') || lower.includes('media') || lower.includes('instagram') || lower.includes('post')) {
+    spokenReply = `Let's open Realstate Media so you can showcase ${projectName} or browse what other architects and builders are posting today.`;
+    workspaceAction = { type: 'navigate', targetTab: 'social' };
+  } else if (lower.includes('market') || lower.includes('supplier') || lower.includes('builder') || lower.includes('contractor')) {
+    spokenReply = `Sure, let's check the Marketplace directory. You can compare verified architects, contractors, and material suppliers around ${projectLocation}.`;
+    workspaceAction = { type: 'navigate', targetTab: 'marketplace' };
+  }
+
+  const audioOut = await generateSpeechAudio(
+    spokenReply,
+    voiceName,
+    language === 'auto' ? 'en-IN' : language,
+    'Warm, natural conversational architectural consultant'
+  ).catch(() => null);
+
+  return {
+    transcript: fallbackText,
+    spokenReply,
+    displayText: spokenReply,
+    detectedLanguage: language === 'auto' ? 'en-IN' : language,
+    audioBase64: audioOut?.audioBase64 || null,
+    mimeType: audioOut?.mimeType || 'audio/wav',
+    workspaceAction,
+  };
+}
+

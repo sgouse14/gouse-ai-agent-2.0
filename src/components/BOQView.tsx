@@ -36,7 +36,16 @@ import { BOQRealTimePriceMonitor } from './BOQRealTimePriceMonitor';
 import { BimBoqMaterialNewsWire } from './BimBoqMaterialNewsWire';
 import { AreaTakeoffAutoUpdateModal } from './AreaTakeoffAutoUpdateModal';
 import { LabourCostBreakdownModal } from './LabourCostBreakdownModal';
-import { calculateLabourScheduleForArea } from '../utils/labourRateEngine';
+import {
+  LABOUR_SCHEDULE_BENCHMARKS,
+  LabourRateMode,
+  LabourTradeBenchmark,
+  calculateLabourScheduleForArea,
+  applyLabourScheduleToBOQ,
+  getMissingTradesFromBOQ,
+  createBOQItemFromLabourTrade,
+  matchItemToLabourTrade,
+} from '../utils/labourRateEngine';
 import {
   MARKET_REGIONS,
   MarketRegion,
@@ -486,6 +495,12 @@ export const BOQView: React.FC<BOQViewProps> = ({
   const [activeDistributionItem, setActiveDistributionItem] = useState<BOQItem | null>(null);
   const [isFloorPrintModalOpen, setIsFloorPrintModalOpen] = useState(false);
 
+  // Simple Labour & Market Rates states (Tab 3)
+  const [labourRateMode, setLabourRateMode] = useState<LabourRateMode>('avg');
+  const [customLabourRates, setCustomLabourRates] = useState<Record<string, number>>({});
+  const [marketSearchQuery, setMarketSearchQuery] = useState('');
+  const [showAdvancedAlertsAndNews, setShowAdvancedAlertsAndNews] = useState(false);
+
   // Tender Enquiry modal
   const [isEnquiryModal, setIsEnquiryModal] = useState(false);
   const [enquirySuccess, setEnquirySuccess] = useState(false);
@@ -585,9 +600,54 @@ export const BOQView: React.FC<BOQViewProps> = ({
   }, [currentRatePerSqFt]);
 
   const labourSchedule = useMemo(
-    () => calculateLabourScheduleForArea(areaSqFt || 1000, 'avg'),
-    [areaSqFt]
+    () => calculateLabourScheduleForArea(areaSqFt || 1000, labourRateMode),
+    [areaSqFt, labourRateMode]
   );
+
+  const regionalLabourRows = useMemo(() => {
+    const mul = activeRegionMeta.laborMultiplier || 1;
+    return labourSchedule.trades.map((entry) => {
+      const defaultRate = Math.round(entry.appliedRate * mul);
+      const activeRate =
+        customLabourRates[entry.benchmark.id] !== undefined
+          ? customLabourRates[entry.benchmark.id]
+          : defaultRate;
+      const baseRate = Math.max(1, entry.appliedRate);
+      const scaledCost = Math.round(entry.scaledCost * mul * (activeRate / Math.max(1, defaultRate)));
+      const linkedCount = items.filter((it) => matchItemToLabourTrade(it)?.id === entry.benchmark.id).length;
+      return {
+        benchmark: entry.benchmark,
+        defaultRate,
+        activeRate,
+        baseRate,
+        scaledCost,
+        linkedCount,
+      };
+    });
+  }, [labourSchedule.trades, activeRegionMeta.laborMultiplier, customLabourRates, items]);
+
+  const regionalLabourTotal = useMemo(
+    () => regionalLabourRows.reduce((s, r) => s + r.scaledCost, 0),
+    [regionalLabourRows]
+  );
+
+  const regionalLabourPerSqFt = useMemo(
+    () => (areaSqFt > 0 ? Math.round(regionalLabourTotal / areaSqFt) : 0),
+    [regionalLabourTotal, areaSqFt]
+  );
+
+  const missingLabourTrades = useMemo(() => getMissingTradesFromBOQ(items), [items]);
+
+  const filteredLivePrices = useMemo(() => {
+    const q = marketSearchQuery.trim().toLowerCase();
+    if (!q) return livePrices;
+    return livePrices.filter(
+      (p) =>
+        p.name.toLowerCase().includes(q) ||
+        p.category.toLowerCase().includes(q) ||
+        (p.brands || []).some((b) => b.toLowerCase().includes(q))
+    );
+  }, [livePrices, marketSearchQuery]);
 
   const { floorTotals } = useMemo(
     () => calculateFloorWiseTotals(items, floors, contingencyPercent),
@@ -1996,97 +2056,491 @@ export const BOQView: React.FC<BOQViewProps> = ({
       )}
 
       {/* ===================================================================== */}
-      {/* TAB 3: MARKET RATES & LABOUR                                          */}
+      {/* TAB 3: SIMPLE & EASY MARKET RATES & LABOUR                            */}
       {/* ===================================================================== */}
       {activeWorkspaceTab === 'market_labour' && (
         <div className="space-y-5">
-          <div className="rounded-xl bg-slate-900 border border-slate-800 p-4 sm:p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-            <div>
-              <h2 className="text-base font-bold text-white">
-                Regional Market Sync &amp; Civil Labour Schedule
-              </h2>
-              <p className="text-xs text-slate-400 mt-0.5">
-                Sync all item rates to local city benchmarks or review direct civil labour cost ({formatCurrency(labourSchedule.totalAvg, currency)} est.).
-              </p>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="flex items-center gap-1.5 bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs">
-                <MapPin className="w-3.5 h-3.5 text-amber-400" />
-                <select
-                  value={activeMarketRegion}
-                  onChange={(e) => setActiveMarketRegion(e.target.value as MarketRegion)}
-                  className="bg-transparent text-white focus:outline-none"
-                >
-                  {MARKET_REGIONS.map((r) => (
-                    <option key={r.id} value={r.id} className="bg-slate-900">
-                      {r.name}
-                    </option>
-                  ))}
-                </select>
+          {/* Top Simple Controls */}
+          <div className="rounded-xl bg-slate-900 border border-slate-800 p-4 sm:p-5 space-y-4">
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+              <div>
+                <h2 className="text-base font-bold text-white">
+                  Market Rates &amp; Civil Labour
+                </h2>
+                <p className="text-xs text-slate-400 mt-0.5 tabular-nums">
+                  {activeRegionMeta.shortName} indices (Materials {activeRegionMeta.materialMultiplier}x · Labour{' '}
+                  {activeRegionMeta.laborMultiplier}x) for {areaSqFt.toLocaleString()} sq.ft
+                </p>
               </div>
 
-              <select
-                value={activeMarketTier}
-                onChange={(e) => setActiveMarketTier(e.target.value as MarketQualityTier)}
-                className="bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none"
-              >
-                <option value="Economy">Economy Tier</option>
-                <option value="Standard">Standard Tier</option>
-                <option value="Premium">Premium Tier</option>
-                <option value="Luxury">Luxury Tier</option>
-              </select>
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="flex items-center gap-1.5 bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs">
+                  <MapPin className="w-3.5 h-3.5 text-amber-400" />
+                  <select
+                    aria-label="Select City or Region"
+                    value={activeMarketRegion}
+                    onChange={(e) => {
+                      setActiveMarketRegion(e.target.value as MarketRegion);
+                      setCustomLabourRates({});
+                    }}
+                    className="bg-transparent text-white focus:outline-none"
+                  >
+                    {MARKET_REGIONS.map((r) => (
+                      <option key={r.id} value={r.id} className="bg-slate-900">
+                        {r.shortName}
+                      </option>
+                    ))}
+                  </select>
+                </div>
 
-              <button
-                type="button"
-                onClick={handleQuickSyncMarket}
-                className="px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold"
-              >
-                Sync All Rates
-              </button>
+                <select
+                  aria-label="Specification Quality Tier"
+                  value={activeMarketTier}
+                  onChange={(e) => setActiveMarketTier(e.target.value as MarketQualityTier)}
+                  className="bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none"
+                >
+                  <option value="Economy">Economy Tier</option>
+                  <option value="Standard">Standard Tier</option>
+                  <option value="Premium">Premium Tier</option>
+                  <option value="Luxury">Luxury Tier</option>
+                </select>
 
-              <button
-                type="button"
-                onClick={() => setIsMarketModalOpen(true)}
-                className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200 inline-flex items-center gap-1.5"
-              >
-                <Sliders className="w-3.5 h-3.5" />
-                <span>Rate Audit</span>
-              </button>
+                <button
+                  type="button"
+                  onClick={() => fetchLiveMarketFeed(true)}
+                  disabled={isLiveFetching}
+                  className="px-3 py-1.5 rounded-lg bg-slate-950 hover:bg-slate-800 border border-slate-700 text-xs font-semibold text-slate-200 inline-flex items-center gap-1.5 whitespace-nowrap disabled:opacity-50"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 text-amber-400 ${isLiveFetching ? 'animate-spin' : ''}`} />
+                  <span>{isLiveFetching ? 'Refreshing...' : 'Refresh Live'}</span>
+                </button>
 
-              <button
-                type="button"
-                onClick={() => setIsLabourBreakdownModalOpen(true)}
-                className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-amber-300 inline-flex items-center gap-1.5"
-              >
-                <HardHat className="w-3.5 h-3.5" />
-                <span>Labour Breakdown</span>
-              </button>
+                <button
+                  type="button"
+                  onClick={handleQuickSyncMarket}
+                  className="px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold whitespace-nowrap"
+                >
+                  Sync BOQ to Market
+                </button>
+              </div>
+            </div>
+
+            {/* 3 Simple Summary Numbers */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-slate-800 tabular-nums">
+              <div className="p-3 rounded-lg bg-slate-950 border border-slate-800">
+                <span className="text-xs text-slate-400">Estimated Civil Labour</span>
+                <p className="text-lg font-bold text-amber-400 mt-0.5">
+                  {formatCurrency(regionalLabourTotal, currency)}
+                </p>
+                <p className="text-[11px] text-slate-400">
+                  ₹{regionalLabourPerSqFt.toLocaleString()} / sq.ft · {areaSqFt.toLocaleString()} sq.ft
+                </p>
+              </div>
+
+              <div className="p-3 rounded-lg bg-slate-950 border border-slate-800">
+                <span className="text-xs text-slate-400">Live Material Feed</span>
+                <p className="text-lg font-bold text-emerald-400 mt-0.5">
+                  {livePrices.length} Commodities
+                </p>
+                <p className="text-[11px] text-slate-400">
+                  {liveLastSynced
+                    ? `Updated ${liveLastSynced.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+                    : 'Loading regional spot feed...'}
+                </p>
+              </div>
+
+              <div className="p-3 rounded-lg bg-slate-950 border border-slate-800">
+                <span className="text-xs text-slate-400">BOQ Trade Coverage</span>
+                <p className="text-lg font-bold text-white mt-0.5">
+                  {LABOUR_SCHEDULE_BENCHMARKS.length - missingLabourTrades.length} / {LABOUR_SCHEDULE_BENCHMARKS.length} Trades
+                </p>
+                <p className="text-[11px] text-slate-400">
+                  {missingLabourTrades.length === 0
+                    ? 'All major civil trades included'
+                    : `${missingLabourTrades.length} trades can be added in 1 click`}
+                </p>
+              </div>
             </div>
           </div>
 
-          <BOQRealTimePriceMonitor
-            items={items}
-            activeProject={activeProject}
-            currency={currency}
-            onUpdateItemRate={(id, rate) => handleUpdateItemField(id, 'rate', rate)}
-            onUpdateMultipleItemRates={(updates) => {
-              const map = new Map(updates.map((u) => [u.id, u.newRate]));
-              onUpdateItems(
-                items.map((it) =>
-                  map.has(it.id)
-                    ? { ...it, rate: map.get(it.id)!, amount: Math.round(it.quantity * map.get(it.id)!) }
-                    : it
-                )
-              );
-            }}
-          />
+          {/* SECTION 1: EASY CIVIL LABOUR RATES (INLINE EDITABLE) */}
+          <div className="rounded-xl bg-slate-900 border border-slate-800 overflow-hidden">
+            <div className="p-4 border-b border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                  <HardHat className="w-4 h-4 text-amber-400" />
+                  <span>1. Civil Labour Rates ({activeRegionMeta.shortName})</span>
+                </h3>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Pick a rate band or edit any trade rate directly to recalculate your project labour cost.
+                </p>
+              </div>
 
-          <BimBoqMaterialNewsWire
-            onLockMaterialRate={(newsItem) => {
-              showToast(`Locked ${newsItem.categoryLabel} spot rate (${newsItem.currentMandiRate}).`);
-            }}
-          />
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="inline-flex rounded-lg bg-slate-950 border border-slate-800 p-0.5 text-xs">
+                  {(
+                    [
+                      { id: 'min', label: 'Economy' },
+                      { id: 'avg', label: 'Standard' },
+                      { id: 'max', label: 'Premium' },
+                    ] as const
+                  ).map((mode) => (
+                    <button
+                      key={mode.id}
+                      type="button"
+                      onClick={() => {
+                        setLabourRateMode(mode.id);
+                        setCustomLabourRates({});
+                      }}
+                      className={`px-2.5 py-1 rounded-md font-medium transition ${
+                        labourRateMode === mode.id
+                          ? 'bg-amber-500 text-slate-950 font-semibold'
+                          : 'text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      {mode.label}
+                    </button>
+                  ))}
+                </div>
+
+                {missingLabourTrades.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const newItems = missingLabourTrades.map((t: LabourTradeBenchmark) =>
+                        createBOQItemFromLabourTrade(t, areaSqFt, labourRateMode)
+                      );
+                      onUpdateItems([...items, ...newItems]);
+                      showToast(`Added ${newItems.length} missing civil trades to BOQ.`);
+                    }}
+                    className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-amber-300 text-xs font-semibold whitespace-nowrap"
+                  >
+                    + Add {missingLabourTrades.length} Missing Trades
+                  </button>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    const res = applyLabourScheduleToBOQ(items, areaSqFt, labourRateMode);
+                    const rowMap = new Map(regionalLabourRows.map((r) => [r.benchmark.id, r]));
+                    const calibrated = res.updatedItems.map((it) => {
+                      const trade = matchItemToLabourTrade(it);
+                      if (!trade) return it;
+                      const row = rowMap.get(trade.id);
+                      if (!row) return it;
+                      const factor = row.activeRate / Math.max(1, row.baseRate);
+                      if (Math.abs(factor - 1) < 0.01) return it;
+                      const laborShare = it.laborComponent ?? trade.defaultLaborShare ?? 0.3;
+                      const nextRate = Math.round(it.rate * (1 - laborShare + laborShare * factor));
+                      return {
+                        ...it,
+                        rate: nextRate,
+                        amount: Math.round(it.quantity * nextRate),
+                      };
+                    });
+                    onUpdateItems(calibrated);
+                    showToast(
+                      `Applied ${activeRegionMeta.shortName} ${labourRateMode} labour rates (${res.modifiedCount} items calibrated).`
+                    );
+                  }}
+                  className="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-semibold whitespace-nowrap"
+                >
+                  Apply Labour to BOQ
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setIsLabourBreakdownModalOpen(true)}
+                  className="px-3 py-1.5 rounded-lg bg-slate-950 hover:bg-slate-800 border border-slate-800 text-slate-300 text-xs font-semibold whitespace-nowrap"
+                >
+                  Full Details
+                </button>
+              </div>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr className="border-b border-slate-800 bg-slate-950/60 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                    <th className="py-2.5 px-4">Work / Trade</th>
+                    <th className="py-2.5 px-3">Basis</th>
+                    <th className="py-2.5 px-3 text-right w-36">Your Rate (₹)</th>
+                    <th className="py-2.5 px-3 text-right">Est. ({areaSqFt.toLocaleString()} sq.ft)</th>
+                    <th className="py-2.5 px-4 text-right w-36">BOQ Link</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800/70 tabular-nums">
+                  {regionalLabourRows.map((row) => (
+                    <tr key={row.benchmark.id} className="hover:bg-slate-800/30 transition">
+                      <td className="py-2.5 px-4">
+                        <div className="font-medium text-white">{row.benchmark.trade}</div>
+                        <div className="text-[11px] text-slate-500">{row.benchmark.targetCategory}</div>
+                      </td>
+                      <td className="py-2.5 px-3 text-slate-400">{row.benchmark.description}</td>
+                      <td className="py-2 px-3 text-right">
+                        <div className="inline-flex items-center gap-1.5 justify-end">
+                          <input
+                            type="number"
+                            min={0}
+                            step={5}
+                            value={row.activeRate}
+                            onChange={(e) =>
+                              setCustomLabourRates((prev) => ({
+                                ...prev,
+                                [row.benchmark.id]: Math.max(0, Number(e.target.value) || 0),
+                              }))
+                            }
+                            className="w-24 bg-slate-950 border border-slate-800 focus:border-amber-500 rounded-md px-2 py-1 text-right text-xs text-white focus:outline-none"
+                          />
+                          {customLabourRates[row.benchmark.id] !== undefined && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setCustomLabourRates((prev) => {
+                                  const next = { ...prev };
+                                  delete next[row.benchmark.id];
+                                  return next;
+                                })
+                              }
+                              className="text-[11px] text-slate-400 hover:text-amber-300"
+                              title="Reset to regional benchmark"
+                            >
+                              Reset
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                      <td className="py-2.5 px-3 text-right font-semibold text-amber-300">
+                        {formatCurrency(row.scaledCost, currency)}
+                      </td>
+                      <td className="py-2.5 px-4 text-right">
+                        {row.linkedCount > 0 ? (
+                          <span className="text-[11px] text-emerald-400 font-medium">
+                            {row.linkedCount} in BOQ
+                          </span>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const newItem = createBOQItemFromLabourTrade(
+                                row.benchmark,
+                                areaSqFt,
+                                labourRateMode
+                              );
+                              onUpdateItems([...items, newItem]);
+                              showToast(`Added ${row.benchmark.trade} to BOQ schedule.`);
+                            }}
+                            className="text-[11px] font-semibold text-amber-300 hover:text-amber-200 hover:underline whitespace-nowrap"
+                          >
+                            + Add to BOQ
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot className="bg-slate-950 border-t border-slate-700 tabular-nums">
+                  <tr className="text-xs font-bold">
+                    <td colSpan={3} className="py-3 px-4 text-right text-slate-200">
+                      Total Estimated Civil Labour ({areaSqFt.toLocaleString()} sq.ft · ₹
+                      {regionalLabourPerSqFt.toLocaleString()}/sq.ft):
+                    </td>
+                    <td className="py-3 px-3 text-right text-amber-400">
+                      {formatCurrency(regionalLabourTotal, currency)}
+                    </td>
+                    <td />
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </div>
+
+          {/* SECTION 2: EASY LIVE MATERIAL MARKET RATES */}
+          <div className="rounded-xl bg-slate-900 border border-slate-800 overflow-hidden">
+            <div className="p-4 border-b border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                  <Radio className="w-4 h-4 text-emerald-400" />
+                  <span>2. Live Material Market Rates ({activeRegionMeta.shortName})</span>
+                </h3>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Real-time supplier &amp; mandi prices. Click Sync or Add to bring any live rate into your BOQ.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <div className="relative">
+                  <Search className="w-3.5 h-3.5 text-slate-500 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    value={marketSearchQuery}
+                    onChange={(e) => setMarketSearchQuery(e.target.value)}
+                    placeholder="Filter material..."
+                    className="bg-slate-950 border border-slate-800 rounded-lg pl-8 pr-3 py-1.5 text-xs text-white placeholder:text-slate-500 focus:outline-none"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsMarketModalOpen(true)}
+                  className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200 whitespace-nowrap"
+                >
+                  Rate Audit
+                </button>
+              </div>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr className="border-b border-slate-800 bg-slate-950/60 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                    <th className="py-2.5 px-4">Material &amp; Brands</th>
+                    <th className="py-2.5 px-3">Unit</th>
+                    <th className="py-2.5 px-3 text-right">Live Price</th>
+                    <th className="py-2.5 px-3 text-right">30-Day Change</th>
+                    <th className="py-2.5 px-3 text-right">Market Range</th>
+                    <th className="py-2.5 px-4 text-right w-36">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800/70 tabular-nums">
+                  {filteredLivePrices.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="py-8 text-center text-slate-400">
+                        {isLiveFetching ? 'Loading live material prices...' : 'No matching materials found.'}
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredLivePrices.map((p) => {
+                      const isUp = p.trend === 'up';
+                      const isDown = p.trend === 'down';
+                      return (
+                        <tr key={p.id} className="hover:bg-slate-800/30 transition">
+                          <td className="py-2.5 px-4">
+                            <div className="font-medium text-white">{p.name}</div>
+                            <div className="text-[11px] text-slate-400">
+                              {(p.brands || []).slice(0, 3).join(' · ')}
+                            </div>
+                          </td>
+                          <td className="py-2.5 px-3 text-slate-300">{p.unit}</td>
+                          <td className="py-2.5 px-3 text-right font-bold text-white">
+                            ₹{Number(p.currentPrice).toLocaleString()}
+                          </td>
+                          <td className="py-2.5 px-3 text-right">
+                            <span
+                              className={`inline-flex items-center gap-1 font-medium ${
+                                isUp ? 'text-rose-400' : isDown ? 'text-emerald-400' : 'text-slate-400'
+                              }`}
+                            >
+                              {isUp && <TrendingUp className="w-3 h-3" />}
+                              {isDown && <TrendingDown className="w-3 h-3" />}
+                              {p.changePercent > 0 ? `+${p.changePercent}%` : `${p.changePercent}%`}
+                            </span>
+                          </td>
+                          <td className="py-2.5 px-3 text-right text-slate-400">
+                            ₹{Number(p.minPrice).toLocaleString()} – ₹{Number(p.maxPrice).toLocaleString()}
+                          </td>
+                          <td className="py-2.5 px-4 text-right">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const unitNormalized = p.unit.toLowerCase().includes('mt')
+                                  ? 'MT'
+                                  : p.unit.toLowerCase().includes('m3')
+                                  ? 'm3'
+                                  : p.unit.toLowerCase().includes('sq.m')
+                                  ? 'sq.m'
+                                  : 'nos';
+                                const newItem = ensureItemFloorBreakdown(
+                                  {
+                                    id: `boq-live-${Date.now()}`,
+                                    name: p.name,
+                                    category: p.category.includes('Concrete')
+                                      ? 'Concrete Works'
+                                      : p.category.includes('Steel')
+                                      ? 'Concrete Works'
+                                      : p.category.includes('Block')
+                                      ? 'Masonry'
+                                      : p.category.includes('Plumbing')
+                                      ? 'Plumbing'
+                                      : p.category.includes('Glass')
+                                      ? 'Doors & Windows'
+                                      : p.category.includes('Finish')
+                                      ? 'Finishes'
+                                      : 'General',
+                                    unit: unitNormalized,
+                                    quantity: unitNormalized === 'MT' ? 4 : 50,
+                                    rate: Number(p.currentPrice) || 0,
+                                    amount: Math.round(
+                                      (unitNormalized === 'MT' ? 4 : 50) * (Number(p.currentPrice) || 0)
+                                    ),
+                                    notes: `${(p.brands || []).slice(0, 2).join(', ')} · Live ${activeRegionMeta.shortName} rate`,
+                                  },
+                                  floors
+                                );
+                                onUpdateItems([...items, newItem]);
+                                showToast(`Added "${p.name}" at live rate ₹${Number(p.currentPrice).toLocaleString()}.`);
+                              }}
+                              className="text-[11px] font-semibold text-amber-300 hover:text-amber-200 hover:underline whitespace-nowrap"
+                            >
+                              + Add to BOQ
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Optional Collapsible Advanced Alerts & News */}
+          <div className="rounded-xl bg-slate-900 border border-slate-800 p-4 space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-xs font-semibold text-slate-200">
+                  Live Price Fluctuation Alerts &amp; Material News Wire
+                </h3>
+                <p className="text-[11px] text-slate-400">
+                  Optional threshold push notifications and daily mandi updates.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowAdvancedAlertsAndNews((v) => !v)}
+                className="px-3 py-1.5 rounded-lg bg-slate-950 hover:bg-slate-800 border border-slate-700 text-xs font-semibold text-slate-200 whitespace-nowrap"
+              >
+                {showAdvancedAlertsAndNews ? 'Hide Alerts & News' : 'Show Alerts & News'}
+              </button>
+            </div>
+
+            {showAdvancedAlertsAndNews && (
+              <div className="space-y-4 pt-2 border-t border-slate-800">
+                <BOQRealTimePriceMonitor
+                  items={items}
+                  activeProject={activeProject}
+                  currency={currency}
+                  onUpdateItemRate={(id, rate) => handleUpdateItemField(id, 'rate', rate)}
+                  onUpdateMultipleItemRates={(updates) => {
+                    const map = new Map(updates.map((u) => [u.id, u.newRate]));
+                    onUpdateItems(
+                      items.map((it) =>
+                        map.has(it.id)
+                          ? { ...it, rate: map.get(it.id)!, amount: Math.round(it.quantity * map.get(it.id)!) }
+                          : it
+                      )
+                    );
+                  }}
+                />
+
+                <BimBoqMaterialNewsWire
+                  onLockMaterialRate={(newsItem) => {
+                    showToast(`Locked ${newsItem.categoryLabel} spot rate (${newsItem.currentMandiRate}).`);
+                  }}
+                />
+              </div>
+            )}
+          </div>
         </div>
       )}
 

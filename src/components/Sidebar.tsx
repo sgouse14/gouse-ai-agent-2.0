@@ -10,7 +10,6 @@ import {
   Image as ImageIcon,
   Workflow,
   Camera,
-  Mic,
   Palette,
   FolderKanban,
   ChevronLeft,
@@ -24,8 +23,12 @@ import {
   Presentation,
   LayoutDashboard,
   X,
+  Wand2,
+  Cpu,
+  AudioWaveform,
 } from 'lucide-react';
 import { TabType } from './Navigation';
+import { StudioToolkitTab } from './StudioToolkitModal';
 import { Project } from '../types';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
@@ -42,10 +45,10 @@ interface SidebarProps {
   onCloseMobile: () => void;
   onOpenWorkflowEngine: () => void;
   onOpenSiteCamera: () => void;
-  onToggleVoiceListener: () => void;
-  isVoiceListening: boolean;
   onOpenPlatformDemo: () => void;
   onOpenClientPortal: () => void;
+  onOpenStudioToolkit?: (tab?: StudioToolkitTab) => void;
+  onOpenNaturalVoiceChat?: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -60,10 +63,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onCloseMobile,
   onOpenWorkflowEngine,
   onOpenSiteCamera,
-  onToggleVoiceListener,
-  isVoiceListening,
   onOpenPlatformDemo,
   onOpenClientPortal,
+  onOpenStudioToolkit,
+  onOpenNaturalVoiceChat,
 }) => {
   const { currentTheme, setIsSettingsOpen } = useTheme();
   const {
@@ -93,7 +96,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'projects', label: 'Projects', icon: Building2 },
     { id: 'boq', label: 'BOQ & Estimation', icon: Calculator },
     { id: 'materials', label: 'Materials & Rates', icon: Layers },
-    { id: 'specialist', label: 'AI Specialist', icon: Sparkles },
+    { id: 'specialist', label: 'Gouse AI Super Agent', icon: Sparkles },
     { id: 'marketplace', label: 'Marketplace', icon: Store },
   ];
 
@@ -277,14 +280,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   style={isActive ? { color: currentTheme.colors['400'] } : undefined}
                 />
                 {!isCollapsed && (
-                  <span className="flex-1 flex items-center justify-between gap-2 min-w-0">
-                    <span className="truncate">{item.label}</span>
-                    {item.id === 'broker' && (
-                      <span className="text-[10px] font-mono uppercase tracking-wider text-amber-400/90 shrink-0">
-                        Soon
-                      </span>
-                    )}
-                  </span>
+                  <span className="truncate">{item.label}</span>
                 )}
               </button>
             );
@@ -298,6 +294,59 @@ export const Sidebar: React.FC<SidebarProps> = ({
               Studio Utilities
             </div>
           )}
+          {onOpenNaturalVoiceChat && (
+            <button
+              id="btn-sidebar-natural-voice"
+              type="button"
+              onClick={() => {
+                onOpenNaturalVoiceChat();
+                onCloseMobile();
+              }}
+              title={isCollapsed ? 'Natural Voice Chat' : undefined}
+              className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[13px] font-medium text-slate-300 hover:text-white hover:bg-slate-800/70 transition-colors whitespace-nowrap ${
+                isCollapsed ? 'justify-center' : ''
+              }`}
+            >
+              <AudioWaveform className="w-4 h-4 shrink-0 text-emerald-400" />
+              {!isCollapsed && <span className="truncate">Natural Voice Chat</span>}
+            </button>
+          )}
+          {onOpenStudioToolkit && (
+            <>
+              <button
+                id="btn-sidebar-studio-toolkit"
+                type="button"
+                onClick={() => {
+                  onOpenStudioToolkit('render');
+                  onCloseMobile();
+                }}
+                title={isCollapsed ? 'Studio Toolkit Hub' : undefined}
+                className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[13px] font-medium text-slate-400 hover:text-slate-100 hover:bg-slate-800/50 transition-colors whitespace-nowrap ${
+                  isCollapsed ? 'justify-center' : ''
+                }`}
+              >
+                <Wand2 className="w-4 h-4 shrink-0 text-amber-400" />
+                {!isCollapsed && <span className="truncate">Studio Toolkit Hub</span>}
+              </button>
+
+              <button
+                id="btn-sidebar-smart-building"
+                type="button"
+                onClick={() => {
+                  onOpenStudioToolkit('smart_building');
+                  onCloseMobile();
+                }}
+                title={isCollapsed ? 'Smart Building (SKA IoT)' : undefined}
+                className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[13px] font-medium text-slate-400 hover:text-slate-100 hover:bg-slate-800/50 transition-colors whitespace-nowrap ${
+                  isCollapsed ? 'justify-center' : ''
+                }`}
+              >
+                <Cpu className="w-4 h-4 shrink-0 text-cyan-400" />
+                {!isCollapsed && <span className="truncate">Smart Building (SKA IoT)</span>}
+              </button>
+            </>
+          )}
+
           <button
             id="btn-sidebar-workflow-engine"
             type="button"
@@ -328,27 +377,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
           >
             <Camera className="w-4 h-4 shrink-0 text-slate-400" />
             {!isCollapsed && <span className="truncate">Site Camera Audit</span>}
-          </button>
-
-          <button
-            id="btn-sidebar-voice"
-            type="button"
-            onClick={onToggleVoiceListener}
-            title={isCollapsed ? 'Voice Assistant (Alt+V)' : undefined}
-            className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[13px] font-medium transition-colors whitespace-nowrap ${
-              isCollapsed ? 'justify-center' : ''
-            } ${
-              isVoiceListening
-                ? 'bg-slate-800 text-amber-300 border border-amber-500/40'
-                : 'text-slate-400 hover:text-slate-100 hover:bg-slate-800/50 border border-transparent'
-            }`}
-          >
-            <Mic className={`w-4 h-4 shrink-0 ${isVoiceListening ? 'text-amber-400' : 'text-slate-400'}`} />
-            {!isCollapsed && (
-              <span className="truncate flex-1 text-left">
-                {isVoiceListening ? 'Listening (Alt+V)' : 'Voice Commands'}
-              </span>
-            )}
           </button>
 
           <button

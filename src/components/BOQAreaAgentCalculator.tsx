@@ -212,7 +212,7 @@ export const BOQAreaAgentCalculator: React.FC<BOQAreaAgentCalculatorProps> = ({
   const [detectedElements, setDetectedElements] = useState<string[]>([]);
   const [aiAnalysisSummary, setAiAnalysisSummary] = useState<string | null>(null);
   const [generatedItems, setGeneratedItems] = useState<BOQItem[] | null>(null);
-  const [selectedVisionModel, setSelectedVisionModel] = useState<'gemini-4-hydrogen' | 'gemini-3.8-flash'>('gemini-4-hydrogen');
+  const [selectedVisionModel] = useState<'gemini-4-hydrogen'>('gemini-4-hydrogen');
 
   // Mode: Expanded vs Minimized
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -1075,29 +1075,8 @@ export const BOQAreaAgentCalculator: React.FC<BOQAreaAgentCalculatorProps> = ({
                       Provide both an architectural plan image (floor plan, CAD drawing, or elevation) and specification text. The Gouse AI Agent analyzes drawing geometry, detects the built-up area and structural grid, and auto-calculates full engineering BOQ items.
                     </p>
                   </div>
-                  <div className="flex items-center gap-1.5 bg-slate-900 p-1 rounded-full border border-slate-800 text-[10px] font-mono">
-                    <button
-                      type="button"
-                      onClick={() => setSelectedVisionModel('gemini-4-hydrogen')}
-                      className={`px-2.5 py-0.5 rounded-full font-bold transition ${
-                        selectedVisionModel === 'gemini-4-hydrogen'
-                          ? 'bg-cyan-400 text-slate-950'
-                          : 'text-slate-400 hover:text-white'
-                      }`}
-                    >
-                      Gemini 4 Hydrogen
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setSelectedVisionModel('gemini-3.8-flash')}
-                      className={`px-2.5 py-0.5 rounded-full font-bold transition ${
-                        selectedVisionModel === 'gemini-3.8-flash'
-                          ? 'bg-amber-500 text-slate-950'
-                          : 'text-slate-400 hover:text-white'
-                      }`}
-                    >
-                      Gemini 3.8 Flash
-                    </button>
+                  <div className="flex items-center gap-1.5 bg-slate-900 px-2.5 py-1 rounded-lg border border-slate-800 text-[10px] font-mono text-cyan-300">
+                    Gemini 4 Hydrogen Vision
                   </div>
                 </div>
 
