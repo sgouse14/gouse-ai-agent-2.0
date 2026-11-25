@@ -574,12 +574,12 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
               <button
                 id="btn-projects-open-studio-toolkit"
                 type="button"
-                onClick={() => onOpenStudioToolkit('render')}
+                onClick={() => onOpenStudioToolkit('feasibility')}
                 className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-slate-950 border border-slate-800 hover:border-amber-500/50 text-slate-200 hover:text-white font-medium text-xs transition-colors whitespace-nowrap shrink-0"
-                title="Open AI Render Studio, Smart Building SKA, Site Translator & Fee Dossier"
+                title="Open Studio Utilities: Site Feasibility, RFIs & Change Orders, Engineering & Carbon Calcs, Render & Dossier"
               >
                 <Wand2 className="w-3.5 h-3.5 text-amber-400" />
-                <span>Studio Toolkit</span>
+                <span>Studio Utilities</span>
               </button>
             )}
           </div>

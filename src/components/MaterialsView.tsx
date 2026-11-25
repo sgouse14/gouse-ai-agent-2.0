@@ -4,8 +4,6 @@ import {
   Sparkles,
   CheckSquare,
   Leaf,
-  Flame,
-  Clock,
   Coins,
   Copy,
   Check,
@@ -19,40 +17,44 @@ import {
   Search,
   MapPin,
   ExternalLink,
-  Globe,
-  Boxes,
   Phone,
   ShieldCheck,
   Bell,
   BellRing,
-  BellOff,
   CheckCircle2,
-  AlertCircle,
   X,
-  Sliders,
-  Calendar,
-  Mail,
   Zap,
   BookOpen,
   FileText,
   Upload,
-  Play,
-  Pause,
-  ArrowUpRight,
-  ArrowDownRight,
-  Activity,
-  BarChart2,
+  Download,
+  Table2,
+  LayoutGrid,
+  PlusCircle,
 } from 'lucide-react';
-import { MATERIAL_CATALOG, BUILDING_TYPOLOGY_CHECKLISTS, INITIAL_LIVE_MATERIAL_PRICES } from '../data/initialData';
-import { Project, LiveMaterialPrice, GroundingSource, MaterialPriceAlertSubscription, MaterialPriceAlertItem, BOQItem } from '../types';
+import {
+  MATERIAL_CATALOG,
+  BUILDING_TYPOLOGY_CHECKLISTS,
+  INITIAL_LIVE_MATERIAL_PRICES,
+} from '../data/initialData';
+import {
+  Project,
+  LiveMaterialPrice,
+  GroundingSource,
+  MaterialPriceAlertSubscription,
+  MaterialPriceAlertItem,
+  BOQItem,
+} from '../types';
 import { formatCurrency, CurrencyCode } from '../utils/formatters';
 import { MaterialPriceAlertsPanel } from './MaterialPriceAlertsPanel';
 import { MaterialAreaTakeoffView } from './MaterialAreaTakeoffView';
 import { ConstructionMaterialsMasterGuideModal } from './ConstructionMaterialsMasterGuideModal';
-import { MaterialPdfSpecUpdaterModal, ExtractedMaterialStandard } from './MaterialPdfSpecUpdaterModal';
+import {
+  MaterialPdfSpecUpdaterModal,
+  ExtractedMaterialStandard,
+} from './MaterialPdfSpecUpdaterModal';
 import { getMasterGuideLivePrices } from '../data/constructionMaterialsGuide';
 import { CivilWisdomFormulaMatrix } from './CivilWisdomFormulaMatrix';
-import { getCivilWisdomMaterialOverrides } from '../data/civilWisdomFormulas';
 
 interface MaterialsViewProps {
   activeProject: Project;
@@ -75,8 +77,14 @@ export const MaterialsView: React.FC<MaterialsViewProps> = ({
   onNavigateToBOQ,
   onOpenWorkflowEngine,
 }) => {
-  const [activeSection, setActiveSection] = useState<'live-prices' | 'area-takeoff' | 'comparison' | 'checklists' | 'render'>('live-prices');
-  const [matrixSubView, setMatrixSubView] = useState<'quick-formulas' | 'specifications'>('quick-formulas');
+  const [activeSection, setActiveSection] = useState<
+    'live-prices' | 'area-takeoff' | 'comparison' | 'checklists' | 'render'
+  >('live-prices');
+  const [matrixSubView, setMatrixSubView] = useState<'quick-formulas' | 'specifications'>(
+    'quick-formulas'
+  );
+  const [rateViewMode, setRateViewMode] = useState<'table' | 'cards'>('table');
+  const [showAlertsDrawer, setShowAlertsDrawer] = useState<boolean>(false);
   const [isGuideOpen, setIsGuideOpen] = useState(false);
   const [isPdfUpdaterOpen, setIsPdfUpdaterOpen] = useState(false);
   const [pdfSuccessBanner, setPdfSuccessBanner] = useState<string | null>(null);
@@ -89,9 +97,9 @@ export const MaterialsView: React.FC<MaterialsViewProps> = ({
       setLivePrices((prev) => [...createdLivePrices, ...prev]);
     }
     setPdfSuccessBanner(
-      `✓ Material & Standards successfully updated with ${standards.brandName} (${standards.productVariants?.length || 0} product variants & IS standards ingested)`
+      `Standards updated with ${standards.brandName} (${standards.productVariants?.length || 0} product variants & IS codes imported).`
     );
-    setTimeout(() => setPdfSuccessBanner(null), 7000);
+    setTimeout(() => setPdfSuccessBanner(null), 6000);
   };
 
   const handleApplyCivilWisdomToTakeoff = (
@@ -113,26 +121,31 @@ export const MaterialsView: React.FC<MaterialsViewProps> = ({
     }
   };
 
-  // Live Material Pricing State - Preloaded with 22 brand spot rates from Construction Materials Master Guide
+  // Master Guide + Benchmark Material Rates
   const [livePrices, setLivePrices] = useState<LiveMaterialPrice[]>(() => {
     return [...getMasterGuideLivePrices(), ...INITIAL_LIVE_MATERIAL_PRICES];
   });
   const [liveRegion, setLiveRegion] = useState<string>('Bangalore / South India');
   const [selectedMaterialCategory, setSelectedMaterialCategory] = useState<string>('all');
   const [customMaterialQuery, setCustomMaterialQuery] = useState<string>('');
+  const [marketTrendFilter, setMarketTrendFilter] = useState<'all' | 'up' | 'down'>('all');
+  const [showSubscribedOnly, setShowSubscribedOnly] = useState<boolean>(false);
   const [isLoadingLivePrices, setIsLoadingLivePrices] = useState<boolean>(false);
   const [marketSummary, setMarketSummary] = useState<string>(
-    'Live spot commodity rates reflect firm cement dispatch with transport fuel revisions, steady domestic steel rebar consolidation, and elevated base copper prices in international markets.'
+    'Regional procurement rates reflect firm cement dispatch with seasonal freight adjustments, steady primary TMT rebar supply, and elevated copper cable benchmarks.'
   );
   const [liveSources, setLiveSources] = useState<GroundingSource[]>([
     { title: 'SteelMint National Construction Rebar Index', uri: 'https://www.steelmint.com' },
-    { title: 'Cement Manufacturers Association (CMA) Monthly Price Bulletin', uri: 'https://www.cmaindia.org' },
-    { title: 'London Metal Exchange (LME) Non-Ferrous Index', uri: 'https://www.lme.com' }
+    {
+      title: 'Cement Manufacturers Association (CMA) Bulletin',
+      uri: 'https://www.cmaindia.org',
+    },
+    { title: 'London Metal Exchange (LME) Non-Ferrous Index', uri: 'https://www.lme.com' },
   ]);
   const [lastRefreshedAt, setLastRefreshedAt] = useState<string>(new Date().toISOString());
   const [quotaNotice, setQuotaNotice] = useState<string | null>(null);
 
-  // Periodic Price Change Notifications Subscription State
+  // Price Change Alert Subscriptions
   const [subscription, setSubscription] = useState<MaterialPriceAlertSubscription>(() => {
     try {
       const saved = localStorage.getItem('gouse_ai_material_alert_sub');
@@ -149,7 +162,6 @@ export const MaterialsView: React.FC<MaterialsViewProps> = ({
     };
   });
 
-  // Recent Alert Items / Notification Digest
   const [recentAlerts, setRecentAlerts] = useState<MaterialPriceAlertItem[]>(() => {
     try {
       const saved = localStorage.getItem('gouse_ai_material_alert_history');
@@ -166,7 +178,8 @@ export const MaterialsView: React.FC<MaterialsViewProps> = ({
         unit: 'MT (Metric Tonne)',
         changePercent: 2.3,
         trend: 'up',
-        trendReason: 'Domestic steel mills hiked secondary and primary rebar by ₹1,700/MT due to rising iron ore export bids and thermal coal freight revisions.',
+        trendReason:
+          'Primary rebar rates adjusted upward following regional freight and billet revisions.',
         timestamp: new Date(Date.now() - 3600000 * 2).toISOString(),
         read: false,
       },
@@ -180,7 +193,7 @@ export const MaterialsView: React.FC<MaterialsViewProps> = ({
         unit: '50 kg bag',
         changePercent: -1.8,
         trend: 'down',
-        trendReason: 'South regional manufacturers rolled out seasonal bulk clearance discount (₹7/bag) for project dispatches.',
+        trendReason: 'South regional dispatch discount active for bulk project orders.',
         timestamp: new Date(Date.now() - 3600000 * 8).toISOString(),
         read: false,
       },
@@ -188,221 +201,59 @@ export const MaterialsView: React.FC<MaterialsViewProps> = ({
   });
 
   const [alertFeedbackToast, setAlertFeedbackToast] = useState<string | null>(null);
-  const [showDigestNotificationBanner, setShowDigestNotificationBanner] = useState<boolean>(true);
-  const [showSubscribedOnly, setShowSubscribedOnly] = useState<boolean>(false);
+  const [showDigestBanner, setShowDigestBanner] = useState<boolean>(false);
 
-  // Persist subscription to localStorage
   useEffect(() => {
     try {
       localStorage.setItem('gouse_ai_material_alert_sub', JSON.stringify(subscription));
     } catch (_e) {}
   }, [subscription]);
 
-  // Persist alert history to localStorage
   useEffect(() => {
     try {
       localStorage.setItem('gouse_ai_material_alert_history', JSON.stringify(recentAlerts));
     } catch (_e) {}
   }, [recentAlerts]);
 
+  const showToast = (msg: string) => {
+    setAlertFeedbackToast(msg);
+    setTimeout(() => setAlertFeedbackToast(null), 4000);
+  };
+
   const handleUpdateSubscription = (updated: Partial<MaterialPriceAlertSubscription>) => {
     setSubscription((prev) => {
       const next = { ...prev, ...updated };
       if (updated.enabled !== undefined) {
-        setAlertFeedbackToast(
+        showToast(
           updated.enabled
-            ? `Subscribed: Periodic price change notifications enabled for ${next.subscribedMaterialIds.length} materials.`
+            ? `Price change alerts enabled for ${next.subscribedMaterialIds.length} materials.`
             : 'Price change notifications paused.'
         );
-        setTimeout(() => setAlertFeedbackToast(null), 3500);
       }
       return next;
     });
   };
 
   const handleToggleMaterialTracked = (materialId: string) => {
-    const isCurrentlyTracked = subscription.subscribedMaterialIds.includes(materialId);
-    const targetMaterial = livePrices.find((m) => m.id === materialId);
-    const matName = targetMaterial ? targetMaterial.name : 'Material';
+    const isTracked = subscription.subscribedMaterialIds.includes(materialId);
+    const mat = livePrices.find((m) => m.id === materialId);
+    const matName = mat ? mat.name : 'Material';
 
     setSubscription((prev) => {
-      let nextIds: string[];
-      let wasEnabled = prev.enabled;
-      if (isCurrentlyTracked) {
-        nextIds = prev.subscribedMaterialIds.filter((id) => id !== materialId);
-        setAlertFeedbackToast(`Unsubscribed from price change notifications for ${matName}.`);
-      } else {
-        nextIds = [...prev.subscribedMaterialIds, materialId];
-        wasEnabled = true;
-        setAlertFeedbackToast(`Subscribed to periodic price change alerts for ${matName}.`);
-      }
-      setTimeout(() => setAlertFeedbackToast(null), 3500);
+      const nextIds = isTracked
+        ? prev.subscribedMaterialIds.filter((id) => id !== materialId)
+        : [...prev.subscribedMaterialIds, materialId];
+      showToast(
+        isTracked
+          ? `Removed ${matName} from price watchlist.`
+          : `Added ${matName} to price watchlist.`
+      );
       return {
         ...prev,
-        enabled: wasEnabled,
+        enabled: isTracked ? prev.enabled : true,
         subscribedMaterialIds: nextIds,
       };
     });
-  };
-
-  // Live Spot Price Auto-Ticker & Real-Time Fluctuation Simulation State
-  const [isLiveTickerActive, setIsLiveTickerActive] = useState<boolean>(true);
-  const [tickedMaterialIds, setTickedMaterialIds] = useState<Record<string, 'up' | 'down'>>({});
-  const [marketTrendFilter, setMarketTrendFilter] = useState<'all' | 'up' | 'down'>('all');
-
-  // Real-Time Market UP vs Market DOWN Breadth & Sentiment Metrics
-  const marketBreadth = useMemo(() => {
-    let upCount = 0;
-    let downCount = 0;
-    let stableCount = 0;
-    let totalGain = 0;
-    let totalLoss = 0;
-
-    livePrices.forEach((m) => {
-      if (m.trend === 'up' || m.changePercent > 0) {
-        upCount++;
-        totalGain += Math.abs(m.changePercent);
-      } else if (m.trend === 'down' || m.changePercent < 0) {
-        downCount++;
-        totalLoss += Math.abs(m.changePercent);
-      } else {
-        stableCount++;
-      }
-    });
-
-    const isBullish = upCount >= downCount;
-    const avgGain = upCount > 0 ? (totalGain / upCount).toFixed(2) : '0.00';
-    const avgLoss = downCount > 0 ? (totalLoss / downCount).toFixed(2) : '0.00';
-    const netPoints = Math.round((upCount * 22.4) - (downCount * 18.6));
-    const compositeIndex = 14850 + netPoints;
-    const netPercent = (((totalGain - totalLoss) / Math.max(1, livePrices.length))).toFixed(2);
-
-    const totalCount = Math.max(1, livePrices.length);
-    const upRatio = Math.round((upCount / totalCount) * 100);
-    const downRatio = Math.round((downCount / totalCount) * 100);
-
-    return {
-      upCount,
-      downCount,
-      stableCount,
-      isBullish,
-      avgGain,
-      avgLoss,
-      netPoints,
-      compositeIndex,
-      netPercent,
-      upRatio,
-      downRatio,
-      totalCount: livePrices.length,
-    };
-  }, [livePrices]);
-
-  // Top 3 Market UP (Gainers) and Top 3 Market DOWN (Losers)
-  const topGainers = useMemo(() => {
-    return [...livePrices]
-      .filter((m) => m.trend === 'up' || m.changePercent > 0)
-      .sort((a, b) => b.changePercent - a.changePercent)
-      .slice(0, 3);
-  }, [livePrices]);
-
-  const topLosers = useMemo(() => {
-    return [...livePrices]
-      .filter((m) => m.trend === 'down' || m.changePercent < 0)
-      .sort((a, b) => a.changePercent - b.changePercent)
-      .slice(0, 3);
-  }, [livePrices]);
-
-  // Periodic Live Spot Price Market Fluctuation Engine (Simulates real-time mill & yard spot changes)
-  useEffect(() => {
-    if (!isLiveTickerActive) return;
-
-    const interval = setInterval(() => {
-      setLivePrices((prev) => {
-        if (!prev || prev.length === 0) return prev;
-        // Pick 1 random commodity to fluctuate
-        const randomIndex = Math.floor(Math.random() * Math.min(prev.length, 16));
-        const target = prev[randomIndex];
-        if (!target) return prev;
-
-        // Alternate or random direction
-        const isUp = Math.random() > 0.46;
-        const deltaPercent = Number((0.4 + Math.random() * 0.9).toFixed(1));
-        const priceDelta = Math.max(1, Math.round(target.currentPrice * (deltaPercent / 100)));
-        const newPrice = isUp ? target.currentPrice + priceDelta : Math.max(10, target.currentPrice - priceDelta);
-        const newChangePercent = Number((isUp ? deltaPercent : -deltaPercent).toFixed(1));
-
-        setTickedMaterialIds((ticked) => ({
-          ...ticked,
-          [target.id]: isUp ? 'up' : 'down',
-        }));
-
-        setTimeout(() => {
-          setTickedMaterialIds((ticked) => {
-            const next = { ...ticked };
-            delete next[target.id];
-            return next;
-          });
-        }, 2200);
-
-        return prev.map((item, idx) =>
-          idx === randomIndex
-            ? {
-                ...item,
-                currentPrice: newPrice,
-                changePercent: newChangePercent,
-                trend: isUp ? ('up' as const) : ('down' as const),
-              }
-            : item
-        );
-      });
-      setLastRefreshedAt(new Date().toISOString());
-    }, 3200);
-
-    return () => clearInterval(interval);
-  }, [isLiveTickerActive]);
-
-  // Simulation handler: Trigger immediate Market UP Surge (Green)
-  const handleSimulateSpotRise = () => {
-    setLivePrices((prev) =>
-      prev.map((item, idx) => {
-        if (idx % 2 === 0 || idx < 4) {
-          const delta = Math.max(1, Math.round(item.currentPrice * 0.026));
-          setTickedMaterialIds((ticked) => ({ ...ticked, [item.id]: 'up' }));
-          return {
-            ...item,
-            currentPrice: item.currentPrice + delta,
-            changePercent: Number((Math.abs(item.changePercent) + 2.6).toFixed(1)),
-            trend: 'up' as const,
-          };
-        }
-        return item;
-      })
-    );
-    setTimeout(() => setTickedMaterialIds({}), 3000);
-    setAlertFeedbackToast('🟢 MARKET UP RALLY: Major commodities surging green (+2.6% avg gain). Composite Index advancing.');
-    setTimeout(() => setAlertFeedbackToast(null), 4000);
-  };
-
-  // Simulation handler: Trigger immediate Market DOWN Drop (Red)
-  const handleSimulateSpotDrop = () => {
-    setLivePrices((prev) =>
-      prev.map((item, idx) => {
-        if (idx % 2 !== 0 || idx < 5) {
-          const delta = Math.max(1, Math.round(item.currentPrice * 0.023));
-          setTickedMaterialIds((ticked) => ({ ...ticked, [item.id]: 'down' }));
-          return {
-            ...item,
-            currentPrice: Math.max(10, item.currentPrice - delta),
-            changePercent: -Number((Math.abs(item.changePercent) + 2.3).toFixed(1)),
-            trend: 'down' as const,
-          };
-        }
-        return item;
-      })
-    );
-    setTimeout(() => setTickedMaterialIds({}), 3000);
-    setAlertFeedbackToast('🔴 MARKET DOWN DIP: Commodity rates corrected red (-2.3% avg dip). Composite Index softening.');
-    setTimeout(() => setAlertFeedbackToast(null), 4000);
   };
 
   const handleDismissAlert = (alertId: string) => {
@@ -414,11 +265,13 @@ export const MaterialsView: React.FC<MaterialsViewProps> = ({
   };
 
   const handleTriggerTestAlert = () => {
-    const trackedItems = livePrices.filter((m) => subscription.subscribedMaterialIds.includes(m.id));
+    const trackedItems = livePrices.filter((m) =>
+      subscription.subscribedMaterialIds.includes(m.id)
+    );
     const pool = trackedItems.length > 0 ? trackedItems : livePrices.slice(0, 3);
 
     const newAlerts: MaterialPriceAlertItem[] = pool.slice(0, 3).map((item, idx) => {
-      const shiftPercent = (idx % 2 === 0 ? 1 : -1) * (1.2 + idx * 0.7);
+      const shiftPercent = (idx % 2 === 0 ? 1 : -1) * (1.2 + idx * 0.6);
       const oldPrice = Math.round(item.currentPrice / (1 + shiftPercent / 100));
       return {
         id: `alert-${Date.now()}-${idx}`,
@@ -430,45 +283,160 @@ export const MaterialsView: React.FC<MaterialsViewProps> = ({
         unit: item.unit,
         changePercent: Number(shiftPercent.toFixed(1)),
         trend: shiftPercent > 0 ? 'up' : 'down',
-        trendReason: item.trendReason || `Spot commodity adjustment detected in ${liveRegion}`,
+        trendReason: item.trendReason || `Regional rate revision logged in ${liveRegion}`,
         timestamp: new Date().toISOString(),
         read: false,
       };
     });
 
     setRecentAlerts((prev) => [...newAlerts, ...prev].slice(0, 20));
-    setShowDigestNotificationBanner(true);
-    setAlertFeedbackToast(
-      `🔔 Periodic Price Alert Digest Sent! ${newAlerts.length} rate updates dispatched to ${subscription.recipientEmail}`
-    );
-    setTimeout(() => setAlertFeedbackToast(null), 4500);
+    setShowDigestBanner(true);
+    showToast(`Rate digest sent to ${subscription.recipientEmail} (${newAlerts.length} updates).`);
   };
 
-  // Comparison filter
-  const [selectedCategory, setSelectedCategory] = useState<string>('all');
-  const [selectedFloorFilter, setSelectedFloorFilter] = useState<string>('all');
-  const [matrixSearchQuery, setMatrixSearchQuery] = useState<string>('');
+  // Rate summary metrics
+  const rateMetrics = useMemo(() => {
+    let risingCount = 0;
+    let softeningCount = 0;
+    let totalRise = 0;
 
-  // Interactive Material Calculator
-  const [calcMaterialId, setCalcMaterialId] = useState<string>(MATERIAL_CATALOG[0].id);
-  const [calcQuantity, setCalcQuantity] = useState<number>(100);
+    livePrices.forEach((m) => {
+      if (m.trend === 'up' || m.changePercent > 0) {
+        risingCount++;
+        totalRise += Math.abs(m.changePercent);
+      } else {
+        softeningCount++;
+      }
+    });
 
-  // Checklists state
-  const typologies = Object.keys(BUILDING_TYPOLOGY_CHECKLISTS);
-  const [selectedTypology, setSelectedTypology] = useState<string>(typologies[0]);
-  const [checkedItems, setCheckedItems] = useState<Record<string, boolean>>({});
+    const avgRise = risingCount > 0 ? (totalRise / risingCount).toFixed(1) : '0.0';
+    return {
+      totalCount: livePrices.length,
+      risingCount,
+      softeningCount,
+      avgRise,
+    };
+  }, [livePrices]);
 
-  // Render Prompt Studio state
-  const [renderDesc, setRenderDesc] = useState(
-    activeProject.description || 'Tropical contemporary residence with courtyard, exposed board-marked concrete, and teak louvers'
-  );
-  const [renderStyle, setRenderStyle] = useState('photorealistic architectural photography');
-  const [isGeneratingPrompt, setIsGeneratingPrompt] = useState(false);
-  const [generatedPrompt, setGeneratedPrompt] = useState<string | null>(null);
-  const [copiedPrompt, setCopiedPrompt] = useState(false);
+  // BOQ Rate Sync Helper
+  const findMatchingBoqIndex = (mat: LiveMaterialPrice) => {
+    const byId = boqItems.findIndex((b) => b.id === `boq-mat-${mat.id}`);
+    if (byId >= 0) return byId;
+    const prefix = mat.name.toLowerCase().split('(')[0].trim();
+    const keywords = prefix.split(/\s+/).slice(0, 2).join(' ');
+    return boqItems.findIndex(
+      (b) =>
+        b.name.toLowerCase().includes(prefix) ||
+        (keywords.length > 4 && b.name.toLowerCase().includes(keywords))
+    );
+  };
 
-  // Fetch Live Prices via Google Search Grounding
-  const fetchLivePrices = async (overrideRegion?: string, overrideCat?: string, overrideQuery?: string) => {
+  const handleSyncMaterialToBoq = (mat: LiveMaterialPrice) => {
+    if (!onUpdateBOQItems) return;
+    const idx = findMatchingBoqIndex(mat);
+    const updatedBoq = [...boqItems];
+
+    if (idx >= 0) {
+      const existing = updatedBoq[idx];
+      updatedBoq[idx] = {
+        ...existing,
+        rate: mat.currentPrice,
+        amount: Math.round((existing.quantity || 1) * mat.currentPrice),
+        notes: `${existing.notes ? existing.notes + ' · ' : ''}Rate updated from Materials & Rates (${liveRegion}).`,
+      };
+      onUpdateBOQItems(updatedBoq);
+      showToast(`Updated "${existing.name}" in BOQ to ${formatCurrency(mat.currentPrice, currency)} / ${mat.unit}.`);
+    } else {
+      const catLower = mat.category.toLowerCase();
+      const nameLower = mat.name.toLowerCase();
+      const stageGuess: BOQItem['stage'] =
+        catLower.includes('plumb') ||
+        catLower.includes('electr') ||
+        nameLower.includes('lighting') ||
+        nameLower.includes('downlight') ||
+        nameLower.includes('sanitary') ||
+        nameLower.includes('cistern')
+          ? 'Services'
+          : catLower.includes('finish') ||
+            catLower.includes('paint') ||
+            catLower.includes('tile') ||
+            catLower.includes('interior') ||
+            catLower.includes('millwork')
+          ? 'Finishes'
+          : 'Superstructure';
+
+      const newLine: BOQItem = {
+        id: `boq-mat-${mat.id}`,
+        name: `${mat.name} (${mat.brands[0] || 'Approved Brand'})`,
+        category: mat.category,
+        unit: mat.unit,
+        quantity: 1,
+        rate: mat.currentPrice,
+        amount: mat.currentPrice,
+        notes: `Added from Materials & Rates directory (${liveRegion}).`,
+        stage: stageGuess,
+        status: 'estimated',
+      };
+      onUpdateBOQItems([...updatedBoq, newLine]);
+      showToast(`Added "${mat.name}" to Project BOQ at ${formatCurrency(mat.currentPrice, currency)} / ${mat.unit}.`);
+    }
+  };
+
+  // Export Rate Sheet to CSV
+  const handleExportCsv = () => {
+    const headers = [
+      'Material Name',
+      'Category',
+      'Approved Brands',
+      'Unit',
+      'Min Rate (INR)',
+      'Spot Rate (INR)',
+      'Max Rate (INR)',
+      '30d Trend %',
+      'Market Hub',
+      'Notes',
+    ];
+
+    const escapeCsv = (val: string | number) => {
+      const str = String(val ?? '');
+      if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+        return `"${str.replace(/"/g, '""')}"`;
+      }
+      return str;
+    };
+
+    const rows = displayedLivePrices.map((m) => [
+      escapeCsv(m.name),
+      escapeCsv(m.category),
+      escapeCsv(m.brands.join(' / ')),
+      escapeCsv(m.unit),
+      escapeCsv(m.minPrice),
+      escapeCsv(m.currentPrice),
+      escapeCsv(m.maxPrice),
+      escapeCsv(`${m.changePercent > 0 ? '+' : ''}${m.changePercent}%`),
+      escapeCsv(m.location || liveRegion),
+      escapeCsv(m.marketNotes || m.trendReason || ''),
+    ]);
+
+    const csv = [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${activeProject.name.replace(/\s+/g, '_')}_Material_Rates.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    showToast(`Exported ${displayedLivePrices.length} material rates to CSV.`);
+  };
+
+  // Fetch Live Prices via Grounded API
+  const fetchLivePrices = async (
+    overrideRegion?: string,
+    overrideCat?: string,
+    overrideQuery?: string
+  ) => {
     setIsLoadingLivePrices(true);
     const reg = overrideRegion !== undefined ? overrideRegion : liveRegion;
     const cat = overrideCat !== undefined ? overrideCat : selectedMaterialCategory;
@@ -490,30 +458,21 @@ export const MaterialsView: React.FC<MaterialsViewProps> = ({
       const data = await res.json();
       if (data.prices && data.prices.length > 0) {
         const guidePrices = getMasterGuideLivePrices();
-        const incomingIds = new Set(data.prices.map((p: any) => p.id));
+        const incomingIds = new Set(data.prices.map((p: LiveMaterialPrice) => p.id));
         const filteredGuide = guidePrices.filter((g) => !incomingIds.has(g.id));
         setLivePrices([...filteredGuide, ...data.prices]);
       }
-      if (data.marketSummary) {
-        setMarketSummary(data.marketSummary);
-      }
-      if (data.sources && data.sources.length > 0) {
-        setLiveSources(data.sources);
-      }
-      if (data.quotaNotice) {
-        setQuotaNotice(data.quotaNotice);
-      } else {
-        setQuotaNotice(null);
-      }
+      if (data.marketSummary) setMarketSummary(data.marketSummary);
+      if (data.sources && data.sources.length > 0) setLiveSources(data.sources);
+      setQuotaNotice(data.quotaNotice || null);
       setLastRefreshedAt(new Date().toISOString());
     } catch {
-      setQuotaNotice('Serving verified Master Guide brand spot rates & regional market price benchmarks.');
+      setQuotaNotice('Showing verified Master Guide & regional benchmark material rates.');
     } finally {
       setIsLoadingLivePrices(false);
     }
   };
 
-  // Filtered live materials
   const displayedLivePrices = useMemo(() => {
     let list = livePrices;
     if (showSubscribedOnly) {
@@ -525,7 +484,9 @@ export const MaterialsView: React.FC<MaterialsViewProps> = ({
       list = list.filter((p) => p.trend === 'down' || p.changePercent < 0);
     }
     if (selectedMaterialCategory !== 'all') {
-      list = list.filter((p) => p.category.toLowerCase().includes(selectedMaterialCategory.toLowerCase()));
+      list = list.filter((p) =>
+        p.category.toLowerCase().includes(selectedMaterialCategory.toLowerCase())
+      );
     }
     if (customMaterialQuery.trim()) {
       const q = customMaterialQuery.toLowerCase();
@@ -537,16 +498,48 @@ export const MaterialsView: React.FC<MaterialsViewProps> = ({
       );
     }
     return list;
-  }, [livePrices, selectedMaterialCategory, customMaterialQuery, showSubscribedOnly, marketTrendFilter, subscription.subscribedMaterialIds]);
+  }, [
+    livePrices,
+    selectedMaterialCategory,
+    customMaterialQuery,
+    showSubscribedOnly,
+    marketTrendFilter,
+    subscription.subscribedMaterialIds,
+  ]);
 
-  // Material calculation
-  const calcMaterial = MATERIAL_CATALOG.find((m) => m.id === calcMaterialId) || MATERIAL_CATALOG[0];
+  // Matrix & Calculator state
+  const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [selectedFloorFilter, setSelectedFloorFilter] = useState<string>('all');
+  const [matrixSearchQuery, setMatrixSearchQuery] = useState<string>('');
+  const [calcMaterialId, setCalcMaterialId] = useState<string>(MATERIAL_CATALOG[0].id);
+  const [calcQuantity, setCalcQuantity] = useState<number>(100);
+
+  // Checklists state
+  const typologies = Object.keys(BUILDING_TYPOLOGY_CHECKLISTS);
+  const [selectedTypology, setSelectedTypology] = useState<string>(typologies[0]);
+  const [checkedItems, setCheckedItems] = useState<Record<string, boolean>>({});
+
+  // Render Prompt Studio state
+  const [renderDesc, setRenderDesc] = useState(
+    activeProject.description ||
+      'Tropical contemporary residence with courtyard, exposed board-marked concrete, and teak louvers'
+  );
+  const [renderStyle, setRenderStyle] = useState('photorealistic architectural photography');
+  const [isGeneratingPrompt, setIsGeneratingPrompt] = useState(false);
+  const [generatedPrompt, setGeneratedPrompt] = useState<string | null>(null);
+  const [copiedPrompt, setCopiedPrompt] = useState(false);
+
+  const calcMaterial =
+    MATERIAL_CATALOG.find((m) => m.id === calcMaterialId) || MATERIAL_CATALOG[0];
   const totalCost = calcQuantity * calcMaterial.estimatedRate;
   const totalCarbon = calcQuantity * calcMaterial.embodiedCarbonKg;
 
   const currentChecklist = BUILDING_TYPOLOGY_CHECKLISTS[selectedTypology] || [];
-  const checkedCount = currentChecklist.filter((_, idx) => checkedItems[`${selectedTypology}-${idx}`]).length;
-  const checklistProgress = currentChecklist.length > 0 ? Math.round((checkedCount / currentChecklist.length) * 100) : 0;
+  const checkedCount = currentChecklist.filter(
+    (_, idx) => checkedItems[`${selectedTypology}-${idx}`]
+  ).length;
+  const checklistProgress =
+    currentChecklist.length > 0 ? Math.round((checkedCount / currentChecklist.length) * 100) : 0;
 
   const toggleCheck = (idx: number) => {
     const key = `${selectedTypology}-${idx}`;
@@ -608,733 +601,263 @@ export const MaterialsView: React.FC<MaterialsViewProps> = ({
 
   return (
     <div id="materials-standards-view" className="max-w-7xl mx-auto px-4 lg:px-8 py-6 space-y-6">
-      {/* Executive Header */}
-      <div className="rounded-xl bg-slate-900 border border-slate-800 p-5 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-        <div className="space-y-1">
-          <div className="text-xs text-slate-400">
-            <span>Materials &amp; Rate Standards</span>
-            <span className="mx-1.5" aria-hidden="true">·</span>
-            <span className="text-amber-400 font-medium">Spot Market Pricing &amp; Specifications</span>
+      {/* Clean Executive Header + Tab Bar */}
+      <div className="rounded-2xl bg-slate-900 border border-slate-800 px-5 pt-5 space-y-4">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          <div className="space-y-1">
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white">
+              Materials &amp; Rates
+            </h1>
+            <p className="text-xs sm:text-sm text-slate-400">
+              Approved regional material rates, quantity takeoffs, IS code benchmarks, and BOQ syncing for{' '}
+              <span className="text-slate-200 font-medium">{activeProject.name}</span>.
+            </p>
           </div>
-          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white">
-            Construction Material Intelligence
-          </h1>
-          <p className="text-xs sm:text-sm text-slate-400">
-            Grounded market spot rates, commodity inflation trends, building typology checklists, and visualization prompts.
-          </p>
-        </div>
 
-        {/* Section Navigation Tabs */}
-        <div className="flex flex-wrap items-center gap-1.5 bg-slate-950 p-1.5 rounded-xl border border-slate-800">
-          <button
-            id="tab-live-prices"
-            onClick={() => setActiveSection('live-prices')}
-            className={`px-3.5 py-2 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 whitespace-nowrap ${
-              activeSection === 'live-prices'
-                ? 'bg-amber-500 text-slate-950 font-bold'
-                : 'text-slate-400 hover:text-white'
-            }`}
-          >
-            <Coins className="w-3.5 h-3.5" />
-            <span>Live Spot Market</span>
-          </button>
-          <button
-            id="tab-area-takeoff"
-            onClick={() => setActiveSection('area-takeoff')}
-            className={`px-3.5 py-2 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 ${
-              activeSection === 'area-takeoff'
-                ? 'bg-amber-500 text-slate-950 shadow-sm font-bold'
-                : 'text-slate-400 hover:text-white'
-            }`}
-          >
-            <Zap className="w-3.5 h-3.5" />
-            <span>Area Takeoff & Quantities</span>
-          </button>
-          <button
-            id="tab-comparison"
-            onClick={() => setActiveSection('comparison')}
-            className={`px-3 py-2 rounded-lg text-xs font-medium transition flex items-center gap-1.5 ${
-              activeSection === 'comparison'
-                ? 'bg-amber-500 text-slate-950 font-bold shadow-sm'
-                : 'text-slate-400 hover:text-white'
-            }`}
-          >
-            <Layers className="w-3.5 h-3.5" />
-            <span>Standard Material Matrix</span>
-          </button>
-          <button
-            id="tab-checklists"
-            onClick={() => setActiveSection('checklists')}
-            className={`px-3 py-2 rounded-lg text-xs font-medium transition flex items-center gap-1.5 ${
-              activeSection === 'checklists'
-                ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
-                : 'text-slate-400 hover:text-white'
-            }`}
-          >
-            <CheckSquare className="w-3.5 h-3.5" />
-            <span>Typology Checklists</span>
-          </button>
-          <button
-            id="tab-render"
-            onClick={() => setActiveSection('render')}
-            className={`px-3 py-2 rounded-lg text-xs font-medium transition flex items-center gap-1.5 ${
-              activeSection === 'render'
-                ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
-                : 'text-slate-400 hover:text-white'
-            }`}
-          >
-            <Camera className="w-3.5 h-3.5" />
-            <span>3D Render Studio</span>
-          </button>
-
-          <button
-            id="btn-open-master-materials-guide"
-            onClick={() => setIsGuideOpen(true)}
-            className="px-3 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/30 shadow-sm"
-            title="Explore Construction Materials Master Guide (IS Standards & National/Regional Brands)"
-          >
-            <BookOpen className="w-3.5 h-3.5 text-amber-400" />
-            <span>Master Materials Guide</span>
-          </button>
-
-          {onOpenWorkflowEngine && (
+          <div className="flex flex-wrap items-center gap-2 shrink-0">
             <button
-              id="btn-materials-open-workflow-engine"
-              onClick={onOpenWorkflowEngine}
-              className="px-3 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5 bg-gradient-to-r from-amber-500/20 via-emerald-500/15 to-slate-800 hover:from-amber-500/30 text-amber-300 border border-amber-500/40 shadow-sm"
-              title="Open AI Construction Platform Workflow Engine (Step 4: Material & Quantity Calculation)"
+              id="btn-open-master-materials-guide"
+              type="button"
+              onClick={() => setIsGuideOpen(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-medium transition-colors whitespace-nowrap shrink-0"
             >
-              <Zap className="w-3.5 h-3.5 text-amber-400" />
-              <span>AI Workflow Engine</span>
-              <span className="text-[10px] font-mono px-1 rounded bg-amber-500/20 text-amber-300">
-                Step 4
-              </span>
+              <BookOpen className="w-3.5 h-3.5 text-amber-400" />
+              <span>Master Guide</span>
             </button>
-          )}
 
-          <button
-            id="btn-open-pdf-spec-updater"
-            onClick={() => setIsPdfUpdaterOpen(true)}
-            className="px-3 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5 bg-gradient-to-r from-amber-500/20 via-purple-500/20 to-slate-800 hover:from-amber-500/30 hover:via-purple-500/30 hover:to-slate-700 text-amber-300 border border-amber-500/40 shadow-sm"
-            title="Upload or paste PDF to update Material & Standards (Birla Opus & Birla OPC ready)"
-          >
-            <FileText className="w-3.5 h-3.5 text-amber-400" />
-            <span>PDF Spec Updater (Birla OPS)</span>
-          </button>
-        </div>
-      </div>
+            <button
+              id="btn-open-pdf-spec-updater"
+              type="button"
+              onClick={() => setIsPdfUpdaterOpen(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-medium transition-colors whitespace-nowrap shrink-0"
+              title="Import datasheet PDF to update material rates and IS standards"
+            >
+              <Upload className="w-3.5 h-3.5 text-amber-400" />
+              <span>Import PDF Specs</span>
+            </button>
 
-      {/* Real-Time Live Spot Market Ticker Bar inside Materials & Standards */}
-      <div className="rounded-xl border border-slate-800 bg-slate-900 p-3 flex flex-col lg:flex-row lg:items-center justify-between gap-3">
-        <div className="flex items-center gap-3 flex-wrap">
-          <div className="flex items-center gap-2">
-            <span className="h-2 w-2 rounded-full bg-emerald-500" />
-            <span className="text-xs font-mono font-semibold text-white uppercase tracking-wider">
-              Live Spot Market
-            </span>
-          </div>
+            {onOpenWorkflowEngine && (
+              <button
+                id="btn-materials-open-workflow-engine"
+                type="button"
+                onClick={onOpenWorkflowEngine}
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/30 text-xs font-medium transition-colors whitespace-nowrap shrink-0"
+              >
+                <Zap className="w-3.5 h-3.5 text-amber-400" />
+                <span>Workflow Engine</span>
+              </button>
+            )}
 
-          <div className="flex items-center gap-3 text-[11px] font-mono tabular-nums">
-            <span className="inline-flex items-center gap-1 text-emerald-400">
-              <TrendingUp className="w-3 h-3" />
-              <span>Rising (+%)</span>
-            </span>
-            <span className="text-slate-700">|</span>
-            <span className="inline-flex items-center gap-1 text-rose-400">
-              <TrendingDown className="w-3 h-3" />
-              <span>Falling (-%)</span>
-            </span>
+            <button
+              type="button"
+              onClick={handleExportCsv}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold text-xs transition-colors whitespace-nowrap shrink-0"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span>Export CSV</span>
+            </button>
           </div>
         </div>
 
-        {/* Quick commodity pills preview */}
-        <div
-          onClick={() => setActiveSection('live-prices')}
-          className="flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5 cursor-pointer"
-          title="Click to view full Live Spot Market Rates"
-        >
-          {livePrices.slice(0, 5).map((m) => {
-            const isUp = m.trend === 'up';
-            const isDown = m.trend === 'down';
+        {/* Single-Line Section Tabs */}
+        <div className="flex items-center gap-1 overflow-x-auto border-t border-slate-800 pt-1">
+          {[
+            { id: 'live-prices' as const, htmlId: 'tab-live-prices', label: 'Spot Rates & Directory', icon: Coins },
+            { id: 'area-takeoff' as const, htmlId: 'tab-area-takeoff', label: 'Area Takeoff & Quantities', icon: Zap },
+            { id: 'comparison' as const, htmlId: 'tab-comparison', label: 'Formulas & Specifications', icon: Layers },
+            { id: 'checklists' as const, htmlId: 'tab-checklists', label: 'Typology Checklists', icon: CheckSquare },
+            { id: 'render' as const, htmlId: 'tab-render', label: 'Render Prompts', icon: Camera },
+          ].map((tab) => {
+            const Icon = tab.icon;
+            const isActive = activeSection === tab.id;
             return (
-              <div
-                key={m.id}
-                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-mono transition-all shrink-0 ${
-                  isUp
-                    ? 'bg-emerald-950/40 border-emerald-500/40 text-emerald-300 hover:border-emerald-400'
-                    : isDown
-                    ? 'bg-rose-950/40 border-rose-500/40 text-rose-300 hover:border-rose-400'
-                    : 'bg-slate-900 border-slate-800 text-slate-300'
+              <button
+                key={tab.id}
+                id={tab.htmlId}
+                type="button"
+                onClick={() => setActiveSection(tab.id)}
+                className={`inline-flex items-center gap-1.5 px-3.5 py-2.5 text-xs font-medium border-b-2 transition-colors whitespace-nowrap shrink-0 ${
+                  isActive
+                    ? 'border-amber-400 text-amber-400'
+                    : 'border-transparent text-slate-400 hover:text-slate-200'
                 }`}
               >
-                <span className="text-slate-400 text-[11px] truncate max-w-[90px]">{m.name.split(' ')[0]} {m.name.split(' ')[1] || ''}:</span>
-                <span className={`font-extrabold ${isUp ? 'text-emerald-400' : isDown ? 'text-rose-400' : 'text-white'}`}>
-                  ₹{m.currentPrice.toLocaleString()}
-                </span>
-                <span className="text-[10px] font-bold flex items-center gap-0.5">
-                  {isUp ? (
-                    <>
-                      <TrendingUp className="w-2.5 h-2.5 text-emerald-400 stroke-[2.5]" />
-                      <span>+{m.changePercent}% UP</span>
-                    </>
-                  ) : isDown ? (
-                    <>
-                      <TrendingDown className="w-2.5 h-2.5 text-rose-400 stroke-[2.5]" />
-                      <span>{m.changePercent}% DOWN</span>
-                    </>
-                  ) : (
-                    <span>0%</span>
-                  )}
-                </span>
-              </div>
+                <Icon className="w-3.5 h-3.5 shrink-0" />
+                <span>{tab.label}</span>
+              </button>
             );
           })}
         </div>
       </div>
 
-      {/* PDF Update Success Toast Banner */}
+      {/* Feedback & PDF Success Toasts */}
       {pdfSuccessBanner && (
-        <div className="rounded-xl border border-emerald-500/30 bg-emerald-950/80 p-3.5 flex items-center justify-between gap-3 text-emerald-200 text-xs font-medium shadow-lg animate-in fade-in">
-          <div className="flex items-center gap-2.5">
+        <div className="p-3 rounded-xl bg-emerald-950/60 border border-emerald-500/40 text-xs text-emerald-200 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
             <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
             <span>{pdfSuccessBanner}</span>
           </div>
           <button
+            type="button"
             onClick={() => setPdfSuccessBanner(null)}
-            className="text-emerald-400 hover:text-emerald-200 p-1 rounded"
+            className="text-emerald-300 hover:text-white"
           >
-            <X className="w-4 h-4" />
+            <X className="w-3.5 h-3.5" />
           </button>
         </div>
       )}
 
-      {/* User PDF Update Readiness Banner */}
-      <div className="rounded-xl border border-amber-500/30 bg-gradient-to-r from-amber-500/10 via-purple-500/10 to-slate-900/60 p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-md">
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-500/20 text-amber-400 shrink-0">
-            <FileText className="w-5 h-5" />
+      {alertFeedbackToast && (
+        <div className="p-3 rounded-xl bg-amber-500/15 border border-amber-500/40 text-xs text-amber-200 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-amber-400 shrink-0" />
+            <span>{alertFeedbackToast}</span>
           </div>
-          <div>
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-xs font-bold text-white">
-                Material & Standards Ready for PDF Ingestion
-              </span>
-              <span className="rounded-full bg-amber-400/20 text-amber-300 border border-amber-400/30 px-2 py-0.5 text-[10px] font-semibold">
-                Birla Opus (OPS) & Birla OPC Ready
-              </span>
-            </div>
-            <p className="text-xs text-slate-300 mt-0.5">
-              Upload your technical PDF or specification datasheet to update brand norms, IS code certifications, coverage parameters, and spot price benchmarks.
-            </p>
+          <div className="flex items-center gap-3 shrink-0">
+            {onNavigateToBOQ && (
+              <button
+                type="button"
+                onClick={onNavigateToBOQ}
+                className="text-amber-300 hover:underline font-semibold"
+              >
+                Open BOQ
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => setAlertFeedbackToast(null)}
+              className="text-slate-400 hover:text-white"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
           </div>
         </div>
-        <button
-          id="btn-banner-upload-pdf-specs"
-          onClick={() => setIsPdfUpdaterOpen(true)}
-          className="whitespace-nowrap flex items-center gap-1.5 rounded-lg bg-amber-500 px-3.5 py-2 text-xs font-bold text-slate-950 hover:bg-amber-400 shadow-sm transition-all shrink-0"
-        >
-          <Upload className="w-3.5 h-3.5" />
-          <span>Upload PDF / Update Specs</span>
-        </button>
-      </div>
-
-      {/* ========================================================================= */}
-      {/* SECTION 0: AUTOMATED AREA TAKEOFF & MARKET MATERIAL QUANTITIES            */}
-      {/* ========================================================================= */}
-      {activeSection === 'area-takeoff' && (
-        <MaterialAreaTakeoffView
-          activeProject={activeProject}
-          currency={currency}
-          boqItems={boqItems}
-          onUpdateBOQItems={onUpdateBOQItems}
-          onUpdateProject={onUpdateProject}
-          onNavigateToBOQ={onNavigateToBOQ}
-        />
       )}
 
-      {/* ========================================================================= */}
-      {/* SECTION 1: LIVE MATERIAL PRICES (MARKET SPOT RATES)                       */}
-      {/* ========================================================================= */}
+      {/* ===================================================================== */}
+      {/* TAB 1: SPOT RATES & DIRECTORY                                         */}
+      {/* ===================================================================== */}
       {activeSection === 'live-prices' && (
-        <div className="space-y-6">
-          {/* Periodic Price Change Notifications Master Control & Settings Panel */}
-          <MaterialPriceAlertsPanel
-            subscription={subscription}
-            onUpdateSubscription={handleUpdateSubscription}
-            materials={livePrices}
-            onToggleMaterialTracked={handleToggleMaterialTracked}
-            recentAlerts={recentAlerts}
-            onDismissAlert={handleDismissAlert}
-            onClearAllAlerts={handleClearAllAlerts}
-            onTriggerTestAlert={handleTriggerTestAlert}
-          />
+        <div className="space-y-5">
+          {/* Executive Rate KPI Strip */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-1">
+              <div className="text-xs text-slate-400">Cataloged Materials</div>
+              <div className="text-xl font-bold text-white tabular-nums">
+                {rateMetrics.totalCount}
+              </div>
+              <div className="text-xs text-slate-400 truncate">{liveRegion}</div>
+            </div>
 
-          {/* Inline Action Feedback Toast */}
-          {alertFeedbackToast && (
-            <div className="p-3 rounded-xl bg-amber-500/15 border border-amber-500/40 text-xs text-amber-200 flex items-center justify-between shadow-md animate-in fade-in duration-200">
-              <div className="flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 text-amber-400 shrink-0" />
-                <span>{alertFeedbackToast}</span>
+            <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-1">
+              <div className="text-xs text-slate-400">Rising This Month</div>
+              <div className="text-xl font-bold text-emerald-400 tabular-nums">
+                {rateMetrics.risingCount}
+              </div>
+              <div className="text-xs text-slate-400 tabular-nums">
+                Avg +{rateMetrics.avgRise}% movement
+              </div>
+            </div>
+
+            <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-1">
+              <div className="text-xs text-slate-400">Softening or Stable</div>
+              <div className="text-xl font-bold text-white tabular-nums">
+                {rateMetrics.softeningCount}
+              </div>
+              <div className="text-xs text-slate-400">Favorable for bulk procurement</div>
+            </div>
+
+            <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-between gap-3">
+              <div className="space-y-1">
+                <div className="text-xs text-slate-400">Rate Watchlist</div>
+                <div className="text-xl font-bold text-amber-400 tabular-nums">
+                  {subscription.subscribedMaterialIds.length} tracked
+                </div>
+                <div className="text-xs text-slate-400 tabular-nums">
+                  {recentAlerts.length} recent alerts
+                </div>
               </div>
               <button
                 type="button"
-                onClick={() => setAlertFeedbackToast(null)}
-                className="text-slate-400 hover:text-white p-0.5"
+                onClick={() => setShowAlertsDrawer(!showAlertsDrawer)}
+                className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium transition-colors whitespace-nowrap shrink-0"
               >
-                <X className="w-3.5 h-3.5" />
+                {showAlertsDrawer ? 'Hide Alerts' : 'Manage Alerts'}
               </button>
             </div>
-          )}
+          </div>
 
-          {/* Active Price Alert Digest Notification Banner */}
-          {showDigestNotificationBanner && recentAlerts.length > 0 && subscription.enabled && (
-            <div className="p-4 rounded-xl bg-gradient-to-r from-amber-950/40 via-slate-900 to-slate-900 border border-amber-500/40 shadow-md space-y-3">
-              <div className="flex items-center justify-between gap-3">
-                <div className="flex items-center gap-2.5">
-                  <span className="p-1.5 rounded-lg bg-amber-500/20 text-amber-400 border border-amber-500/40">
-                    <BellRing className="w-4 h-4 text-amber-400" />
-                  </span>
-                  <div>
-                    <h4 className="text-xs font-bold text-white flex items-center gap-2">
-                      <span>Recent Price Change Notification Digest</span>
-                      <span className="text-[9px] font-mono uppercase px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40">
-                        {subscription.frequency} digest
-                      </span>
-                    </h4>
-                    <p className="text-[11px] text-slate-300">
-                      Market movements detected for your subscribed construction commodities in {liveRegion}.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2 shrink-0">
-                  <button
-                    type="button"
-                    onClick={() => setShowDigestNotificationBanner(false)}
-                    className="text-slate-400 hover:text-white p-1 text-xs flex items-center gap-1"
-                    title="Dismiss banner"
+          {/* Optional Digest Preview Strip */}
+          {showDigestBanner && recentAlerts.length > 0 && (
+            <div className="p-3.5 rounded-xl bg-slate-900 border border-amber-500/40 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+              <div className="flex items-center gap-2.5">
+                <BellRing className="w-4 h-4 text-amber-400 shrink-0" />
+                <span className="text-slate-200">
+                  Latest rate digest: <strong>{recentAlerts[0].materialName}</strong> moved{' '}
+                  <span
+                    className={
+                      recentAlerts[0].trend === 'up' ? 'text-emerald-400' : 'text-rose-400'
+                    }
                   >
-                    <X className="w-3.5 h-3.5" />
-                    <span className="hidden sm:inline">Dismiss</span>
-                  </button>
-                </div>
+                    {recentAlerts[0].changePercent > 0 ? '+' : ''}
+                    {recentAlerts[0].changePercent}%
+                  </span>{' '}
+                  ({formatCurrency(recentAlerts[0].newPrice, currency)} / {recentAlerts[0].unit}).
+                </span>
               </div>
-
-              {/* Alert items preview */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
-                {recentAlerts.slice(0, 2).map((alert) => (
-                  <div
-                    key={alert.id}
-                    className="p-2.5 rounded-lg bg-slate-950/80 border border-slate-800 text-xs flex items-start justify-between gap-2"
-                  >
-                    <div className="space-y-0.5">
-                      <div className="flex items-center gap-1.5 font-bold text-white">
-                        <span>{alert.materialName}</span>
-                        <span className={alert.trend === 'up' ? 'text-emerald-400 font-mono font-bold' : 'text-rose-400 font-mono font-bold'}>
-                          ({alert.changePercent > 0 ? `+${alert.changePercent}%` : `${alert.changePercent}%`} {alert.trend === 'up' ? '▲ Rising' : '▼ Falling'})
-                        </span>
-                      </div>
-                      <div className="text-[11px] text-slate-400 font-mono">
-                        Old: ₹{alert.oldPrice.toLocaleString()} →{' '}
-                        <span className={alert.trend === 'up' ? 'text-emerald-300 font-bold' : 'text-rose-300 font-bold'}>
-                          New: ₹{alert.newPrice.toLocaleString()} / {alert.unit}
-                        </span>
-                      </div>
-                      <p className="text-[10px] text-slate-400 line-clamp-1">
-                        {alert.trendReason}
-                      </p>
-                    </div>
-                  </div>
-                ))}
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setShowAlertsDrawer(true)}
+                  className="text-amber-300 hover:underline font-medium"
+                >
+                  View all ({recentAlerts.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowDigestBanner(false)}
+                  className="text-slate-400 hover:text-white"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
               </div>
             </div>
           )}
 
-          {/* ========================================================================= */}
-          {/* LIVE MARKET UP & DOWN EXCHANGE BOARD (BULL / BEAR SENTIMENT & CMI INDEX)  */}
-          {/* ========================================================================= */}
-          <div className="p-4 rounded-2xl bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 border border-slate-800 shadow-xl space-y-4">
-            {/* Row 1: Header with Live Sentiment, Composite CMI Index & Simulation Triggers */}
-            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-slate-800/80 pb-4">
-              <div className="space-y-1.5">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-[10px] font-mono uppercase font-bold tracking-wider px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700 flex items-center gap-1.5">
-                    <Activity className="w-3 h-3 text-amber-400" />
-                    <span>Real-Time Market Exchange</span>
-                  </span>
+          {/* Collapsible Price Alerts Settings Drawer */}
+          {showAlertsDrawer && (
+            <MaterialPriceAlertsPanel
+              subscription={subscription}
+              onUpdateSubscription={handleUpdateSubscription}
+              materials={livePrices}
+              onToggleMaterialTracked={handleToggleMaterialTracked}
+              recentAlerts={recentAlerts}
+              onDismissAlert={handleDismissAlert}
+              onClearAllAlerts={handleClearAllAlerts}
+              onTriggerTestAlert={handleTriggerTestAlert}
+            />
+          )}
 
-                  <span className="text-slate-600">·</span>
-
-                  <span
-                    className={`inline-flex items-center gap-1.5 text-xs font-mono font-semibold ${
-                      marketBreadth.isBullish ? 'text-emerald-400' : 'text-rose-400'
-                    }`}
-                  >
-                    <span
-                      className={`w-1.5 h-1.5 rounded-full ${
-                        marketBreadth.isBullish ? 'bg-emerald-400' : 'bg-rose-400'
-                      }`}
-                    />
-                    <span>
-                      {marketBreadth.isBullish ? 'Market Up · Bullish' : 'Market Down · Bearish'}
-                    </span>
-                  </span>
-                </div>
-
-                <div className="flex items-center gap-3 flex-wrap">
-                  <span className="text-sm font-bold text-slate-300">
-                    Construction Material Index (CMI):
-                  </span>
-                  <span
-                    className={`font-mono text-2xl font-black tracking-tight transition-colors ${
-                      marketBreadth.isBullish ? 'text-emerald-400' : 'text-rose-400'
-                    }`}
-                  >
-                    ₹{marketBreadth.compositeIndex.toLocaleString()}
-                  </span>
-                  <span
-                    className={`text-xs font-mono font-bold px-2 py-0.5 rounded flex items-center gap-1 shadow-sm ${
-                      marketBreadth.isBullish
-                        ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
-                        : 'bg-rose-500/20 text-rose-300 border border-rose-500/40'
-                    }`}
-                  >
-                    {marketBreadth.isBullish ? (
-                      <>
-                        <TrendingUp className="w-3.5 h-3.5 text-emerald-400 stroke-[3]" />
-                        <span>+{marketBreadth.netPoints} pts (+{marketBreadth.netPercent}%) ▲ MARKET UP</span>
-                      </>
-                    ) : (
-                      <>
-                        <TrendingDown className="w-3.5 h-3.5 text-rose-400 stroke-[3]" />
-                        <span>{marketBreadth.netPoints} pts ({marketBreadth.netPercent}%) ▼ MARKET DOWN</span>
-                      </>
-                    )}
-                  </span>
-                </div>
-              </div>
-
-              {/* Simulation Quick Action Triggers */}
-              <div className="flex items-center gap-2 flex-wrap">
-                <button
-                  type="button"
-                  id="btn-rally-market-up"
-                  onClick={handleSimulateSpotRise}
-                  className="px-3 py-1.5 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/50 text-xs font-mono font-bold transition flex items-center gap-1.5 shadow-sm hover:scale-[1.02]"
-                  title="Simulate Market UP (Surge steel, cement & aggregates spot rates)"
-                >
-                  <TrendingUp className="w-3.5 h-3.5 text-emerald-400 stroke-[2.5]" />
-                  <span>▲ Push Market UP (Green)</span>
-                </button>
-
-                <button
-                  type="button"
-                  id="btn-dip-market-down"
-                  onClick={handleSimulateSpotDrop}
-                  className="px-3 py-1.5 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/50 text-xs font-mono font-bold transition flex items-center gap-1.5 shadow-sm hover:scale-[1.02]"
-                  title="Simulate Market DOWN (Discount masonry, sand & finish spot rates)"
-                >
-                  <TrendingDown className="w-3.5 h-3.5 text-rose-400 stroke-[2.5]" />
-                  <span>▼ Push Market DOWN (Red)</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setIsLiveTickerActive(!isLiveTickerActive)}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-mono font-semibold transition border flex items-center gap-1.5 ${
-                    isLiveTickerActive
-                      ? 'bg-slate-900 border-slate-700 text-slate-300 hover:text-white'
-                      : 'bg-emerald-500 text-slate-950 font-bold border-emerald-400'
-                  }`}
-                  title={isLiveTickerActive ? 'Pause real-time auto-ticking' : 'Resume real-time auto-ticking'}
-                >
-                  {isLiveTickerActive ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
-                  <span>{isLiveTickerActive ? 'Ticks Active (3.2s)' : 'Resume Ticks'}</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Row 2: Advance / Decline Market Breadth Ratio Bar */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-xs font-mono flex-wrap gap-2">
-                <div className="flex items-center gap-2">
-                  <span className="font-bold text-emerald-400 flex items-center gap-1">
-                    <TrendingUp className="w-3.5 h-3.5 text-emerald-400 stroke-[2.5]" />
-                    <span>Market UP: {marketBreadth.upCount} Commodities ({marketBreadth.upRatio}%)</span>
-                  </span>
-                  <span className="text-slate-500">•</span>
-                  <span className="text-emerald-400/90 text-[11px]">
-                    Avg Gain: +{marketBreadth.avgGain}%
-                  </span>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <span className="text-slate-400 text-[11px]">
-                    Flat / Stable: {marketBreadth.stableCount}
-                  </span>
-                  <span className="text-slate-500">•</span>
-                  <span className="font-bold text-rose-400 flex items-center gap-1">
-                    <TrendingDown className="w-3.5 h-3.5 text-rose-400 stroke-[2.5]" />
-                    <span>Market DOWN: {marketBreadth.downCount} Commodities ({marketBreadth.downRatio}%)</span>
-                  </span>
-                  <span className="text-rose-400/90 text-[11px]">
-                    Avg Loss: -{marketBreadth.avgLoss}%
-                  </span>
-                </div>
-              </div>
-
-              {/* Bi-Color Advance/Decline Segmented Ratio Bar */}
-              <div className="h-2.5 w-full bg-slate-950 rounded-full overflow-hidden flex border border-slate-800">
-                <div
-                  style={{ width: `${Math.max(5, marketBreadth.upRatio)}%` }}
-                  className="bg-emerald-500 transition-all duration-500 shadow-sm shadow-emerald-500/50"
-                  title={`Market UP: ${marketBreadth.upCount} items (${marketBreadth.upRatio}%)`}
-                />
-                <div
-                  style={{ width: `${Math.max(2, 100 - marketBreadth.upRatio - marketBreadth.downRatio)}%` }}
-                  className="bg-slate-700 transition-all duration-500"
-                  title={`Unchanged: ${marketBreadth.stableCount} items`}
-                />
-                <div
-                  style={{ width: `${Math.max(5, marketBreadth.downRatio)}%` }}
-                  className="bg-rose-500 transition-all duration-500 shadow-sm shadow-rose-500/50"
-                  title={`Market DOWN: ${marketBreadth.downCount} items (${marketBreadth.downRatio}%)`}
-                />
-              </div>
-            </div>
-
-            {/* Row 3: Top Gainers (Market UP) & Top Losers (Market DOWN) Quick Columns */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
-              {/* Top Gainers (Market UP) */}
-              <div className="p-3 rounded-xl bg-emerald-950/20 border border-emerald-500/30 space-y-2">
-                <div className="flex items-center justify-between text-xs font-bold text-emerald-400 font-mono">
-                  <span className="flex items-center gap-1.5">
-                    <TrendingUp className="w-3.5 h-3.5 text-emerald-400" />
-                    <span>Top Market UP Gainers (Rising)</span>
-                  </span>
-                  <span className="text-[10px] text-emerald-300 font-normal">Bullish Velocity</span>
-                </div>
-                <div className="grid grid-cols-3 gap-2">
-                  {topGainers.map((m) => (
-                    <div
-                      key={m.id}
-                      onClick={() => setCustomMaterialQuery(m.name)}
-                      className="p-2 rounded-lg bg-slate-900/90 border border-emerald-500/30 hover:border-emerald-400 transition cursor-pointer space-y-0.5"
-                    >
-                      <span className="text-[10px] text-slate-300 font-medium block truncate" title={m.name}>
-                        {m.name}
-                      </span>
-                      <div className="flex items-baseline justify-between">
-                        <span className="text-xs font-bold font-mono text-emerald-400">
-                          ₹{m.currentPrice.toLocaleString()}
-                        </span>
-                        <span className="text-[9px] font-mono font-bold text-emerald-300">
-                          +{m.changePercent}%
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Top Losers (Market DOWN) */}
-              <div className="p-3 rounded-xl bg-rose-950/20 border border-rose-500/30 space-y-2">
-                <div className="flex items-center justify-between text-xs font-bold text-rose-400 font-mono">
-                  <span className="flex items-center gap-1.5">
-                    <TrendingDown className="w-3.5 h-3.5 text-rose-400" />
-                    <span>Top Market DOWN Losers (Falling)</span>
-                  </span>
-                  <span className="text-[10px] text-rose-300 font-normal">Discount Dip</span>
-                </div>
-                <div className="grid grid-cols-3 gap-2">
-                  {topLosers.map((m) => (
-                    <div
-                      key={m.id}
-                      onClick={() => setCustomMaterialQuery(m.name)}
-                      className="p-2 rounded-lg bg-slate-900/90 border border-rose-500/30 hover:border-rose-400 transition cursor-pointer space-y-0.5"
-                    >
-                      <span className="text-[10px] text-slate-300 font-medium block truncate" title={m.name}>
-                        {m.name}
-                      </span>
-                      <div className="flex items-baseline justify-between">
-                        <span className="text-xs font-bold font-mono text-rose-400">
-                          ₹{m.currentPrice.toLocaleString()}
-                        </span>
-                        <span className="text-[9px] font-mono font-bold text-rose-300">
-                          {m.changePercent}%
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* Row 4: Dedicated Market UP and DOWN Filter Tabs */}
-            <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-800 text-xs">
-              <div className="flex items-center gap-1.5 flex-wrap">
-                <span className="text-[11px] text-slate-400 font-mono mr-1">Filter Movement:</span>
-                <button
-                  type="button"
-                  onClick={() => setMarketTrendFilter('all')}
-                  className={`px-3 py-1 rounded-lg text-xs font-mono font-semibold transition border ${
-                    marketTrendFilter === 'all'
-                      ? 'bg-slate-800 text-white border-amber-500/50 shadow-sm'
-                      : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-white'
-                  }`}
-                >
-                  All Commodities ({livePrices.length})
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setMarketTrendFilter('up')}
-                  className={`px-3 py-1 rounded-lg text-xs font-mono font-bold transition border flex items-center gap-1.5 ${
-                    marketTrendFilter === 'up'
-                      ? 'bg-emerald-950 text-emerald-300 border-emerald-500 shadow-sm shadow-emerald-500/20'
-                      : 'bg-slate-950 text-emerald-400/80 border-slate-800 hover:border-emerald-500/40 hover:text-emerald-300'
-                  }`}
-                >
-                  <TrendingUp className="w-3 h-3 text-emerald-400" />
-                  <span>▲ Market UP Only ({marketBreadth.upCount})</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setMarketTrendFilter('down')}
-                  className={`px-3 py-1 rounded-lg text-xs font-mono font-bold transition border flex items-center gap-1.5 ${
-                    marketTrendFilter === 'down'
-                      ? 'bg-rose-950 text-rose-300 border-rose-500 shadow-sm shadow-rose-500/20'
-                      : 'bg-slate-950 text-rose-400/80 border-slate-800 hover:border-rose-500/40 hover:text-rose-300'
-                  }`}
-                >
-                  <TrendingDown className="w-3 h-3 text-rose-400" />
-                  <span>▼ Market DOWN Only ({marketBreadth.downCount})</span>
-                </button>
-              </div>
-
-              <div className="text-[11px] text-slate-400 font-mono flex items-center gap-1.5">
-                <Clock className="w-3 h-3 text-amber-400" />
-                <span>Last Spot Movement: {new Date(lastRefreshedAt).toLocaleTimeString()}</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Quick Commodity Ticker Strip */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2.5">
-            {livePrices.slice(0, 7).map((mat) => {
-              const isUp = mat.trend === 'up';
-              const isDown = mat.trend === 'down';
-              const isTicked = tickedMaterialIds[mat.id];
-
-              return (
-                <div
-                  key={mat.id}
-                  className={`p-2.5 rounded-lg bg-slate-900 border space-y-1 transition duration-300 ${
-                    isTicked === 'up'
-                      ? 'border-emerald-500 bg-emerald-950/20 shadow-sm shadow-emerald-500/10'
-                      : isTicked === 'down'
-                      ? 'border-rose-500 bg-rose-950/20 shadow-sm shadow-rose-500/10'
-                      : isUp
-                      ? 'border-emerald-800/40 hover:border-emerald-500/40'
-                      : isDown
-                      ? 'border-rose-800/40 hover:border-rose-500/40'
-                      : 'border-slate-800 hover:border-slate-700'
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-mono text-slate-400 uppercase truncate max-w-[85px]">
-                      {mat.name.split(' ')[0]} {mat.name.split(' ')[1] || ''}
-                    </span>
-                    <span
-                      className={`text-[10px] font-mono font-bold flex items-center gap-0.5 px-1 py-0.2 rounded ${
-                        isUp
-                          ? 'bg-emerald-950/80 text-emerald-400 border border-emerald-500/40'
-                          : isDown
-                          ? 'bg-rose-950/80 text-rose-400 border border-rose-500/40'
-                          : 'text-slate-400'
-                      }`}
-                    >
-                      {isUp ? (
-                        <>
-                          <TrendingUp className="w-2.5 h-2.5 text-emerald-400 stroke-[2.5]" />
-                          <span>+{mat.changePercent}% UP</span>
-                        </>
-                      ) : isDown ? (
-                        <>
-                          <TrendingDown className="w-2.5 h-2.5 text-rose-400 stroke-[2.5]" />
-                          <span>{mat.changePercent}% DOWN</span>
-                        </>
-                      ) : (
-                        <>
-                          <Minus className="w-2.5 h-2.5 text-slate-400" />
-                          <span>0%</span>
-                        </>
-                      )}
-                    </span>
-                  </div>
-
-                  <p className={`text-sm font-bold font-mono transition-colors ${
-                    isUp ? 'text-emerald-400' : isDown ? 'text-rose-400' : 'text-white'
-                  }`}>
-                    ₹{mat.currentPrice.toLocaleString()}
-                  </p>
-                  <span className="text-[9px] text-slate-500 block truncate font-mono">
-                    /{mat.unit}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-
-          {/* Filter & Refresh Control Bar */}
-          <div className="p-4 rounded-xl bg-slate-900 border border-amber-500/25 space-y-3">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800 pb-3">
-              <div className="flex items-center gap-2">
-                <span className="p-1.5 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20">
-                  <Coins className="w-4 h-4" />
-                </span>
-                <div>
-                  <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                    Live Architectural Material Spot Rates
-                    <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-950/60 text-emerald-300 border border-emerald-800/40">
-                      Grounded Spot Index
-                    </span>
-                  </h3>
-                  <p className="text-xs text-slate-400">
-                    Real-time market prices from primary mills, cement manufacturers, and regional yards.
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-3">
-                <span className="text-[11px] text-slate-400 font-mono flex items-center gap-1">
-                  <Clock className="w-3 h-3 text-amber-400" />
-                  Updated: {new Date(lastRefreshedAt).toLocaleTimeString()}
-                </span>
-                <button
-                  id="btn-refresh-live-prices"
-                  onClick={() => fetchLivePrices()}
-                  disabled={isLoadingLivePrices}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500/15 text-amber-300 border border-amber-500/30 hover:bg-amber-500/25 text-xs font-semibold transition disabled:opacity-50"
-                >
-                  <RefreshCw className={`w-3.5 h-3.5 ${isLoadingLivePrices ? 'animate-spin' : ''}`} />
-                  <span>{isLoadingLivePrices ? 'Checking Rates...' : 'Refresh Rates'}</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Filter inputs */}
+          {/* Unified Filter & Action Toolbar */}
+          <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-3">
             <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
-              {/* Region Selector */}
+              {/* Region */}
               <div className="md:col-span-4 space-y-1">
-                <label className="text-[11px] font-semibold text-slate-300">Procurement Market / Region</label>
-                <div className="flex items-center gap-2 bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs">
+                <label className="block text-xs font-medium text-slate-300">
+                  Procurement Market / Region
+                </label>
+                <div className="flex items-center gap-2 bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-2 text-xs">
                   <MapPin className="w-3.5 h-3.5 text-amber-400 shrink-0" />
                   <select
                     id="select-market-region"
                     value={liveRegion}
                     onChange={(e) => {
                       setLiveRegion(e.target.value);
-                      fetchLivePrices(e.target.value, selectedMaterialCategory, customMaterialQuery);
+                      fetchLivePrices(
+                        e.target.value,
+                        selectedMaterialCategory,
+                        customMaterialQuery
+                      );
                     }}
                     className="w-full bg-transparent text-white focus:outline-none"
                   >
@@ -1349,579 +872,575 @@ export const MaterialsView: React.FC<MaterialsViewProps> = ({
                 </div>
               </div>
 
-              {/* Category Filter */}
+              {/* Category */}
               <div className="md:col-span-4 space-y-1">
-                <label className="text-[11px] font-semibold text-slate-300">Material Category</label>
+                <label className="block text-xs font-medium text-slate-300">
+                  Material Category
+                </label>
                 <select
                   id="select-material-category"
                   value={selectedMaterialCategory}
                   onChange={(e) => setSelectedMaterialCategory(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-2 text-xs text-white focus:border-amber-500 focus:outline-none"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white focus:border-amber-400 focus:outline-none"
                 >
                   <option value="all">All Material Categories</option>
-                  <option value="Cement & Concrete">Cement & Concrete</option>
-                  <option value="Steel & Reinforcement">Steel & Reinforcement (TMT)</option>
-                  <option value="Sand & Aggregates">Sand & Aggregates (M-Sand)</option>
-                  <option value="Blocks & Bricks">Blocks & Bricks (AAC & Clay)</option>
-                  <option value="Glass & Fenestration">Glass & Glazing (Low-E)</option>
-                  <option value="Plumbing & MEP">Plumbing & Electrical (CPVC, FRLS)</option>
-                  <option value="Finishes & Coatings">Finishes, Paints & Waterproofing</option>
+                  <option value="Interior">All Interior &amp; Fit-Out Items</option>
+                  <option value="Interior & Millwork">Interior &amp; Millwork (Plywood, HDHMR, Ceiling)</option>
+                  <option value="Interior Finishes & Lighting">Interior Finishes, Quartz, Lighting &amp; Bath</option>
+                  <option value="Cement & Concrete">Cement &amp; Concrete</option>
+                  <option value="Steel & Reinforcement">Steel &amp; Reinforcement (TMT)</option>
+                  <option value="Sand & Aggregates">Sand &amp; Aggregates (M-Sand)</option>
+                  <option value="Blocks & Bricks">Blocks &amp; Bricks (AAC &amp; Clay)</option>
+                  <option value="Glass & Fenestration">Glass &amp; Glazing (Low-E)</option>
+                  <option value="Plumbing & MEP">Plumbing &amp; Electrical (CPVC, FRLS)</option>
+                  <option value="Finishes & Coatings">Finishes, Paints &amp; Waterproofing</option>
                 </select>
               </div>
 
-              {/* Custom Material Rate Search */}
+              {/* Search */}
               <div className="md:col-span-4 space-y-1">
-                <label className="text-[11px] font-semibold text-slate-300">Specific Material Rate Lookup</label>
-                <div className="flex items-center gap-2 bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs">
+                <label className="block text-xs font-medium text-slate-300">
+                  Search Material or Brand
+                </label>
+                <div className="flex items-center gap-2 bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-2 text-xs">
                   <Search className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                   <input
                     type="text"
-                    placeholder="e.g. Italian marble, Burma teak, Solar PV"
+                    placeholder="e.g. UltraTech, Fe550D, AAC, Birla..."
                     value={customMaterialQuery}
                     onChange={(e) => setCustomMaterialQuery(e.target.value)}
                     onKeyDown={(e) => {
-                      if (e.key === 'Enter') fetchLivePrices(liveRegion, selectedMaterialCategory, customMaterialQuery);
+                      if (e.key === 'Enter') {
+                        fetchLivePrices(
+                          liveRegion,
+                          selectedMaterialCategory,
+                          customMaterialQuery
+                        );
+                      }
                     }}
                     className="w-full bg-transparent text-white focus:outline-none placeholder-slate-500"
                   />
                   {customMaterialQuery && (
-                    <button onClick={() => setCustomMaterialQuery('')} className="text-slate-400 hover:text-white">✕</button>
+                    <button
+                      type="button"
+                      onClick={() => setCustomMaterialQuery('')}
+                      className="text-slate-400 hover:text-white"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
                   )}
                 </div>
               </div>
             </div>
 
-            {/* Quick Filter Pill for Subscribed Materials & Key Brand Spotlights */}
-            <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-800 text-xs">
-              <div className="flex items-center gap-2 flex-wrap">
+            {/* Filter & View Switch Row */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2 border-t border-slate-800 text-xs">
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="flex items-center gap-1 p-1 rounded-lg bg-slate-950 border border-slate-800">
+                  {(
+                    [
+                      { id: 'all', label: `All (${livePrices.length})` },
+                      { id: 'up', label: `Rising (${rateMetrics.risingCount})` },
+                      { id: 'down', label: `Softening (${rateMetrics.softeningCount})` },
+                    ] as const
+                  ).map((f) => (
+                    <button
+                      key={f.id}
+                      type="button"
+                      onClick={() => setMarketTrendFilter(f.id)}
+                      className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors whitespace-nowrap shrink-0 ${
+                        marketTrendFilter === f.id
+                          ? 'bg-amber-500 text-slate-950 font-semibold'
+                          : 'text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      {f.label}
+                    </button>
+                  ))}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    setSelectedMaterialCategory(
+                      selectedMaterialCategory === 'Interior' ? 'all' : 'Interior'
+                    )
+                  }
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors border whitespace-nowrap shrink-0 ${
+                    selectedMaterialCategory.toLowerCase().includes('interior')
+                      ? 'bg-amber-500 text-slate-950 border-amber-400 font-semibold'
+                      : 'bg-slate-950 text-slate-300 border-slate-800 hover:border-slate-700'
+                  }`}
+                >
+                  <Layers className="w-3.5 h-3.5" />
+                  <span>Interior Rates</span>
+                </button>
+
                 <button
                   type="button"
                   id="filter-tracked-subscriptions-only"
                   onClick={() => setShowSubscribedOnly(!showSubscribedOnly)}
-                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition border ${
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors border whitespace-nowrap shrink-0 ${
                     showSubscribedOnly
-                      ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-sm font-bold'
-                      : 'bg-slate-950 text-slate-300 border-slate-800 hover:border-slate-700 hover:text-white'
+                      ? 'bg-amber-500 text-slate-950 border-amber-400 font-semibold'
+                      : 'bg-slate-950 text-slate-300 border-slate-800 hover:border-slate-700'
                   }`}
                 >
-                  <BellRing className={`w-3.5 h-3.5 ${showSubscribedOnly ? 'text-slate-950' : 'text-amber-400'}`} />
-                  <span>Subscribed Materials ({subscription.subscribedMaterialIds.length})</span>
+                  <BellRing className="w-3.5 h-3.5" />
+                  <span>Watchlist ({subscription.subscribedMaterialIds.length})</span>
                 </button>
 
-                {/* Quick Brand Spotlight Chips */}
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  <span className="text-[11px] font-mono text-slate-500 uppercase tracking-wider">Spotlights:</span>
+                {(customMaterialQuery ||
+                  selectedMaterialCategory !== 'all' ||
+                  showSubscribedOnly ||
+                  marketTrendFilter !== 'all') && (
                   <button
                     type="button"
                     onClick={() => {
-                      setSelectedMaterialCategory('Steel & Reinforcement');
-                      setCustomMaterialQuery('A-One Gold');
+                      setSelectedMaterialCategory('all');
+                      setCustomMaterialQuery('');
+                      setShowSubscribedOnly(false);
+                      setMarketTrendFilter('all');
                     }}
-                    className={`px-2.5 py-1 rounded-full text-[11px] font-mono font-bold transition border flex items-center gap-1 ${
-                      customMaterialQuery === 'A-One Gold'
-                        ? 'bg-amber-500 text-slate-950 border-amber-400'
-                        : 'bg-slate-950 text-amber-300 border-amber-500/30 hover:border-amber-400 hover:bg-slate-900'
-                    }`}
+                    className="text-xs text-slate-400 hover:text-white underline"
                   >
-                    <span>⚡ A-One Gold (Steel)</span>
+                    Reset filters
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSelectedMaterialCategory('Cement & Concrete');
-                      setCustomMaterialQuery('Bharati Cement');
-                    }}
-                    className={`px-2.5 py-1 rounded-full text-[11px] font-mono font-bold transition border flex items-center gap-1 ${
-                      customMaterialQuery === 'Bharati Cement'
-                        ? 'bg-emerald-500 text-slate-950 border-emerald-400'
-                        : 'bg-slate-950 text-emerald-300 border-emerald-500/30 hover:border-emerald-400 hover:bg-slate-900'
-                    }`}
-                  >
-                    <span>🧱 Bharati Cement</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSelectedMaterialCategory('Cement & Concrete');
-                      setCustomMaterialQuery('JSW Cement');
-                    }}
-                    className={`px-2.5 py-1 rounded-full text-[11px] font-mono font-bold transition border flex items-center gap-1 ${
-                      customMaterialQuery === 'JSW Cement'
-                        ? 'bg-teal-500 text-slate-950 border-teal-400'
-                        : 'bg-slate-950 text-teal-300 border-teal-500/30 hover:border-teal-400 hover:bg-slate-900'
-                    }`}
-                  >
-                    <span>🌱 JSW Cement</span>
-                  </button>
-                  {(customMaterialQuery || selectedMaterialCategory !== 'all') && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSelectedMaterialCategory('all');
-                        setCustomMaterialQuery('');
-                      }}
-                      className="px-2 py-0.5 rounded text-[10px] font-mono text-slate-400 hover:text-white hover:underline"
-                    >
-                      Clear
-                    </button>
-                  )}
-                </div>
-
-                {showSubscribedOnly && (
-                  <span className="text-[11px] text-amber-300/90 font-mono">
-                    Filtering to your {subscription.subscribedMaterialIds.length} tracked commodities
-                  </span>
                 )}
               </div>
 
-              <span className="text-[11px] text-slate-400 font-mono">
-                {displayedLivePrices.length} of {livePrices.length} Materials Displayed
-              </span>
+              <div className="flex items-center gap-2.5 shrink-0">
+                <span className="text-xs text-slate-400 tabular-nums">
+                  {displayedLivePrices.length} items · Updated{' '}
+                  {new Date(lastRefreshedAt).toLocaleTimeString([], {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })}
+                </span>
+
+                <div className="flex items-center gap-1 p-1 rounded-lg bg-slate-950 border border-slate-800">
+                  <button
+                    type="button"
+                    onClick={() => setRateViewMode('table')}
+                    className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium transition-colors whitespace-nowrap shrink-0 ${
+                      rateViewMode === 'table'
+                        ? 'bg-slate-800 text-white'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    <Table2 className="w-3.5 h-3.5" />
+                    <span>Table</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setRateViewMode('cards')}
+                    className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium transition-colors whitespace-nowrap shrink-0 ${
+                      rateViewMode === 'cards'
+                        ? 'bg-slate-800 text-white'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    <LayoutGrid className="w-3.5 h-3.5" />
+                    <span>Cards</span>
+                  </button>
+                </div>
+
+                <button
+                  id="btn-refresh-live-prices"
+                  type="button"
+                  onClick={() => fetchLivePrices()}
+                  disabled={isLoadingLivePrices}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-amber-300 border border-slate-700 text-xs font-medium transition-colors disabled:opacity-50 whitespace-nowrap shrink-0"
+                >
+                  <RefreshCw
+                    className={`w-3.5 h-3.5 ${isLoadingLivePrices ? 'animate-spin' : ''}`}
+                  />
+                  <span>{isLoadingLivePrices ? 'Updating...' : 'Refresh Rates'}</span>
+                </button>
+              </div>
             </div>
           </div>
 
-          {/* Quota Notice Banner */}
           {quotaNotice && (
-            <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 text-xs text-amber-300 flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <ShieldCheck className="w-4 h-4 text-amber-400 shrink-0" />
-                <span>{quotaNotice}</span>
-              </div>
-              <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-amber-500/20 text-amber-200 border border-amber-500/30 shrink-0">
-                Verified Benchmark
-              </span>
+            <div className="p-3 rounded-xl bg-slate-900 border border-slate-800 text-xs text-slate-300 flex items-center gap-2">
+              <ShieldCheck className="w-4 h-4 text-amber-400 shrink-0" />
+              <span>{quotaNotice}</span>
             </div>
           )}
 
-          {/* Market Summary & Citations Banner */}
-          <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-3">
-            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
-              <div className="space-y-1">
-                <span className="text-[10px] font-mono uppercase text-amber-400 tracking-wider font-semibold">
-                  Market Intelligence Commentary • {liveRegion}
-                </span>
-                <p className="text-xs text-slate-300 leading-relaxed">
-                  {marketSummary}
-                </p>
-              </div>
+          {/* TABLE VIEW (Default — Clean, Fast Rate Scanning) */}
+          {displayedLivePrices.length > 0 && rateViewMode === 'table' && (
+            <div className="rounded-xl bg-slate-900 border border-slate-800 overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs text-left">
+                  <thead>
+                    <tr className="border-b border-slate-800 bg-slate-950/60 text-slate-400">
+                      <th className="py-3 pl-4 pr-3 font-medium whitespace-nowrap">
+                        Material &amp; Category
+                      </th>
+                      <th className="py-3 px-3 font-medium whitespace-nowrap">Approved Brands</th>
+                      <th className="py-3 px-3 font-medium whitespace-nowrap">Unit</th>
+                      <th className="py-3 px-3 font-medium text-right whitespace-nowrap">
+                        Market Range
+                      </th>
+                      <th className="py-3 px-3 font-medium text-right whitespace-nowrap">
+                        Spot Rate ({currency})
+                      </th>
+                      <th className="py-3 px-3 font-medium text-right whitespace-nowrap">
+                        30d Trend
+                      </th>
+                      <th className="py-3 pl-3 pr-4 font-medium text-right whitespace-nowrap">
+                        Actions
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800/80">
+                    {displayedLivePrices.map((mat) => {
+                      const isUp = mat.trend === 'up' || mat.changePercent > 0;
+                      const isDown = mat.trend === 'down' || mat.changePercent < 0;
+                      const isTracked = subscription.subscribedMaterialIds.includes(mat.id);
+                      const inBoq = findMatchingBoqIndex(mat) >= 0;
 
-              {liveSources.length > 0 && (
-                <div className="shrink-0 space-y-1">
-                  <span className="text-[10px] text-slate-400 font-mono block">
-                    Grounded Verification Sources:
-                  </span>
-                  <div className="flex flex-wrap gap-1.5">
-                    {liveSources.map((src, i) => (
-                      <a
-                        key={i}
-                        href={src.uri}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-[10px] px-2 py-0.5 rounded bg-slate-950 border border-slate-800 text-amber-300 hover:text-amber-200 inline-flex items-center gap-1"
-                      >
-                        <span>{src.title}</span>
-                        <ExternalLink className="w-2.5 h-2.5" />
-                      </a>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Itemized Live Material Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-            {displayedLivePrices.map((mat) => {
-              const isUp = mat.trend === 'up';
-              const isDown = mat.trend === 'down';
-              const isTracked = subscription.subscribedMaterialIds.includes(mat.id);
-              const isAlertsActive = subscription.enabled && isTracked;
-              const isTicked = tickedMaterialIds[mat.id];
-
-              return (
-                <div
-                  key={mat.id}
-                  id={`live-price-${mat.id}`}
-                  className={`p-5 rounded-xl bg-slate-900 border flex flex-col justify-between space-y-4 transition duration-300 group shadow-sm ${
-                    isTicked === 'up'
-                      ? 'border-emerald-500 ring-2 ring-emerald-500/50 bg-gradient-to-b from-emerald-950/20 to-slate-900 shadow-md shadow-emerald-500/10'
-                      : isTicked === 'down'
-                      ? 'border-rose-500 ring-2 ring-rose-500/50 bg-gradient-to-b from-rose-950/20 to-slate-900 shadow-md shadow-rose-500/10'
-                      : isAlertsActive
-                      ? 'border-amber-500/50 bg-gradient-to-b from-slate-900 to-amber-950/10 shadow-amber-500/5'
-                      : isUp
-                      ? 'border-emerald-800/40 hover:border-emerald-500/50'
-                      : isDown
-                      ? 'border-rose-800/40 hover:border-rose-500/50'
-                      : 'border-slate-800 hover:border-slate-700'
-                  }`}
-                >
-                  <div className="space-y-3">
-                    {/* Header Row */}
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded bg-slate-800 text-amber-300 border border-slate-700">
-                            {mat.category}
-                          </span>
-                          {(mat as any).isMasterGuideBrand && (
-                            <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-blue-500/15 text-blue-300 border border-blue-500/30">
-                              Master Guide • {(mat as any).brandCategory}
-                            </span>
-                          )}
-                          {isAlertsActive && (
-                            <span
-                              title={`Subscribed to ${subscription.frequency} price change alerts`}
-                              className="inline-flex items-center gap-1 text-[10px] font-mono font-medium px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40"
-                            >
-                              <BellRing className="w-2.5 h-2.5 text-amber-400" />
-                              <span>Alerts On</span>
-                            </span>
-                          )}
-                        </div>
-                        <h4 className="text-sm font-bold text-white mt-1.5 group-hover:text-amber-300 transition">
-                          {mat.name}
-                        </h4>
-                      </div>
-
-                      <div className="flex flex-col items-end gap-1.5 shrink-0">
-                        {/* Trend Badge: Rising Green & Falling Red */}
-                        <span
-                          className={`text-[11px] font-mono font-bold px-2.5 py-1 rounded-md flex items-center gap-1 shrink-0 shadow-sm ${
-                            isUp
-                              ? 'bg-emerald-950/80 text-emerald-300 border border-emerald-500/50 shadow-emerald-950/30'
-                              : isDown
-                              ? 'bg-rose-950/80 text-rose-300 border border-rose-500/50 shadow-rose-950/30'
-                              : 'bg-slate-800 text-slate-300 border border-slate-700'
-                          }`}
+                      return (
+                        <tr
+                          key={mat.id}
+                          id={`live-price-${mat.id}`}
+                          className="hover:bg-slate-800/35 transition-colors"
                         >
-                          {isUp ? (
-                            <>
-                              <TrendingUp className="w-3.5 h-3.5 text-emerald-400 stroke-[2.5]" />
-                              <span>{mat.changePercent > 0 ? `+${mat.changePercent}%` : `${mat.changePercent}%`} Rising</span>
-                            </>
-                          ) : isDown ? (
-                            <>
-                              <TrendingDown className="w-3.5 h-3.5 text-rose-400 stroke-[2.5]" />
-                              <span>{mat.changePercent < 0 ? `${mat.changePercent}%` : `-${mat.changePercent}%`} Falling</span>
-                            </>
-                          ) : (
-                            <>
-                              <Minus className="w-3.5 h-3.5 text-slate-400" />
-                              <span>0.0% Stable</span>
-                            </>
-                          )}
-                        </span>
+                          <td className="py-3 pl-4 pr-3 min-w-[220px]">
+                            <div className="font-semibold text-white">{mat.name}</div>
+                            <div className="text-[11px] text-slate-400 mt-0.5">
+                              {mat.category}
+                              {mat.location ? ` · ${mat.location}` : ''}
+                            </div>
+                          </td>
+                          <td className="py-3 px-3 text-slate-300 max-w-[220px]">
+                            <div className="truncate" title={mat.brands.join(', ')}>
+                              {mat.brands.slice(0, 3).join(', ')}
+                            </div>
+                          </td>
+                          <td className="py-3 px-3 text-slate-300 whitespace-nowrap">
+                            {mat.unit}
+                          </td>
+                          <td className="py-3 px-3 text-right text-slate-400 tabular-nums whitespace-nowrap">
+                            {formatCurrency(mat.minPrice, currency)} –{' '}
+                            {formatCurrency(mat.maxPrice, currency)}
+                          </td>
+                          <td className="py-3 px-3 text-right font-bold text-white tabular-nums whitespace-nowrap">
+                            {formatCurrency(mat.currentPrice, currency)}
+                          </td>
+                          <td className="py-3 px-3 text-right tabular-nums whitespace-nowrap">
+                            <span
+                              className={`inline-flex items-center gap-1 font-semibold ${
+                                isUp
+                                  ? 'text-emerald-400'
+                                  : isDown
+                                  ? 'text-rose-400'
+                                  : 'text-slate-400'
+                              }`}
+                            >
+                              {isUp ? (
+                                <TrendingUp className="w-3 h-3" />
+                              ) : isDown ? (
+                                <TrendingDown className="w-3 h-3" />
+                              ) : (
+                                <Minus className="w-3 h-3" />
+                              )}
+                              <span>
+                                {mat.changePercent > 0
+                                  ? `+${mat.changePercent}%`
+                                  : `${mat.changePercent}%`}
+                              </span>
+                            </span>
+                          </td>
+                          <td className="py-3 pl-3 pr-4 text-right whitespace-nowrap">
+                            <div className="inline-flex items-center justify-end gap-1.5">
+                              {onUpdateBOQItems && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleSyncMaterialToBoq(mat)}
+                                  className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors whitespace-nowrap shrink-0 ${
+                                    inBoq
+                                      ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/25'
+                                      : 'bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold'
+                                  }`}
+                                >
+                                  <PlusCircle className="w-3 h-3" />
+                                  <span>{inBoq ? 'Update BOQ' : 'Sync to BOQ'}</span>
+                                </button>
+                              )}
 
-                        {/* Dedicated Toggle Button for Periodic Price Change Notifications */}
+                              <button
+                                type="button"
+                                id={`toggle-alert-${mat.id}`}
+                                onClick={() => handleToggleMaterialTracked(mat.id)}
+                                title={
+                                  isTracked ? 'Remove from watchlist' : 'Add to price watchlist'
+                                }
+                                className={`p-1.5 rounded-lg border transition-colors ${
+                                  isTracked
+                                    ? 'bg-amber-500/15 border-amber-500/40 text-amber-300'
+                                    : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-white'
+                                }`}
+                              >
+                                {isTracked ? (
+                                  <BellRing className="w-3.5 h-3.5" />
+                                ) : (
+                                  <Bell className="w-3.5 h-3.5" />
+                                )}
+                              </button>
+
+                              {onNavigateToMarketplace && (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    onNavigateToMarketplace('material_supplier', mat.name)
+                                  }
+                                  className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium transition-colors whitespace-nowrap shrink-0"
+                                >
+                                  <Phone className="w-3 h-3 text-amber-400" />
+                                  <span>Suppliers</span>
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* CARD GRID VIEW (Optional Detailed View) */}
+          {displayedLivePrices.length > 0 && rateViewMode === 'cards' && (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {displayedLivePrices.map((mat) => {
+                const isUp = mat.trend === 'up' || mat.changePercent > 0;
+                const isDown = mat.trend === 'down' || mat.changePercent < 0;
+                const isTracked = subscription.subscribedMaterialIds.includes(mat.id);
+                const inBoq = findMatchingBoqIndex(mat) >= 0;
+
+                return (
+                  <div
+                    key={mat.id}
+                    id={`live-price-${mat.id}`}
+                    className="p-5 rounded-xl bg-slate-900 border border-slate-800 flex flex-col justify-between space-y-4 hover:border-slate-700 transition-colors"
+                  >
+                    <div className="space-y-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <div className="text-xs text-slate-400">{mat.category}</div>
+                          <h4 className="text-sm font-bold text-white mt-0.5">{mat.name}</h4>
+                        </div>
                         <button
                           type="button"
                           id={`toggle-alert-${mat.id}`}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleToggleMaterialTracked(mat.id);
-                          }}
-                          title={
+                          onClick={() => handleToggleMaterialTracked(mat.id)}
+                          title={isTracked ? 'Remove from watchlist' : 'Add to watchlist'}
+                          className={`p-1.5 rounded-lg border transition-colors shrink-0 ${
                             isTracked
-                              ? `Subscribed to periodic price alerts. Click to unsubscribe from alerts for ${mat.name}.`
-                              : `Click to subscribe to periodic price change alerts for ${mat.name}.`
-                          }
-                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-semibold transition border select-none ${
-                            isTracked
-                              ? 'bg-amber-500/20 text-amber-300 border-amber-500/50 hover:bg-amber-500/30'
-                              : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-slate-200 hover:border-slate-700'
+                              ? 'bg-amber-500/15 border-amber-500/40 text-amber-300'
+                              : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-white'
                           }`}
                         >
                           {isTracked ? (
-                            <BellRing className="w-3 h-3 text-amber-400" />
+                            <BellRing className="w-3.5 h-3.5" />
                           ) : (
-                            <Bell className="w-3 h-3 text-slate-400" />
+                            <Bell className="w-3.5 h-3.5" />
                           )}
-                          <span>{isTracked ? 'Subscribed' : 'Subscribe'}</span>
-                          <span
-                            className={`w-1.5 h-1.5 rounded-full ${
-                              isTracked ? 'bg-amber-400' : 'bg-slate-600'
-                            }`}
-                          />
                         </button>
                       </div>
-                    </div>
 
-                    {/* Spot Rate Hero Block with Green (Rising) and Red (Falling) live indicators */}
-                    <div
-                      className={`p-3 rounded-xl border space-y-1.5 transition-all duration-300 ${
-                        isTicked === 'up'
-                          ? 'bg-gradient-to-r from-emerald-950/40 via-emerald-900/20 to-slate-950 border-emerald-500 shadow-md shadow-emerald-500/10 ring-1 ring-emerald-500/50'
-                          : isTicked === 'down'
-                          ? 'bg-gradient-to-r from-rose-950/40 via-rose-900/20 to-slate-950 border-rose-500 shadow-md shadow-rose-500/10 ring-1 ring-rose-500/50'
-                          : isUp
-                          ? 'bg-gradient-to-r from-emerald-950/20 to-slate-950 border-emerald-500/30'
-                          : isDown
-                          ? 'bg-gradient-to-r from-rose-950/20 to-slate-950 border-rose-500/30'
-                          : 'bg-slate-950 border-slate-800'
-                      }`}
-                    >
-                      <div className="flex items-baseline justify-between">
-                        <span className="text-[11px] text-slate-400 font-mono flex items-center gap-1.5">
-                          <span
-                            className={`w-2 h-2 rounded-full ${
-                              isUp
-                                ? 'bg-emerald-400 animate-pulse'
-                                : isDown
-                                ? 'bg-rose-400 animate-pulse'
-                                : 'bg-slate-500'
-                            }`}
-                          />
-                          Current Spot Rate:
-                        </span>
+                      <div className="flex items-baseline justify-between gap-2 pt-1 border-t border-slate-800/80">
+                        <div>
+                          <div className="text-2xl font-bold text-white tabular-nums">
+                            {formatCurrency(mat.currentPrice, currency)}
+                          </div>
+                          <div className="text-xs text-slate-400 tabular-nums">
+                            per {mat.unit} · Range {formatCurrency(mat.minPrice, currency)}–
+                            {formatCurrency(mat.maxPrice, currency)}
+                          </div>
+                        </div>
                         <span
-                          className={`text-[10px] font-mono uppercase font-bold px-1.5 py-0.5 rounded shadow-sm ${
+                          className={`inline-flex items-center gap-1 text-xs font-semibold tabular-nums ${
                             isUp
-                              ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                              ? 'text-emerald-400'
                               : isDown
-                              ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40'
-                              : 'bg-slate-800 text-slate-400'
+                              ? 'text-rose-400'
+                              : 'text-slate-400'
                           }`}
                         >
-                          {isUp ? '▲ Market UP (Rising)' : isDown ? '▼ Market DOWN (Falling)' : '● Market Flat'}
-                        </span>
-                      </div>
-                      <div className="flex items-baseline justify-between">
-                        <div className="flex items-baseline gap-1.5">
-                          <span
-                            className={`text-2xl font-black font-mono transition-colors ${
-                              isUp
-                                ? 'text-emerald-400'
-                                : isDown
-                                ? 'text-rose-400'
-                                : 'text-amber-400'
-                            }`}
-                          >
-                            ₹{mat.currentPrice.toLocaleString()}
+                          {isUp ? (
+                            <TrendingUp className="w-3.5 h-3.5" />
+                          ) : isDown ? (
+                            <TrendingDown className="w-3.5 h-3.5" />
+                          ) : (
+                            <Minus className="w-3.5 h-3.5" />
+                          )}
+                          <span>
+                            {mat.changePercent > 0 ? `+${mat.changePercent}%` : `${mat.changePercent}%`}
                           </span>
-                          <span className="text-xs text-slate-400 font-mono">
-                            / {mat.unit}
-                          </span>
-                        </div>
-                        <span className={`text-[10px] font-mono font-bold ${isUp ? 'text-emerald-300' : isDown ? 'text-rose-300' : 'text-slate-400'}`}>
-                          {isUp ? `+₹${Math.round(mat.currentPrice * (mat.changePercent / 100)).toLocaleString()} ▲` : isDown ? `-₹${Math.round(mat.currentPrice * (Math.abs(mat.changePercent) / 100)).toLocaleString()} ▼` : '0 pts'}
                         </span>
                       </div>
 
-                      {/* Intraday SVG Sparkline Waveform (Market UP / DOWN) */}
-                      <div className="flex items-center justify-between pt-1 border-t border-slate-800/60">
-                        <span className={`text-[9px] font-mono font-bold flex items-center gap-1 ${isUp ? 'text-emerald-400' : isDown ? 'text-rose-400' : 'text-slate-400'}`}>
-                          {isUp ? <TrendingUp className="w-2.5 h-2.5 text-emerald-400" /> : isDown ? <TrendingDown className="w-2.5 h-2.5 text-rose-400" /> : <Minus className="w-2.5 h-2.5" />}
-                          <span>{isUp ? 'Bullish Intraday Wave' : isDown ? 'Bearish Intraday Wave' : 'Stable Waveform'}</span>
-                        </span>
-                        <svg className="w-20 h-5 shrink-0 overflow-visible" viewBox="0 0 80 20">
-                          <defs>
-                            <linearGradient id={`grad-${mat.id}`} x1="0" y1="0" x2="0" y2="1">
-                              <stop offset="0%" stopColor={isUp ? '#10b981' : isDown ? '#f43f5e' : '#94a3b8'} stopOpacity="0.4" />
-                              <stop offset="100%" stopColor={isUp ? '#10b981' : isDown ? '#f43f5e' : '#94a3b8'} stopOpacity="0.0" />
-                            </linearGradient>
-                          </defs>
-                          <polygon
-                            points={
-                              isUp
-                                ? '0,17 16,14 32,15 48,7 64,10 80,3 80,20 0,20'
-                                : isDown
-                                ? '0,3 16,7 32,5 48,13 64,11 80,18 80,20 0,20'
-                                : '0,10 16,11 32,9 48,11 64,10 80,10 80,20 0,20'
-                            }
-                            fill={`url(#grad-${mat.id})`}
-                          />
-                          <polyline
-                            fill="none"
-                            stroke={isUp ? '#10b981' : isDown ? '#f43f5e' : '#94a3b8'}
-                            strokeWidth="1.8"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            points={
-                              isUp
-                                ? '0,17 16,14 32,15 48,7 64,10 80,3'
-                                : isDown
-                                ? '0,3 16,7 32,5 48,13 64,11 80,18'
-                                : '0,10 16,11 32,9 48,11 64,10 80,10'
-                            }
-                          />
-                          <circle
-                            cx="80"
-                            cy={isUp ? '3' : isDown ? '18' : '10'}
-                            r="2"
-                            fill={isUp ? '#34d399' : isDown ? '#fb7185' : '#cbd5e1'}
-                          />
-                        </svg>
+                      <div className="text-xs text-slate-300">
+                        <span className="text-slate-400">Approved Brands: </span>
+                        {mat.brands.join(', ')}
                       </div>
 
-                      {/* Day's High / Low Market Range Bar */}
-                      {(() => {
-                        const rangeSpan = Math.max(1, mat.maxPrice - mat.minPrice);
-                        const needlePos = Math.min(96, Math.max(4, Math.round(((mat.currentPrice - mat.minPrice) / rangeSpan) * 100)));
-                        return (
-                          <div className="pt-1 border-t border-slate-800/60 space-y-1">
-                            <div className="flex items-center justify-between text-[9px] font-mono text-slate-400">
-                              <span>Low: ₹{mat.minPrice.toLocaleString()}</span>
-                              <span className="text-[8px] text-slate-500 uppercase tracking-widest">Day Range</span>
-                              <span>High: ₹{mat.maxPrice.toLocaleString()}</span>
-                            </div>
-                            <div className="relative h-1.5 w-full bg-slate-950 rounded-full overflow-hidden border border-slate-800/80">
-                              <div
-                                className={`h-full ${
-                                  isUp
-                                    ? 'bg-gradient-to-r from-emerald-950 via-emerald-800 to-emerald-500'
-                                    : isDown
-                                    ? 'bg-gradient-to-r from-rose-950 via-rose-800 to-rose-500'
-                                    : 'bg-slate-700'
-                                }`}
-                                style={{ width: `${needlePos}%` }}
-                              />
-                              <div
-                                className={`absolute top-0 bottom-0 w-2 -ml-1 rounded-full shadow-sm ${
-                                  isUp ? 'bg-emerald-400 ring-1 ring-emerald-300' : isDown ? 'bg-rose-400 ring-1 ring-rose-300' : 'bg-amber-400'
-                                }`}
-                                style={{ left: `${needlePos}%` }}
-                                title={`Spot Rate: ₹${mat.currentPrice.toLocaleString()}`}
-                              />
-                            </div>
-                          </div>
-                        );
-                      })()}
+                      {(mat.marketNotes || mat.trendReason) && (
+                        <p className="text-xs text-slate-400 leading-relaxed line-clamp-2">
+                          {mat.marketNotes || mat.trendReason}
+                        </p>
+                      )}
                     </div>
 
-                    {/* Brand benchmark */}
-                    <div className="space-y-1">
-                      <span className="text-[11px] font-semibold text-slate-400">Standard Brands / Specs:</span>
-                      <div className="flex flex-wrap gap-1">
-                        {mat.brands.map((b, i) => (
-                          <span
-                            key={i}
-                            className="text-[10px] px-2 py-0.5 rounded bg-slate-950 border border-slate-800 text-slate-300"
-                          >
-                            {b}
-                          </span>
-                        ))}
-                      </div>
+                    <div className="pt-3 border-t border-slate-800 flex items-center justify-between gap-2">
+                      {onUpdateBOQItems && (
+                        <button
+                          type="button"
+                          onClick={() => handleSyncMaterialToBoq(mat)}
+                          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors whitespace-nowrap shrink-0 ${
+                            inBoq
+                              ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/25'
+                              : 'bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold'
+                          }`}
+                        >
+                          <PlusCircle className="w-3.5 h-3.5" />
+                          <span>{inBoq ? 'Update BOQ' : 'Sync to BOQ'}</span>
+                        </button>
+                      )}
+                      {onNavigateToMarketplace && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            onNavigateToMarketplace('material_supplier', mat.name)
+                          }
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium transition-colors whitespace-nowrap shrink-0"
+                        >
+                          <Phone className="w-3.5 h-3.5 text-amber-400" />
+                          <span>Suppliers</span>
+                        </button>
+                      )}
                     </div>
-
-                    {/* Price Driver Reason */}
-                    <div className="space-y-1">
-                      <span className="text-[11px] font-semibold text-slate-400">Market Driver / Reason:</span>
-                      <p className="text-xs text-slate-300 leading-relaxed">
-                        {mat.trendReason}
-                      </p>
-                    </div>
-
-                    {/* Practical procurement notes */}
-                    {mat.marketNotes && (
-                      <div className="p-2.5 rounded-lg bg-slate-950/70 border border-slate-800 text-[11px] text-slate-400 leading-snug">
-                        <span className="font-semibold text-slate-300">Procurement Note: </span>
-                        {mat.marketNotes}
-                      </div>
-                    )}
                   </div>
-
-                  {/* Card Bottom / Supplier Routing */}
-                  <div className="pt-3 border-t border-slate-800/80 flex items-center justify-between gap-2">
-                    <div className="text-[10px] text-slate-400 font-mono flex items-center gap-1">
-                      <MapPin className="w-3 h-3 text-amber-400" />
-                      <span className="truncate max-w-[130px]">{mat.location}</span>
-                    </div>
-
-                    {onNavigateToMarketplace && (
-                      <button
-                        onClick={() => onNavigateToMarketplace('material_supplier', mat.name)}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs transition shadow-sm"
-                      >
-                        <Phone className="w-3 h-3" />
-                        <span>Find Suppliers</span>
-                      </button>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-          {/* Empty state when filtering */}
-          {displayedLivePrices.length === 0 && (
-            <div className="p-8 rounded-xl bg-slate-900 border border-slate-800 text-center space-y-3">
-              <Bell className="w-8 h-8 text-slate-500 mx-auto" />
-              <h4 className="text-sm font-bold text-white">No Construction Materials Match Your Filter</h4>
-              <p className="text-xs text-slate-400 max-w-md mx-auto">
-                {showSubscribedOnly
-                  ? "You haven't subscribed to periodic price alerts for any materials matching this filter. Click 'Subscribe' on any material card to start receiving periodic price alerts."
-                  : "No materials found matching your category or search query."}
-              </p>
-              {showSubscribedOnly && (
-                <button
-                  type="button"
-                  onClick={() => setShowSubscribedOnly(false)}
-                  className="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs transition"
-                >
-                  Show All Materials
-                </button>
-              )}
+                );
+              })}
             </div>
           )}
+
+          {/* Empty State */}
+          {displayedLivePrices.length === 0 && (
+            <div className="p-8 rounded-xl bg-slate-900 border border-slate-800 text-center space-y-3">
+              <Search className="w-8 h-8 text-slate-500 mx-auto" />
+              <h4 className="text-sm font-bold text-white">No Materials Match Your Filters</h4>
+              <p className="text-xs text-slate-400 max-w-md mx-auto">
+                Clear the search or watchlist filter to view all cataloged construction materials.
+              </p>
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedMaterialCategory('all');
+                  setCustomMaterialQuery('');
+                  setShowSubscribedOnly(false);
+                  setMarketTrendFilter('all');
+                }}
+                className="px-3.5 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold text-xs transition-colors"
+              >
+                Show All Materials
+              </button>
+            </div>
+          )}
+
+          {/* Compact Market Commentary & Sources Footer */}
+          <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 flex flex-col lg:flex-row lg:items-center justify-between gap-4 text-xs">
+            <div className="space-y-1 max-w-2xl">
+              <div className="font-semibold text-amber-400">
+                Regional Market Summary · {liveRegion}
+              </div>
+              <p className="text-slate-300 leading-relaxed">{marketSummary}</p>
+            </div>
+            {liveSources.length > 0 && (
+              <div className="flex flex-wrap gap-2 shrink-0">
+                {liveSources.map((src, i) => (
+                  <a
+                    key={i}
+                    href={src.uri}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-950 border border-slate-800 text-slate-300 hover:text-amber-300 transition-colors"
+                  >
+                    <span>{src.title}</span>
+                    <ExternalLink className="w-3 h-3" />
+                  </a>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       )}
 
-      {/* ========================================================================= */}
-      {/* SECTION 2: STANDARD MATERIAL MATRIX & QUICK ESTIMATION FORMULAS           */}
-      {/* ========================================================================= */}
+      {/* ===================================================================== */}
+      {/* TAB 2: AREA TAKEOFF & QUANTITIES                                      */}
+      {/* ===================================================================== */}
+      {activeSection === 'area-takeoff' && (
+        <MaterialAreaTakeoffView
+          activeProject={activeProject}
+          currency={currency}
+          boqItems={boqItems}
+          onUpdateBOQItems={onUpdateBOQItems}
+          onUpdateProject={onUpdateProject}
+          onNavigateToBOQ={onNavigateToBOQ}
+        />
+      )}
+
+      {/* ===================================================================== */}
+      {/* TAB 3: FORMULAS & SPECIFICATIONS                                      */}
+      {/* ===================================================================== */}
       {activeSection === 'comparison' && (
-        <div className="space-y-6">
-          {/* Sub-header navigation between Civil Wisdom Quick Formulas and Specifications */}
+        <div className="space-y-5">
           <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2.5 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20">
-                <Layers className="w-5 h-5 text-amber-400" />
-              </div>
-              <div>
-                <h3 className="text-sm sm:text-base font-bold text-white flex items-center gap-2 font-mono">
-                  <span>Standard Material Matrix & Quick Formulas</span>
-                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                    Civil Wisdom
-                  </span>
-                </h3>
-                <p className="text-xs text-slate-400">
-                  Empirical architectural estimation standards (Cement, Steel, Bricks, Aggregates) and catalog specifications.
-                </p>
-              </div>
+            <div>
+              <h3 className="text-sm sm:text-base font-bold text-white">
+                Standard Material Matrix &amp; Quick Estimation Formulas
+              </h3>
+              <p className="text-xs text-slate-400">
+                Empirical estimation ratios (cement, steel, masonry, aggregates) and embodied carbon benchmarks.
+              </p>
             </div>
 
-            <div className="flex items-center gap-1.5 bg-slate-950 p-1 rounded-xl border border-slate-800 font-mono text-xs shrink-0">
+            <div className="flex items-center gap-1 p-1 rounded-lg bg-slate-950 border border-slate-800 text-xs shrink-0">
               <button
                 type="button"
                 id="btn-subtab-quick-formulas"
                 onClick={() => setMatrixSubView('quick-formulas')}
-                className={`px-3 py-1.5 rounded-lg transition flex items-center gap-1.5 ${
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md font-medium transition-colors whitespace-nowrap shrink-0 ${
                   matrixSubView === 'quick-formulas'
-                    ? 'bg-amber-500 text-slate-950 font-bold shadow-sm'
+                    ? 'bg-amber-500 text-slate-950 font-semibold'
                     : 'text-slate-400 hover:text-white'
                 }`}
               >
                 <Sparkles className="w-3.5 h-3.5" />
-                <span>Quick Formulas Matrix</span>
+                <span>Quick Formulas</span>
               </button>
               <button
                 type="button"
                 id="btn-subtab-specifications"
                 onClick={() => setMatrixSubView('specifications')}
-                className={`px-3 py-1.5 rounded-lg transition flex items-center gap-1.5 ${
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md font-medium transition-colors whitespace-nowrap shrink-0 ${
                   matrixSubView === 'specifications'
-                    ? 'bg-amber-500 text-slate-950 font-bold shadow-sm'
+                    ? 'bg-amber-500 text-slate-950 font-semibold'
                     : 'text-slate-400 hover:text-white'
                 }`}
               >
                 <Layers className="w-3.5 h-3.5" />
-                <span>Specifications & Carbon</span>
+                <span>Specs &amp; Carbon</span>
               </button>
             </div>
           </div>
 
-          {/* SUB-VIEW 1: CIVIL WISDOM QUICK ESTIMATION FORMULAS MATRIX */}
           {matrixSubView === 'quick-formulas' && (
             <div className="space-y-4">
               <CivilWisdomFormulaMatrix
@@ -1936,18 +1455,17 @@ export const MaterialsView: React.FC<MaterialsViewProps> = ({
                 onNavigateToAreaTakeoff={() => setActiveSection('area-takeoff')}
               />
 
-              {/* Seamless floor takeoff prompt banner */}
-              <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs font-mono">
-                <div className="flex items-center gap-2.5">
+              <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                <div className="flex items-center gap-2.5 text-slate-300">
                   <Building className="w-4 h-4 text-amber-400 shrink-0" />
-                  <span className="text-slate-300">
-                    Need breakdown by <strong className="text-white">Individual Building Floor Levels</strong> (Substructure, Ground, First, Second, Terrace)?
+                  <span>
+                    Need floor-by-floor quantities (Substructure, Ground, First, Second, Terrace)?
                   </span>
                 </div>
                 <button
                   type="button"
                   onClick={() => setActiveSection('area-takeoff')}
-                  className="px-3.5 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold flex items-center gap-1.5 transition shrink-0 shadow-sm"
+                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold transition-colors whitespace-nowrap shrink-0"
                 >
                   <span>Open Floor Area Takeoff</span>
                   <ChevronRight className="w-3.5 h-3.5" />
@@ -1956,240 +1474,208 @@ export const MaterialsView: React.FC<MaterialsViewProps> = ({
             </div>
           )}
 
-          {/* SUB-VIEW 2: SPECIFICATIONS & EMBODIED CARBON MATRIX */}
           {matrixSubView === 'specifications' && (
-            <div className="space-y-6">
-              {/* Quick interactive estimator widget */}
-          <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 grid grid-cols-1 md:grid-cols-4 gap-4 items-center">
-            <div>
-              <span className="text-xs text-slate-400 font-mono">Select Material:</span>
-              <select
-                value={calcMaterialId}
-                onChange={(e) => setCalcMaterialId(e.target.value)}
-                className="w-full mt-1 bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-amber-500"
-              >
-                {MATERIAL_CATALOG.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <span className="text-xs text-slate-400 font-mono">Quantity ({calcMaterial.unit}):</span>
-              <input
-                type="number"
-                min={1}
-                value={calcQuantity}
-                onChange={(e) => setCalcQuantity(Math.max(1, Number(e.target.value) || 1))}
-                className="w-full mt-1 bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white font-mono focus:outline-none focus:border-amber-500"
-              />
-            </div>
-
-            <div className="p-3 rounded-lg bg-slate-950 border border-slate-800">
-              <span className="text-[11px] text-slate-400 font-mono">Estimated Material Cost:</span>
-              <p className="text-lg font-bold font-mono text-amber-400">
-                {formatCurrency(totalCost, currency)}
-              </p>
-            </div>
-
-            <div className="p-3 rounded-lg bg-slate-950 border border-slate-800">
-              <span className="text-[11px] text-slate-400 font-mono flex items-center gap-1">
-                <Leaf className="w-3 h-3 text-emerald-400" />
-                Embodied Carbon Footprint:
-              </span>
-              <p className="text-lg font-bold font-mono text-emerald-400">
-                {totalCarbon.toLocaleString()} kg CO₂e
-              </p>
-            </div>
-          </div>
-
-          {/* Category Filter Chips & Real-Time Search Bar */}
-          <div className="space-y-3">
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-              <div className="relative flex-1 max-w-md">
-                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                <input
-                  type="text"
-                  placeholder="Search specifications (e.g. Paint, Putty, Enamel, Primer, Rebar)..."
-                  value={matrixSearchQuery}
-                  onChange={(e) => setMatrixSearchQuery(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-700 rounded-lg pl-9 pr-8 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500 font-mono"
-                />
-                {matrixSearchQuery && (
-                  <button
-                    onClick={() => setMatrixSearchQuery('')}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white text-xs px-1"
+            <div className="space-y-5">
+              {/* Quick Cost & Carbon Calculator */}
+              <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 grid grid-cols-1 md:grid-cols-4 gap-4 items-center">
+                <div>
+                  <label className="block text-xs text-slate-400 mb-1">Material</label>
+                  <select
+                    value={calcMaterialId}
+                    onChange={(e) => setCalcMaterialId(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-2 text-xs text-white focus:outline-none focus:border-amber-400"
                   >
-                    ✕
-                  </button>
-                )}
+                    {MATERIAL_CATALOG.map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs text-slate-400 mb-1">
+                    Quantity ({calcMaterial.unit})
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    value={calcQuantity}
+                    onChange={(e) => setCalcQuantity(Math.max(1, Number(e.target.value) || 1))}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-2 text-xs text-white tabular-nums focus:outline-none focus:border-amber-400"
+                  />
+                </div>
+
+                <div className="p-3 rounded-lg bg-slate-950 border border-slate-800">
+                  <div className="text-[11px] text-slate-400">Estimated Material Cost</div>
+                  <div className="text-lg font-bold text-amber-400 tabular-nums">
+                    {formatCurrency(totalCost, currency)}
+                  </div>
+                </div>
+
+                <div className="p-3 rounded-lg bg-slate-950 border border-slate-800">
+                  <div className="text-[11px] text-slate-400 flex items-center gap-1">
+                    <Leaf className="w-3 h-3 text-emerald-400" />
+                    <span>Embodied Carbon</span>
+                  </div>
+                  <div className="text-lg font-bold text-emerald-400 tabular-nums">
+                    {totalCarbon.toLocaleString()} kg CO2e
+                  </div>
+                </div>
               </div>
-              <div className="text-xs font-mono text-slate-400 flex items-center gap-2">
-                <span>Showing <strong className="text-amber-400">{filteredMaterials.length}</strong> of {MATERIAL_CATALOG.length} standards</span>
-                {matrixSearchQuery && (
-                  <button
-                    onClick={() => setMatrixSearchQuery('')}
-                    className="text-[11px] text-amber-400 underline hover:text-amber-300"
+
+              {/* Filter & Search */}
+              <div className="space-y-3">
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+                  <div className="relative flex-1 max-w-md">
+                    <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      placeholder="Search specifications (Paint, Putty, Rebar, Block...)"
+                      value={matrixSearchQuery}
+                      onChange={(e) => setMatrixSearchQuery(e.target.value)}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-lg pl-9 pr-8 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-400"
+                    />
+                    {matrixSearchQuery && (
+                      <button
+                        type="button"
+                        onClick={() => setMatrixSearchQuery('')}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+                  <div className="text-xs text-slate-400 tabular-nums">
+                    Showing <strong className="text-white">{filteredMaterials.length}</strong> of{' '}
+                    {MATERIAL_CATALOG.length} specifications
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
+                  {matrixCategories.map((cat) => (
+                    <button
+                      key={cat}
+                      type="button"
+                      onClick={() => setSelectedCategory(cat)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap shrink-0 transition-colors border ${
+                        selectedCategory === cat
+                          ? 'bg-amber-500 text-slate-950 border-amber-400 font-semibold'
+                          : 'bg-slate-900 text-slate-400 border-slate-800 hover:text-white'
+                      }`}
+                    >
+                      {cat === 'all' ? `All (${MATERIAL_CATALOG.length})` : cat}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
+                  {[
+                    'all',
+                    'Substructure',
+                    'Ground Floor',
+                    'First Floor',
+                    'Second Floor',
+                    'Terrace & Roof',
+                  ].map((fl) => (
+                    <button
+                      key={fl}
+                      type="button"
+                      onClick={() => setSelectedFloorFilter(fl)}
+                      className={`px-3 py-1 rounded-lg text-xs font-medium whitespace-nowrap shrink-0 transition-colors border ${
+                        selectedFloorFilter === fl
+                          ? 'bg-slate-800 text-amber-300 border-amber-500/40'
+                          : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-white'
+                      }`}
+                    >
+                      {fl === 'all' ? 'All Floors' : fl}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Specifications Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {filteredMaterials.map((mat) => (
+                  <div
+                    key={mat.id}
+                    className="p-5 rounded-xl bg-slate-900 border border-slate-800 flex flex-col justify-between space-y-4"
                   >
-                    Clear search
-                  </button>
-                )}
-              </div>
-            </div>
-
-            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
-              {matrixCategories.map((cat) => (
-                <button
-                  key={cat}
-                  onClick={() => setSelectedCategory(cat)}
-                  className={`px-3 py-1 rounded-lg text-xs font-mono whitespace-nowrap transition border ${
-                    selectedCategory === cat
-                      ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 font-bold'
-                      : 'bg-slate-900 text-slate-400 border-slate-800 hover:border-slate-700 hover:text-white'
-                  }`}
-                >
-                  {cat === 'all' ? `All Categories (${MATERIAL_CATALOG.length})` : cat}
-                </button>
-              ))}
-            </div>
-
-            {/* Floor Level Filter Chips */}
-            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar pt-1">
-              <span className="text-[11px] text-slate-400 font-mono flex items-center gap-1 mr-1">
-                <Layers className="w-3.5 h-3.5 text-amber-400" />
-                <span>Floor Level:</span>
-              </span>
-              {['all', 'Substructure', 'Ground Floor', 'First Floor', 'Second Floor', 'Terrace & Roof'].map((fl) => (
-                <button
-                  key={fl}
-                  onClick={() => setSelectedFloorFilter(fl)}
-                  className={`px-3 py-1 rounded-lg text-xs font-mono whitespace-nowrap transition border ${
-                    selectedFloorFilter === fl
-                      ? 'bg-amber-500 text-slate-950 border-amber-400 font-bold shadow-sm'
-                      : 'bg-slate-900 text-slate-400 border-slate-800 hover:border-slate-700 hover:text-white'
-                  }`}
-                >
-                  {fl === 'all' ? 'All Floor Levels' : fl}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Cards Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-            {filteredMaterials.map((mat) => (
-              <div
-                key={mat.id}
-                className="p-5 rounded-xl bg-slate-900 border border-slate-800 flex flex-col justify-between space-y-4 hover:border-slate-700 transition"
-              >
-                <div className="space-y-3">
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700">
-                        {mat.category}
-                      </span>
-                      <h4 className="text-sm font-bold text-white mt-1.5">{mat.name}</h4>
-                    </div>
-                  </div>
-
-                  {/* Metrics grid */}
-                  <div className="grid grid-cols-2 gap-2 pt-1 font-mono text-xs">
-                    <div className="p-2 rounded bg-slate-950 border border-slate-800">
-                      <span className="text-[10px] text-slate-400">Rate:</span>
-                      <p className="font-bold text-amber-400">
-                        {formatCurrency(mat.estimatedRate, currency)} / {mat.unit}
-                      </p>
-                    </div>
-
-                    <div className="p-2 rounded bg-slate-950 border border-slate-800">
-                      <span className="text-[10px] text-slate-400">Embodied Carbon:</span>
-                      <p className="font-bold text-emerald-400">
-                        {mat.embodiedCarbonKg} kg CO₂e
-                      </p>
-                    </div>
-
-                    <div className="p-2 rounded bg-slate-950 border border-slate-800">
-                      <span className="text-[10px] text-slate-400">Durability:</span>
-                      <p className="font-bold text-slate-200">
-                        {mat.durabilityYears} Years
-                      </p>
-                    </div>
-
-                    <div className="p-2 rounded bg-slate-950 border border-slate-800">
-                      <span className="text-[10px] text-slate-400">Thermal U-Value:</span>
-                      <p className="font-bold text-sky-400">
-                        {mat.uValue} W/m²K
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="space-y-1">
-                    <span className="text-[11px] font-semibold text-slate-400">Optimal Architectural Use:</span>
-                    <p className="text-xs text-slate-300 italic">{mat.bestUse}</p>
-                  </div>
-
-                  {/* Floor-wise Application Badges */}
-                  {mat.applicableFloors && mat.applicableFloors.length > 0 && (
-                    <div className="space-y-1.5 pt-2 border-t border-slate-800/80 font-mono">
-                      <div className="flex items-center gap-1 text-[10px] text-amber-400 font-bold uppercase tracking-wider">
-                        <Layers className="w-3 h-3" />
-                        <span>Applicable Floor Levels</span>
+                    <div className="space-y-3">
+                      <div>
+                        <div className="text-xs text-slate-400">{mat.category}</div>
+                        <h4 className="text-sm font-bold text-white mt-0.5">{mat.name}</h4>
                       </div>
-                      <div className="flex flex-wrap gap-1">
-                        {mat.applicableFloors.map((fl, idx) => (
-                          <span
-                            key={idx}
-                            className="px-2 py-0.5 rounded text-[10px] bg-amber-500/10 text-amber-300 border border-amber-500/20 font-mono"
-                          >
-                            {fl}
-                          </span>
-                        ))}
+
+                      <div className="grid grid-cols-2 gap-2 text-xs pt-2 border-t border-slate-800/80">
+                        <div>
+                          <div className="text-slate-400">Benchmark Rate</div>
+                          <div className="font-semibold text-amber-400 tabular-nums">
+                            {formatCurrency(mat.estimatedRate, currency)} / {mat.unit}
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-slate-400">Embodied Carbon</div>
+                          <div className="font-semibold text-emerald-400 tabular-nums">
+                            {mat.embodiedCarbonKg} kg CO2e
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-slate-400">Durability</div>
+                          <div className="font-semibold text-slate-200 tabular-nums">
+                            {mat.durabilityYears} Years
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-slate-400">Thermal U-Value</div>
+                          <div className="font-semibold text-sky-400 tabular-nums">
+                            {mat.uValue} W/m2K
+                          </div>
+                        </div>
                       </div>
-                      {mat.floorNotes && (
-                        <p className="text-[11px] text-slate-400 italic mt-0.5">
-                          {mat.floorNotes}
-                        </p>
+
+                      <p className="text-xs text-slate-300 leading-relaxed">{mat.bestUse}</p>
+
+                      {mat.applicableFloors && mat.applicableFloors.length > 0 && (
+                        <div className="text-[11px] text-slate-400">
+                          <span className="text-slate-300 font-medium">Floors: </span>
+                          {mat.applicableFloors.join(', ')}
+                        </div>
                       )}
+
+                      <ul className="text-xs text-slate-300 space-y-1 list-disc list-inside">
+                        {mat.pros.map((p, i) => (
+                          <li key={i}>{p}</li>
+                        ))}
+                      </ul>
                     </div>
-                  )}
 
-                  <div className="space-y-1">
-                    <span className="text-[11px] font-semibold text-emerald-400">Key Advantages:</span>
-                    <ul className="text-[11px] text-slate-300 space-y-0.5 list-disc list-inside">
-                      {mat.pros.map((p, i) => (
-                        <li key={i}>{p}</li>
-                      ))}
-                    </ul>
+                    <div className="pt-2.5 border-t border-slate-800 text-xs text-slate-400">
+                      Fire Rating: {mat.fireRating}
+                    </div>
                   </div>
-                </div>
-
-                <div className="pt-2 border-t border-slate-800 flex items-center justify-between text-[11px] text-slate-400 font-mono">
-                  <span>Fire Rating: {mat.fireRating}</span>
-                </div>
+                ))}
               </div>
-            ))}
-          </div>
+            </div>
+          )}
         </div>
       )}
-    </div>
-  )}
 
-      {/* ========================================================================= */}
-      {/* SECTION 3: BUILDING TYPOLOGY CHECKLISTS                                  */}
-      {/* ========================================================================= */}
+      {/* ===================================================================== */}
+      {/* TAB 4: BUILDING TYPOLOGY CHECKLISTS                                   */}
+      {/* ===================================================================== */}
       {activeSection === 'checklists' && (
-        <div className="space-y-6">
+        <div className="space-y-5">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex flex-wrap gap-2">
               {typologies.map((typ) => (
                 <button
                   key={typ}
+                  type="button"
                   onClick={() => setSelectedTypology(typ)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition border ${
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors border whitespace-nowrap shrink-0 ${
                     selectedTypology === typ
-                      ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                      ? 'bg-amber-500 text-slate-950 border-amber-400 font-semibold'
                       : 'bg-slate-900 text-slate-400 border-slate-800 hover:text-white'
                   }`}
                 >
@@ -2198,10 +1684,12 @@ export const MaterialsView: React.FC<MaterialsViewProps> = ({
               ))}
             </div>
 
-            <div className="flex items-center gap-2 bg-slate-900 border border-slate-800 px-3 py-1.5 rounded-lg text-xs font-mono">
-              <span className="text-slate-400">Progress:</span>
-              <span className="text-amber-400 font-bold">{checkedCount} / {currentChecklist.length}</span>
-              <span className="text-slate-400">({checklistProgress}%)</span>
+            <div className="px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-xs tabular-nums">
+              <span className="text-slate-400">Completed: </span>
+              <span className="text-amber-400 font-semibold">
+                {checkedCount} / {currentChecklist.length}
+              </span>
+              <span className="text-slate-400"> ({checklistProgress}%)</span>
             </div>
           </div>
 
@@ -2219,18 +1707,26 @@ export const MaterialsView: React.FC<MaterialsViewProps> = ({
                 <div
                   key={idx}
                   onClick={() => toggleCheck(idx)}
-                  className={`p-4 flex items-start gap-3.5 cursor-pointer transition ${
+                  className={`p-4 flex items-start gap-3.5 cursor-pointer transition-colors ${
                     isChecked ? 'bg-amber-500/5' : 'hover:bg-slate-800/40'
                   }`}
                 >
-                  <div className={`mt-0.5 rounded border p-0.5 ${isChecked ? 'bg-amber-500 border-amber-500 text-slate-950' : 'border-slate-700 bg-slate-950'}`}>
+                  <div
+                    className={`mt-0.5 rounded border p-0.5 ${
+                      isChecked
+                        ? 'bg-amber-500 border-amber-500 text-slate-950'
+                        : 'border-slate-700 bg-slate-950'
+                    }`}
+                  >
                     <Check className={`w-3.5 h-3.5 ${isChecked ? 'opacity-100' : 'opacity-0'}`} />
                   </div>
-                  <div className="flex-1">
-                    <span className={`text-xs ${isChecked ? 'text-slate-400 line-through' : 'text-slate-200'}`}>
-                      {item}
-                    </span>
-                  </div>
+                  <span
+                    className={`text-xs leading-relaxed ${
+                      isChecked ? 'text-slate-400 line-through' : 'text-slate-200'
+                    }`}
+                  >
+                    {item}
+                  </span>
                 </div>
               );
             })}
@@ -2238,30 +1734,32 @@ export const MaterialsView: React.FC<MaterialsViewProps> = ({
         </div>
       )}
 
-      {/* ========================================================================= */}
-      {/* SECTION 4: 3D RENDER PROMPT STUDIO                                       */}
-      {/* ========================================================================= */}
+      {/* ===================================================================== */}
+      {/* TAB 5: 3D RENDER PROMPT STUDIO                                        */}
+      {/* ===================================================================== */}
       {activeSection === 'render' && (
-        <div className="p-6 rounded-xl bg-slate-900 border border-slate-800 max-w-3xl mx-auto space-y-5">
+        <div className="p-6 rounded-2xl bg-slate-900 border border-slate-800 max-w-3xl mx-auto space-y-5">
           <div>
-            <h3 className="text-base font-bold text-white tracking-tight flex items-center gap-2">
+            <h3 className="text-base font-bold text-white flex items-center gap-2">
               <Camera className="w-5 h-5 text-amber-400" />
-              Architectural Visualization & Render Prompt Studio
+              <span>Architectural Visualization &amp; Render Prompt Studio</span>
             </h3>
-            <p className="text-xs text-slate-400">
-              Generate detailed, photorealistic visual prompts for generative architectural AI tools (Midjourney, DALL-E 3, Imagen, Stable Diffusion).
+            <p className="text-xs text-slate-400 mt-1">
+              Build detailed material and lighting prompts for architectural visualization tools.
             </p>
           </div>
 
           <div className="space-y-4">
             <div>
-              <label className="block text-xs text-slate-300 mb-1">Architectural Brief / Concept Description</label>
+              <label className="block text-xs text-slate-300 mb-1">
+                Architectural Brief / Material Palette
+              </label>
               <textarea
                 rows={3}
                 value={renderDesc}
                 onChange={(e) => setRenderDesc(e.target.value)}
                 placeholder="Describe spatial massing, materials, exterior context, lighting, and mood..."
-                className="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-xs text-white focus:outline-none focus:border-amber-500"
+                className="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-xs text-white focus:outline-none focus:border-amber-400"
               />
             </div>
 
@@ -2271,46 +1769,62 @@ export const MaterialsView: React.FC<MaterialsViewProps> = ({
                 <select
                   value={renderStyle}
                   onChange={(e) => setRenderStyle(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-400"
                 >
-                  <option value="photorealistic architectural photography">Photorealistic Architectural Photography (Golden Hour)</option>
-                  <option value="dramatic twilight exterior with interior warm cove lighting">Twilight Cinematic Architectural Lighting</option>
-                  <option value="blueprint technical CAD draft with axonometric exploded isometric">Technical Blueprint & Axonometric CAD</option>
-                  <option value="minimalist charcoal sketch with watercolor wash">Minimalist Charcoal & Watercolor Wash</option>
-                  <option value="Scandinavian warm timber and board-formed concrete pavilion">Scandinavian Warm Timber & Biophilic Concrete</option>
-                  <option value="contemporary parametric double-skin glass curtain wall">Contemporary Parametric High-Rise</option>
+                  <option value="photorealistic architectural photography">
+                    Photorealistic Architectural Photography (Golden Hour)
+                  </option>
+                  <option value="dramatic twilight exterior with interior warm cove lighting">
+                    Twilight Cinematic Architectural Lighting
+                  </option>
+                  <option value="blueprint technical CAD draft with axonometric exploded isometric">
+                    Technical Blueprint &amp; Axonometric CAD
+                  </option>
+                  <option value="minimalist charcoal sketch with watercolor wash">
+                    Minimalist Charcoal &amp; Watercolor Wash
+                  </option>
+                  <option value="Scandinavian warm timber and board-formed concrete pavilion">
+                    Scandinavian Warm Timber &amp; Biophilic Concrete
+                  </option>
+                  <option value="contemporary parametric double-skin glass curtain wall">
+                    Contemporary Parametric High-Rise
+                  </option>
                 </select>
               </div>
 
               <div className="flex items-end">
                 <button
                   id="btn-generate-render-prompt"
+                  type="button"
                   onClick={handleGenerateRenderPrompt}
                   disabled={isGeneratingPrompt}
-                  className="w-full inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold text-xs transition disabled:opacity-50"
+                  className="w-full inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold text-xs transition-colors disabled:opacity-50"
                 >
                   <Sparkles className={`w-4 h-4 ${isGeneratingPrompt ? 'animate-spin' : ''}`} />
-                  <span>{isGeneratingPrompt ? 'Synthesizing Prompt...' : 'Generate Render Prompt'}</span>
+                  <span>
+                    {isGeneratingPrompt ? 'Synthesizing Prompt...' : 'Generate Render Prompt'}
+                  </span>
                 </button>
               </div>
             </div>
 
             {generatedPrompt && (
-              <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3 mt-4">
+              <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold text-amber-400 uppercase tracking-wider font-mono">
-                    Ready-to-Use Visualization Prompt
+                  <span className="text-xs font-semibold text-amber-400 uppercase tracking-wider">
+                    Visualization Prompt
                   </span>
                   <button
+                    type="button"
                     onClick={handleCopyPrompt}
-                    className="inline-flex items-center gap-1.5 px-3 py-1 rounded bg-slate-800 hover:bg-slate-700 text-xs text-slate-200 transition"
+                    className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs text-slate-200 transition-colors"
                   >
                     <Copy className="w-3.5 h-3.5" />
-                    <span>{copiedPrompt ? 'Copied to Clipboard' : 'Copy Prompt'}</span>
+                    <span>{copiedPrompt ? 'Copied' : 'Copy Prompt'}</span>
                   </button>
                 </div>
 
-                <p className="text-xs text-slate-300 font-mono leading-relaxed bg-slate-900 p-3 rounded-lg border border-slate-800 select-all">
+                <p className="text-xs text-slate-300 leading-relaxed bg-slate-900 p-3 rounded-lg border border-slate-800 select-all">
                   {generatedPrompt}
                 </p>
               </div>
@@ -2334,3 +1848,4 @@ export const MaterialsView: React.FC<MaterialsViewProps> = ({
     </div>
   );
 };
+export default MaterialsView;

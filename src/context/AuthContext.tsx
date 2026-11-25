@@ -136,7 +136,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   users: UserProfile[];
   login: (email: string, password?: string) => Promise<{ success: boolean; error?: string }>;
-  loginAsDemo: (userId: string) => void;
+  quickSignIn: (userId: string) => void;
   signup: (
     data: {
       name: string;
@@ -343,7 +343,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setUsers((prev) => prev.map((u) => (u.id === updated.id ? updated : u)));
   };
 
-  const loginAsDemo = (userId: string) => {
+  const quickSignIn = (userId: string) => {
     const target = users.find((u) => u.id === userId) || INITIAL_USERS.find((u) => u.id === userId);
     if (target) {
       const updated = { ...target, lastLoginAt: new Date().toISOString() };
@@ -366,7 +366,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         isAuthenticated: !!user,
         users,
         login,
-        loginAsDemo,
+        quickSignIn,
         signup,
         logout,
         switchUser,

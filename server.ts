@@ -21,6 +21,8 @@ import {
   processNaturalVoiceChat,
   analyzeConstructionSiteVisualAudit,
   generateProjectBriefWithAi,
+  generateMediaPostDraft,
+  generateMediaAdKit,
 } from './server/apiService';
 import { runSuperAgentOrchestration } from './server/superAgentService';
 
@@ -203,6 +205,26 @@ app.post('/api/projects/ai-brief', async (req, res) => {
   }
 });
 
+// Realstate Media: AI Post Caption & Hashtag Generator
+app.post('/api/media/generate-post', async (req, res) => {
+  try {
+    const result = await generateMediaPostDraft(req.body || {});
+    res.json(result);
+  } catch (err: any) {
+    res.status(500).json({ error: err?.message || 'Failed to draft social media post' });
+  }
+});
+
+// Realstate Media: AI Ad Campaign Creative & Targeting Kit Generator
+app.post('/api/media/generate-ad-kit', async (req, res) => {
+  try {
+    const result = await generateMediaAdKit(req.body || {});
+    res.json(result);
+  } catch (err: any) {
+    res.status(500).json({ error: err?.message || 'Failed to generate ad campaign kit' });
+  }
+});
+
 // Autonomous Multi-lingual Translation Endpoint
 app.post('/api/translate', async (req, res) => {
   try {
@@ -299,7 +321,19 @@ app.post('/api/architecture/render-prompt', async (req, res) => {
 // Vision / image analysis & Site Visit Visual Audit endpoint via Gemini (gemini-4-hydrogen)
 app.post('/api/architecture/analyze-image', async (req, res) => {
   try {
-    const { image, imageBase64, mimeType, filename, focus, projectName, projectType, projectContext } = req.body;
+    const {
+      image,
+      imageBase64,
+      mimeType,
+      filename,
+      focus,
+      projectName,
+      projectType,
+      projectContext,
+      zoneFloor,
+      gpsCoordinates,
+      inspectorName,
+    } = req.body;
     const photoData = image || imageBase64;
 
     const auditResult = await analyzeConstructionSiteVisualAudit({
@@ -310,6 +344,9 @@ app.post('/api/architecture/analyze-image', async (req, res) => {
       projectName: projectName || 'Gouse AI Construction Site',
       projectType: projectType || 'Residential / Commercial',
       projectContext: projectContext || 'Bangalore, Karnataka',
+      zoneFloor,
+      gpsCoordinates,
+      inspectorName,
     });
 
     res.json({
@@ -317,10 +354,9 @@ app.post('/api/architecture/analyze-image', async (req, res) => {
       analysis: auditResult.rawAnalysis || auditResult.summary,
       filename: auditResult.filename,
     });
-  } catch (_err) {
-    res.json({
-      analysis: `Drawing and site review for ${req.body?.filename || 'uploaded document'}: Structural grid alignment and reinforcement detailing are verified. Ensure clear dimensioning for fire egress, cover blocks, and service shafts.`,
-      filename: req.body?.filename || 'drawing.png',
+  } catch (err: any) {
+    res.status(500).json({
+      error: err?.message || 'Site visual audit failed',
     });
   }
 });

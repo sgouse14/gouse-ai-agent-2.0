@@ -43,6 +43,9 @@ import courtyardInteriorImg from '../assets/images/pg_dining_lounge_179017022906
 import masterSuiteImg from '../assets/images/pg_bedroom_suite_1790170216460.jpg';
 import pgTerraceImg from '../assets/images/bangalore_pg_terrace_1790170513465.jpg';
 import apartmentTowerImg from '../assets/images/mantri_premero_tower_1790170972037.jpg';
+import luxuryInteriorLivingImg from '../assets/images/luxury_interior_living_1795604953541.jpg';
+import modularQuartzKitchenImg from '../assets/images/modular_quartz_kitchen_1795604953880.jpg';
+import duskVillaCampaignImg from '../assets/images/dusk_villa_campaign_1795604954947.jpg';
 
 export interface SocialVirtualTourAndCampaignsProps {
   activeProject: Project;
@@ -71,32 +74,32 @@ export const SocialVirtualTourAndCampaigns: React.FC<SocialVirtualTourAndCampaig
   // Room tour details
   const roomData = {
     courtyard: {
-      name: 'Biophilic Double-Height Courtyard',
-      image: courtyardInteriorImg,
+      name: 'Biophilic Interior Living & Courtyard',
+      image: luxuryInteriorLivingImg,
       orientation: 'East-Facing Daylight Core',
       hotspots: [
         {
           id: 'hs-1',
           x: 28,
           y: 45,
-          title: 'Solar Passive Teak Louvers',
-          description: 'Acoustic Burma teak louvers optimized to filter 70% harsh afternoon UV while flooding the dining core with glare-free 450 lux illumination.',
+          title: 'Fluted White Oak Wall & Teak Louvers',
+          description: 'Acoustic fluted oak paneling and solar-passive Burma teak louvers filtering 70% harsh afternoon UV while keeping glare-free 450 lux illumination.',
           spec: 'NBC 2016 Clause 4.2 Compliant Daylight Factor: 3.2%',
         },
         {
           id: 'hs-2',
           x: 62,
           y: 72,
-          title: 'Italian Botticino Marble Takeoff',
-          description: 'Seamless 20mm book-matched Italian Botticino marble slabs with epoxy resin sealing and zero hollow sound under-foot.',
-          spec: 'Compressive Strength > 110 MPa • Polished Mirror Gloss > 90',
+          title: 'Italian Travertine & Marble Takeoff',
+          description: 'Seamless 20mm honed travertine and book-matched marble slabs with epoxy resin sealing and zero hollow sound under-foot.',
+          spec: 'Compressive Strength > 110 MPa · Honed Satin Finish',
         },
       ],
     },
     master_suite: {
-      name: 'Executive Master Suite & Planter Balcony',
-      image: masterSuiteImg,
-      orientation: 'North-East Vastu Sanctuary',
+      name: 'Modular Statuario Kitchen & Master Suite',
+      image: modularQuartzKitchenImg,
+      orientation: 'North-East Vastu Core',
       hotspots: [
         {
           id: 'hs-3',
@@ -132,8 +135,8 @@ export const SocialVirtualTourAndCampaigns: React.FC<SocialVirtualTourAndCampaig
       ],
     },
     exterior_facade: {
-      name: 'Signature Wire-Cut Brick Elevation',
-      image: villaExteriorImg,
+      name: 'Cantilevered Concrete & Teak Dusk Elevation',
+      image: duskVillaCampaignImg,
       orientation: 'Front Road Elevation',
       hotspots: [
         {
@@ -142,7 +145,7 @@ export const SocialVirtualTourAndCampaigns: React.FC<SocialVirtualTourAndCampaig
           y: 30,
           title: 'Cantilevered Reinforced Balcony Slab',
           description: 'Post-tensioned cantilevered slab projecting 2.2m with zero visible drop beams, engineered by Ar. S. Gouse Studio.',
-          spec: 'IS 456 M30 Concrete • Jindal Fe550D TMT Bars',
+          spec: 'IS 456 M30 Concrete · Jindal Fe550D TMT Bars',
         },
       ],
     },
@@ -233,51 +236,44 @@ Click here to view the full interactive lookbook or reply to schedule a private 
   // -------------------------------------------------------------
   if (mode === 'virtual_tour') {
     return (
-      <div className="space-y-6 text-left animate-in fade-in duration-200">
+      <div className="space-y-6 text-left">
         {/* Banner */}
-        <div className="p-6 rounded-3xl bg-gradient-to-r from-rose-950/60 via-slate-900 to-slate-950 border border-rose-500/30 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-xl">
-          <div className="space-y-2 max-w-2xl">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="px-2.5 py-0.5 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/40 text-[10px] font-mono font-bold flex items-center gap-1">
-                <Compass className="w-3 h-3 text-rose-400" />
-                360° SPATIAL VIRTUAL TOUR
-              </span>
-              <span className="px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30 text-[10px] font-mono">
-                BEFORE / AFTER COMPARISON
-              </span>
-              <span className="px-2 py-0.5 rounded-full bg-sky-500/15 text-sky-300 border border-sky-500/30 text-[10px] font-mono">
-                ACOUSTIC SOUNDSCAPE LIVE
-              </span>
+        <div className="p-5 rounded-xl bg-slate-900 border border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="space-y-1.5 max-w-2xl">
+            <div className="flex items-center gap-2 text-xs text-slate-400">
+              <span className="text-rose-300 font-semibold">360° Spatial Virtual Tour</span>
+              <span aria-hidden="true">·</span>
+              <span>Before / After Construction Wipe</span>
+              <span aria-hidden="true">·</span>
+              <span>Engineering Hotspots</span>
             </div>
-            <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight">
+            <h2 className="text-xl font-bold text-white tracking-tight">
               Interactive 360° Room Navigator &amp; Construction Wipe Slider
             </h2>
-            <p className="text-xs text-slate-300 leading-relaxed font-light">
-              Explore photo-real spatial rooms with interactive engineering hotspots or drag the wipe slider to compare raw structural RCC concrete framing directly with the finished luxury elevation.
+            <p className="text-xs text-slate-300 leading-relaxed">
+              Explore finished interiors and architectural rooms with clickable specification hotspots, or drag the wipe slider to compare RCC structural framing directly against the finished facade.
             </p>
           </div>
 
-          {/* Soundscape Control */}
-          <div className="flex items-center gap-2 bg-slate-950/80 border border-slate-800 p-2 rounded-2xl shrink-0">
-            <span className="text-[11px] font-mono text-slate-400">Audio:</span>
+          <div className="flex items-center gap-2 bg-slate-950 border border-slate-800 p-1.5 rounded-lg shrink-0">
             <button
               type="button"
               onClick={() => setSoundscapeMode(soundscapeMode === 'off' ? 'ambient' : 'off')}
-              className={`p-2 rounded-xl text-xs flex items-center gap-1.5 font-bold transition ${
+              className={`px-3 py-1.5 rounded-md text-xs flex items-center gap-1.5 font-semibold transition whitespace-nowrap ${
                 soundscapeMode !== 'off'
                   ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40'
-                  : 'bg-slate-900 text-slate-500'
+                  : 'bg-slate-900 text-slate-400 hover:text-white'
               }`}
             >
               {soundscapeMode !== 'off' ? (
                 <>
-                  <Volume2 className="w-4 h-4 text-rose-400 animate-pulse" />
-                  <span>Ambient Audio Active</span>
+                  <Volume2 className="w-4 h-4 text-rose-400" />
+                  <span>Ambient Audio On</span>
                 </>
               ) : (
                 <>
                   <VolumeX className="w-4 h-4" />
-                  <span>Muted</span>
+                  <span>Audio Muted</span>
                 </>
               )}
             </button>
@@ -285,7 +281,7 @@ Click here to view the full interactive lookbook or reply to schedule a private 
         </div>
 
         {/* SECTION A: BEFORE & AFTER SLIDER */}
-        <div className="p-6 rounded-3xl bg-slate-900 border border-slate-800 space-y-4 shadow-xl">
+        <div className="p-5 rounded-xl bg-slate-900 border border-slate-800 space-y-4">
           <div className="flex items-center justify-between flex-wrap gap-2">
             <div>
               <h3 className="text-base font-bold text-white flex items-center gap-2">
@@ -293,27 +289,28 @@ Click here to view the full interactive lookbook or reply to schedule a private 
                 <span>Interactive Construction Wipe: Raw Framing vs Finished Elevation</span>
               </h3>
               <p className="text-xs text-slate-400 mt-0.5">
-                Drag the slider left and right to inspect the transition from M25 column reinforcement to the completed biophilic luxury facade.
+                Drag the slider left and right to inspect the transition from M25 column reinforcement to the completed facade.
               </p>
             </div>
 
-            <div className="flex items-center gap-2 text-xs font-mono">
-              <span className="text-amber-400 font-bold">LEFT: Site Framing</span>
+            <div className="flex items-center gap-2 text-xs font-mono tabular-nums">
+              <span className="text-amber-400 font-semibold">Left: Site Framing</span>
               <span className="text-slate-600">|</span>
-              <span className="text-rose-400 font-bold">RIGHT: Finished Elevation</span>
+              <span className="text-rose-400 font-semibold">Right: Finished Elevation</span>
             </div>
           </div>
 
           {/* Wipe Viewport */}
-          <div className="relative h-80 sm:h-96 md:h-[460px] w-full rounded-2xl overflow-hidden select-none bg-slate-950 border border-slate-800">
+          <div className="relative h-80 sm:h-96 md:h-[440px] w-full rounded-xl overflow-hidden select-none bg-slate-950 border border-slate-800">
             {/* Background Image: Finished Elevation (Right) */}
             <img
-              src={villaExteriorImg}
+              src={duskVillaCampaignImg}
               alt="Finished Elevation"
+              referrerPolicy="no-referrer"
               className="absolute inset-0 w-full h-full object-cover"
             />
-            <div className="absolute top-4 right-4 bg-slate-950/80 backdrop-blur-sm border border-rose-500/40 text-rose-300 px-3 py-1 rounded-xl text-xs font-mono font-bold">
-              FINISHED LUXURY ELEVATION
+            <div className="absolute top-3 right-3 bg-slate-950/85 border border-slate-700 text-rose-300 px-3 py-1 rounded-lg text-xs font-mono font-semibold">
+              Finished Elevation
             </div>
 
             {/* Foreground Clipped Image: Raw Framing (Left) */}
@@ -364,7 +361,7 @@ Click here to view the full interactive lookbook or reply to schedule a private 
         </div>
 
         {/* SECTION B: 360° ROOM EXPLORER WITH HOTSPOTS */}
-        <div className="p-6 rounded-3xl bg-slate-900 border border-slate-800 space-y-4 shadow-xl">
+        <div className="p-5 rounded-xl bg-slate-900 border border-slate-800 space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
               <h3 className="text-base font-bold text-white flex items-center gap-2">
@@ -372,100 +369,61 @@ Click here to view the full interactive lookbook or reply to schedule a private 
                 <span>360° Spatial Room Navigator: {currentRoom.name}</span>
               </h3>
               <p className="text-xs text-slate-400 mt-0.5">
-                Click on the floating glowing hotspot pins to inspect architectural material specifications and compliance standards.
+                Click hotspot pins to inspect interior finishes, lighting, and structural standards.
               </p>
             </div>
 
-            {/* Room Selector Pills */}
-            <div className="flex items-center gap-1.5 overflow-x-auto p-1 bg-slate-950 border border-slate-800 rounded-xl">
-              <button
-                type="button"
-                onClick={() => {
-                  setSelectedRoom('courtyard');
-                  setActiveHotspot(null);
-                }}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition whitespace-nowrap ${
-                  selectedRoom === 'courtyard'
-                    ? 'bg-rose-500 text-white shadow-md'
-                    : 'text-slate-400 hover:text-white'
-                }`}
-              >
-                Courtyard Living
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setSelectedRoom('master_suite');
-                  setActiveHotspot(null);
-                }}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition whitespace-nowrap ${
-                  selectedRoom === 'master_suite'
-                    ? 'bg-rose-500 text-white shadow-md'
-                    : 'text-slate-400 hover:text-white'
-                }`}
-              >
-                Master Suite
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setSelectedRoom('sky_terrace');
-                  setActiveHotspot(null);
-                }}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition whitespace-nowrap ${
-                  selectedRoom === 'sky_terrace'
-                    ? 'bg-rose-500 text-white shadow-md'
-                    : 'text-slate-400 hover:text-white'
-                }`}
-              >
-                Sky Terrace
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setSelectedRoom('exterior_facade');
-                  setActiveHotspot(null);
-                }}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition whitespace-nowrap ${
-                  selectedRoom === 'exterior_facade'
-                    ? 'bg-rose-500 text-white shadow-md'
-                    : 'text-slate-400 hover:text-white'
-                }`}
-              >
-                Façade Elevation
-              </button>
+            <div className="flex items-center gap-1.5 overflow-x-auto p-1 bg-slate-950 border border-slate-800 rounded-lg">
+              {[
+                { id: 'courtyard', label: 'Interior Living' },
+                { id: 'master_suite', label: 'Modular Kitchen' },
+                { id: 'sky_terrace', label: 'Sky Terrace' },
+                { id: 'exterior_facade', label: 'Dusk Facade' },
+              ].map((rm) => (
+                <button
+                  key={rm.id}
+                  type="button"
+                  onClick={() => {
+                    setSelectedRoom(rm.id as any);
+                    setActiveHotspot(null);
+                  }}
+                  className={`px-3 py-1.5 rounded-md text-xs font-semibold transition whitespace-nowrap shrink-0 ${
+                    selectedRoom === rm.id
+                      ? 'bg-rose-500 text-white'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  {rm.label}
+                </button>
+              ))}
             </div>
           </div>
 
-          {/* Interactive Room Canvas */}
-          <div className="relative h-80 sm:h-96 md:h-[460px] w-full rounded-2xl overflow-hidden bg-slate-950 border border-slate-800">
+          <div className="relative h-80 sm:h-96 md:h-[440px] w-full rounded-xl overflow-hidden bg-slate-950 border border-slate-800">
             <img
               src={currentRoom.image}
               alt={currentRoom.name}
+              referrerPolicy="no-referrer"
               className="w-full h-full object-cover transition-opacity duration-500"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-slate-950/30 pointer-events-none" />
 
-            <div className="absolute top-4 left-4 bg-slate-950/90 backdrop-blur-sm border border-slate-700 text-white px-3 py-1.5 rounded-xl text-xs font-mono flex items-center gap-2">
+            <div className="absolute top-4 left-4 bg-slate-950/90 border border-slate-700 text-white px-3 py-1.5 rounded-lg text-xs font-mono flex items-center gap-2">
               <Compass className="w-3.5 h-3.5 text-rose-400" />
               <span>{currentRoom.orientation}</span>
             </div>
 
-            {/* Clickable Hotspot Pins */}
             {currentRoom.hotspots.map((hs) => (
               <button
                 key={hs.id}
                 type="button"
                 onClick={() => setActiveHotspot(hs)}
                 style={{ top: `${hs.y}%`, left: `${hs.x}%` }}
-                className="absolute -translate-x-1/2 -translate-y-1/2 p-2.5 rounded-full bg-rose-500/90 text-white border-2 border-white shadow-lg hover:scale-125 transition-all group z-10"
+                className="absolute -translate-x-1/2 -translate-y-1/2 p-2.5 rounded-full bg-rose-500/90 text-white border-2 border-white shadow-lg hover:scale-110 transition-transform group z-10"
                 title={hs.title}
               >
-                <Sparkles className="w-3.5 h-3.5 animate-spin" style={{ animationDuration: '4s' }} />
-                <span className="absolute left-full ml-2 top-1/2 -translate-y-1/2 px-2 py-1 rounded bg-slate-950/90 text-[10px] text-white border border-rose-500/40 whitespace-nowrap hidden group-hover:block pointer-events-none">
+                <Eye className="w-3.5 h-3.5" />
+                <span className="absolute left-full ml-2 top-1/2 -translate-y-1/2 px-2 py-1 rounded bg-slate-950/95 text-[10px] text-white border border-slate-700 whitespace-nowrap hidden group-hover:block pointer-events-none">
                   {hs.title}
                 </span>
               </button>
@@ -676,24 +634,19 @@ Click here to view the full interactive lookbook or reply to schedule a private 
   // RENDER: DIGITAL PROJECT LOOKBOOK & PDF BROCHURE
   // -------------------------------------------------------------
   return (
-    <div className="space-y-6 text-left animate-in fade-in duration-200">
-      {/* Banner */}
-      <div className="p-6 rounded-3xl bg-gradient-to-r from-amber-950/60 via-slate-900 to-slate-950 border border-amber-500/30 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-xl">
-        <div className="space-y-2 max-w-2xl">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[10px] font-mono font-bold flex items-center gap-1">
-              <FileText className="w-3 h-3 text-amber-400" />
-              ARCHITECTURAL PROJECT LOOKBOOK &amp; BROCHURE
-            </span>
-            <span className="px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 text-[10px] font-mono">
-              HIGH-RES PORTFOLIO PRINT READY
-            </span>
+    <div className="space-y-6 text-left">
+      <div className="p-5 rounded-xl bg-slate-900 border border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="space-y-1.5 max-w-2xl">
+          <div className="flex items-center gap-2 text-xs text-slate-400">
+            <span className="text-amber-300 font-semibold">Architectural Lookbook &amp; Brochure</span>
+            <span aria-hidden="true">·</span>
+            <span>Print-Ready Portfolio Specification</span>
           </div>
-          <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight">
+          <h2 className="text-xl font-bold text-white tracking-tight">
             Complete Architectural Lookbook: {activeProject.name || 'Prestige Heights'}
           </h2>
-          <p className="text-xs text-slate-300 leading-relaxed font-light">
-            Comprehensive project portfolio document containing high-resolution 4K exterior elevations, biophilic courtyard interior styling, structural engineering specifications, and CPWD material schedules.
+          <p className="text-xs text-slate-300 leading-relaxed">
+            Comprehensive project portfolio document containing architectural elevations, interior styling, structural specifications, and BOQ schedules.
           </p>
         </div>
 
@@ -701,7 +654,7 @@ Click here to view the full interactive lookbook or reply to schedule a private 
           <button
             type="button"
             onClick={() => window.print()}
-            className="px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs flex items-center gap-2 shadow-lg shadow-amber-500/25 transition"
+            className="px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold text-xs flex items-center gap-2 transition whitespace-nowrap"
           >
             <Printer className="w-4 h-4" />
             <span>Print / Save PDF Brochure</span>
@@ -710,62 +663,62 @@ Click here to view the full interactive lookbook or reply to schedule a private 
       </div>
 
       {/* Lookbook Magazine Sheet */}
-      <div className="p-8 rounded-3xl bg-slate-900 border border-slate-700 shadow-2xl space-y-8 max-w-5xl mx-auto text-left">
+      <div className="p-6 sm:p-8 rounded-xl bg-slate-900 border border-slate-800 space-y-8 max-w-5xl mx-auto text-left">
         {/* Cover Section */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center border-b border-slate-800 pb-8">
           <div className="space-y-4">
-            <span className="text-xs font-mono font-bold text-amber-400 uppercase tracking-widest">
+            <span className="text-xs font-semibold text-amber-400">
               Ar. S. Gouse Architecture &amp; Turnkey Studio
             </span>
-            <h1 className="text-3xl sm:text-4xl font-black text-white tracking-tight leading-tight">
+            <h1 className="text-3xl font-bold text-white tracking-tight leading-tight">
               {activeProject.name || 'Prestige Heights Luxury Villa'}
             </h1>
-            <p className="text-xs text-slate-300 leading-relaxed font-light">
-              A contemporary solar-passive biophilic residence situated in {activeProject.location || 'Bangalore'}, featuring double-height teak louvers, post-tensioned cantilevers, and dynamic CPWD-indexed turnkey BOQ execution.
+            <p className="text-xs text-slate-300 leading-relaxed">
+              A contemporary solar-passive biophilic residence situated in {activeProject.location || 'Bangalore'}, featuring double-height teak louvers, post-tensioned cantilevers, and dynamic turnkey BOQ execution.
             </p>
 
-            <div className="grid grid-cols-2 gap-3 text-xs pt-2">
-              <div className="p-2.5 rounded-xl bg-slate-950 border border-slate-800">
-                <div className="text-[10px] text-slate-500 font-mono">Location</div>
-                <div className="font-bold text-white mt-0.5">{activeProject.location || 'Bangalore Tech Corridor'}</div>
+            <div className="grid grid-cols-2 gap-3 text-xs pt-2 tabular-nums">
+              <div className="p-2.5 rounded-lg bg-slate-950 border border-slate-800">
+                <div className="text-[11px] text-slate-400">Location</div>
+                <div className="font-semibold text-white mt-0.5">{activeProject.location || 'Bangalore Tech Corridor'}</div>
               </div>
-              <div className="p-2.5 rounded-xl bg-slate-950 border border-slate-800">
-                <div className="text-[10px] text-slate-500 font-mono">Total Built-Up Area</div>
-                <div className="font-bold text-white mt-0.5">{(activeProject as any).area || (activeProject as any).builtUpArea || 3500} Sq.Ft (G+2 Floors)</div>
+              <div className="p-2.5 rounded-lg bg-slate-950 border border-slate-800">
+                <div className="text-[11px] text-slate-400">Total Built-Up Area</div>
+                <div className="font-semibold text-white mt-0.5">{(activeProject as any).builtUpAreaSqFt || (activeProject as any).area || 3500} Sq.Ft</div>
               </div>
-              <div className="p-2.5 rounded-xl bg-slate-950 border border-slate-800">
-                <div className="text-[10px] text-slate-500 font-mono">Architect License</div>
-                <div className="font-bold text-amber-300 mt-0.5">CoA CA/2012/55190</div>
+              <div className="p-2.5 rounded-lg bg-slate-950 border border-slate-800">
+                <div className="text-[11px] text-slate-400">Architect License</div>
+                <div className="font-semibold text-amber-300 mt-0.5">CoA CA/2012/55190</div>
               </div>
-              <div className="p-2.5 rounded-xl bg-slate-950 border border-slate-800">
-                <div className="text-[10px] text-slate-500 font-mono">Client Verification</div>
-                <div className="font-bold text-emerald-400 mt-0.5">Verified Completion 2026</div>
+              <div className="p-2.5 rounded-lg bg-slate-950 border border-slate-800">
+                <div className="text-[11px] text-slate-400">Verification</div>
+                <div className="font-semibold text-emerald-400 mt-0.5">Verified Completion 2026</div>
               </div>
             </div>
           </div>
 
-          <div className="h-80 rounded-2xl overflow-hidden bg-slate-950 border border-slate-800 shadow-xl">
-            <img src={villaExteriorImg} alt="Cover" className="w-full h-full object-cover" />
+          <div className="h-80 rounded-xl overflow-hidden bg-slate-950 border border-slate-800">
+            <img src={duskVillaCampaignImg} alt="Cover" referrerPolicy="no-referrer" className="w-full h-full object-cover" />
           </div>
         </div>
 
         {/* Gallery Triad */}
         <div className="space-y-3">
-          <div className="text-xs font-mono font-bold text-slate-400 uppercase tracking-wider">
-            Curated Architectural Gallery
+          <div className="text-xs font-semibold text-slate-400">
+            Curated Architectural &amp; Interior Gallery
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="h-48 rounded-xl overflow-hidden bg-slate-950 border border-slate-800">
-              <img src={courtyardInteriorImg} alt="Interior" className="w-full h-full object-cover" />
-              <div className="p-2 bg-slate-950/90 text-[11px] text-slate-300 font-mono">Biophilic Courtyard Core</div>
+            <div className="rounded-lg overflow-hidden bg-slate-950 border border-slate-800">
+              <img src={luxuryInteriorLivingImg} alt="Interior Living" referrerPolicy="no-referrer" className="w-full h-44 object-cover" />
+              <div className="p-2.5 text-xs text-slate-300">Fluted Oak &amp; Travertine Living Core</div>
             </div>
-            <div className="h-48 rounded-xl overflow-hidden bg-slate-950 border border-slate-800">
-              <img src={masterSuiteImg} alt="Suite" className="w-full h-full object-cover" />
-              <div className="p-2 bg-slate-950/90 text-[11px] text-slate-300 font-mono">Executive Master Bedroom</div>
+            <div className="rounded-lg overflow-hidden bg-slate-950 border border-slate-800">
+              <img src={modularQuartzKitchenImg} alt="Modular Kitchen" referrerPolicy="no-referrer" className="w-full h-44 object-cover" />
+              <div className="p-2.5 text-xs text-slate-300">Statuario Quartz Waterfall Kitchen</div>
             </div>
-            <div className="h-48 rounded-xl overflow-hidden bg-slate-950 border border-slate-800">
-              <img src={pgTerraceImg} alt="Terrace" className="w-full h-full object-cover" />
-              <div className="p-2 bg-slate-950/90 text-[11px] text-slate-300 font-mono">Skyline Rooftop Pergola</div>
+            <div className="rounded-lg overflow-hidden bg-slate-950 border border-slate-800">
+              <img src={pgTerraceImg} alt="Terrace" referrerPolicy="no-referrer" className="w-full h-44 object-cover" />
+              <div className="p-2.5 text-xs text-slate-300">Skyline Rooftop Pergola</div>
             </div>
           </div>
         </div>

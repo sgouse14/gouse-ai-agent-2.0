@@ -14,6 +14,9 @@ import pgBedroom from '../assets/images/pg_bedroom_suite_1790170216460.jpg';
 import pgDining from '../assets/images/pg_dining_lounge_1790170229065.jpg';
 import pgExterior from '../assets/images/pg_house_exterior_1790170202558.jpg';
 import pgBathroom from '../assets/images/pg_modern_bathroom_1790170240349.jpg';
+import luxuryInteriorLiving from '../assets/images/luxury_interior_living_1795604953541.jpg';
+import modularQuartzKitchen from '../assets/images/modular_quartz_kitchen_1795604953880.jpg';
+import duskVillaCampaign from '../assets/images/dusk_villa_campaign_1795604954947.jpg';
 
 export const AVATARS = {
   principal: avatarPrincipal,
@@ -34,4 +37,7 @@ export const PROJECT_MEDIA = {
   pgDining,
   pgExterior,
   pgBathroom,
+  luxuryInteriorLiving,
+  modularQuartzKitchen,
+  duskVillaCampaign,
 };

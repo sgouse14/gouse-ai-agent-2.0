@@ -37,7 +37,15 @@ import {
   PenTool,
   Home,
   UserCheck,
+  Sofa,
+  Sparkles,
 } from 'lucide-react';
+import {
+  SocialAdManager,
+  AdLead,
+  LeadStatus,
+  INITIAL_AD_LEADS,
+} from './SocialAdManager';
 
 // Local bundled high-resolution architectural, construction, real estate & material assets
 import villaExteriorImg from '../assets/images/bangalore_house_exterior_1790170528532.jpg';
@@ -51,6 +59,9 @@ import villaElevationImg from '../assets/images/bangalore_builder_proj2_17901709
 import siteFramingImg from '../assets/images/bangalore_builder_proj1_1790170892084.jpg';
 import columnGridImg from '../assets/images/bangalore_builder_proj3_1790170920758.jpg';
 import rccFramingImg from '../assets/images/site_rcc_framing_1795248636506.jpg';
+import luxuryInteriorLivingImg from '../assets/images/luxury_interior_living_1795604953541.jpg';
+import modularQuartzKitchenImg from '../assets/images/modular_quartz_kitchen_1795604953880.jpg';
+import duskVillaCampaignImg from '../assets/images/dusk_villa_campaign_1795604954947.jpg';
 
 import realEstateAvatarImg from '../assets/images/avatar_principal_architect_1795248637118.jpg';
 import architectAvatarImg from '../assets/images/avatar_senior_architect_1795248636683.jpg';
@@ -60,6 +71,7 @@ import supplierAvatarImg from '../assets/images/avatar_qs_director_1795248637002
 export type PosterRole =
   | 'real_estate'
   | 'architect'
+  | 'interior_designer'
   | 'builder'
   | 'material_supplier'
   | 'client';
@@ -73,6 +85,7 @@ export type RealEstateCategory =
   | 'pg_coliving'
   | 'land_plots'
   | 'architectural_design'
+  | 'interior_fitout'
   | 'turnkey_build'
   | 'materials_supply'
   | 'client_post';
@@ -103,6 +116,7 @@ export interface RealEstateSocialPost extends SocialMediaItem {
   saved: boolean;
   sharesCount: number;
   isReel?: boolean;
+  galleryUrls?: string[];
   comments: PostComment[];
   hashtags: string[];
 }
@@ -122,6 +136,7 @@ export interface PropertyStoryHighlight {
 }
 
 const STORAGE_KEY = 'realstate_media_social_v4';
+const LEADS_STORAGE_KEY = 'realstate_media_leads_v1';
 
 export const ROLE_DIRECTORY: Record<
   PosterRole,
@@ -158,6 +173,17 @@ export const ROLE_DIRECTORY: Record<
     defaultCategory: 'architectural_design',
     defaultStatus: 'Architectural Portfolio',
     placeholderRate: '₹120 / sq.ft Design',
+  },
+  interior_designer: {
+    label: 'Interior Designer',
+    shortLabel: 'Interiors',
+    defaultName: 'Studio Vastu & Interior Atelier',
+    defaultHandle: 'studio_vastu_interiors',
+    avatar: architectAvatarImg,
+    accentText: 'text-fuchsia-300',
+    defaultCategory: 'interior_fitout',
+    defaultStatus: 'Turnkey Interiors',
+    placeholderRate: '₹1,650 / sq.ft Fit-Out',
   },
   builder: {
     label: 'Builder',
@@ -196,9 +222,35 @@ export const ROLE_DIRECTORY: Record<
 
 export const STORY_HIGHLIGHTS: PropertyStoryHighlight[] = [
   {
+    id: 'story-re-dusk',
+    role: 'real_estate',
+    label: 'Dusk Villas',
+    posterHandle: 'gouse_estates_blr',
+    location: 'Sadashivanagar · Bengaluru',
+    priceTag: '₹4.25 Cr',
+    headline: 'Cantilevered Concrete & Teak Courtyard Residence',
+    subline: 'Real Estate · 4,850 sq.ft · Pool Courtyard · Private Viewing Open',
+    imageUrl: duskVillaCampaignImg,
+    category: 'for_sale',
+    postedAgo: '1h ago',
+  },
+  {
+    id: 'story-int-oak',
+    role: 'interior_designer',
+    label: 'Luxury Interiors',
+    posterHandle: 'studio_vastu_interiors',
+    location: 'Indiranagar · Bengaluru',
+    priceTag: '₹1,650 / sq.ft',
+    headline: 'Fluted White Oak Living & Statuario Quartz Kitchen',
+    subline: 'Interior Designer · BWP Marine Ply · 2700K Magnetic Track Lighting',
+    imageUrl: luxuryInteriorLivingImg,
+    category: 'interior_fitout',
+    postedAgo: '2h ago',
+  },
+  {
     id: 'story-re-villas',
     role: 'real_estate',
-    label: 'Luxury Villas',
+    label: 'Whitefield',
     posterHandle: 'gouse_estates_blr',
     location: 'Whitefield · Bengaluru',
     priceTag: '₹2.85 Cr',
@@ -289,6 +341,134 @@ export const STORY_HIGHLIGHTS: PropertyStoryHighlight[] = [
 ];
 
 export const INITIAL_REAL_ESTATE_POSTS: RealEstateSocialPost[] = [
+  {
+    id: 'eco-re-dusk-cantilever',
+    type: 'photo',
+    posterRole: 'real_estate',
+    posterName: 'Gouse Real Estate Advisory',
+    posterHandle: 'gouse_estates_blr',
+    posterAvatar: realEstateAvatarImg,
+    posterPhone: '+91 80739 47241',
+    title: 'Sadashivanagar Cantilevered Dusk Residence & Pool Deck',
+    caption:
+      'Flagship architectural residence now open for private evening inspections. Post-tensioned 2.2m cantilevered glass pavilion, Burma teak soffits, infinity plunge courtyard, and full A-Khata OC documentation.',
+    url: duskVillaCampaignImg,
+    thumbnailUrl: duskVillaCampaignImg,
+    galleryUrls: [duskVillaCampaignImg, luxuryInteriorLivingImg, modularQuartzKitchenImg],
+    aspectRatio: '16:9',
+    platform: 'all',
+    category: 'handover',
+    propertyCategory: 'for_sale',
+    listingStatus: 'For Sale',
+    priceLabel: '₹4.25 Cr',
+    location: 'Sadashivanagar, Bengaluru',
+    areaSpec: '4,850 sq.ft',
+    bhkOrType: '5 BHK Pool Villa',
+    facing: 'North-East Corner',
+    possessionStatus: 'Ready to Move',
+    postedAgo: '1 hr ago',
+    uploadedAt: '2026-11-25',
+    architectAttribution: 'Gouse Real Estate Advisory',
+    tags: ['LuxuryVilla', 'CantileverArchitecture', 'BengaluruEstates'],
+    hashtags: ['#SadashivanagarVilla', '#CantileverArchitecture', '#BengaluruLuxury', '#ReadyToMove'],
+    likesCount: 512,
+    viewsCount: 7420,
+    liked: true,
+    saved: true,
+    sharesCount: 74,
+    isFeatured: true,
+    comments: [
+      {
+        id: 'c-001',
+        author: 'aditya_nair_blr',
+        text: 'Evening lighting on the cantilevered overhang looks sharp. Can we book a Sunday walkthrough?',
+        timeAgo: '32m',
+      },
+    ],
+  },
+  {
+    id: 'eco-int-living-oak',
+    type: 'photo',
+    posterRole: 'interior_designer',
+    posterName: 'Studio Vastu & Interior Atelier',
+    posterHandle: 'studio_vastu_interiors',
+    posterAvatar: architectAvatarImg,
+    posterPhone: '+91 80739 47241',
+    title: 'Fluted White Oak Living & Travertine Courtyard Fit-Out',
+    caption:
+      'Completed turnkey residential interior in Indiranagar. Acoustic fluted oak wall cladding, honed Italian travertine center table, recessed 2700K magnetic track lighting, and BWP marine ply millwork delivered in 45 days with line-item BOQ lock.',
+    url: luxuryInteriorLivingImg,
+    thumbnailUrl: luxuryInteriorLivingImg,
+    galleryUrls: [luxuryInteriorLivingImg, modularQuartzKitchenImg],
+    aspectRatio: '4:5',
+    platform: 'instagram',
+    category: 'interior_design',
+    propertyCategory: 'interior_fitout',
+    listingStatus: 'Interior Showcase',
+    priceLabel: '₹1,650 / sq.ft Fit-Out',
+    location: 'Indiranagar, Bengaluru',
+    areaSpec: '2,650 sq.ft Interior',
+    bhkOrType: 'Turnkey Villa Interiors',
+    facing: 'Courtyard Daylight',
+    possessionStatus: 'Delivered in 45 Days',
+    postedAgo: '2 hrs ago',
+    uploadedAt: '2026-11-25',
+    architectAttribution: 'Studio Vastu & Interior Atelier',
+    tags: ['InteriorDesignBengaluru', 'FlutedOak', 'TurnkeyInteriors'],
+    hashtags: ['#BengaluruInteriors', '#FlutedOak', '#TravertineLiving', '#TurnkeyFitOut'],
+    likesCount: 386,
+    viewsCount: 5180,
+    liked: false,
+    saved: true,
+    sharesCount: 58,
+    isFeatured: true,
+    comments: [
+      {
+        id: 'c-002',
+        author: 'sneha_kapoor_home',
+        text: 'Are the magnetic track lights CRI 95? Looking for a full 3 BHK interior package in HSR.',
+        timeAgo: '1h',
+      },
+    ],
+  },
+  {
+    id: 'eco-int-modular-kitchen',
+    type: 'photo',
+    posterRole: 'interior_designer',
+    posterName: 'Studio Vastu & Interior Atelier',
+    posterHandle: 'studio_vastu_interiors',
+    posterAvatar: architectAvatarImg,
+    posterPhone: '+91 80739 47241',
+    title: 'Statuario Quartz Waterfall Island & Walnut Kitchen',
+    caption:
+      'Custom modular kitchen & utility fit-out featuring 20mm bookmatched Statuario quartz island, Century BWP marine ply carcass, European walnut fluted shutter veneer, soft-close Hettich tandem hardware, and under-cabinet warm LED profiles.',
+    url: modularQuartzKitchenImg,
+    thumbnailUrl: modularQuartzKitchenImg,
+    aspectRatio: '1:1',
+    platform: 'all',
+    category: 'interior_design',
+    propertyCategory: 'interior_fitout',
+    listingStatus: 'Modular Kitchen Lot',
+    priceLabel: '₹8.40 L Complete Lot',
+    location: 'Koramangala 4th Block, Bengaluru',
+    areaSpec: '340 sq.ft Kitchen + Island',
+    bhkOrType: 'BWP Marine + Quartz Island',
+    facing: 'Hettich Soft-Close Kit',
+    possessionStatus: '30-Day Fabrication',
+    postedAgo: '3 hrs ago',
+    uploadedAt: '2026-11-24',
+    architectAttribution: 'Studio Vastu & Interior Atelier',
+    tags: ['ModularKitchen', 'QuartzIsland', 'WalnutVeneer'],
+    hashtags: ['#ModularKitchen', '#StatuarioQuartz', '#InteriorMillwork', '#BengaluruHomes'],
+    likesCount: 319,
+    viewsCount: 4310,
+    liked: false,
+    saved: false,
+    sharesCount: 49,
+    isReel: true,
+    duration: '00:36',
+    comments: [],
+  },
   {
     id: 'eco-re-whitefield-villa',
     type: 'photo',
@@ -753,7 +933,11 @@ export const SocialMediaStudio: React.FC<SocialMediaStudioProps> = ({
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) {
         const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const existingIds = new Set(parsed.map((p: RealEstateSocialPost) => p.id));
+          const missingDefaults = INITIAL_REAL_ESTATE_POSTS.filter((p) => !existingIds.has(p.id));
+          return [...missingDefaults, ...parsed];
+        }
       }
     } catch {
       // ignore storage errors
@@ -769,6 +953,27 @@ export const SocialMediaStudio: React.FC<SocialMediaStudioProps> = ({
     }
   }, [posts]);
 
+  const [leads, setLeads] = useState<AdLead[]>(() => {
+    try {
+      const raw = localStorage.getItem(LEADS_STORAGE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {
+      // ignore
+    }
+    return INITIAL_AD_LEADS;
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(LEADS_STORAGE_KEY, JSON.stringify(leads));
+    } catch {
+      // ignore
+    }
+  }, [leads]);
+
   // Active account role (who the user is posting as) + feed filters
   const [activePosterRole, setActivePosterRole] = useState<PosterRole>('real_estate');
   const [roleFilter, setRoleFilter] = useState<RoleFilter>('all');
@@ -777,6 +982,17 @@ export const SocialMediaStudio: React.FC<SocialMediaStudioProps> = ({
   const [igSubView, setIgSubView] = useState<IgSubView>('feed');
   const [onlySaved, setOnlySaved] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Boost-as-Ad & In-App Lead Inquiry Modal State
+  const [boostPostTarget, setBoostPostTarget] = useState<RealEstateSocialPost | null>(null);
+  const [inquiryPost, setInquiryPost] = useState<RealEstateSocialPost | null>(null);
+  const [inquiryName, setInquiryName] = useState('');
+  const [inquiryPhone, setInquiryPhone] = useState('');
+  const [inquiryNote, setInquiryNote] = useState('');
+  const [inquirySentBanner, setInquirySentBanner] = useState(false);
+
+  // Carousel slide tracking per post
+  const [slideIndices, setSlideIndices] = useState<Record<string, number>>({});
 
   // Dual preview selector
   const [dualPostId, setDualPostId] = useState<string>(INITIAL_REAL_ESTATE_POSTS[0].id);
@@ -805,8 +1021,9 @@ export const SocialMediaStudio: React.FC<SocialMediaStudioProps> = ({
   const [fbDraftCategory, setFbDraftCategory] = useState<Exclude<RealEstateCategory, 'all'>>(
     'for_sale'
   );
-  const [fbDraftImageUrl, setFbDraftImageUrl] = useState<string>(villaExteriorImg);
+  const [fbDraftImageUrl, setFbDraftImageUrl] = useState<string>(duskVillaCampaignImg);
   const [fbShowAttachBar, setFbShowAttachBar] = useState(false);
+  const [isDraftingFbAi, setIsDraftingFbAi] = useState(false);
 
   // Modal New Project Post state
   const [modalRole, setModalRole] = useState<PosterRole>('real_estate');
@@ -819,7 +1036,10 @@ export const SocialMediaStudio: React.FC<SocialMediaStudioProps> = ({
   const [newSpecType, setNewSpecType] = useState('4 BHK Villa / Project');
   const [newCategory, setNewCategory] = useState<Exclude<RealEstateCategory, 'all'>>('for_sale');
   const [newMediaType, setNewMediaType] = useState<'photo' | 'video'>('photo');
-  const [newMediaUrl, setNewMediaUrl] = useState<string>(villaExteriorImg);
+  const [newMediaUrl, setNewMediaUrl] = useState<string>(duskVillaCampaignImg);
+  const [newGalleryUrls, setNewGalleryUrls] = useState<string[]>([duskVillaCampaignImg]);
+  const [newHashtags, setNewHashtags] = useState<string[]>([]);
+  const [isDraftingModalAi, setIsDraftingModalAi] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const fbFileInputRef = useRef<HTMLInputElement>(null);
@@ -837,22 +1057,32 @@ export const SocialMediaStudio: React.FC<SocialMediaStudioProps> = ({
       setNewSpecType('Concept + BIM + GFC');
       setFbDraftImageUrl(villaElevationImg);
       setNewMediaUrl(villaElevationImg);
+      setNewGalleryUrls([villaElevationImg]);
+    } else if (role === 'interior_designer') {
+      setNewSpecType('Turnkey Interior + Modular Millwork');
+      setFbDraftImageUrl(luxuryInteriorLivingImg);
+      setNewMediaUrl(luxuryInteriorLivingImg);
+      setNewGalleryUrls([luxuryInteriorLivingImg, modularQuartzKitchenImg]);
     } else if (role === 'builder') {
       setNewSpecType('Turnkey G+2 / Civil Contract');
       setFbDraftImageUrl(siteFramingImg);
       setNewMediaUrl(siteFramingImg);
+      setNewGalleryUrls([siteFramingImg]);
     } else if (role === 'material_supplier') {
       setNewSpecType('Bulk Material Supply');
       setFbDraftImageUrl(modernBathImg);
       setNewMediaUrl(modernBathImg);
+      setNewGalleryUrls([modernBathImg]);
     } else if (role === 'client') {
       setNewSpecType('Homeowner Showcase / Plot Requirement');
       setFbDraftImageUrl(pgTerraceImg);
       setNewMediaUrl(pgTerraceImg);
+      setNewGalleryUrls([pgTerraceImg]);
     } else {
       setNewSpecType('4 BHK Villa / Plot');
-      setFbDraftImageUrl(villaExteriorImg);
-      setNewMediaUrl(villaExteriorImg);
+      setFbDraftImageUrl(duskVillaCampaignImg);
+      setNewMediaUrl(duskVillaCampaignImg);
+      setNewGalleryUrls([duskVillaCampaignImg]);
     }
   };
 
@@ -885,6 +1115,7 @@ export const SocialMediaStudio: React.FC<SocialMediaStudioProps> = ({
       all: posts.length,
       real_estate: posts.filter((p) => p.posterRole === 'real_estate').length,
       architect: posts.filter((p) => p.posterRole === 'architect').length,
+      interior_designer: posts.filter((p) => p.posterRole === 'interior_designer').length,
       builder: posts.filter((p) => p.posterRole === 'builder').length,
       material_supplier: posts.filter((p) => p.posterRole === 'material_supplier').length,
       client: posts.filter((p) => p.posterRole === 'client').length,
@@ -966,6 +1197,105 @@ export const SocialMediaStudio: React.FC<SocialMediaStudioProps> = ({
     reader.readAsDataURL(file);
   };
 
+  const handleBoostPostAsAd = (post: RealEstateSocialPost) => {
+    setBoostPostTarget(post);
+    setPlatformMode('campaigns');
+  };
+
+  const handleOpenPostInquiry = (post: RealEstateSocialPost) => {
+    setInquiryPost(post);
+    setInquirySentBanner(false);
+    setInquiryNote(`Interested in "${post.title}" (${post.priceLabel}) at ${post.location}`);
+  };
+
+  const handleSubmitPostInquiry = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!inquiryPost || !inquiryName.trim() || !inquiryPhone.trim()) return;
+    const newLead: AdLead = {
+      id: `lead-post-${Date.now()}`,
+      campaignName: inquiryPost.title,
+      sourceChannel: `Organic Post (${ROLE_DIRECTORY[inquiryPost.posterRole].shortLabel})`,
+      leadName: inquiryName.trim(),
+      phone: inquiryPhone.trim(),
+      requirement: inquiryNote.trim() || `Requested details for ${inquiryPost.title}`,
+      city: inquiryPost.location,
+      budgetHint: inquiryPost.priceLabel,
+      status: 'new',
+      createdAt: 'Just now',
+    };
+    setLeads((prev) => [newLead, ...prev]);
+    setInquirySentBanner(true);
+    setTimeout(() => {
+      setInquiryPost(null);
+      setInquiryName('');
+      setInquiryPhone('');
+      setInquiryNote('');
+      setInquirySentBanner(false);
+    }, 1200);
+  };
+
+  const handleAiDraftModalPost = async () => {
+    setIsDraftingModalAi(true);
+    try {
+      const resp = await fetch('/api/media/generate-post', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          role: modalRole,
+          companyName: newCompanyName,
+          title: newTitle,
+          priceLabel: newPrice,
+          location: newLocation,
+          areaSpec: newAreaSpec,
+          category: newCategory,
+          projectContext: activeProject.description || activeProject.name,
+        }),
+      });
+      if (resp.ok) {
+        const data = await resp.json();
+        if (data.title && !newTitle.trim()) setNewTitle(data.title);
+        if (data.caption) setNewCaption(data.caption);
+        if (Array.isArray(data.hashtags)) setNewHashtags(data.hashtags);
+      }
+    } catch {
+      // ignore network issue
+    } finally {
+      setIsDraftingModalAi(false);
+    }
+  };
+
+  const handleAiDraftFbPost = async () => {
+    setIsDraftingFbAi(true);
+    setFbShowAttachBar(true);
+    try {
+      const roleMeta = ROLE_DIRECTORY[activePosterRole];
+      const resp = await fetch('/api/media/generate-post', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          role: activePosterRole,
+          companyName: roleMeta.defaultName,
+          title: fbDraftTitle || `${roleMeta.shortLabel} Showcase in ${fbDraftLocation}`,
+          priceLabel: fbDraftPrice,
+          location: fbDraftLocation,
+          areaSpec: activeProject.builtUpAreaSqFt ? `${activeProject.builtUpAreaSqFt} sq.ft` : '2,800 sq.ft',
+          category: fbDraftCategory,
+          projectContext: activeProject.name,
+          platform: 'facebook',
+        }),
+      });
+      if (resp.ok) {
+        const data = await resp.json();
+        if (data.title && !fbDraftTitle.trim()) setFbDraftTitle(data.title);
+        if (data.caption) setFbDraftText(data.caption);
+      }
+    } catch {
+      // ignore
+    } finally {
+      setIsDraftingFbAi(false);
+    }
+  };
+
   const handleQuickFbPublish = (e: React.FormEvent) => {
     e.preventDefault();
     const body = fbDraftText.trim();
@@ -978,6 +1308,7 @@ export const SocialMediaStudio: React.FC<SocialMediaStudioProps> = ({
       pg_coliving: 'PG & Co-Living',
       land_plots: 'Land & Plots',
       architectural_design: 'Architecture Project',
+      interior_fitout: 'Interior Showcase',
       turnkey_build: 'Builder Site Log',
       materials_supply: 'Material Supply',
       client_post: 'Client Post',
@@ -996,11 +1327,11 @@ export const SocialMediaStudio: React.FC<SocialMediaStudioProps> = ({
         fbDraftTitle.trim() ||
         `${roleMeta.shortLabel} Update · ${fbDraftLocation.split(',')[0] || 'Bengaluru'}`,
       caption: body,
-      url: fbDraftImageUrl || villaExteriorImg,
-      thumbnailUrl: fbDraftImageUrl || villaExteriorImg,
+      url: fbDraftImageUrl || duskVillaCampaignImg,
+      thumbnailUrl: fbDraftImageUrl || duskVillaCampaignImg,
       aspectRatio: '16:9',
       platform: 'all',
-      category: 'handover',
+      category: fbDraftCategory === 'interior_fitout' ? 'interior_design' : 'handover',
       propertyCategory: fbDraftCategory,
       listingStatus: statusMap[fbDraftCategory],
       priceLabel: fbDraftPrice.trim() || roleMeta.placeholderRate,
@@ -1042,6 +1373,7 @@ export const SocialMediaStudio: React.FC<SocialMediaStudioProps> = ({
     reader.onload = () => {
       if (typeof reader.result === 'string') {
         setNewMediaUrl(reader.result);
+        setNewGalleryUrls([reader.result]);
       }
     };
     reader.readAsDataURL(file);
@@ -1063,6 +1395,7 @@ export const SocialMediaStudio: React.FC<SocialMediaStudioProps> = ({
       pg_coliving: 'PG & Co-Living',
       land_plots: 'Land & Plots',
       architectural_design: 'Architecture Project',
+      interior_fitout: 'Interior Showcase',
       turnkey_build: 'Builder Site Log',
       materials_supply: 'Material Supply',
       client_post: 'Client Post',
@@ -1073,6 +1406,7 @@ export const SocialMediaStudio: React.FC<SocialMediaStudioProps> = ({
       newCaption.trim() ||
       `Published by ${companyName} (${roleMeta.label}) in ${newLocation}. ${newSpecType} · ${newAreaSpec} · ${newPrice}. Reach out directly for drawings, quotes, or site inspection.`;
 
+    const primaryUrl = newGalleryUrls[0] || newMediaUrl || duskVillaCampaignImg;
     const created: RealEstateSocialPost = {
       id: `eco-modal-${Date.now()}`,
       projectId: activeProject.id,
@@ -1084,11 +1418,17 @@ export const SocialMediaStudio: React.FC<SocialMediaStudioProps> = ({
       posterPhone: '+91 80739 47241',
       title,
       caption,
-      url: newMediaUrl || villaExteriorImg,
-      thumbnailUrl: newMediaType === 'photo' ? newMediaUrl : villaExteriorImg,
+      url: primaryUrl,
+      thumbnailUrl: newMediaType === 'photo' ? primaryUrl : duskVillaCampaignImg,
+      galleryUrls: newMediaType === 'photo' && newGalleryUrls.length > 1 ? newGalleryUrls : undefined,
       aspectRatio: newMediaType === 'video' ? '9:16' : '4:5',
       platform: 'all',
-      category: newMediaType === 'video' ? '3d_walkthrough' : 'handover',
+      category:
+        newMediaType === 'video'
+          ? '3d_walkthrough'
+          : newCategory === 'interior_fitout'
+          ? 'interior_design'
+          : 'handover',
       propertyCategory: newCategory,
       listingStatus: statusMap[newCategory],
       priceLabel: newPrice.trim() || roleMeta.placeholderRate,
@@ -1101,11 +1441,14 @@ export const SocialMediaStudio: React.FC<SocialMediaStudioProps> = ({
       uploadedAt: new Date().toISOString().slice(0, 10),
       architectAttribution: companyName,
       tags: [roleMeta.shortLabel.replace(/\s+/g, ''), 'BengaluruProjects'],
-      hashtags: [
-        `#${roleMeta.shortLabel.replace(/\s+/g, '')}`,
-        '#BengaluruRealEstate',
-        '#ArchitectureAndBuild',
-      ],
+      hashtags:
+        newHashtags.length > 0
+          ? newHashtags
+          : [
+              `#${roleMeta.shortLabel.replace(/\s+/g, '')}`,
+              '#BengaluruRealEstate',
+              '#ArchitectureAndBuild',
+            ],
       likesCount: 1,
       viewsCount: 18,
       liked: true,
@@ -1120,6 +1463,7 @@ export const SocialMediaStudio: React.FC<SocialMediaStudioProps> = ({
     setDualPostId(created.id);
     setNewTitle('');
     setNewCaption('');
+    setNewHashtags([]);
     setIsComposerOpen(false);
   };
 
@@ -1135,38 +1479,81 @@ export const SocialMediaStudio: React.FC<SocialMediaStudioProps> = ({
     post: RealEstateSocialPost,
     aspectClass: string,
     overlayPrice = true
-  ) => (
-    <div className={`relative w-full ${aspectClass} bg-slate-900 overflow-hidden select-none`}>
-      {post.type === 'video' ? (
-        <video
-          src={post.url}
-          poster={post.thumbnailUrl || villaExteriorImg}
-          controls
-          playsInline
-          className="w-full h-full object-cover"
-        />
-      ) : (
-        <img
-          src={post.url}
-          alt={post.title}
-          referrerPolicy="no-referrer"
-          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.02]"
-        />
-      )}
-      {overlayPrice && (
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-slate-950/90 via-slate-950/40 to-transparent flex items-end justify-between px-4 pb-3">
-          <div className="min-w-0">
-            <p className="text-[11px] font-medium text-slate-200 truncate">
-              {ROLE_DIRECTORY[post.posterRole].shortLabel} · {post.bhkOrType} · {post.areaSpec}
-            </p>
+  ) => {
+    const slides = post.galleryUrls && post.galleryUrls.length > 1 ? post.galleryUrls : [post.url];
+    const activeSlide = Math.min(slideIndices[post.id] || 0, slides.length - 1);
+    const activeUrl = slides[activeSlide] || post.url;
+
+    return (
+      <div className={`relative w-full ${aspectClass} bg-slate-900 overflow-hidden select-none`}>
+        {post.type === 'video' ? (
+          <video
+            src={post.url}
+            poster={post.thumbnailUrl || duskVillaCampaignImg}
+            controls
+            playsInline
+            className="w-full h-full object-cover"
+          />
+        ) : (
+          <img
+            src={activeUrl}
+            alt={post.title}
+            referrerPolicy="no-referrer"
+            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.02]"
+          />
+        )}
+
+        {slides.length > 1 && post.type !== 'video' && (
+          <>
+            <button
+              type="button"
+              aria-label="Previous photo"
+              onClick={(e) => {
+                e.stopPropagation();
+                setSlideIndices((prev) => ({
+                  ...prev,
+                  [post.id]: (activeSlide - 1 + slides.length) % slides.length,
+                }));
+              }}
+              className="absolute left-2.5 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-slate-950/75 hover:bg-slate-900 text-white flex items-center justify-center border border-white/20 z-10"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            <button
+              type="button"
+              aria-label="Next photo"
+              onClick={(e) => {
+                e.stopPropagation();
+                setSlideIndices((prev) => ({
+                  ...prev,
+                  [post.id]: (activeSlide + 1) % slides.length,
+                }));
+              }}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-slate-950/75 hover:bg-slate-900 text-white flex items-center justify-center border border-white/20 z-10"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+            <div className="absolute top-2.5 right-2.5 px-2 py-0.5 rounded bg-slate-950/80 text-[11px] font-medium text-white tabular-nums z-10">
+              {activeSlide + 1}/{slides.length}
+            </div>
+          </>
+        )}
+
+        {overlayPrice && (
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-slate-950/90 via-slate-950/40 to-transparent flex items-end justify-between px-4 pb-3">
+            <div className="min-w-0">
+              <p className="text-[11px] font-medium text-slate-200 truncate">
+                {ROLE_DIRECTORY[post.posterRole].shortLabel} · {post.bhkOrType} · {post.areaSpec}
+              </p>
+            </div>
+            <span className="text-sm font-bold text-white tabular-nums shrink-0 ml-3">
+              {post.priceLabel}
+            </span>
           </div>
-          <span className="text-sm font-bold text-white tabular-nums shrink-0 ml-3">
-            {post.priceLabel}
-          </span>
-        </div>
-      )}
-    </div>
-  );
+        )}
+      </div>
+    );
+  };
 
   // Reusable Instagram Card
   const renderInstagramCard = (post: RealEstateSocialPost, compact = false) => {
@@ -1211,14 +1598,21 @@ export const SocialMediaStudio: React.FC<SocialMediaStudioProps> = ({
           </div>
 
           <div className="flex items-center gap-1.5 shrink-0">
-            <a
-              href={whatsappInquiryUrl(post)}
-              target="_blank"
-              rel="noreferrer"
+            <button
+              type="button"
+              onClick={() => handleBoostPostAsAd(post)}
+              className="text-xs font-semibold text-amber-300 hover:text-amber-200 px-2.5 py-1 rounded-lg bg-amber-500/10 border border-amber-500/30 hover:border-amber-400/60 transition whitespace-nowrap"
+              title="Promote this post in Run Ads Studio"
+            >
+              Run Ad
+            </button>
+            <button
+              type="button"
+              onClick={() => handleOpenPostInquiry(post)}
               className="text-xs font-semibold text-sky-400 hover:text-sky-300 px-2.5 py-1 rounded-lg hover:bg-slate-800 transition whitespace-nowrap"
             >
-              Contact
-            </a>
+              Inquire
+            </button>
             {post.id.startsWith('eco-user-') || post.id.startsWith('eco-modal-') ? (
               <button
                 type="button"
@@ -1472,27 +1866,33 @@ export const SocialMediaStudio: React.FC<SocialMediaStudioProps> = ({
               {post.bhkOrType} · {post.priceLabel}
             </p>
           </div>
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-2 shrink-0 flex-wrap">
+            <button
+              type="button"
+              onClick={() => handleBoostPostAsAd(post)}
+              className="px-3 py-1.5 rounded-lg bg-amber-500/15 border border-amber-500/40 hover:border-amber-400 text-xs font-semibold text-amber-300 transition whitespace-nowrap"
+            >
+              Run Ad
+            </button>
             <a
               href={`tel:${post.posterPhone.replace(/\s+/g, '')}`}
               className="px-3 py-1.5 rounded-lg border border-slate-700 hover:border-slate-500 text-xs font-medium text-slate-200 transition whitespace-nowrap"
             >
               Call Desk
             </a>
-            <a
-              href={whatsappInquiryUrl(post)}
-              target="_blank"
-              rel="noreferrer"
+            <button
+              type="button"
+              onClick={() => handleOpenPostInquiry(post)}
               className="px-3 py-1.5 rounded-lg bg-[#1877F2] hover:bg-[#166fe5] text-white text-xs font-semibold transition whitespace-nowrap"
             >
               {post.posterRole === 'material_supplier'
                 ? 'Request Quote'
-                : post.posterRole === 'architect'
+                : post.posterRole === 'architect' || post.posterRole === 'interior_designer'
                 ? 'Book Consult'
                 : post.posterRole === 'builder'
                 ? 'Request BOQ'
                 : 'Schedule Visit'}
-            </a>
+            </button>
           </div>
         </div>
 
@@ -1612,6 +2012,7 @@ export const SocialMediaStudio: React.FC<SocialMediaStudioProps> = ({
     { id: 'all', label: `All Ecosystem (${roleCounts.all})`, icon: Building2 },
     { id: 'real_estate', label: `Real Estate (${roleCounts.real_estate})`, icon: Home },
     { id: 'architect', label: `Architects (${roleCounts.architect})`, icon: PenTool },
+    { id: 'interior_designer', label: `Interiors (${roleCounts.interior_designer})`, icon: Sofa },
     { id: 'builder', label: `Builders (${roleCounts.builder})`, icon: HardHat },
     {
       id: 'material_supplier',
@@ -1626,6 +2027,7 @@ export const SocialMediaStudio: React.FC<SocialMediaStudioProps> = ({
     { id: 'for_sale', label: 'For Sale' },
     { id: 'for_rent', label: 'Rent & PG' },
     { id: 'architectural_design', label: 'Architecture & 3D' },
+    { id: 'interior_fitout', label: 'Interiors & Modular' },
     { id: 'turnkey_build', label: 'Builder Turnkey' },
     { id: 'materials_supply', label: 'Materials & Stones' },
     { id: 'client_post', label: 'Client Stories & Requests' },
@@ -1641,16 +2043,16 @@ export const SocialMediaStudio: React.FC<SocialMediaStudioProps> = ({
           <div>
             <div className="flex items-center gap-2 text-xs text-slate-400 font-medium flex-wrap">
               <span className="text-white font-semibold">Realstate Media</span>
-              <span>·</span>
-              <span className="text-amber-300">Instagram &amp; Facebook Network</span>
-              <span>·</span>
+              <span aria-hidden="true">·</span>
+              <span className="text-amber-300">Posts &amp; Run Ads Network</span>
+              <span aria-hidden="true">·</span>
               <span className="truncate">{activeProject.name}</span>
             </div>
             <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight mt-1">
-              Realstate Media — Instagram &amp; Facebook Showcase
+              Realstate Media — Project Posts &amp; Run Ads Studio
             </h1>
             <p className="text-xs sm:text-sm text-slate-400 mt-0.5">
-              Real Estate, Architects, Builders, Material Suppliers, and Clients can publish projects, reviews, and requirements across Instagram &amp; Facebook feeds.
+              Real Estate, Architects, Interior Designers, Builders, Suppliers, and Clients publish project posts and launch targeted IG, FB &amp; WhatsApp ad campaigns.
             </p>
           </div>
 
@@ -1674,6 +2076,9 @@ export const SocialMediaStudio: React.FC<SocialMediaStudioProps> = ({
                 </option>
                 <option value="architect" className="bg-slate-900">
                   Architect
+                </option>
+                <option value="interior_designer" className="bg-slate-900">
+                  Interior Designer
                 </option>
                 <option value="builder" className="bg-slate-900">
                   Builder
@@ -1746,12 +2151,12 @@ export const SocialMediaStudio: React.FC<SocialMediaStudioProps> = ({
         <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3 pt-3 border-t border-slate-800">
           <div className="flex items-center gap-1.5 overflow-x-auto pb-1 xl:pb-0">
             {[
-              { id: 'instagram', label: 'Instagram Model', icon: ImageIcon },
-              { id: 'facebook', label: 'Facebook Model', icon: Building2 },
+              { id: 'instagram', label: 'Instagram Feed', icon: ImageIcon },
+              { id: 'facebook', label: 'Facebook Page', icon: Building2 },
               { id: 'dual', label: 'Dual IG + FB View', icon: LayoutList },
               { id: 'virtual_tour', label: '360° Tour', icon: Compass },
               { id: 'brochure', label: 'PDF Lookbook', icon: FileText },
-              { id: 'campaigns', label: 'Social Ads', icon: Megaphone },
+              { id: 'campaigns', label: `Run Ads (${leads.length} Leads)`, icon: Megaphone },
             ].map((tab) => {
               const Icon = tab.icon;
               const isActive = platformMode === tab.id;
@@ -1762,7 +2167,9 @@ export const SocialMediaStudio: React.FC<SocialMediaStudioProps> = ({
                   onClick={() => setPlatformMode(tab.id as PlatformMode)}
                   className={`px-3 py-2 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition whitespace-nowrap shrink-0 border ${
                     isActive
-                      ? 'bg-slate-800 border-slate-600 text-white'
+                      ? tab.id === 'campaigns'
+                        ? 'bg-amber-500 text-slate-950 border-amber-400'
+                        : 'bg-slate-800 border-slate-600 text-white'
                       : 'bg-transparent border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
                   }`}
                 >
@@ -2192,7 +2599,7 @@ export const SocialMediaStudio: React.FC<SocialMediaStudioProps> = ({
                     Create Post As:
                   </span>
                   <div className="flex items-center gap-1.5 flex-wrap">
-                    {(['real_estate', 'architect', 'builder', 'material_supplier', 'client'] as PosterRole[]).map(
+                    {(['real_estate', 'architect', 'interior_designer', 'builder', 'material_supplier', 'client'] as PosterRole[]).map(
                       (r) => {
                         const selected = activePosterRole === r;
                         return (
@@ -2230,6 +2637,8 @@ export const SocialMediaStudio: React.FC<SocialMediaStudioProps> = ({
                         placeholder={`Project headline (e.g. ${
                           activePosterRole === 'architect'
                             ? 'Modern 40x60 Villa 3D Elevation & GFC Plan'
+                            : activePosterRole === 'interior_designer'
+                            ? 'Fluted Oak Living & Statuario Quartz Kitchen'
                             : activePosterRole === 'builder'
                             ? 'G+2 Turnkey RCC Slab Casting Complete'
                             : activePosterRole === 'material_supplier'
@@ -2268,6 +2677,7 @@ export const SocialMediaStudio: React.FC<SocialMediaStudioProps> = ({
                       <option value="pg_coliving">PG &amp; Co-Living</option>
                       <option value="land_plots">Land &amp; Plots</option>
                       <option value="architectural_design">Architecture &amp; 3D</option>
+                      <option value="interior_fitout">Interiors &amp; Modular</option>
                       <option value="turnkey_build">Builder Site / Turnkey</option>
                       <option value="materials_supply">Materials Supply</option>
                       <option value="client_post">Client Story / Requirement</option>
@@ -2291,6 +2701,9 @@ export const SocialMediaStudio: React.FC<SocialMediaStudioProps> = ({
                       onChange={(e) => setFbDraftImageUrl(e.target.value)}
                       className="bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none"
                     >
+                      <option value={duskVillaCampaignImg}>Photo: Dusk Cantilever Villa</option>
+                      <option value={luxuryInteriorLivingImg}>Photo: Fluted Oak Living</option>
+                      <option value={modularQuartzKitchenImg}>Photo: Quartz Island Kitchen</option>
                       <option value={villaExteriorImg}>Photo: Whitefield Villa</option>
                       <option value={villaElevationImg}>Photo: Architect 3D Facade</option>
                       <option value={siteFramingImg}>Photo: Builder Site RCC</option>
@@ -2304,7 +2717,7 @@ export const SocialMediaStudio: React.FC<SocialMediaStudioProps> = ({
                 )}
 
                 <div className="flex items-center justify-between pt-2 border-t border-slate-800 flex-wrap gap-2">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <button
                       type="button"
                       onClick={() => setFbShowAttachBar((v) => !v)}
@@ -2312,6 +2725,15 @@ export const SocialMediaStudio: React.FC<SocialMediaStudioProps> = ({
                     >
                       <SlidersHorizontal className="w-3.5 h-3.5 text-sky-400" />
                       <span>Project Specs</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleAiDraftFbPost}
+                      disabled={isDraftingFbAi}
+                      className="px-3 py-1.5 rounded-lg hover:bg-slate-800 text-xs font-medium text-amber-300 flex items-center gap-1.5 transition disabled:opacity-50"
+                    >
+                      <Sparkles className="w-3.5 h-3.5" />
+                      <span>{isDraftingFbAi ? 'Drafting...' : 'AI Draft Copy'}</span>
                     </button>
                     <button
                       type="button"
@@ -2358,7 +2780,7 @@ export const SocialMediaStudio: React.FC<SocialMediaStudioProps> = ({
                   <span className="text-xs text-slate-400">Filter feed</span>
                 </div>
                 <div className="divide-y divide-slate-800">
-                  {(['real_estate', 'architect', 'builder', 'material_supplier', 'client'] as PosterRole[]).map(
+                  {(['real_estate', 'architect', 'interior_designer', 'builder', 'material_supplier', 'client'] as PosterRole[]).map(
                     (roleKey) => {
                       const info = ROLE_DIRECTORY[roleKey];
                       const count = roleCounts[roleKey];
@@ -2518,7 +2940,19 @@ export const SocialMediaStudio: React.FC<SocialMediaStudioProps> = ({
         <SocialVirtualTourAndCampaigns activeProject={activeProject} mode="brochure" />
       )}
       {platformMode === 'campaigns' && (
-        <SocialVirtualTourAndCampaigns activeProject={activeProject} mode="campaigns" />
+        <SocialAdManager
+          activeProject={activeProject}
+          posts={posts}
+          preselectedPost={boostPostTarget}
+          leads={leads}
+          onAddLead={(lead) => setLeads((prev) => [lead, ...prev])}
+          onUpdateLeadStatus={(leadId: string, status: LeadStatus) =>
+            setLeads((prev) => prev.map((l) => (l.id === leadId ? { ...l, status } : l)))
+          }
+          onDeleteLead={(leadId: string) =>
+            setLeads((prev) => prev.filter((l) => l.id !== leadId))
+          }
+        />
       )}
 
       {/* ===================================================================== */}
@@ -2784,14 +3218,28 @@ export const SocialMediaStudio: React.FC<SocialMediaStudioProps> = ({
                       <span>{copiedId === detailPost.id ? 'Copied' : 'Share'}</span>
                     </button>
                   </div>
-                  <a
-                    href={whatsappInquiryUrl(detailPost)}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="px-3 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-semibold transition"
-                  >
-                    WhatsApp Inquiry
-                  </a>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDetailPostId(null);
+                        handleBoostPostAsAd(detailPost);
+                      }}
+                      className="px-3 py-1.5 rounded-lg bg-amber-500/15 border border-amber-500/40 text-amber-300 text-xs font-semibold transition"
+                    >
+                      Run Ad
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDetailPostId(null);
+                        handleOpenPostInquiry(detailPost);
+                      }}
+                      className="px-3 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-semibold transition"
+                    >
+                      Send Inquiry
+                    </button>
+                  </div>
                 </div>
 
                 <form
@@ -2863,8 +3311,8 @@ export const SocialMediaStudio: React.FC<SocialMediaStudioProps> = ({
                 <label className="block text-xs font-medium text-slate-300 mb-1.5">
                   I am posting as
                 </label>
-                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
-                  {(['real_estate', 'architect', 'builder', 'material_supplier', 'client'] as PosterRole[]).map(
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  {(['real_estate', 'architect', 'interior_designer', 'builder', 'material_supplier', 'client'] as PosterRole[]).map(
                     (r) => {
                       const selected = modalRole === r;
                       const info = ROLE_DIRECTORY[r];
@@ -2890,6 +3338,72 @@ export const SocialMediaStudio: React.FC<SocialMediaStudioProps> = ({
                     }
                   )}
                 </div>
+              </div>
+
+              {/* Quick Starter Templates */}
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
+                <span className="text-[11px] text-slate-400 whitespace-nowrap shrink-0">Templates:</span>
+                {[
+                  {
+                    label: 'Dusk Villa Launch',
+                    role: 'real_estate' as PosterRole,
+                    cat: 'for_sale' as Exclude<RealEstateCategory, 'all'>,
+                    title: 'Cantilevered Dusk Villa — Private Walkthrough',
+                    price: '₹4.25 Cr',
+                    area: '4,850 sq.ft',
+                    img: duskVillaCampaignImg,
+                  },
+                  {
+                    label: 'Interior & Kitchen',
+                    role: 'interior_designer' as PosterRole,
+                    cat: 'interior_fitout' as Exclude<RealEstateCategory, 'all'>,
+                    title: 'Fluted Oak Living & Statuario Quartz Kitchen',
+                    price: '₹1,650 / sq.ft',
+                    area: '2,650 sq.ft',
+                    img: luxuryInteriorLivingImg,
+                  },
+                  {
+                    label: 'Turnkey Slab Log',
+                    role: 'builder' as PosterRole,
+                    cat: 'turnkey_build' as Exclude<RealEstateCategory, 'all'>,
+                    title: 'G+3 RCC Framing & M25 Concrete Milestone',
+                    price: '₹2,150 / sq.ft',
+                    area: '4,100 sq.ft',
+                    img: siteFramingImg,
+                  },
+                  {
+                    label: 'Material Lot',
+                    role: 'material_supplier' as PosterRole,
+                    cat: 'materials_supply' as Exclude<RealEstateCategory, 'all'>,
+                    title: 'Italian Travertine & Fe-550D Direct Depot Lot',
+                    price: '₹240 / sq.ft',
+                    area: '10,000 sq.ft Stock',
+                    img: modernBathImg,
+                  },
+                ].map((tpl) => (
+                  <button
+                    key={tpl.label}
+                    type="button"
+                    onClick={() => {
+                      setModalRole(tpl.role);
+                      setNewCompanyName(ROLE_DIRECTORY[tpl.role].defaultName);
+                      setNewCategory(tpl.cat);
+                      setNewTitle(tpl.title);
+                      setNewPrice(tpl.price);
+                      setNewAreaSpec(tpl.area);
+                      setNewMediaType('photo');
+                      setNewMediaUrl(tpl.img);
+                      setNewGalleryUrls(
+                        tpl.img === luxuryInteriorLivingImg
+                          ? [luxuryInteriorLivingImg, modularQuartzKitchenImg]
+                          : [tpl.img]
+                      );
+                    }}
+                    className="px-2.5 py-1 rounded-md bg-slate-950 border border-slate-800 hover:border-amber-500/50 text-[11px] text-slate-300 hover:text-amber-300 whitespace-nowrap shrink-0 transition"
+                  >
+                    {tpl.label}
+                  </button>
+                ))}
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -2920,6 +3434,8 @@ export const SocialMediaStudio: React.FC<SocialMediaStudioProps> = ({
                         ? 'e.g. Italian Travertine & Fe-550D Steel Lot'
                         : modalRole === 'architect'
                         ? 'e.g. 40x60 Contemporary Villa 3D & GFC'
+                        : modalRole === 'interior_designer'
+                        ? 'e.g. Fluted Oak Living & Modular Kitchen'
                         : modalRole === 'builder'
                         ? 'e.g. Sarjapur G+2 Turnkey Handover'
                         : modalRole === 'client'
@@ -2948,6 +3464,7 @@ export const SocialMediaStudio: React.FC<SocialMediaStudioProps> = ({
                     <option value="pg_coliving">PG &amp; Co-Living</option>
                     <option value="land_plots">Land &amp; Plots</option>
                     <option value="architectural_design">Architecture &amp; 3D</option>
+                    <option value="interior_fitout">Interiors &amp; Modular</option>
                     <option value="turnkey_build">Builder Turnkey</option>
                     <option value="materials_supply">Materials Supply</option>
                     <option value="client_post">Client Story / Request</option>
@@ -2989,9 +3506,20 @@ export const SocialMediaStudio: React.FC<SocialMediaStudioProps> = ({
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-slate-300 mb-1">
-                  Project Description &amp; Technical Highlights
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-medium text-slate-300">
+                    Project Description &amp; Technical Highlights
+                  </label>
+                  <button
+                    type="button"
+                    onClick={handleAiDraftModalPost}
+                    disabled={isDraftingModalAi}
+                    className="text-xs font-semibold text-amber-300 hover:text-amber-200 flex items-center gap-1 disabled:opacity-50"
+                  >
+                    <Sparkles className="w-3.5 h-3.5" />
+                    <span>{isDraftingModalAi ? 'Writing Caption...' : 'AI Draft Caption & Tags'}</span>
+                  </button>
+                </div>
                 <textarea
                   rows={3}
                   value={newCaption}
@@ -3004,7 +3532,7 @@ export const SocialMediaStudio: React.FC<SocialMediaStudioProps> = ({
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <label className="text-xs font-medium text-slate-300">
-                    Project Photo / Walkthrough Video
+                    Project Photos (Click multiple to build carousel · {newGalleryUrls.length} selected)
                   </label>
                   <button
                     type="button"
@@ -3023,37 +3551,48 @@ export const SocialMediaStudio: React.FC<SocialMediaStudioProps> = ({
                   />
                 </div>
 
-                <div className="grid grid-cols-4 gap-2">
+                <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
                   {[
-                    { label: 'Villa (Real Estate)', url: villaExteriorImg },
-                    { label: '3D Facade (Arch)', url: villaElevationImg },
-                    { label: 'RCC Site (Builder)', url: siteFramingImg },
-                    { label: 'Stone/Bath (Supplier)', url: modernBathImg },
-                  ].map((preset) => (
-                    <button
-                      key={preset.label}
-                      type="button"
-                      onClick={() => {
-                        setNewMediaType('photo');
-                        setNewMediaUrl(preset.url);
-                      }}
-                      className={`rounded-lg overflow-hidden border text-left transition ${
-                        newMediaUrl === preset.url
-                          ? 'border-sky-400 ring-1 ring-sky-400'
-                          : 'border-slate-800 opacity-80 hover:opacity-100'
-                      }`}
-                    >
-                      <img
-                        src={preset.url}
-                        alt={preset.label}
-                        referrerPolicy="no-referrer"
-                        className="w-full h-14 object-cover"
-                      />
-                      <span className="block px-1.5 py-1 text-[10px] text-slate-300 bg-slate-950 truncate">
-                        {preset.label}
-                      </span>
-                    </button>
-                  ))}
+                    { label: 'Dusk Villa', url: duskVillaCampaignImg },
+                    { label: 'Oak Living', url: luxuryInteriorLivingImg },
+                    { label: 'Quartz Kitchen', url: modularQuartzKitchenImg },
+                    { label: '3D Facade', url: villaElevationImg },
+                    { label: 'RCC Site', url: siteFramingImg },
+                    { label: 'Stone & Bath', url: modernBathImg },
+                  ].map((preset) => {
+                    const isPicked = newGalleryUrls.includes(preset.url);
+                    return (
+                      <button
+                        key={preset.label}
+                        type="button"
+                        onClick={() => {
+                          setNewMediaType('photo');
+                          setNewMediaUrl(preset.url);
+                          setNewGalleryUrls((prev) => {
+                            if (prev.includes(preset.url)) {
+                              return prev.length > 1 ? prev.filter((u) => u !== preset.url) : prev;
+                            }
+                            return [...prev, preset.url];
+                          });
+                        }}
+                        className={`rounded-lg overflow-hidden border text-left transition ${
+                          isPicked
+                            ? 'border-sky-400 ring-1 ring-sky-400'
+                            : 'border-slate-800 opacity-80 hover:opacity-100'
+                        }`}
+                      >
+                        <img
+                          src={preset.url}
+                          alt={preset.label}
+                          referrerPolicy="no-referrer"
+                          className="w-full h-14 object-cover"
+                        />
+                        <span className="block px-1.5 py-1 text-[10px] text-slate-300 bg-slate-950 truncate">
+                          {preset.label}
+                        </span>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             </div>
@@ -3072,6 +3611,100 @@ export const SocialMediaStudio: React.FC<SocialMediaStudioProps> = ({
               >
                 Publish as {ROLE_DIRECTORY[modalRole].label}
               </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* ===================================================================== */}
+      {/* MODAL 4: IN-APP POST LEAD INQUIRY MODAL                               */}
+      {/* ===================================================================== */}
+      {inquiryPost && (
+        <div
+          className="fixed inset-0 z-50 bg-slate-950/90 flex items-center justify-center p-4"
+          onClick={() => setInquiryPost(null)}
+        >
+          <form
+            onSubmit={handleSubmitPostInquiry}
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-2xl"
+          >
+            <div className="px-5 py-4 border-b border-slate-800 flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-[11px] font-semibold text-sky-400">
+                  Direct Inquiry · {ROLE_DIRECTORY[inquiryPost.posterRole].label}
+                </p>
+                <h3 className="text-sm font-bold text-white truncate">{inquiryPost.title}</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setInquiryPost(null)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-3">
+              {inquirySentBanner ? (
+                <div className="py-6 text-center space-y-2">
+                  <CheckCircle2 className="w-8 h-8 text-emerald-400 mx-auto" />
+                  <p className="text-sm font-semibold text-white">Inquiry Logged to Lead Inbox</p>
+                  <p className="text-xs text-slate-400">
+                    Your inquiry is saved under Run Ads · Lead Inbox for {inquiryPost.posterName}.
+                  </p>
+                </div>
+              ) : (
+                <>
+                  <div>
+                    <label className="block text-xs text-slate-300 mb-1">Your Name *</label>
+                    <input
+                      type="text"
+                      required
+                      value={inquiryName}
+                      onChange={(e) => setInquiryName(e.target.value)}
+                      placeholder="e.g. Prakash Verma"
+                      className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-sky-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-slate-300 mb-1">Phone / WhatsApp *</label>
+                    <input
+                      type="text"
+                      required
+                      value={inquiryPhone}
+                      onChange={(e) => setInquiryPhone(e.target.value)}
+                      placeholder="+91 98450 12345"
+                      className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-sky-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-slate-300 mb-1">Requirement / Visit Date</label>
+                    <textarea
+                      rows={2}
+                      value={inquiryNote}
+                      onChange={(e) => setInquiryNote(e.target.value)}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-sky-500"
+                    />
+                  </div>
+                  <div className="flex items-center gap-2 pt-1">
+                    <a
+                      href={whatsappInquiryUrl(inquiryPost)}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="px-3.5 py-2 rounded-lg border border-slate-700 hover:border-emerald-500 text-xs font-semibold text-emerald-300 whitespace-nowrap"
+                    >
+                      WhatsApp Direct
+                    </a>
+                    <button
+                      type="submit"
+                      className="flex-1 py-2 px-4 rounded-lg bg-sky-500 hover:bg-sky-400 text-slate-950 text-xs font-semibold"
+                    >
+                      Send Inquiry
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           </form>
         </div>

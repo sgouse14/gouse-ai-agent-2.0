@@ -21,6 +21,8 @@ import {
   processNaturalVoiceChat,
   analyzeConstructionSiteVisualAudit,
   generateProjectBriefWithAi,
+  generateMediaPostDraft,
+  generateMediaAdKit,
 } from './server/apiService';
 import { runSuperAgentOrchestration } from './server/superAgentService';
 
@@ -219,6 +221,18 @@ function apiMiddlewarePlugin() {
             return sendJson(res, result);
           }
 
+          if (url === '/api/media/generate-post' && req.method === 'POST') {
+            const body = await getRequestBody(req);
+            const result = await generateMediaPostDraft(body || {});
+            return sendJson(res, result);
+          }
+
+          if (url === '/api/media/generate-ad-kit' && req.method === 'POST') {
+            const body = await getRequestBody(req);
+            const result = await generateMediaAdKit(body || {});
+            return sendJson(res, result);
+          }
+
           if (url === '/api/intelligence' && req.method === 'POST') {
             const body = await getRequestBody(req);
             const result = await generateProjectIntelligence(
@@ -333,6 +347,9 @@ function apiMiddlewarePlugin() {
               projectName: body.projectName || 'Gouse AI Active Site',
               projectType: body.projectType || 'Residential / Commercial',
               projectContext: body.projectContext || 'Bangalore, Karnataka',
+              zoneFloor: body.zoneFloor,
+              gpsCoordinates: body.gpsCoordinates,
+              inspectorName: body.inspectorName,
             });
             return sendJson(res, {
               ...auditResult,

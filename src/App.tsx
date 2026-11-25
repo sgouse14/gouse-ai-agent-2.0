@@ -4,6 +4,7 @@ import { Header } from './components/Header';
 import { TabType } from './components/Navigation';
 import { ProjectsView } from './components/ProjectsView';
 import { BOQView } from './components/BOQView';
+import { InteriorView } from './components/InteriorView';
 import { MarketplaceView } from './components/MarketplaceView';
 import { MaterialsView } from './components/MaterialsView';
 import { SpecialistChatView } from './components/SpecialistChatView';
@@ -14,7 +15,6 @@ import { SiteVisitCameraModal } from './components/SiteVisitCameraModal';
 import { AuthModal } from './components/AuthModal';
 import { ClientPortal } from './components/ClientPortal';
 import { ClientView } from './components/ClientView';
-import { PlatformDemo } from './components/PlatformDemo';
 import { SocialMediaHubPage } from './components/SocialMediaHubPage';
 import { StudioToolkitModal, StudioToolkitTab } from './components/StudioToolkitModal';
 import { BimBoqSubscriptionModal } from './components/BimBoqSubscriptionModal';
@@ -29,6 +29,7 @@ import {
   INITIAL_PROFESSIONALS,
   INITIAL_ENQUIRIES,
 } from './data/initialData';
+import { SOUTH_INDIA_3000_CONTACTS } from './data/southIndiaDirectory';
 import {
   Project,
   BOQItem,
@@ -47,7 +48,6 @@ export function App() {
   // Optional overlay / sub-portal views
   const [clientActiveView, setClientActiveView] = useState<'dashboard' | 'portal' | 'workspace'>('dashboard');
   const [isShowingClientPortal, setIsShowingClientPortal] = useState<boolean>(false);
-  const [isShowingPlatformDemo, setIsShowingPlatformDemo] = useState<boolean>(false);
   const [isShowingSocialHub, setIsShowingSocialHub] = useState<boolean>(false);
 
   // Sidebar & Navigation state
@@ -242,8 +242,9 @@ export function App() {
     localStorage.setItem('gouse_ai_boq_items', JSON.stringify(boqItems));
   }, [boqItems]);
 
-  // Marketplace State
+  // Marketplace State (28 flagship profiles + 3,000 Bangalore & South India contacts)
   const [professionals, setProfessionals] = useState<ProfessionalProfile[]>(() => {
+    const baseDirectory = [...INITIAL_PROFESSIONALS, ...SOUTH_INDIA_3000_CONTACTS];
     try {
       const saved = localStorage.getItem('gouse_ai_professionals');
       if (saved) {
@@ -251,13 +252,15 @@ export function App() {
         const cleaned = parsed.filter(
           (p) => p.id !== 'prof-alvi-001' && !p.company?.toLowerCase().includes("alvi's architecture")
         );
-        const existingIds = new Set(cleaned.map((p) => p.id));
-        const missing = INITIAL_PROFESSIONALS.filter((p) => !existingIds.has(p.id));
-        if (cleaned.length > 0) return [...cleaned, ...missing];
+        const overrideMap = new Map(cleaned.map((p) => [p.id, p]));
+        const merged = baseDirectory.map((item) => overrideMap.get(item.id) || item);
+        const baseIds = new Set(baseDirectory.map((item) => item.id));
+        const customExtras = cleaned.filter((p) => !baseIds.has(p.id));
+        return [...customExtras, ...merged];
       }
-      return INITIAL_PROFESSIONALS;
+      return baseDirectory;
     } catch {
-      return INITIAL_PROFESSIONALS;
+      return baseDirectory;
     }
   });
 
@@ -283,11 +286,23 @@ export function App() {
   });
 
   useEffect(() => {
-    localStorage.setItem('gouse_ai_professionals', JSON.stringify(professionals));
+    try {
+      // Persist only custom profiles, flagship edits, and shortlisted regional contacts to avoid localStorage quota limits
+      const persistable = professionals.filter(
+        (p) => !p.id.startsWith('si-dir-') || Boolean(p.isMyPractice)
+      );
+      localStorage.setItem('gouse_ai_professionals', JSON.stringify(persistable));
+    } catch {
+      // ignore storage quota limits
+    }
   }, [professionals]);
 
   useEffect(() => {
-    localStorage.setItem('gouse_ai_enquiries', JSON.stringify(enquiries));
+    try {
+      localStorage.setItem('gouse_ai_enquiries', JSON.stringify(enquiries));
+    } catch {
+      // ignore storage quota limits
+    }
   }, [enquiries]);
 
   // Project Handlers
@@ -391,11 +406,11 @@ export function App() {
   const [marketplaceQuery, setMarketplaceQuery] = useState<string | undefined>(undefined);
   const [isWorkflowEngineOpen, setIsWorkflowEngineOpen] = useState(false);
   const [isStudioToolkitOpen, setIsStudioToolkitOpen] = useState(false);
-  const [studioToolkitTab, setStudioToolkitTab] = useState<StudioToolkitTab>('render');
+  const [studioToolkitTab, setStudioToolkitTab] = useState<StudioToolkitTab>('feasibility');
   const [isBimSubscriptionOpen, setIsBimSubscriptionOpen] = useState(false);
   const [isVoiceChatOpen, setIsVoiceChatOpen] = useState(false);
 
-  const handleOpenStudioToolkit = (tab: StudioToolkitTab = 'render') => {
+  const handleOpenStudioToolkit = (tab: StudioToolkitTab = 'feasibility') => {
     setStudioToolkitTab(tab);
     setIsStudioToolkitOpen(true);
   };
@@ -468,31 +483,23 @@ export function App() {
     );
   }
 
-  // Dedicated Platform Overview Presentation
-  if (isShowingPlatformDemo) {
-    return (
-      <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-amber-500 selection:text-slate-950">
-        <PlatformDemo
-          isClientRestricted={user?.role === 'client'}
-          onCloseDemo={() => setIsShowingPlatformDemo(false)}
-        />
-        <AuthModal />
-      </div>
-    );
-  }
-
-  // Dedicated Client Portal view (when toggled from sidebar or signed in as client)
+  // Dedicated Client Portal / Client Workspace view (when toggled from sidebar or signed in as client)
   if (isShowingClientPortal || (user?.role === 'client' && clientActiveView !== 'workspace')) {
-    if (clientActiveView === 'portal' || isShowingClientPortal) {
+    if (clientActiveView === 'portal') {
       return (
         <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-amber-500 selection:text-slate-950">
           <ClientPortal
+            projects={projects}
+            currency={currency}
             isClientRestricted={user?.role === 'client'}
-            onOpenClientDashboard={() => {
+            onReturnToWorkspace={() => {
               setIsShowingClientPortal(false);
+              setClientActiveView('workspace');
+            }}
+            onOpenClientDashboard={() => {
+              setIsShowingClientPortal(true);
               setClientActiveView('dashboard');
             }}
-            onOpenPlatformDemo={() => setIsShowingPlatformDemo(true)}
             onEnquirySubmitted={handleClientPageEnquiry}
           />
           <AuthModal />
@@ -507,10 +514,24 @@ export function App() {
           activeProjectId={activeProjectId}
           onSelectProject={setActiveProjectId}
           onUpdateProject={handleUpdateProject}
-          onOpenPlatformDemo={() => setIsShowingPlatformDemo(true)}
-          onViewPublicPortal={() => setClientActiveView('portal')}
+          boqItems={boqItems}
+          contingencyPercent={contingencyPercent}
+          onUpdateBOQItems={setBoqItems}
+          onReturnToPlatform={() => {
+            setIsShowingClientPortal(false);
+            setClientActiveView('workspace');
+          }}
+          onViewPublicPortal={() => {
+            setIsShowingClientPortal(true);
+            setClientActiveView('portal');
+          }}
+          onOpenStudioTab={(tab) => {
+            setIsShowingClientPortal(false);
+            setClientActiveView('workspace');
+            setActiveTab(tab);
+          }}
           currency={currency}
-          isStaffPreview={false}
+          isStaffPreview={user?.role !== 'client'}
         />
         <AuthModal />
       </div>
@@ -559,7 +580,10 @@ export function App() {
         onCloseMobile={() => setIsMobileSidebarOpen(false)}
         onOpenWorkflowEngine={() => setIsWorkflowEngineOpen(true)}
         onOpenSiteCamera={() => setIsSiteCameraOpen(true)}
-        onOpenPlatformDemo={() => setIsShowingPlatformDemo(true)}
+        onOpenClientWorkspace={() => {
+          setIsShowingClientPortal(true);
+          setClientActiveView('dashboard');
+        }}
         onOpenClientPortal={() => {
           setIsShowingClientPortal(true);
           setClientActiveView('portal');
@@ -630,6 +654,18 @@ export function App() {
             />
           )}
 
+          {activeTab === 'interior' && (
+            <InteriorView
+              activeProject={activeProject}
+              currency={currency}
+              boqItems={boqItems}
+              onUpdateBOQItems={setBoqItems}
+              onUpdateProject={handleUpdateProject}
+              onNavigateToBOQ={() => setActiveTab('boq')}
+              onNavigateToMarketplace={handleNavigateToMarketplace}
+            />
+          )}
+
           {activeTab === 'marketplace' && (
             <MarketplaceView
               professionals={professionals}
@@ -643,6 +679,11 @@ export function App() {
               initialCategory={marketplaceCategory}
               initialQuery={marketplaceQuery}
               projectCity={activeProject.location}
+              activeProject={activeProject}
+              currency={currency}
+              boqItems={boqItems}
+              onUpdateBOQItems={setBoqItems}
+              onNavigateToBOQ={() => setActiveTab('boq')}
             />
           )}
 

@@ -20,6 +20,7 @@ interface HeaderProps {
 const TAB_LABELS: Record<TabType, string> = {
   projects: 'Projects & Operations',
   boq: 'BOQ & Cost Schedule',
+  interior: 'Interior & Fit-Out Costing',
   materials: 'Materials & Rate Standards',
   specialist: 'Gouse AI Super Agent',
   marketplace: 'Vendor Marketplace',

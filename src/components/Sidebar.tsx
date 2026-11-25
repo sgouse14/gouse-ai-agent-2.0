@@ -20,12 +20,14 @@ import {
   User,
   UserPlus,
   Check,
-  Presentation,
+  Briefcase,
   LayoutDashboard,
   X,
   Wand2,
   Cpu,
   AudioWaveform,
+  ClipboardList,
+  Sofa,
 } from 'lucide-react';
 import { TabType } from './Navigation';
 import { StudioToolkitTab } from './StudioToolkitModal';
@@ -45,7 +47,7 @@ interface SidebarProps {
   onCloseMobile: () => void;
   onOpenWorkflowEngine: () => void;
   onOpenSiteCamera: () => void;
-  onOpenPlatformDemo: () => void;
+  onOpenClientWorkspace: () => void;
   onOpenClientPortal: () => void;
   onOpenStudioToolkit?: (tab?: StudioToolkitTab) => void;
   onOpenNaturalVoiceChat?: () => void;
@@ -63,7 +65,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onCloseMobile,
   onOpenWorkflowEngine,
   onOpenSiteCamera,
-  onOpenPlatformDemo,
+  onOpenClientWorkspace,
   onOpenClientPortal,
   onOpenStudioToolkit,
   onOpenNaturalVoiceChat,
@@ -95,6 +97,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const primaryNav: Array<{ id: TabType; label: string; icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }> }> = [
     { id: 'projects', label: 'Projects', icon: Building2 },
     { id: 'boq', label: 'BOQ & Estimation', icon: Calculator },
+    { id: 'interior', label: 'Interior', icon: Sofa },
     { id: 'materials', label: 'Materials & Rates', icon: Layers },
     { id: 'specialist', label: 'Gouse AI Super Agent', icon: Sparkles },
     { id: 'marketplace', label: 'Marketplace', icon: Store },
@@ -294,25 +297,57 @@ export const Sidebar: React.FC<SidebarProps> = ({
               Studio Utilities
             </div>
           )}
-          {onOpenNaturalVoiceChat && (
-            <button
-              id="btn-sidebar-natural-voice"
-              type="button"
-              onClick={() => {
-                onOpenNaturalVoiceChat();
-                onCloseMobile();
-              }}
-              title={isCollapsed ? 'Natural Voice Chat' : undefined}
-              className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[13px] font-medium text-slate-300 hover:text-white hover:bg-slate-800/70 transition-colors whitespace-nowrap ${
-                isCollapsed ? 'justify-center' : ''
-              }`}
-            >
-              <AudioWaveform className="w-4 h-4 shrink-0 text-emerald-400" />
-              {!isCollapsed && <span className="truncate">Natural Voice Chat</span>}
-            </button>
-          )}
+
           {onOpenStudioToolkit && (
             <>
+              <button
+                id="btn-sidebar-feasibility"
+                type="button"
+                onClick={() => {
+                  onOpenStudioToolkit('feasibility');
+                  onCloseMobile();
+                }}
+                title={isCollapsed ? 'Site Feasibility & Yield' : undefined}
+                className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[13px] font-medium text-slate-300 hover:text-white hover:bg-slate-800/70 transition-colors whitespace-nowrap ${
+                  isCollapsed ? 'justify-center' : ''
+                }`}
+              >
+                <Compass className="w-4 h-4 shrink-0 text-amber-400" />
+                {!isCollapsed && <span className="truncate">Site Feasibility &amp; Yield</span>}
+              </button>
+
+              <button
+                id="btn-sidebar-field-ops"
+                type="button"
+                onClick={() => {
+                  onOpenStudioToolkit('field_ops');
+                  onCloseMobile();
+                }}
+                title={isCollapsed ? 'RFIs & Change Orders' : undefined}
+                className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[13px] font-medium text-slate-400 hover:text-slate-100 hover:bg-slate-800/50 transition-colors whitespace-nowrap ${
+                  isCollapsed ? 'justify-center' : ''
+                }`}
+              >
+                <ClipboardList className="w-4 h-4 shrink-0 text-cyan-400" />
+                {!isCollapsed && <span className="truncate">RFIs &amp; Change Orders</span>}
+              </button>
+
+              <button
+                id="btn-sidebar-engineering-calcs"
+                type="button"
+                onClick={() => {
+                  onOpenStudioToolkit('calculators');
+                  onCloseMobile();
+                }}
+                title={isCollapsed ? 'Engineering & Carbon' : undefined}
+                className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[13px] font-medium text-slate-400 hover:text-slate-100 hover:bg-slate-800/50 transition-colors whitespace-nowrap ${
+                  isCollapsed ? 'justify-center' : ''
+                }`}
+              >
+                <Calculator className="w-4 h-4 shrink-0 text-emerald-400" />
+                {!isCollapsed && <span className="truncate">Engineering &amp; Carbon</span>}
+              </button>
+
               <button
                 id="btn-sidebar-studio-toolkit"
                 type="button"
@@ -320,13 +355,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   onOpenStudioToolkit('render');
                   onCloseMobile();
                 }}
-                title={isCollapsed ? 'Studio Toolkit Hub' : undefined}
+                title={isCollapsed ? 'Render, Translate & Dossier' : undefined}
                 className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[13px] font-medium text-slate-400 hover:text-slate-100 hover:bg-slate-800/50 transition-colors whitespace-nowrap ${
                   isCollapsed ? 'justify-center' : ''
                 }`}
               >
                 <Wand2 className="w-4 h-4 shrink-0 text-amber-400" />
-                {!isCollapsed && <span className="truncate">Studio Toolkit Hub</span>}
+                {!isCollapsed && <span className="truncate">Render, Translate &amp; Dossier</span>}
               </button>
 
               <button
@@ -345,6 +380,24 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 {!isCollapsed && <span className="truncate">Smart Building (SKA IoT)</span>}
               </button>
             </>
+          )}
+
+          {onOpenNaturalVoiceChat && (
+            <button
+              id="btn-sidebar-natural-voice"
+              type="button"
+              onClick={() => {
+                onOpenNaturalVoiceChat();
+                onCloseMobile();
+              }}
+              title={isCollapsed ? 'Natural Voice Chat' : undefined}
+              className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[13px] font-medium text-slate-400 hover:text-slate-100 hover:bg-slate-800/50 transition-colors whitespace-nowrap ${
+                isCollapsed ? 'justify-center' : ''
+              }`}
+            >
+              <AudioWaveform className="w-4 h-4 shrink-0 text-emerald-400" />
+              {!isCollapsed && <span className="truncate">Natural Voice Chat</span>}
+            </button>
           )}
 
           <button
@@ -370,13 +423,37 @@ export const Sidebar: React.FC<SidebarProps> = ({
               onOpenSiteCamera();
               onCloseMobile();
             }}
-            title={isCollapsed ? 'Site Inspection Camera' : undefined}
+            title={isCollapsed ? 'Site Camera Audit' : undefined}
             className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[13px] font-medium text-slate-400 hover:text-slate-100 hover:bg-slate-800/50 transition-colors whitespace-nowrap ${
               isCollapsed ? 'justify-center' : ''
             }`}
           >
             <Camera className="w-4 h-4 shrink-0 text-slate-400" />
             {!isCollapsed && <span className="truncate">Site Camera Audit</span>}
+          </button>
+        </div>
+
+        {/* Client Access */}
+        <div className="space-y-1">
+          {!isCollapsed && (
+            <div className="px-2.5 pb-1 text-[11px] font-medium text-slate-500">
+              Client Access
+            </div>
+          )}
+          <button
+            id="btn-sidebar-client-workspace"
+            type="button"
+            onClick={() => {
+              onOpenClientWorkspace();
+              onCloseMobile();
+            }}
+            title={isCollapsed ? 'Client Workspace' : undefined}
+            className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[13px] font-medium text-slate-300 hover:text-white hover:bg-slate-800/70 transition-colors whitespace-nowrap ${
+              isCollapsed ? 'justify-center' : ''
+            }`}
+          >
+            <LayoutDashboard className="w-4 h-4 shrink-0 text-amber-400" />
+            {!isCollapsed && <span className="truncate">Client Workspace</span>}
           </button>
 
           <button
@@ -386,29 +463,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
               onOpenClientPortal();
               onCloseMobile();
             }}
-            title={isCollapsed ? 'Client Portal' : undefined}
+            title={isCollapsed ? 'Client Intake & Brief' : undefined}
             className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[13px] font-medium text-slate-400 hover:text-slate-100 hover:bg-slate-800/50 transition-colors whitespace-nowrap ${
               isCollapsed ? 'justify-center' : ''
             }`}
           >
-            <LayoutDashboard className="w-4 h-4 shrink-0 text-slate-400" />
-            {!isCollapsed && <span className="truncate">Client Portal</span>}
-          </button>
-
-          <button
-            id="btn-sidebar-platform-demo"
-            type="button"
-            onClick={() => {
-              onOpenPlatformDemo();
-              onCloseMobile();
-            }}
-            title={isCollapsed ? 'Platform Overview' : undefined}
-            className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[13px] font-medium text-slate-400 hover:text-slate-100 hover:bg-slate-800/50 transition-colors whitespace-nowrap ${
-              isCollapsed ? 'justify-center' : ''
-            }`}
-          >
-            <Presentation className="w-4 h-4 shrink-0 text-slate-400" />
-            {!isCollapsed && <span className="truncate">Platform Overview</span>}
+            <Briefcase className="w-4 h-4 shrink-0 text-slate-400" />
+            {!isCollapsed && <span className="truncate">Client Intake &amp; Brief</span>}
           </button>
         </div>
       </div>

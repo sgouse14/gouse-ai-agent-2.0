@@ -84,12 +84,35 @@ export type CurrencyCode = 'INR' | 'USD' | 'EUR' | 'GBP' | 'AED';
 
 export interface SiteAuditObservation {
   id: string;
-  category: 'structural' | 'rebar' | 'concrete' | 'masonry' | 'safety' | 'finishing';
+  category: 'structural' | 'rebar' | 'concrete' | 'masonry' | 'safety' | 'finishing' | 'interior' | 'mep';
   status: 'passed' | 'warning' | 'critical';
   title: string;
   description: string;
   isCodeStandard?: string;
   recommendation?: string;
+}
+
+export interface SitePhotoAnnotation {
+  id: string;
+  xPercent: number;
+  yPercent: number;
+  label: string;
+  severity: 'info' | 'warning' | 'critical';
+  trade?: string;
+}
+
+export interface SiteSnagItem {
+  id: string;
+  title: string;
+  zoneFloor: string;
+  trade: string;
+  severity: 'low' | 'medium' | 'critical';
+  status: 'open' | 'in_review' | 'resolved';
+  codeRef?: string;
+  note: string;
+  createdAt: string;
+  auditId?: string;
+  imageUrl?: string;
 }
 
 export interface SiteAuditResult {
@@ -118,6 +141,10 @@ export interface SiteAuditResult {
   rawAnalysis: string;
   filename?: string;
   imageUrl?: string;
+  zoneFloor?: string;
+  gpsCoordinates?: string;
+  inspectorName?: string;
+  annotations?: SitePhotoAnnotation[];
 }
 
 export interface ProjectStatusUpdate {
@@ -175,6 +202,35 @@ export interface ProjectMilestone {
   clientSignedOffAt?: string;
 }
 
+export interface FieldOperationItem {
+  id: string;
+  code: string;
+  type: 'rfi' | 'change_order' | 'snag';
+  title: string;
+  trade: 'Structural' | 'Civil & Masonry' | 'MEP' | 'Finishes' | 'Waterproofing' | 'Bylaws';
+  priority: 'high' | 'medium' | 'low';
+  status: 'open' | 'in_review' | 'approved' | 'resolved';
+  assignee: string;
+  costImpact: number;
+  scheduleDays: number;
+  dueDate: string;
+  notes: string;
+  syncedToBoq?: boolean;
+  createdAt: string;
+}
+
+export interface ClientFinishSelection {
+  categoryId: string;
+  categoryName: string;
+  tier: 'standard' | 'premium' | 'luxury';
+  specTitle: string;
+  allowanceAmount: number;
+  selectedAmount: number;
+  approvedByClient: boolean;
+  approvedAt?: string;
+  syncedToBoq?: boolean;
+}
+
 export interface Project {
   id: string;
   name: string;
@@ -190,6 +246,8 @@ export interface Project {
   files: ProjectFile[];
   analyses: AnalysisReport[];
   siteAudits?: SiteAuditResult[];
+  fieldItems?: FieldOperationItem[];
+  clientSelections?: ClientFinishSelection[];
   members: TeamMember[];
   auditLogs: AuditEvent[];
   createdAt: string;

@@ -48,7 +48,6 @@ interface GouseAiAgentBrokerViewProps {
   currency?: CurrencyCode;
   initialSubTab?: 'all' | 'pg' | 'rent_house' | 'buy_house' | 'land_plot' | 'sell_property' | 'matchmaker' | 'agreement' | 'analytics';
   isOutsidePlatform?: boolean;
-  onOpenPlatformDemo?: () => void;
 }
 
 export const GouseAiAgentBrokerView: React.FC<GouseAiAgentBrokerViewProps> = ({
@@ -57,7 +56,6 @@ export const GouseAiAgentBrokerView: React.FC<GouseAiAgentBrokerViewProps> = ({
   currency = 'INR',
   initialSubTab = 'all',
   isOutsidePlatform = false,
-  onOpenPlatformDemo,
 }) => {
   const { user, logout } = useAuth();
   // Separate Gouse AI Agent Broker Login Modal State
@@ -451,17 +449,6 @@ TERMS & CONDITIONS:
             </div>
 
             <div className="flex items-center gap-2 flex-wrap">
-              {onOpenPlatformDemo && (
-                <button
-                  type="button"
-                  id="btn-broker-open-demo"
-                  onClick={onOpenPlatformDemo}
-                  className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 text-xs font-semibold transition"
-                >
-                  <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-                  <span>Platform Demo</span>
-                </button>
-              )}
 
               {user ? (
                 <div className="flex items-center gap-2">

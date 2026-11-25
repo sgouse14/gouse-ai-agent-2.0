@@ -1,7 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import {
   Building2,
-  Calendar,
   CheckCircle2,
   Clock,
   Download,
@@ -10,22 +9,15 @@ import {
   Layers,
   MapPin,
   MessageSquare,
-  ShieldCheck,
   Upload,
-  User,
   Users,
-  AlertTriangle,
   ChevronRight,
-  ExternalLink,
   Send,
   Eye,
   Camera,
-  Filter,
   Check,
   Lock,
-  Key,
   ArrowRight,
-  Sparkles,
   Phone,
   Mail,
   X,
@@ -35,90 +27,261 @@ import {
   LogOut,
   LogIn,
   LayoutDashboard,
-  TrendingUp,
   DollarSign,
   Activity,
-  Video,
   CheckSquare,
-  Shield,
-  Play,
   Maximize2,
   Cpu,
-  Zap,
-  Sun,
-  Moon,
+  ClipboardList,
+  Sliders,
+  Plus,
+  AlertCircle,
+  Search,
+  TrendingUp,
+  TrendingDown,
+  Minus,
+  Calculator,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { Project, ProjectMilestone, ProjectStatusUpdate, SharedDocument } from '../types';
+import {
+  Project,
+  BOQItem,
+  SharedDocument,
+  FieldOperationItem,
+  ClientFinishSelection,
+  ProjectStatusUpdate,
+  LiveMaterialPrice,
+} from '../types';
 import { CurrencyCode, formatCurrency } from '../utils/formatters';
 import { SiteVisitCameraModal } from './SiteVisitCameraModal';
 import { SmartHomeSkaAgent } from './SmartHomeSkaAgent';
 import { AVATARS, PROJECT_MEDIA } from '../utils/mediaAssets';
+import { INITIAL_LIVE_MATERIAL_PRICES } from '../data/initialData';
+import { getMasterGuideLivePrices } from '../data/constructionMaterialsGuide';
 
 interface ClientViewProps {
   projects: Project[];
   activeProjectId?: string;
   onSelectProject?: (projectId: string) => void;
   onUpdateProject?: (updatedProject: Project) => void;
-  onOpenPlatformDemo?: () => void;
+  boqItems?: BOQItem[];
+  contingencyPercent?: number;
+  onUpdateBOQItems?: (items: BOQItem[]) => void;
   onReturnToPlatform?: () => void;
   onViewPublicPortal?: () => void;
-  onOpenAgentBroker?: () => void;
+  onOpenStudioTab?: (tab: 'boq' | 'materials' | 'projects') => void;
   currency?: CurrencyCode;
   isStaffPreview?: boolean;
   isUnauthenticatedOutside?: boolean;
 }
+
+type ClientTabId =
+  | 'dashboard'
+  | 'milestones'
+  | 'change_orders'
+  | 'selections'
+  | 'updates'
+  | 'documents'
+  | 'team'
+  | 'smart_home_ska';
+
+interface SelectionCatalogCategory {
+  categoryId: string;
+  categoryName: string;
+  allowanceAmount: number;
+  options: Array<{
+    tier: 'standard' | 'premium' | 'luxury';
+    specTitle: string;
+    selectedAmount: number;
+    leadTime: string;
+    notes: string;
+  }>;
+}
+
+const SELECTION_CATALOG: SelectionCatalogCategory[] = [
+  {
+    categoryId: 'flooring-stone',
+    categoryName: 'Flooring & Natural Stone',
+    allowanceAmount: 1400000,
+    options: [
+      {
+        tier: 'standard',
+        specTitle: 'Kajaria Eternity Glazed Vitrified Slab (1200×2400mm)',
+        selectedAmount: 1400000,
+        leadTime: '7 Days',
+        notes: 'Within turnkey allowance · Matte limestone finish across living & bedrooms.',
+      },
+      {
+        tier: 'premium',
+        specTitle: 'Crema Marfil & Indian Makrana Cut-to-Size Marble',
+        selectedAmount: 1780000,
+        leadTime: '18 Days',
+        notes: 'Hand-selected lot with diamond-honed epoxy grouting.',
+      },
+      {
+        tier: 'luxury',
+        specTitle: 'Book-Matched Italian Statuario Marble & Burma Teak',
+        selectedAmount: 2250000,
+        leadTime: '28 Days',
+        notes: 'Imported slab book-matching with acoustic sub-floor underlay.',
+      },
+    ],
+  },
+  {
+    categoryId: 'sanitary-cp',
+    categoryName: 'Sanitaryware & CP Fittings',
+    allowanceAmount: 650000,
+    options: [
+      {
+        tier: 'standard',
+        specTitle: 'Kohler ModernLife Rimless & Brushed Chrome Mixers',
+        selectedAmount: 650000,
+        leadTime: '5 Days',
+        notes: 'Within allowance · Dual-flush concealed cisterns across all suites.',
+      },
+      {
+        tier: 'premium',
+        specTitle: 'Grohe Essence Concealed Thermostatic & Duravit Wall-Hung',
+        selectedAmount: 840000,
+        leadTime: '14 Days',
+        notes: 'Includes rain-shower ceiling diverters in master suites.',
+      },
+      {
+        tier: 'luxury',
+        specTitle: 'Gessi Brushed Brass Architectural Series & Smart Bidets',
+        selectedAmount: 1180000,
+        leadTime: '25 Days',
+        notes: 'PVD warm brass finish with heated seat & integrated deodorizer.',
+      },
+    ],
+  },
+  {
+    categoryId: 'facade-glazing',
+    categoryName: 'Facade & Acoustic Glazing',
+    allowanceAmount: 950000,
+    options: [
+      {
+        tier: 'standard',
+        specTitle: 'Schueco-Grade Powder-Coated Aluminium Double Glazing',
+        selectedAmount: 950000,
+        leadTime: '15 Days',
+        notes: 'Within allowance · 24mm DGU clear toughened glass.',
+      },
+      {
+        tier: 'premium',
+        specTitle: 'Slim-Frame Thermal-Break Aluminium with Saint-Gobain Low-E',
+        selectedAmount: 1240000,
+        leadTime: '21 Days',
+        notes: 'Reduces solar heat gain by 42% on West-facing elevations.',
+      },
+      {
+        tier: 'luxury',
+        specTitle: 'Motorized Minimal-Sightline Lift & Slide Acoustic Curtain',
+        selectedAmount: 1620000,
+        leadTime: '35 Days',
+        notes: '42 dB acoustic attenuation with concealed floor track drainage.',
+      },
+    ],
+  },
+  {
+    categoryId: 'lighting-controls',
+    categoryName: 'Architectural Lighting & Controls',
+    allowanceAmount: 520000,
+    options: [
+      {
+        tier: 'standard',
+        specTitle: 'Philips Architectural Recessed COB & Modular Plates',
+        selectedAmount: 520000,
+        leadTime: '7 Days',
+        notes: 'Within allowance · 3000K warm anti-glare optics.',
+      },
+      {
+        tier: 'premium',
+        specTitle: 'DALI-2 Tunable Magnetic Track & Dimmer Scenes',
+        selectedAmount: 710000,
+        leadTime: '14 Days',
+        notes: '2700K–4000K circadian dimming with wall keypad scenes.',
+      },
+      {
+        tier: 'luxury',
+        specTitle: 'Full KNX / Matter Scene Orchestration & Fluted Brass Sconces',
+        selectedAmount: 960000,
+        leadTime: '24 Days',
+        notes: 'Synced directly to SKA IoT automation bus and presence sensors.',
+      },
+    ],
+  },
+  {
+    categoryId: 'kitchen-millwork',
+    categoryName: 'Modular Kitchen & Bespoke Joinery',
+    allowanceAmount: 1280000,
+    options: [
+      {
+        tier: 'standard',
+        specTitle: 'BWP Marine Ply Carcass with Matte PU & Quartz Counter',
+        selectedAmount: 1280000,
+        leadTime: '20 Days',
+        notes: 'Within allowance · Hettich soft-close hardware.',
+      },
+      {
+        tier: 'premium',
+        specTitle: 'Fluted Smoked Walnut Veneer & Kalinga Stone Waterfall Island',
+        selectedAmount: 1590000,
+        leadTime: '26 Days',
+        notes: 'Concealed pocket-door pantry & Blum Legrabox drawers.',
+      },
+      {
+        tier: 'luxury',
+        specTitle: 'German Anti-Fingerprint Lacquer & Book-Matched Dekton Slab',
+        selectedAmount: 2050000,
+        leadTime: '36 Days',
+        notes: 'Integrated Bora induction extraction & concealed wine conditioning.',
+      },
+    ],
+  },
+];
 
 export const ClientView: React.FC<ClientViewProps> = ({
   projects,
   activeProjectId,
   onSelectProject,
   onUpdateProject,
-  onOpenPlatformDemo,
+  boqItems = [],
+  contingencyPercent = 10,
+  onUpdateBOQItems,
   onReturnToPlatform,
   onViewPublicPortal,
-  onOpenAgentBroker,
+  onOpenStudioTab,
   currency = 'INR',
   isStaffPreview = false,
   isUnauthenticatedOutside = false,
 }) => {
   const { user, logout, openLoginModal } = useAuth();
 
-  // 1. STRICT ACCESS CONTROL: Only show projects assigned to this client or provide client showcase outside platform
   const assignedProjects = useMemo(() => {
-    // If the user has a client role, enforce strict project assignment:
     if (user && user.role === 'client') {
       return projects.filter((p) => {
-        // Direct client ID match
         if (p.clientId && p.clientId === user.id) return true;
-        // Email match
         if (p.clientEmail && p.clientEmail.toLowerCase() === user.email.toLowerCase()) return true;
-        // Assigned client IDs array
         if (p.assignedClientIds && p.assignedClientIds.includes(user.id)) return true;
-        // Project team member match
         if (
           p.members &&
-          p.members.some(
-            (m) => m.email.toLowerCase() === user.email.toLowerCase() && m.role === 'client'
-          )
+          p.members.some((m) => m.email.toLowerCase() === user.email.toLowerCase() && m.role === 'client')
         ) {
           return true;
         }
         return false;
       });
     }
-    // If outside platform / not signed in, show client-assigned demo projects:
     if (!user) {
       const clientAssigned = projects.filter(
         (p) => p.clientId || p.clientEmail || (p.assignedClientIds && p.assignedClientIds.length > 0)
       );
       return clientAssigned.length > 0 ? clientAssigned : projects;
     }
-    // If studio staff (owner, architect, etc.) is previewing, they can view all projects:
     return projects;
   }, [projects, user]);
 
-  // Selected Project State
   const [selectedProjId, setSelectedProjId] = useState<string>(() => {
     if (activeProjectId && assignedProjects.some((p) => p.id === activeProjectId)) {
       return activeProjectId;
@@ -126,74 +289,467 @@ export const ClientView: React.FC<ClientViewProps> = ({
     return assignedProjects[0]?.id || '';
   });
 
-  // Keep selected project in sync if assignedProjects changes
   const activeProject = useMemo(() => {
     return assignedProjects.find((p) => p.id === selectedProjId) || assignedProjects[0] || null;
   }, [assignedProjects, selectedProjId]);
 
-  // Active view tab inside Client View: 'dashboard' | 'milestones' | 'updates' | 'documents' | 'team' | 'smart_home_ska'
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'milestones' | 'updates' | 'documents' | 'team' | 'smart_home_ska'>('dashboard');
-
-  // Site Camera in Dashboard
+  const [activeTab, setActiveTab] = useState<ClientTabId>('dashboard');
   const [isSiteCameraModalOpen, setIsSiteCameraModalOpen] = useState<boolean>(false);
   const [dashboardCameraAngle, setDashboardCameraAngle] = useState<'slab' | 'crane' | 'entrance'>('slab');
-
-  // Filter for updates feed
   const [updateCategoryFilter, setUpdateCategoryFilter] = useState<string>('all');
-
-  // Filter for documents
   const [docCategoryFilter, setDocCategoryFilter] = useState<string>('all');
+  const [fieldFilter, setFieldFilter] = useState<'all' | 'change_order' | 'rfi' | 'snag'>('all');
 
-  // Modals state
+  // Client Materials & Rates Sub-Navigation & Filter State
+  const [materialsSubTab, setMaterialsSubTab] = useState<'selections' | 'rates' | 'estimator'>(
+    'selections'
+  );
+  const [clientRateCategory, setClientRateCategory] = useState<string>('all');
+  const [clientRateQuery, setClientRateQuery] = useState<string>('');
+  const [clientRateBoqOnly, setClientRateBoqOnly] = useState<boolean>(false);
+  const [calcSelectedRateId, setCalcSelectedRateId] = useState<string>('');
+  const [calcQty, setCalcQty] = useState<number>(100);
+  const [calcWastage, setCalcWastage] = useState<number>(5);
+
+  // Modals & notifications
   const [previewDoc, setPreviewDoc] = useState<SharedDocument | null>(null);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState<boolean>(false);
+  const [isRequestModalOpen, setIsRequestModalOpen] = useState<boolean>(false);
   const [clientCommentText, setClientCommentText] = useState<string>('');
-  const [commentSuccessMsg, setCommentSuccessMsg] = useState<string | null>(null);
+  const [feedbackBanner, setFeedbackBanner] = useState<string | null>(null);
 
   // Upload Form State
   const [newDocTitle, setNewDocTitle] = useState('');
-  const [newDocCategory, setNewDocCategory] = useState<'architectural_drawings' | 'structural_reports' | 'boq_financials' | 'permits_sanctions' | 'client_uploads' | 'site_audit'>('client_uploads');
+  const [newDocCategory, setNewDocCategory] = useState<SharedDocument['category']>('client_uploads');
   const [newDocFile, setNewDocFile] = useState<File | null>(null);
   const [newDocNotes, setNewDocNotes] = useState('');
   const [isUploading, setIsUploading] = useState(false);
 
-  // Milestone sign-off confirmation state
+  // Client Request / RFI Form State
+  const [reqTitle, setReqTitle] = useState('');
+  const [reqType, setReqType] = useState<'change_order' | 'rfi' | 'snag'>('rfi');
+  const [reqTrade, setReqTrade] = useState<FieldOperationItem['trade']>('Finishes');
+  const [reqNotes, setReqNotes] = useState('');
+
+  // Milestone sign-off banner
   const [signedOffMilestoneId, setSignedOffMilestoneId] = useState<string | null>(null);
+
+  const showToast = (msg: string) => {
+    setFeedbackBanner(msg);
+    setTimeout(() => setFeedbackBanner(null), 3500);
+  };
 
   const handleSelectProject = (id: string) => {
     setSelectedProjId(id);
-    if (onSelectProject) {
-      onSelectProject(id);
-    }
+    if (onSelectProject) onSelectProject(id);
   };
+
+  // Live BOQ Accounting
+  const boqAccounting = useMemo(() => {
+    const subtotal = boqItems.reduce((sum, item) => sum + (item.amount || item.quantity * item.rate || 0), 0);
+    const contingencyAmt = Math.round(subtotal * (contingencyPercent / 100));
+    const authorizedTotal = subtotal + contingencyAmt;
+
+    const stageBuckets: Record<string, { count: number; amount: number }> = {};
+    boqItems.forEach((item) => {
+      const stageKey = item.stage || item.category || 'General';
+      if (!stageBuckets[stageKey]) stageBuckets[stageKey] = { count: 0, amount: 0 };
+      stageBuckets[stageKey].count += 1;
+      stageBuckets[stageKey].amount += item.amount || item.quantity * item.rate || 0;
+    });
+
+    return {
+      subtotal,
+      contingencyAmt,
+      authorizedTotal,
+      stageRows: Object.entries(stageBuckets)
+        .map(([stage, val]) => ({ stage, ...val }))
+        .sort((a, b) => b.amount - a.amount),
+    };
+  }, [boqItems, contingencyPercent]);
+
+  // Finish Selections merged with defaults
+  const activeSelections: ClientFinishSelection[] = useMemo(() => {
+    const savedMap = new Map((activeProject?.clientSelections || []).map((s) => [s.categoryId, s]));
+    return SELECTION_CATALOG.map((cat) => {
+      const existing = savedMap.get(cat.categoryId);
+      if (existing) return existing;
+      const base = cat.options[0];
+      return {
+        categoryId: cat.categoryId,
+        categoryName: cat.categoryName,
+        tier: base.tier,
+        specTitle: base.specTitle,
+        allowanceAmount: cat.allowanceAmount,
+        selectedAmount: base.selectedAmount,
+        approvedByClient: false,
+        syncedToBoq: false,
+      };
+    });
+  }, [activeProject?.clientSelections]);
+
+  const selectionSummary = useMemo(() => {
+    const totalAllowance = activeSelections.reduce((s, x) => s + x.allowanceAmount, 0);
+    const totalSelected = activeSelections.reduce((s, x) => s + x.selectedAmount, 0);
+    const netDelta = totalSelected - totalAllowance;
+    const approvedCount = activeSelections.filter((x) => x.approvedByClient).length;
+    return { totalAllowance, totalSelected, netDelta, approvedCount };
+  }, [activeSelections]);
+
+  // Client-Friendly Project Material Rate Directory (linked with live BOQ items)
+  const allMaterialRates = useMemo(() => {
+    const catalog: LiveMaterialPrice[] = [
+      ...getMasterGuideLivePrices(),
+      ...INITIAL_LIVE_MATERIAL_PRICES,
+    ];
+    return catalog.map((mat) => {
+      const prefix = mat.name.toLowerCase().split('(')[0].trim();
+      const keywords = prefix.split(/\s+/).slice(0, 2).join(' ');
+      const matchedBoq = boqItems.find(
+        (b) =>
+          b.id === `boq-mat-${mat.id}` ||
+          b.name.toLowerCase().includes(prefix) ||
+          (keywords.length > 4 && b.name.toLowerCase().includes(keywords))
+      );
+      return {
+        ...mat,
+        inProjectBoq: !!matchedBoq,
+        boqRate: matchedBoq?.rate,
+        boqItemName: matchedBoq?.name,
+      };
+    });
+  }, [boqItems]);
+
+  const filteredClientRates = useMemo(() => {
+    return allMaterialRates.filter((m) => {
+      if (clientRateBoqOnly && !m.inProjectBoq) return false;
+      if (
+        clientRateCategory !== 'all' &&
+        !m.category.toLowerCase().includes(clientRateCategory.toLowerCase())
+      ) {
+        return false;
+      }
+      if (clientRateQuery.trim()) {
+        const q = clientRateQuery.toLowerCase();
+        return (
+          m.name.toLowerCase().includes(q) ||
+          m.category.toLowerCase().includes(q) ||
+          m.brands.some((b) => b.toLowerCase().includes(q))
+        );
+      }
+      return true;
+    });
+  }, [allMaterialRates, clientRateBoqOnly, clientRateCategory, clientRateQuery]);
+
+  const estimatorMaterial = useMemo(() => {
+    return (
+      allMaterialRates.find((m) => m.id === calcSelectedRateId) || allMaterialRates[0] || null
+    );
+  }, [allMaterialRates, calcSelectedRateId]);
+
+  const handleExportClientRatesCsv = () => {
+    const headers = [
+      'Material Name',
+      'Category',
+      'Approved Brands',
+      'Unit',
+      'Contract / Spot Rate (INR)',
+      'Market Min (INR)',
+      'Market Max (INR)',
+      '30d Trend',
+      'Project Status',
+    ];
+    const escapeCsv = (val: string | number) => {
+      const str = String(val ?? '');
+      if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+        return `"${str.replace(/"/g, '""')}"`;
+      }
+      return str;
+    };
+    const rows = filteredClientRates.map((m) => [
+      escapeCsv(m.name),
+      escapeCsv(m.category),
+      escapeCsv(m.brands.join(' / ')),
+      escapeCsv(m.unit),
+      escapeCsv(m.boqRate ?? m.currentPrice),
+      escapeCsv(m.minPrice),
+      escapeCsv(m.maxPrice),
+      escapeCsv(`${m.changePercent > 0 ? '+' : ''}${m.changePercent}%`),
+      escapeCsv(m.inProjectBoq ? 'Locked in BOQ' : 'Market Benchmark'),
+    ]);
+    const csv = [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${(activeProject?.name || 'Project').replace(/\s+/g, '_')}_Material_Rates.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    showToast(`Downloaded ${filteredClientRates.length} approved material rates.`);
+  };
+
+  const handleAskAboutMaterial = (mat: LiveMaterialPrice & { boqRate?: number }) => {
+    const effectiveRate = mat.boqRate ?? mat.currentPrice;
+    setReqType('rfi');
+    setReqTrade(
+      mat.category.toLowerCase().includes('plumb') || mat.category.toLowerCase().includes('electr')
+        ? 'MEP'
+        : mat.category.toLowerCase().includes('finish') || mat.category.toLowerCase().includes('paint')
+        ? 'Finishes'
+        : 'Civil & Masonry'
+    );
+    setReqTitle(`Material Inquiry: ${mat.name}`);
+    setReqNotes(
+      `Question regarding ${mat.name} (${mat.brands.slice(0, 2).join(', ')}) — Current rate: ${formatCurrency(
+        effectiveRate,
+        currency
+      )} / ${mat.unit}.`
+    );
+    setIsRequestModalOpen(true);
+  };
+
+  // Field items / Change Orders / RFIs synced with Studio Utilities
+  const projectFieldItems = useMemo(() => activeProject?.fieldItems || [], [activeProject?.fieldItems]);
+  const pendingClientSignOffCount = useMemo(() => {
+    const pendingMilestones = (activeProject?.milestones || []).filter(
+      (m) => m.status === 'in_progress' && !m.isClientSignedOff
+    ).length;
+    const openChanges = projectFieldItems.filter(
+      (i) => i.status === 'open' || i.status === 'in_review'
+    ).length;
+    return pendingMilestones + openChanges;
+  }, [activeProject?.milestones, projectFieldItems]);
 
   // Milestone Approval Handler
   const handleApproveMilestone = (milestoneId: string) => {
     if (!activeProject || !onUpdateProject) return;
+    const targetMs = (activeProject.milestones || []).find((m) => m.id === milestoneId);
 
     const updatedMilestones = (activeProject.milestones || []).map((ms) => {
       if (ms.id === milestoneId) {
         return {
           ...ms,
           isClientSignedOff: true,
+          isClientApproved: true,
           clientSignedOffAt: new Date().toISOString(),
           status: 'completed' as const,
+          escrowStatus: 'released' as const,
           progressPercent: 100,
         };
       }
       return ms;
     });
 
-    const updatedProject: Project = {
-      ...activeProject,
-      milestones: updatedMilestones,
+    const newLog = {
+      id: `log-ms-${Date.now()}`,
+      projectId: activeProject.id,
+      actor: user?.name || 'Client Stakeholder',
+      action: 'Client Milestone Sign-Off',
+      details: `Approved ${targetMs?.title || 'Milestone'} via Client Workspace`,
+      timestamp: new Date().toISOString(),
     };
 
-    onUpdateProject(updatedProject);
+    onUpdateProject({
+      ...activeProject,
+      milestones: updatedMilestones,
+      auditLogs: [newLog, ...(activeProject.auditLogs || [])],
+      updatedAt: new Date().toISOString(),
+    });
     setSignedOffMilestoneId(milestoneId);
-    setTimeout(() => {
-      setSignedOffMilestoneId(null);
-    }, 3000);
+    setTimeout(() => setSignedOffMilestoneId(null), 3000);
+  };
+
+  // Change Order / RFI Approval & BOQ Sync Handler
+  const handleApproveFieldItem = (itemId: string) => {
+    if (!activeProject || !onUpdateProject) return;
+    const target = projectFieldItems.find((i) => i.id === itemId);
+    if (!target) return;
+
+    const shouldSyncBoq = target.costImpact !== 0 && !target.syncedToBoq && !!onUpdateBOQItems;
+    if (shouldSyncBoq && onUpdateBOQItems) {
+      const boqLine: BOQItem = {
+        id: `boq-co-${target.id}`,
+        name: `[${target.code}] ${target.title}`,
+        category: target.trade,
+        unit: 'Lump Sum',
+        quantity: 1,
+        rate: target.costImpact,
+        amount: target.costImpact,
+        notes: `Client-approved ${target.type === 'change_order' ? 'Change Order' : 'Scope Variation'} (${target.notes})`,
+        stage: 'Finishes',
+        status: 'approved',
+      };
+      onUpdateBOQItems([...boqItems, boqLine]);
+    }
+
+    const updatedFieldItems = projectFieldItems.map((i) =>
+      i.id === itemId
+        ? { ...i, status: 'approved' as const, syncedToBoq: i.syncedToBoq || shouldSyncBoq }
+        : i
+    );
+
+    const newLog = {
+      id: `log-co-${Date.now()}`,
+      projectId: activeProject.id,
+      actor: user?.name || 'Client Stakeholder',
+      action: `Approved ${target.code}`,
+      details: `${target.title} (${formatCurrency(target.costImpact, currency)})${shouldSyncBoq ? ' · Synced to BOQ' : ''}`,
+      timestamp: new Date().toISOString(),
+    };
+
+    onUpdateProject({
+      ...activeProject,
+      fieldItems: updatedFieldItems,
+      auditLogs: [newLog, ...(activeProject.auditLogs || [])],
+      updatedAt: new Date().toISOString(),
+    });
+    showToast(`${target.code} approved${shouldSyncBoq ? ' and synced into live BOQ' : ''}.`);
+  };
+
+  const handleRequestClarification = (itemId: string) => {
+    if (!activeProject || !onUpdateProject) return;
+    const target = projectFieldItems.find((i) => i.id === itemId);
+    if (!target) return;
+
+    const updatedFieldItems = projectFieldItems.map((i) =>
+      i.id === itemId
+        ? {
+            ...i,
+            status: 'in_review' as const,
+            notes: `${i.notes ? i.notes + ' · ' : ''}Client requested clarification on ${new Date().toLocaleDateString('en-IN')}.`,
+          }
+        : i
+    );
+
+    onUpdateProject({
+      ...activeProject,
+      fieldItems: updatedFieldItems,
+      updatedAt: new Date().toISOString(),
+    });
+    showToast(`${target.code} marked for architectural clarification.`);
+  };
+
+  // Client Raise RFI / Change Request Handler
+  const handleRaiseClientRequest = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!activeProject || !onUpdateProject || !reqTitle.trim()) return;
+
+    const prefix = reqType === 'change_order' ? 'CO' : reqType === 'snag' ? 'SNG' : 'RFI';
+    const nextNum = String(projectFieldItems.length + 1).padStart(2, '0');
+    const newItem: FieldOperationItem = {
+      id: `field-client-${Date.now()}`,
+      code: `${prefix}-${nextNum}`,
+      type: reqType,
+      title: reqTitle.trim(),
+      trade: reqTrade,
+      priority: 'medium',
+      status: 'open',
+      assignee: 'Ar. S. Gouse',
+      costImpact: 0,
+      scheduleDays: 0,
+      dueDate: new Date(Date.now() + 5 * 86400000).toISOString().split('T')[0],
+      notes: reqNotes.trim() || 'Submitted via Client Workspace.',
+      createdAt: new Date().toISOString(),
+    };
+
+    onUpdateProject({
+      ...activeProject,
+      fieldItems: [newItem, ...projectFieldItems],
+      auditLogs: [
+        {
+          id: `log-req-${Date.now()}`,
+          projectId: activeProject.id,
+          actor: user?.name || 'Client Stakeholder',
+          action: `Raised ${newItem.code}`,
+          details: newItem.title,
+          timestamp: new Date().toISOString(),
+        },
+        ...(activeProject.auditLogs || []),
+      ],
+      updatedAt: new Date().toISOString(),
+    });
+
+    setReqTitle('');
+    setReqNotes('');
+    setIsRequestModalOpen(false);
+    showToast(`${newItem.code} sent to the studio engineering register.`);
+  };
+
+  // Finish Selection Update & BOQ Sync
+  const handleUpdateSelectionTier = (
+    category: SelectionCatalogCategory,
+    option: SelectionCatalogCategory['options'][number],
+    approveNow = false
+  ) => {
+    if (!activeProject || !onUpdateProject) return;
+    const nextSelections = activeSelections.map((sel) =>
+      sel.categoryId === category.categoryId
+        ? {
+            ...sel,
+            tier: option.tier,
+            specTitle: option.specTitle,
+            selectedAmount: option.selectedAmount,
+            approvedByClient: approveNow ? true : sel.approvedByClient,
+            approvedAt: approveNow ? new Date().toISOString() : sel.approvedAt,
+          }
+        : sel
+    );
+
+    onUpdateProject({
+      ...activeProject,
+      clientSelections: nextSelections,
+      updatedAt: new Date().toISOString(),
+    });
+
+    if (approveNow) {
+      showToast(`${category.categoryName} approved (${option.tier.toUpperCase()} tier).`);
+    }
+  };
+
+  const handleSyncSelectionsToBoq = () => {
+    if (!activeProject || !onUpdateProject || !onUpdateBOQItems) return;
+    const delta = selectionSummary.netDelta;
+    const existingIdx = boqItems.findIndex((b) => b.id === `boq-sel-delta-${activeProject.id}`);
+
+    const updatedBoq = [...boqItems];
+    if (delta === 0) {
+      if (existingIdx >= 0) updatedBoq.splice(existingIdx, 1);
+    } else {
+      const selectionLine: BOQItem = {
+        id: `boq-sel-delta-${activeProject.id}`,
+        name: `Client Finish & Fixture Upgrade Allowance Delta (${activeSelections.filter((s) => s.selectedAmount !== s.allowanceAmount).length} Packages)`,
+        category: 'Finishes & Interior Upgrades',
+        unit: 'Lump Sum',
+        quantity: 1,
+        rate: delta,
+        amount: delta,
+        notes: 'Synced directly from Client Selections & Allowance Desk.',
+        stage: 'Finishes',
+        status: 'approved',
+      };
+      if (existingIdx >= 0) updatedBoq[existingIdx] = selectionLine;
+      else updatedBoq.push(selectionLine);
+    }
+
+    onUpdateBOQItems(updatedBoq);
+    onUpdateProject({
+      ...activeProject,
+      clientSelections: activeSelections.map((s) => ({ ...s, approvedByClient: true, syncedToBoq: true })),
+      auditLogs: [
+        {
+          id: `log-sel-${Date.now()}`,
+          projectId: activeProject.id,
+          actor: user?.name || 'Client Stakeholder',
+          action: 'Synced Finish Selections to BOQ',
+          details: `Net upgrade delta ${formatCurrency(delta, currency)} updated in workspace BOQ`,
+          timestamp: new Date().toISOString(),
+        },
+        ...(activeProject.auditLogs || []),
+      ],
+    });
+    showToast('Finish selection allowance delta synced to live project BOQ.');
   };
 
   // Document Upload Handler
@@ -211,22 +767,20 @@ export const ClientView: React.FC<ClientViewProps> = ({
         fileSize: newDocFile ? `${(newDocFile.size / (1024 * 1024)).toFixed(1)} MB` : '1.8 MB',
         fileType: 'pdf',
         category: newDocCategory,
-        uploadedBy: `${user?.name || 'Client'} (Client Portal)`,
+        uploadedBy: `${user?.name || 'Client'} (Client Workspace)`,
         uploadedAt: new Date().toISOString().split('T')[0],
         version: 'v1.0 Client Upload',
         status: 'in_review',
         isClientUpload: true,
-        notes: newDocNotes || 'Uploaded by client for architectural team review.',
-      };
-
-      const updatedDocs = [newDoc, ...(activeProject.sharedDocuments || [])];
-      const updatedProject: Project = {
-        ...activeProject,
-        sharedDocuments: updatedDocs,
+        notes: newDocNotes || 'Uploaded by client for architectural review.',
       };
 
       if (onUpdateProject) {
-        onUpdateProject(updatedProject);
+        onUpdateProject({
+          ...activeProject,
+          sharedDocuments: [newDoc, ...(activeProject.sharedDocuments || [])],
+          updatedAt: new Date().toISOString(),
+        });
       }
 
       setIsUploading(false);
@@ -234,10 +788,10 @@ export const ClientView: React.FC<ClientViewProps> = ({
       setNewDocTitle('');
       setNewDocFile(null);
       setNewDocNotes('');
-    }, 600);
+      showToast('Document added to shared project vault.');
+    }, 350);
   };
 
-  // Download simulation
   const handleDownloadDocument = (doc: SharedDocument) => {
     const textContent = `# Gouse AI Architectural Workspace - Document Export
 Project: ${activeProject?.name || 'Project'}
@@ -252,8 +806,7 @@ Status: ${doc.status.toUpperCase()}
 Notes:
 ${doc.notes || 'No special notes.'}
 
-Verified by Gouse AI Architectural & Engineering Quality Control.
-Council of Architecture Registration: CA/2012/55190`;
+Verified by Gouse AI Architecture & Engineering Quality Control.`;
 
     const blob = new Blob([textContent], { type: 'text/plain;charset=utf-8' });
     const url = URL.createObjectURL(blob);
@@ -266,38 +819,67 @@ Council of Architecture Registration: CA/2012/55190`;
     URL.revokeObjectURL(url);
   };
 
-  // Post comment/inquiry handler
+  // Persist Client Message / Warranty Note directly to Project Status Feed & Audit Log
   const handleSendComment = (e: React.FormEvent) => {
     e.preventDefault();
     if (!clientCommentText.trim() || !activeProject) return;
 
-    setCommentSuccessMsg('Your note has been transmitted directly to Ar. S. Gouse and the lead structural engineer.');
-    setTimeout(() => {
-      setClientCommentText('');
-      setCommentSuccessMsg(null);
-    }, 3500);
+    const newStatusUpdate: ProjectStatusUpdate = {
+      id: `su-client-${Date.now()}`,
+      projectId: activeProject.id,
+      title: `Client Note from ${user?.name || 'Client Stakeholder'}`,
+      content: clientCommentText.trim(),
+      authorName: user?.name || 'Client Stakeholder',
+      authorRole: 'Client Stakeholder',
+      date: 'Just now',
+      category: 'regulatory',
+      progressPercentage: overallMilestoneProgress,
+      isInspectionVerified: false,
+    };
+
+    if (onUpdateProject) {
+      onUpdateProject({
+        ...activeProject,
+        statusUpdates: [newStatusUpdate, ...(activeProject.statusUpdates || [])],
+        auditLogs: [
+          {
+            id: `log-msg-${Date.now()}`,
+            projectId: activeProject.id,
+            actor: user?.name || 'Client Stakeholder',
+            action: 'Client Message Logged',
+            details: clientCommentText.trim(),
+            timestamp: new Date().toISOString(),
+          },
+          ...(activeProject.auditLogs || []),
+        ],
+        updatedAt: new Date().toISOString(),
+      });
+    }
+
+    setClientCommentText('');
+    showToast('Your note has been logged to the project feed for Ar. S. Gouse.');
   };
 
-  // Overall progress calculation
   const overallMilestoneProgress = useMemo(() => {
     if (!activeProject?.milestones || activeProject.milestones.length === 0) return 75;
     const total = activeProject.milestones.reduce((acc, ms) => acc + (ms.progressPercent || 0), 0);
     return Math.round(total / activeProject.milestones.length);
   }, [activeProject]);
 
-  // Financial Summary calculation
   const financialSummary = useMemo(() => {
     const milestones = activeProject?.milestones || [];
-    const totalCommitted = milestones.reduce((sum, m) => sum + (m.amount || m.escrowReleaseAmount || 0), 0) || 38500000;
+    const totalCommitted =
+      milestones.reduce((sum, m) => sum + (m.amount || m.escrowReleaseAmount || 0), 0) ||
+      boqAccounting.authorizedTotal ||
+      38500000;
     const disbursed = milestones
       .filter((m) => m.status === 'completed')
-      .reduce((sum, m) => sum + (m.amount || m.escrowReleaseAmount || 0), 0) || 21500000;
+      .reduce((sum, m) => sum + (m.amount || m.escrowReleaseAmount || 0), 0);
     const inEscrow = milestones
       .filter((m) => m.status === 'in_progress')
-      .reduce((sum, m) => sum + (m.amount || m.escrowReleaseAmount || 0), 0) || 8500000;
+      .reduce((sum, m) => sum + (m.amount || m.escrowReleaseAmount || 0), 0);
     const upcoming = Math.max(0, totalCommitted - disbursed - inEscrow);
     const completedCount = milestones.filter((m) => m.status === 'completed').length;
-    const inProgressCount = milestones.filter((m) => m.status === 'in_progress').length;
 
     return {
       totalCommitted,
@@ -305,178 +887,141 @@ Council of Architecture Registration: CA/2012/55190`;
       inEscrow,
       upcoming,
       completedCount,
-      inProgressCount,
       totalCount: milestones.length || 6,
     };
-  }, [activeProject]);
+  }, [activeProject, boqAccounting.authorizedTotal]);
 
-  // Camera angle presets for interactive dashboard widget
   const cameraAnglePresets = {
     slab: {
-      name: 'Deck Cam 01 (Level 2 Slab)',
+      name: 'Deck Cam 01 · Level 2 Slab',
       location: 'South-East Cantilever Slab Zone',
       image: PROJECT_MEDIA.siteRccFraming,
-      specs: 'Fe550D Rebar spacing 150mm c/c • M30 Ready-mix Slump 110mm • Curing Hydration: 96%',
-      badge: 'STRUCTURAL REBAR: VERIFIED',
-      time: 'Live • 1080p AI Stream',
+      specs: 'Fe550D Rebar spacing 150mm c/c · M30 Ready-mix Slump 110mm · Hydration 96%',
+      statusLabel: 'Structural Rebar Verified',
     },
     crane: {
-      name: 'Crane Cam 02 (360° Aerial)',
+      name: 'Crane Cam 02 · Aerial Perimeter',
       location: 'Tower Crane Jib Mast',
       image: PROJECT_MEDIA.builderProj1,
-      specs: 'Boundary setbacks 3.5m compliant • Heavy vehicle access clear • Wind speed: 12 km/h',
-      badge: 'PERIMETER SAFETY: CLEAR',
-      time: 'Live • 4K AI Stream',
+      specs: 'Boundary setbacks 3.5m compliant · Heavy vehicle access clear',
+      statusLabel: 'Perimeter Clear',
     },
     entrance: {
-      name: 'Gate Cam 03 (Logistics Intake)',
+      name: 'Gate Cam 03 · Material Intake',
       location: 'Main North Gate Access Bay',
       image: PROJECT_MEDIA.builderProj3,
-      specs: 'Ready-mix concrete mixer delivery #88492 • Weighbridge verified • Digital QA tag active',
-      badge: 'LOGISTICS DISPATCH: ON-TIME',
-      time: 'Live • 1080p AI Stream',
+      specs: 'Ready-mix delivery weighbridge verified · Batch tag active',
+      statusLabel: 'Delivery Verified',
     },
   };
 
-  // Executive Progress Brief Download
   const handleDownloadExecutiveBrief = () => {
     if (!activeProject) return;
-    const briefContent = `================================================================================
-GOUSE AI ARCHITECTURAL & PROJECT MANAGEMENT STUDIO
-EXECUTIVE CLIENT PROGRESS & AUDIT REPORT
-================================================================================
-Generated for: ${user?.name || 'Client Investor'} (${user?.company || 'Prestige Urban Ventures Pvt Ltd'})
-Date of Report: ${new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}
+    const briefContent = `GOUSE AI ARCHITECTURE & CONSTRUCTION STUDIO
+CLIENT PROGRESS & COST AUDIT REPORT
+Generated: ${new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}
 Project: ${activeProject.name}
 Location: ${activeProject.location}
-Typology: ${activeProject.projectType}
 Built-up Area: ${activeProject.builtUpAreaSqFt?.toLocaleString() || '5,800'} Sq.Ft
-Lead Architect: Ar. S. Gouse (CoA Reg: CA/2012/55190)
-
-1. EXECUTIVE HEALTH SUMMARY:
---------------------------------------------------------------------------------
-* Physical Progress: ${overallMilestoneProgress}% Verified
-* Current Active Phase: ${activeProject.status.replace('_', ' ').toUpperCase()}
-* Structural Clash Status: ZERO active clashes (IS 456 & NBC 2016 verified)
-* Quality Inspection Score: 98.6 / 100 (Pass with Distinction)
-
-2. FINANCIAL ESCROW & MILESTONE ACCOUNTING (${currency}):
---------------------------------------------------------------------------------
-* Total Committed Project Budget: ${formatCurrency(financialSummary.totalCommitted, currency)}
-* Disbursed from Escrow: ${formatCurrency(financialSummary.disbursed, currency)} (${Math.round((financialSummary.disbursed / financialSummary.totalCommitted) * 100)}%)
-* Held in Active Verification Escrow: ${formatCurrency(financialSummary.inEscrow, currency)}
-* Upcoming Milestone Allocation: ${formatCurrency(financialSummary.upcoming, currency)}
-
-3. MILESTONE EXECUTION ROADMAP:
---------------------------------------------------------------------------------
-${(activeProject.milestones || []).map((m, idx) => `[${m.status === 'completed' ? 'X' : m.status === 'in_progress' ? '►' : ' '}] Stage ${idx + 1}: ${m.title || m.name || 'Stage ' + (idx + 1)}
-    Status: ${m.status.toUpperCase()} (${m.progressPercent}%) | Amount: ${formatCurrency(m.amount || m.escrowReleaseAmount || 0, currency)}
-    Target: ${m.targetDate} | Client Approved: ${m.isClientSignedOff || m.isClientApproved ? 'YES' : 'PENDING'}
-`).join('\n')}
-
-4. RECENT CONFIDENTIAL SITE AUDITS & UPDATES:
---------------------------------------------------------------------------------
-${(activeProject.statusUpdates || []).slice(0, 3).map((u) => `• [${u.date}] ${u.title}
-    Category: ${u.category.toUpperCase()} | Reported by: ${u.authorName} (${u.authorRole})
-    Detail: ${u.content}
-`).join('\n')}
-
-5. ARCHITECTURAL CERTIFICATION:
---------------------------------------------------------------------------------
-This report certifies that the physical construction and structural works have been
-audited against Indian Standard IS 456:2000, IS 1893:2016, and National Building Code 2016.
-All milestone disbursements adhere to verified site progress.
-
-Principal Architect: Ar. S. Gouse
-Gouse AI Architecture & Construction Automation
-Bangalore, India • Contact: sgouse14@gmail.com
-================================================================================`;
+Authorized BOQ Total (${currency}): ${formatCurrency(boqAccounting.authorizedTotal || financialSummary.totalCommitted, currency)}
+Escrow Disbursed: ${formatCurrency(financialSummary.disbursed, currency)}
+Physical Completion: ${overallMilestoneProgress}%
+Open Change Orders / RFIs: ${projectFieldItems.filter((i) => i.status !== 'approved' && i.status !== 'resolved').length}`;
 
     const blob = new Blob([briefContent], { type: 'text/plain;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `${activeProject.name.replace(/\s+/g, '_')}_Executive_Progress_Brief_${new Date().toISOString().slice(0, 10)}.txt`;
+    link.download = `${activeProject.name.replace(/\s+/g, '_')}_Client_Brief.txt`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
   };
 
-  // Empty state if client is not assigned to any projects
   if (!activeProject || assignedProjects.length === 0) {
     return (
       <div className="min-h-[500px] flex items-center justify-center p-6 bg-slate-950 text-slate-100">
-        <div className="max-w-md w-full p-8 rounded-2xl bg-slate-900 border border-slate-800 text-center space-y-5 shadow-2xl">
-          <div className="w-14 h-14 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-400 flex items-center justify-center mx-auto">
-            <Lock className="w-7 h-7" />
+        <div className="max-w-md w-full p-8 rounded-2xl bg-slate-900 border border-slate-800 text-center space-y-5">
+          <div className="w-12 h-12 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-400 flex items-center justify-center mx-auto">
+            <Lock className="w-6 h-6" />
           </div>
           <div className="space-y-2">
-            <h3 className="text-xl font-bold text-white">No Assigned Projects Found</h3>
+            <h3 className="text-lg font-bold text-white">No Assigned Projects Found</h3>
             <p className="text-xs text-slate-400 leading-relaxed">
-              Your client profile <span className="text-amber-400 font-mono">({user?.email})</span> is authenticated, but no active projects are currently linked to your account.
+              Your account ({user?.email || 'Guest'}) currently has no assigned projects linked. Contact Ar. S. Gouse or submit a new project brief.
             </p>
           </div>
-          <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800/80 text-left text-xs text-slate-400 space-y-1">
-            <div className="text-slate-300 font-semibold">Next Steps:</div>
-            <div>• Contact Lead Architect Ar. S. Gouse to assign your project.</div>
-            <div>• Or explore the platform demo to review system capabilities.</div>
+          <div className="flex flex-col gap-2">
+            {onViewPublicPortal && (
+              <button
+                type="button"
+                onClick={onViewPublicPortal}
+                className="w-full py-2.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold text-xs transition-colors"
+              >
+                Open Client Intake &amp; Brief
+              </button>
+            )}
+            {onReturnToPlatform && (
+              <button
+                type="button"
+                onClick={onReturnToPlatform}
+                className="w-full py-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium text-xs transition-colors"
+              >
+                Return to Studio Workspace
+              </button>
+            )}
           </div>
-          {onOpenPlatformDemo && (
-            <button
-              type="button"
-              onClick={onOpenPlatformDemo}
-              className="w-full py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs transition flex items-center justify-center gap-2"
-            >
-              <Sparkles className="w-4 h-4" />
-              <span>Launch Interactive Platform Demo</span>
-            </button>
-          )}
         </div>
       </div>
     );
   }
 
-  // Filtered status updates
   const filteredUpdates = (activeProject.statusUpdates || []).filter((u) => {
     if (updateCategoryFilter === 'all') return true;
     return u.category === updateCategoryFilter;
   });
 
-  // Filtered documents
   const filteredDocs = (activeProject.sharedDocuments || []).filter((d) => {
     if (docCategoryFilter === 'all') return true;
     return d.category === docCategoryFilter;
   });
 
+  const filteredFieldItems = projectFieldItems.filter((item) => {
+    if (fieldFilter === 'all') return true;
+    return item.type === fieldFilter;
+  });
+
+  const latestSiteAudit = activeProject.siteAudits?.[0];
+  const pendingMilestone = activeProject.milestones?.find(
+    (m) => m.status === 'in_progress' && !m.isClientSignedOff
+  );
+  const pendingChangeOrder = projectFieldItems.find(
+    (i) => i.type === 'change_order' && (i.status === 'open' || i.status === 'in_review')
+  );
+
   return (
-    <div className="bg-slate-950 text-slate-100 min-h-screen flex flex-col font-sans selection:bg-amber-500 selection:text-slate-950">
-      {/* OUTSIDE PLATFORM NOTIFICATION & QUICK LOGIN BAR */}
+    <div className="bg-slate-950 text-slate-100 min-h-screen flex flex-col font-sans selection:bg-amber-500/30 selection:text-amber-200">
+      {/* Unauthenticated Guest Notice */}
       {(!user || isUnauthenticatedOutside) && (
-        <div className="bg-gradient-to-r from-sky-950 via-slate-900 to-amber-950/80 border-b border-sky-500/40 px-4 py-2.5 text-xs flex items-center justify-between flex-wrap gap-2">
-          <div className="flex items-center gap-2">
-            <span className="px-2 py-0.5 rounded bg-sky-500 text-slate-950 font-black font-mono text-[10px]">
-              CLIENT PORTAL • DASHBOARD
-            </span>
-            <span className="text-slate-200">
-              Exploring Dashboard in Client Portal. Sign in to review your specific private contract records and milestone approvals.
-            </span>
-          </div>
-          <div className="flex items-center gap-2">
+        <div className="bg-slate-900 border-b border-slate-800 px-4 py-2 text-xs flex items-center justify-between flex-wrap gap-2">
+          <span className="text-slate-300">
+            Viewing client project workspace · Sign in with your project email for private approvals.
+          </span>
+          <div className="flex items-center gap-2 shrink-0">
             {onViewPublicPortal && (
               <button
                 type="button"
                 onClick={onViewPublicPortal}
-                className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-amber-300 border border-slate-700 text-xs font-semibold transition"
+                className="px-3 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium transition-colors whitespace-nowrap shrink-0"
               >
-                <Compass className="w-3.5 h-3.5 text-amber-400" />
-                <span>Client Portal</span>
+                Client Intake
               </button>
             )}
             <button
               type="button"
               onClick={openLoginModal}
-              className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs transition shadow-sm"
+              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold text-xs transition-colors whitespace-nowrap shrink-0"
             >
               <LogIn className="w-3.5 h-3.5" />
               <span>Sign In</span>
@@ -485,76 +1030,51 @@ Bangalore, India • Contact: sgouse14@gmail.com
         </div>
       )}
 
-      {/* 1. TOP CLIENT CONTEXT HEADER & PROJECT SELECTOR */}
-      <div className="bg-slate-900/95 border-b border-slate-800 sticky top-0 z-30 backdrop-blur-md">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5">
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-            {/* Left: Client Persona & Project Badge */}
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-amber-500/15 border border-amber-500/40 text-amber-400 flex items-center justify-center font-mono font-bold text-base shrink-0">
+      {/* Top Sticky Context Header & Tabs */}
+      <header className="bg-slate-900/95 border-b border-slate-800 sticky top-0 z-30 backdrop-blur-md">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-3.5">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 pb-3">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-9 h-9 rounded-lg bg-amber-500/15 border border-amber-500/35 text-amber-400 flex items-center justify-center font-semibold text-sm shrink-0">
                 {user?.name?.charAt(0) || 'C'}
               </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="font-bold text-white text-sm sm:text-base">
-                    Dashboard: <span className="text-amber-400">{activeProject.name}</span>
-                  </span>
-                  <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
-                    {user?.role === 'client' ? 'Authorized Client Access' : 'Client Portal View'}
-                  </span>
-                </div>
-                <div className="flex items-center gap-2 text-xs text-slate-400 mt-0.5">
-                  <span>{user?.name || 'Client Stakeholder (Guest Preview)'}</span>
+              <div className="min-w-0">
+                <h1 className="text-sm sm:text-base font-bold text-white truncate">
+                  {activeProject.name}
+                </h1>
+                <div className="flex flex-wrap items-center gap-2 text-xs text-slate-400">
+                  <span>{user?.name || 'Client Stakeholder'}</span>
                   <span aria-hidden="true">·</span>
                   <span>{activeProject.location}</span>
                   <span aria-hidden="true">·</span>
-                  <span className="font-mono text-slate-300">
-                    {assignedProjects.length} Assigned {assignedProjects.length === 1 ? 'Project' : 'Projects'}
-                  </span>
+                  <span className="capitalize">{activeProject.status.replace('_', ' ')}</span>
                 </div>
               </div>
             </div>
 
-            {/* Right: Multi-Project Selector (if client has > 1 project) & Controls */}
-            <div className="flex flex-wrap items-center gap-2.5">
+            <div className="flex flex-wrap items-center gap-2 shrink-0">
               {assignedProjects.length > 1 && (
-                <div className="flex items-center gap-1.5 p-1 rounded-xl bg-slate-950 border border-slate-800">
-                  <span className="text-[11px] text-slate-400 px-2 font-mono">My Projects:</span>
-                  <select
-                    value={activeProject.id}
-                    onChange={(e) => handleSelectProject(e.target.value)}
-                    className="bg-slate-900 text-xs text-white px-2.5 py-1.5 rounded-lg border border-slate-700 focus:outline-none focus:border-amber-400 font-medium"
-                  >
-                    {assignedProjects.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.name.length > 32 ? `${p.name.substring(0, 32)}...` : p.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                <select
+                  value={activeProject.id}
+                  onChange={(e) => handleSelectProject(e.target.value)}
+                  className="bg-slate-950 text-xs text-white px-3 py-1.5 rounded-lg border border-slate-800 focus:outline-none focus:border-amber-400 font-medium max-w-[220px] truncate"
+                >
+                  {assignedProjects.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                    </option>
+                  ))}
+                </select>
               )}
 
               {onViewPublicPortal && (
                 <button
                   type="button"
                   onClick={onViewPublicPortal}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition"
-                  title="Explore public client portal & showcase"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium transition-colors whitespace-nowrap shrink-0"
                 >
                   <Compass className="w-3.5 h-3.5 text-amber-400" />
-                  <span className="hidden sm:inline">Client Portal</span>
-                </button>
-              )}
-
-              {onOpenPlatformDemo && (
-                <button
-                  type="button"
-                  onClick={onOpenPlatformDemo}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition"
-                  title="Watch interactive platform demo"
-                >
-                  <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-                  <span>Platform Demo</span>
+                  <span>Client Intake</span>
                 </button>
               )}
 
@@ -562,35 +1082,28 @@ Bangalore, India • Contact: sgouse14@gmail.com
                 <button
                   type="button"
                   onClick={onReturnToPlatform}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold transition shadow-sm"
+                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-semibold transition-colors whitespace-nowrap shrink-0"
                 >
                   <span>Return to Studio</span>
                 </button>
               )}
 
               {!isStaffPreview && user && (
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-slate-300 hidden md:inline">
-                    Signed in: <strong className="text-white">{user.name}</strong>
-                  </span>
-                  <button
-                    type="button"
-                    onClick={logout}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/30 text-rose-300 hover:text-white text-xs font-bold transition shadow-sm"
-                    title="Sign out of client session"
-                  >
-                    <LogOut className="w-3.5 h-3.5 text-rose-400" />
-                    <span>Sign Out</span>
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  onClick={logout}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium transition-colors whitespace-nowrap shrink-0"
+                >
+                  <LogOut className="w-3.5 h-3.5 text-rose-400" />
+                  <span>Sign Out</span>
+                </button>
               )}
 
               {!user && (
                 <button
                   type="button"
                   onClick={openLoginModal}
-                  className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs transition shadow-sm"
-                  title="Sign in to your client account"
+                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold text-xs transition-colors whitespace-nowrap shrink-0"
                 >
                   <LogIn className="w-3.5 h-3.5" />
                   <span>Sign In</span>
@@ -598,1169 +1111,594 @@ Bangalore, India • Contact: sgouse14@gmail.com
               )}
             </div>
           </div>
+
+          {/* Single-Line Navigation Tabs */}
+          <div className="flex items-center gap-1 overflow-x-auto border-t border-slate-800/80 pt-1">
+            {[
+              { id: 'dashboard' as const, label: 'Overview', icon: LayoutDashboard },
+              { id: 'milestones' as const, label: 'Milestones & BOQ', icon: CheckCircle2 },
+              {
+                id: 'change_orders' as const,
+                label: `Change Orders & RFIs${projectFieldItems.length > 0 ? ` (${projectFieldItems.length})` : ''}`,
+                icon: ClipboardList,
+              },
+              { id: 'selections' as const, label: 'Materials & Rates', icon: Sliders },
+              { id: 'updates' as const, label: 'Site Logs & Messages', icon: Clock },
+              { id: 'documents' as const, label: 'Drawings & Vault', icon: FolderOpen },
+              { id: 'team' as const, label: 'Project Team', icon: Users },
+              { id: 'smart_home_ska' as const, label: 'Smart Home (SKA)', icon: Cpu },
+            ].map((tab) => {
+              const Icon = tab.icon;
+              const isActive = activeTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  id={`tab-client-${tab.id}`}
+                  type="button"
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`inline-flex items-center gap-1.5 px-3.5 py-2.5 text-xs font-medium border-b-2 transition-colors whitespace-nowrap shrink-0 ${
+                    isActive
+                      ? 'border-amber-400 text-amber-400'
+                      : 'border-transparent text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  <Icon className="w-3.5 h-3.5 shrink-0" />
+                  <span>{tab.label}</span>
+                </button>
+              );
+            })}
+          </div>
         </div>
-      </div>
+      </header>
 
-      {/* 2. PROJECT HERO SUMMARY STRIP */}
-      <div className="bg-slate-900/60 border-b border-slate-800/80 py-6">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            {/* Stat 1: Overall Physical Progress */}
-            <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800/80 space-y-2">
-              <div className="flex items-center justify-between text-xs text-slate-400 font-mono">
-                <span>PHYSICAL COMPLETION</span>
-                <span className="text-emerald-400 font-bold">{overallMilestoneProgress}%</span>
-              </div>
-              <div className="w-full bg-slate-800 rounded-full h-2 overflow-hidden">
-                <div
-                  className="bg-gradient-to-r from-amber-500 to-emerald-400 h-2 rounded-full transition-all duration-500"
-                  style={{ width: `${overallMilestoneProgress}%` }}
-                />
-              </div>
-              <div className="text-[11px] text-slate-400">
-                Verified via Geotagged AI Site Cam Inspections
-              </div>
+      {/* Main Content */}
+      <main className="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-1 space-y-6">
+        {feedbackBanner && (
+          <div className="p-3 rounded-xl bg-emerald-950/60 border border-emerald-500/40 text-xs text-emerald-200 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+              <span>{feedbackBanner}</span>
             </div>
+            <button
+              type="button"
+              onClick={() => setFeedbackBanner(null)}
+              className="text-emerald-300 hover:text-white"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
 
-            {/* Stat 2: Active Phase */}
-            <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800/80 space-y-1">
-              <div className="text-xs text-slate-400 font-mono uppercase">CURRENT STAGE</div>
-              <div className="text-sm font-bold text-white capitalize">
-                {activeProject.status.replace('_', ' ')}
-              </div>
-              <div className="text-[11px] text-amber-400">
-                Stage 4 of 6: Second Floor Slab &amp; AAC Masonry
-              </div>
+        {/* Executive KPI Strip */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-1.5">
+            <div className="flex items-center justify-between text-xs text-slate-400">
+              <span>Authorized BOQ Budget</span>
+              <DollarSign className="w-3.5 h-3.5 text-amber-400" />
             </div>
-
-            {/* Stat 3: Built-Up Area & Typology */}
-            <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800/80 space-y-1">
-              <div className="text-xs text-slate-400 font-mono uppercase">AREA &amp; SPECIFICATION</div>
-              <div className="text-sm font-bold text-white font-mono">
-                {activeProject.builtUpAreaSqFt?.toLocaleString() || '5,800'} Sq.Ft
-              </div>
-              <div className="text-[11px] text-slate-400 truncate">
-                {activeProject.projectType}
-              </div>
+            <div className="text-xl font-bold text-white tabular-nums">
+              {formatCurrency(boqAccounting.authorizedTotal || financialSummary.totalCommitted, currency)}
             </div>
-
-            {/* Stat 4: Lead Architecture Contact */}
-            <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800/80 space-y-1">
-              <div className="text-xs text-slate-400 font-mono uppercase">LEAD ARCHITECT</div>
-              <div className="text-sm font-bold text-white">Ar. S. Gouse</div>
-              <div className="text-[11px] text-slate-400 flex items-center gap-2">
-                <span>CoA CA/2012/55190</span>
-                <span aria-hidden="true">·</span>
-                <span className="text-emerald-400">On Call</span>
-              </div>
+            <div className="text-xs text-slate-400 tabular-nums">
+              {boqItems.length} BOQ items · {contingencyPercent}% contingency
             </div>
           </div>
 
-          {/* Primary View Navigation Tabs */}
-          <div className="flex items-center gap-2 border-b border-slate-800 pt-2 overflow-x-auto">
-            <button
-              id="tab-client-dashboard"
-              type="button"
-              onClick={() => setActiveTab('dashboard')}
-              className={`flex items-center gap-2 px-4 py-2.5 text-xs font-semibold transition border-b-2 whitespace-nowrap ${
-                activeTab === 'dashboard'
-                  ? 'border-amber-400 text-amber-400 bg-amber-500/5'
-                  : 'border-transparent text-slate-400 hover:text-white'
-              }`}
-            >
-              <LayoutDashboard className="w-4 h-4" />
-              <span>Dashboard</span>
-              <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                OVERVIEW
+          <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-1.5">
+            <div className="flex items-center justify-between text-xs text-slate-400">
+              <span>Physical &amp; Escrow Progress</span>
+              <Activity className="w-3.5 h-3.5 text-emerald-400" />
+            </div>
+            <div className="flex items-baseline gap-2">
+              <span className="text-xl font-bold text-white tabular-nums">{overallMilestoneProgress}%</span>
+              <span className="text-xs text-emerald-400 tabular-nums">
+                {financialSummary.completedCount} / {financialSummary.totalCount} stages
               </span>
-            </button>
+            </div>
+            <div className="w-full bg-slate-800 rounded-full h-1.5 overflow-hidden">
+              <div
+                className="bg-emerald-500 h-1.5 rounded-full"
+                style={{ width: `${overallMilestoneProgress}%` }}
+              />
+            </div>
+          </div>
 
-            <button
-              type="button"
-              onClick={() => setActiveTab('milestones')}
-              className={`flex items-center gap-2 px-4 py-2.5 text-xs font-semibold transition border-b-2 whitespace-nowrap ${
-                activeTab === 'milestones'
-                  ? 'border-amber-400 text-amber-400 bg-amber-500/5'
-                  : 'border-transparent text-slate-400 hover:text-white'
+          <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-1.5">
+            <div className="flex items-center justify-between text-xs text-slate-400">
+              <span>Pending Client Sign-Offs</span>
+              <CheckSquare className="w-3.5 h-3.5 text-cyan-400" />
+            </div>
+            <div className="text-xl font-bold text-white tabular-nums">{pendingClientSignOffCount}</div>
+            <div className="text-xs text-slate-400">
+              {pendingMilestone
+                ? `Milestone ${pendingMilestone.stageNumber} ready for review`
+                : 'Milestones & change orders current'}
+            </div>
+          </div>
+
+          <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-1.5">
+            <div className="flex items-center justify-between text-xs text-slate-400">
+              <span>Materials &amp; Allowances</span>
+              <Sliders className="w-3.5 h-3.5 text-amber-400" />
+            </div>
+            <div
+              className={`text-xl font-bold tabular-nums ${
+                selectionSummary.netDelta > 0 ? 'text-amber-300' : 'text-emerald-400'
               }`}
             >
-              <CheckCircle2 className="w-4 h-4" />
-              <span>Milestone Progress &amp; Escrow</span>
-              <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-slate-800 text-slate-300">
-                {activeProject.milestones?.length || 6}
-              </span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setActiveTab('updates')}
-              className={`flex items-center gap-2 px-4 py-2.5 text-xs font-semibold transition border-b-2 whitespace-nowrap ${
-                activeTab === 'updates'
-                  ? 'border-amber-400 text-amber-400 bg-amber-500/5'
-                  : 'border-transparent text-slate-400 hover:text-white'
-              }`}
-            >
-              <Clock className="w-4 h-4" />
-              <span>Project Status Updates &amp; Site Feed</span>
-              <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-slate-800 text-slate-300">
-                {activeProject.statusUpdates?.length || 4}
-              </span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setActiveTab('documents')}
-              className={`flex items-center gap-2 px-4 py-2.5 text-xs font-semibold transition border-b-2 whitespace-nowrap ${
-                activeTab === 'documents'
-                  ? 'border-amber-400 text-amber-400 bg-amber-500/5'
-                  : 'border-transparent text-slate-400 hover:text-white'
-              }`}
-            >
-              <FolderOpen className="w-4 h-4" />
-              <span>Document Sharing &amp; Drawings</span>
-              <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-slate-800 text-slate-300">
-                {activeProject.sharedDocuments?.length || 5}
-              </span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setActiveTab('team')}
-              className={`flex items-center gap-2 px-4 py-2.5 text-xs font-semibold transition border-b-2 whitespace-nowrap ${
-                activeTab === 'team'
-                  ? 'border-amber-400 text-amber-400 bg-amber-500/5'
-                  : 'border-transparent text-slate-400 hover:text-white'
-              }`}
-            >
-              <Users className="w-4 h-4" />
-              <span>Design Team &amp; Contacts</span>
-            </button>
-
-            <button
-              id="tab-client-smart-home-ska"
-              type="button"
-              onClick={() => setActiveTab('smart_home_ska')}
-              className={`flex items-center gap-2 px-4 py-2.5 text-xs font-semibold transition border-b-2 whitespace-nowrap ${
-                activeTab === 'smart_home_ska'
-                  ? 'border-cyan-400 text-cyan-300 bg-cyan-500/10'
-                  : 'border-transparent text-slate-400 hover:text-white'
-              }`}
-            >
-              <Cpu className="w-4 h-4 text-cyan-400" />
-              <span>Smart Home SKA Agent</span>
-              <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
-                SKA IoT AGENT
-              </span>
-            </button>
+              {selectionSummary.netDelta >= 0 ? '+' : ''}
+              {formatCurrency(selectionSummary.netDelta, currency)}
+            </div>
+            <div className="text-xs text-slate-400 tabular-nums">
+              {selectionSummary.approvedCount} / {activeSelections.length} finish specs approved
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* 3. MAIN TAB CONTENT */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-1">
         {/* ============================================================== */}
-        {/* TAB 0: CLIENT DASHBOARD (COMPREHENSIVE OVERVIEW HUB)           */}
+        {/* TAB 1: OVERVIEW                                                */}
         {/* ============================================================== */}
         {activeTab === 'dashboard' && (
-          <div className="space-y-8">
-            {/* 1. WELCOME & EXECUTIVE ACTION BANNER */}
-            <div className="p-6 rounded-3xl bg-gradient-to-br from-slate-900 via-slate-900/90 to-amber-950/30 border border-amber-500/30 shadow-2xl space-y-6 relative overflow-hidden">
-              <div
-                className="absolute -right-16 -top-16 w-64 h-64 bg-amber-500/10 rounded-full blur-3xl pointer-events-none"
-                aria-hidden="true"
-              />
-
-              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 relative z-10">
-                <div className="space-y-2">
-                  <div className="flex flex-wrap items-center gap-2.5">
-                    <span className="px-2.5 py-0.5 rounded-full text-[11px] font-mono font-semibold bg-amber-500/20 text-amber-300 border border-amber-500/40">
-                      CLIENT INVESTOR HUB
-                    </span>
-                    <span className="px-2.5 py-0.5 rounded text-[11px] font-mono text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 flex items-center gap-1.5">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                      Live Synchronized
-                    </span>
-                  </div>
-
-                  <h2 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
-                    Welcome, <span className="text-amber-400">{user?.name || 'Client Stakeholder'}</span>
-                  </h2>
-
-                  <p className="text-xs sm:text-sm text-slate-300 max-w-2xl leading-relaxed">
-                    Overview for <strong className="text-white">{activeProject.name}</strong> ({activeProject.location}). All structural drawings, geotagged site camera feeds, locked BOQ indices, and escrow milestones are audited in real time under Indian Standard code compliance.
-                  </p>
+          <div className="space-y-6">
+            {/* Priority Action & Header Row */}
+            <div className="p-5 sm:p-6 rounded-2xl bg-slate-900 border border-slate-800 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+              <div className="space-y-1.5">
+                <div className="text-xs text-slate-400 flex flex-wrap items-center gap-2">
+                  <span>{activeProject.projectType}</span>
+                  <span aria-hidden="true">·</span>
+                  <span className="tabular-nums">{activeProject.builtUpAreaSqFt?.toLocaleString() || '5,800'} sq.ft</span>
+                  <span aria-hidden="true">·</span>
+                  <span>Lead Architect: Ar. S. Gouse</span>
                 </div>
-
-                {/* Executive Quick Actions */}
-                <div className="flex flex-wrap items-center gap-2.5 shrink-0">
-                  <button
-                    type="button"
-                    onClick={handleDownloadExecutiveBrief}
-                    className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs transition shadow-lg shadow-amber-500/20"
-                    title="Download comprehensive progress & audit report"
-                  >
-                    <Download className="w-4 h-4" />
-                    <span>Download Progress Report</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setIsUploadModalOpen(true)}
-                    className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition border border-slate-700"
-                  >
-                    <Upload className="w-4 h-4 text-amber-400" />
-                    <span>Share Document</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setIsSiteCameraModalOpen(true)}
-                    className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition border border-slate-700"
-                  >
-                    <Camera className="w-4 h-4 text-emerald-400" />
-                    <span>Site Camera</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab('team')}
-                    className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition border border-slate-700"
-                  >
-                    <MessageSquare className="w-4 h-4 text-sky-400" />
-                    <span>Contact Architect</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* Quick Status Sub-Strip */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-4 border-t border-slate-800/80 text-xs text-slate-400">
-                <div>
-                  <span className="text-[10px] font-mono text-slate-500 uppercase block">Organization</span>
-                  <span className="font-semibold text-slate-200 truncate block">
-                    {activeProject.clientCompany || user?.company || 'Prestige Urban Ventures Pvt Ltd'}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-[10px] font-mono text-slate-500 uppercase block">Typology / Area</span>
-                  <span className="font-semibold text-slate-200 block">
-                    {activeProject.builtUpAreaSqFt?.toLocaleString() || '5,800'} Sq.Ft • {activeProject.projectType}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-[10px] font-mono text-slate-500 uppercase block">Lead Architect</span>
-                  <span className="font-semibold text-slate-200 block">
-                    Ar. S. Gouse (CoA Reg: CA/2012/55190)
-                  </span>
-                </div>
-                <div>
-                  <span className="text-[10px] font-mono text-slate-500 uppercase block">Next Site Pour</span>
-                  <span className="font-semibold text-amber-400 block">
-                    Phase 4 Concrete Slump Audit (Tomorrow 10:30 AM)
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* 2. CORE PERFORMANCE & FINANCIAL KPIS (4 CARDS GRID) */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
-              {/* KPI 1: Physical Execution Progress */}
-              <div className="p-5 rounded-2xl bg-slate-900 border border-slate-800 shadow-xl space-y-3 hover:border-amber-500/40 transition">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-mono text-slate-400 uppercase tracking-wider">Physical Progress</span>
-                  <span className="p-2 rounded-xl bg-amber-500/10 text-amber-400">
-                    <Activity className="w-4 h-4" />
-                  </span>
-                </div>
-                <div className="flex items-baseline gap-2">
-                  <span className="text-3xl font-extrabold text-white font-mono">{overallMilestoneProgress}%</span>
-                  <span className="text-xs text-emerald-400 font-semibold font-mono">Verified On-Site</span>
-                </div>
-                <div className="w-full bg-slate-800 rounded-full h-2 overflow-hidden">
-                  <div
-                    className="bg-gradient-to-r from-amber-500 to-emerald-400 h-2 rounded-full transition-all duration-700"
-                    style={{ width: `${overallMilestoneProgress}%` }}
-                  />
-                </div>
-                <div className="flex items-center justify-between text-[11px] text-slate-400 pt-1">
-                  <span>{financialSummary.completedCount} of {financialSummary.totalCount} Stages Done</span>
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab('milestones')}
-                    className="text-amber-400 hover:underline flex items-center gap-1 font-semibold"
-                  >
-                    Roadmap <ArrowRight className="w-3 h-3" />
-                  </button>
-                </div>
-              </div>
-
-              {/* KPI 2: Financial Escrow Accounting */}
-              <div className="p-5 rounded-2xl bg-slate-900 border border-slate-800 shadow-xl space-y-3 hover:border-emerald-500/40 transition">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-mono text-slate-400 uppercase tracking-wider">Milestone Escrow</span>
-                  <span className="p-2 rounded-xl bg-emerald-500/10 text-emerald-400">
-                    <DollarSign className="w-4 h-4" />
-                  </span>
-                </div>
-                <div className="flex items-baseline gap-2">
-                  <span className="text-2xl sm:text-3xl font-extrabold text-white font-mono">
-                    {formatCurrency(financialSummary.disbursed, currency)}
-                  </span>
-                  <span className="text-xs text-slate-400 font-mono">Disbursed</span>
-                </div>
-                <div className="w-full bg-slate-800 rounded-full h-2 overflow-hidden flex">
-                  <div
-                    className="bg-emerald-500 h-2"
-                    style={{ width: `${Math.round((financialSummary.disbursed / financialSummary.totalCommitted) * 100)}%` }}
-                    title="Disbursed"
-                  />
-                  <div
-                    className="bg-amber-500 h-2"
-                    style={{ width: `${Math.round((financialSummary.inEscrow / financialSummary.totalCommitted) * 100)}%` }}
-                    title="In Escrow"
-                  />
-                </div>
-                <div className="flex items-center justify-between text-[11px] text-slate-400 pt-1">
-                  <span>In Escrow: <strong className="text-amber-300 font-mono">{formatCurrency(financialSummary.inEscrow, currency)}</strong></span>
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab('milestones')}
-                    className="text-emerald-400 hover:underline flex items-center gap-1 font-semibold"
-                  >
-                    Ledger <ArrowRight className="w-3 h-3" />
-                  </button>
-                </div>
-              </div>
-
-              {/* KPI 3: Structural & Code Safety Score */}
-              <div className="p-5 rounded-2xl bg-slate-900 border border-slate-800 shadow-xl space-y-3 hover:border-cyan-500/40 transition">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-mono text-slate-400 uppercase tracking-wider">Structural Quality</span>
-                  <span className="p-2 rounded-xl bg-cyan-500/10 text-cyan-400">
-                    <ShieldCheck className="w-4 h-4" />
-                  </span>
-                </div>
-                <div className="flex items-baseline gap-2">
-                  <span className="text-3xl font-extrabold text-white font-mono">98.6<span className="text-sm text-slate-400 font-normal">/100</span></span>
-                  <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
-                    GRADE A+
-                  </span>
-                </div>
-                <p className="text-xs text-slate-400 leading-snug">
-                  Audited against IS 456:2000 &amp; NBC 2016. Zero unresolved BIM clashes detected across beam &amp; duct penetrations.
+                <h2 className="text-xl font-bold text-white">
+                  {pendingMilestone
+                    ? `Action Required: Stage ${pendingMilestone.stageNumber} Milestone Approval`
+                    : pendingChangeOrder
+                    ? `Action Required: Review ${pendingChangeOrder.code} (${pendingChangeOrder.title})`
+                    : 'Project Execution On Track'}
+                </h2>
+                <p className="text-xs text-slate-300 max-w-2xl leading-relaxed">
+                  {pendingMilestone
+                    ? `${pendingMilestone.title} is ${pendingMilestone.progressPercent}% verified on site. Review deliverables and authorize escrow release.`
+                    : pendingChangeOrder
+                    ? `${pendingChangeOrder.trade} change order awaits client review (${formatCurrency(pendingChangeOrder.costImpact, currency)}).`
+                    : 'All milestone approvals, structural audits, and material selections are synchronized with the studio.'}
                 </p>
-                <div className="text-[11px] text-cyan-400 font-mono pt-1 flex items-center gap-1">
-                  <CheckCircle2 className="w-3.5 h-3.5" />
-                  <span>100% Structural Safety Compliant</span>
-                </div>
               </div>
 
-              {/* KPI 4: Client Approval Action Center */}
-              <div className="p-5 rounded-2xl bg-slate-900 border border-slate-800 shadow-xl space-y-3 hover:border-indigo-500/40 transition">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-mono text-slate-400 uppercase tracking-wider">Action Center</span>
-                  <span className="p-2 rounded-xl bg-indigo-500/10 text-indigo-400">
-                    <CheckSquare className="w-4 h-4" />
-                  </span>
-                </div>
-
-                {activeProject.milestones?.find((m) => m.status === 'in_progress') ? (
-                  <>
-                    <div>
-                      <div className="text-xs font-bold text-white truncate">
-                        {activeProject.milestones.find((m) => m.status === 'in_progress')?.title || activeProject.milestones.find((m) => m.status === 'in_progress')?.name || 'Active Milestone'}
-                      </div>
-                      <div className="text-[11px] text-amber-400 mt-0.5">
-                        Physical inspection completed • Authorization requested
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const inProg = activeProject.milestones?.find((m) => m.status === 'in_progress');
-                        if (inProg) handleApproveMilestone(inProg.id);
-                      }}
-                      className="w-full py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs transition flex items-center justify-center gap-1.5 shadow-sm"
-                    >
-                      <Check className="w-3.5 h-3.5" />
-                      <span>Authorize Current Milestone</span>
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <div className="flex items-center gap-2 text-emerald-400 text-xs font-semibold py-1">
-                      <CheckCircle2 className="w-4 h-4" />
-                      <span>All Approvals Up to Date</span>
-                    </div>
-                    <p className="text-xs text-slate-400">
-                      Current milestone is executing on schedule. Next client sign-off will trigger upon slab inspection.
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => setActiveTab('updates')}
-                      className="w-full py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-xs transition flex items-center justify-center gap-1.5"
-                    >
-                      <span>Check Site Feed</span>
-                    </button>
-                  </>
+              <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+                {pendingMilestone && (
+                  <button
+                    type="button"
+                    onClick={() => handleApproveMilestone(pendingMilestone.id)}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-semibold text-xs transition-colors whitespace-nowrap shrink-0"
+                  >
+                    <Check className="w-3.5 h-3.5" />
+                    <span>Approve Stage {pendingMilestone.stageNumber}</span>
+                  </button>
                 )}
+                {pendingChangeOrder && (
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('change_orders')}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold text-xs transition-colors whitespace-nowrap shrink-0"
+                  >
+                    <ClipboardList className="w-3.5 h-3.5" />
+                    <span>Review {pendingChangeOrder.code}</span>
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={handleDownloadExecutiveBrief}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-xs font-medium transition-colors whitespace-nowrap shrink-0"
+                >
+                  <Download className="w-3.5 h-3.5 text-amber-400" />
+                  <span>Export Brief</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsRequestModalOpen(true)}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-xs font-medium transition-colors whitespace-nowrap shrink-0"
+                >
+                  <Plus className="w-3.5 h-3.5 text-cyan-400" />
+                  <span>Raise Request</span>
+                </button>
               </div>
             </div>
 
-            {/* 3. LIVE 360° AI SITE CAMERA & ACTIVITY LOG (2 COLUMNS) */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-              {/* Left Column: Live AI Site Camera Feed Widget (7 cols) */}
-              <div className="lg:col-span-7 rounded-2xl bg-slate-900 border border-slate-800 shadow-xl overflow-hidden flex flex-col">
-                <div className="p-4 sm:p-5 border-b border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 flex items-center justify-center">
-                      <Camera className="w-4 h-4" />
-                    </div>
-                    <div>
-                      <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                        <span>Live AI Site Camera Feed</span>
-                        <span className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-mono bg-rose-500/20 text-rose-300 border border-rose-500/30">
-                          <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
-                          LIVE
-                        </span>
-                      </h3>
-                      <p className="text-[11px] text-slate-400">
-                        Geotagged 360° photographic surveillance with automated rebar &amp; slump inspection
-                      </p>
-                    </div>
+            {/* Site Inspection View + Field Updates */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
+              <div className="lg:col-span-7 rounded-2xl bg-slate-900 border border-slate-800 overflow-hidden flex flex-col">
+                <div className="p-4 border-b border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div>
+                    <h3 className="text-sm font-semibold text-white">Geotagged Site Inspection Feed</h3>
+                    <p className="text-xs text-slate-400">
+                      {latestSiteAudit
+                        ? `Latest audit: ${latestSiteAudit.stageName} (${latestSiteAudit.qualityScore}/10)`
+                        : 'On-site structural & concrete pour monitoring'}
+                    </p>
                   </div>
 
-                  {/* Camera Angle Switcher */}
-                  <div className="flex items-center gap-1 p-1 rounded-xl bg-slate-950 border border-slate-800 text-xs">
+                  <div className="flex items-center gap-1 p-1 rounded-lg bg-slate-950 border border-slate-800 text-xs">
                     {(['slab', 'crane', 'entrance'] as const).map((angle) => (
                       <button
                         key={angle}
                         type="button"
                         onClick={() => setDashboardCameraAngle(angle)}
-                        className={`px-2.5 py-1 rounded-lg capitalize transition text-[11px] font-medium ${
+                        className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors whitespace-nowrap shrink-0 ${
                           dashboardCameraAngle === angle
-                            ? 'bg-amber-500 text-slate-950 font-bold'
+                            ? 'bg-amber-500 text-slate-950 font-semibold'
                             : 'text-slate-400 hover:text-white'
                         }`}
                       >
-                        {angle === 'slab' ? 'Deck Cam' : angle === 'crane' ? 'Crane 360°' : 'Gate Cam'}
+                        {angle === 'slab' ? 'Deck Cam' : angle === 'crane' ? 'Aerial' : 'Gate Cam'}
                       </button>
                     ))}
                   </div>
                 </div>
 
-                {/* Simulated Live View Stream Container */}
-                <div className="relative aspect-video sm:aspect-[16/9] bg-slate-950 overflow-hidden group">
+                <div className="relative aspect-video bg-slate-950 overflow-hidden">
                   <img
                     src={cameraAnglePresets[dashboardCameraAngle].image}
                     alt={cameraAnglePresets[dashboardCameraAngle].name}
-                    className="w-full h-full object-cover transition duration-500 group-hover:scale-105"
+                    referrerPolicy="no-referrer"
+                    className="w-full h-full object-cover"
                   />
-
-                  {/* HUD Scan Overlay */}
-                  <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-slate-950/60 pointer-events-none" />
-
-                  {/* Top HUD Badges */}
-                  <div className="absolute top-3 left-3 right-3 flex items-center justify-between text-[11px] font-mono">
-                    <div className="flex items-center gap-2 bg-slate-950/80 backdrop-blur-md px-2.5 py-1 rounded-lg border border-slate-700/60 text-slate-200">
-                      <span className="w-2 h-2 rounded-full bg-emerald-400" />
-                      <span>{cameraAnglePresets[dashboardCameraAngle].name}</span>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <span className="hidden sm:inline bg-slate-950/80 backdrop-blur-md px-2.5 py-1 rounded-lg border border-slate-700/60 text-amber-300">
-                        {cameraAnglePresets[dashboardCameraAngle].time}
+                  <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/20 to-transparent" />
+                  <div className="absolute bottom-3 left-3 right-3 p-3 rounded-xl bg-slate-950/85 border border-slate-800 space-y-1">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-white font-medium flex items-center gap-1.5">
+                        <MapPin className="w-3.5 h-3.5 text-amber-400" />
+                        {cameraAnglePresets[dashboardCameraAngle].name}
                       </span>
-                      <button
-                        type="button"
-                        onClick={() => setIsSiteCameraModalOpen(true)}
-                        className="bg-slate-950/80 hover:bg-slate-800 text-slate-200 p-1.5 rounded-lg border border-slate-700/60 transition"
-                        title="Open interactive 360 camera modal"
-                      >
-                        <Maximize2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Bottom HUD Location & AI Specs */}
-                  <div className="absolute bottom-3 left-3 right-3 p-3 rounded-xl bg-slate-950/85 backdrop-blur-md border border-slate-800 space-y-1">
-                    <div className="flex items-center justify-between text-[11px]">
-                      <span className="text-slate-300 font-semibold flex items-center gap-1.5">
-                        <MapPin className="w-3 h-3 text-amber-400" />
-                        {cameraAnglePresets[dashboardCameraAngle].location}
-                      </span>
-                      <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
-                        {cameraAnglePresets[dashboardCameraAngle].badge}
+                      <span className="text-emerald-400 font-medium">
+                        {cameraAnglePresets[dashboardCameraAngle].statusLabel}
                       </span>
                     </div>
-                    <p className="text-[11px] text-slate-400 font-mono truncate">
+                    <p className="text-xs text-slate-400 truncate">
                       {cameraAnglePresets[dashboardCameraAngle].specs}
                     </p>
                   </div>
                 </div>
 
-                {/* Camera Card Footer */}
-                <div className="p-4 bg-slate-900/90 border-t border-slate-800 flex items-center justify-between">
-                  <div className="text-xs text-slate-400">
-                    Site Location: <span className="text-slate-200 font-mono">12.9716° N, 77.5946° E</span>
-                  </div>
+                <div className="p-4 border-t border-slate-800 flex items-center justify-between gap-3">
+                  <span className="text-xs text-slate-400">
+                    {cameraAnglePresets[dashboardCameraAngle].location}
+                  </span>
                   <button
                     type="button"
                     onClick={() => setIsSiteCameraModalOpen(true)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs transition"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-white text-xs font-medium transition-colors whitespace-nowrap shrink-0"
                   >
-                    <Eye className="w-3.5 h-3.5" />
-                    <span>Launch 360° Inspection Tool</span>
+                    <Maximize2 className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Inspect Site Audit</span>
                   </button>
                 </div>
               </div>
 
-              {/* Right Column: Recent Engineering Updates Feed (5 cols) */}
-              <div className="lg:col-span-5 rounded-2xl bg-slate-900 border border-slate-800 shadow-xl p-5 flex flex-col space-y-4">
-                <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-                  <div className="flex items-center gap-2">
-                    <Clock className="w-4 h-4 text-amber-400" />
-                    <h3 className="text-sm font-bold text-white">Recent Engineering Field Updates</h3>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab('updates')}
-                    className="text-xs text-amber-400 hover:underline font-semibold"
-                  >
-                    View All →
-                  </button>
-                </div>
-
-                <div className="space-y-3.5 flex-1 overflow-y-auto max-h-[380px] pr-1">
-                  {(activeProject.statusUpdates || []).slice(0, 3).map((update) => (
-                    <div
-                      key={update.id}
-                      className="p-3.5 rounded-xl bg-slate-950 border border-slate-800/80 space-y-2 hover:border-slate-700 transition"
+              <div className="lg:col-span-5 rounded-2xl bg-slate-900 border border-slate-800 p-5 flex flex-col justify-between space-y-4">
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between pb-2 border-b border-slate-800">
+                    <h3 className="text-sm font-semibold text-white">Recent Field Logs</h3>
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab('updates')}
+                      className="text-xs text-amber-400 hover:underline font-medium"
                     >
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="text-xs font-bold text-white truncate">{update.title}</span>
-                        <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-900 text-slate-400 border border-slate-800">
-                          {update.date}
-                        </span>
+                      View all
+                    </button>
+                  </div>
+
+                  <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1">
+                    {(activeProject.statusUpdates || []).slice(0, 3).map((update) => (
+                      <div
+                        key={update.id}
+                        className="p-3 rounded-xl bg-slate-950 border border-slate-800 space-y-1.5"
+                      >
+                        <div className="flex items-center justify-between gap-2 text-xs">
+                          <span className="font-semibold text-white truncate">{update.title}</span>
+                          <span className="text-slate-500 shrink-0">{update.date}</span>
+                        </div>
+                        <p className="text-xs text-slate-400 line-clamp-2 leading-relaxed">
+                          {update.content}
+                        </p>
+                        <div className="text-[11px] text-slate-500 flex items-center gap-2">
+                          <span>{update.authorName}</span>
+                          <span aria-hidden="true">·</span>
+                          <span className="capitalize">{update.category}</span>
+                        </div>
                       </div>
-                      <p className="text-xs text-slate-300 leading-relaxed line-clamp-2">
-                        {update.content}
-                      </p>
-                      <div className="flex items-center justify-between text-[11px] text-slate-400 pt-1">
-                        <span className="text-slate-400">By {update.authorName} ({update.authorRole})</span>
-                        {update.isInspectionVerified && (
-                          <span className="text-emerald-400 font-mono flex items-center gap-1 text-[10px]">
-                            <CheckCircle2 className="w-3 h-3" /> QA Approved
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
 
-                {/* Inline Client Query Box */}
-                <div className="pt-2 border-t border-slate-800">
-                  <div className="text-[11px] text-slate-400 mb-1.5 flex items-center gap-1.5">
-                    <Send className="w-3 h-3 text-amber-400" />
-                    <span>Quick question for Ar. S. Gouse:</span>
-                  </div>
-                  <form onSubmit={handleSendComment} className="flex gap-2">
+                <form onSubmit={handleSendComment} className="pt-3 border-t border-slate-800 space-y-2">
+                  <label className="block text-xs font-medium text-slate-300">
+                    Send note to Architect &amp; Site Team
+                  </label>
+                  <div className="flex gap-2">
                     <input
                       type="text"
                       value={clientCommentText}
                       onChange={(e) => setClientCommentText(e.target.value)}
-                      placeholder="e.g. Can we confirm marble delivery date?"
-                      className="flex-1 px-3 py-1.5 rounded-lg bg-slate-950 border border-slate-800 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-400"
+                      placeholder="Ask about schedule, finishes, or site visit..."
+                      className="flex-1 px-3 py-2 rounded-lg bg-slate-950 border border-slate-800 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-400"
                     />
                     <button
                       type="submit"
-                      className="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs transition shrink-0"
+                      className="px-3.5 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold text-xs transition-colors whitespace-nowrap shrink-0"
                     >
                       Send
                     </button>
-                  </form>
-                </div>
+                  </div>
+                </form>
               </div>
             </div>
 
-            {/* 3.5 SMART HOME SKA AGENT: AUTONOMIC IOT & ENERGY CONTROL HUB */}
-            <div className="p-6 rounded-3xl bg-gradient-to-r from-slate-900 via-cyan-950/40 to-slate-900 border border-cyan-500/40 shadow-2xl space-y-4">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-3 border-b border-slate-800">
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-cyan-500 to-blue-700 flex items-center justify-center text-white shadow-lg shadow-cyan-500/20 shrink-0">
-                    <Cpu className="w-6 h-6" />
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <h3 className="text-base font-bold text-white tracking-tight">
-                        Smart Home SKA Agent Control Center
-                      </h3>
-                      <span className="px-2.5 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 text-[10px] font-mono font-bold uppercase">
-                        48 NODES ONLINE
-                      </span>
-                    </div>
-                    <p className="text-xs text-slate-300 mt-0.5">
-                      Supervisory Kontrol &amp; Automation (SKA) engine • Matter, KNX, DALI-2, Daikin VRV, &amp; Solar PV orchestration.
-                    </p>
-                  </div>
-                </div>
-
-                <button
-                  type="button"
-                  id="btn-dashboard-open-smart-home-ska"
-                  onClick={() => setActiveTab('smart_home_ska')}
-                  className="px-4 py-2 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-bold text-xs flex items-center gap-2 shadow-lg shadow-cyan-500/20 transition group shrink-0"
-                >
-                  <Cpu className="w-4 h-4 group-hover:scale-110 transition-transform" />
-                  <span>Launch Full SKA Control Center</span>
-                  <ChevronRight className="w-3.5 h-3.5" />
-                </button>
-              </div>
-
-              {/* Quick Telemetry & Status Strips */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                <div className="p-3 rounded-xl bg-slate-950/80 border border-slate-800 space-y-1">
-                  <span className="text-[10px] font-mono text-amber-400 block">ROOFTOP SOLAR PV</span>
-                  <span className="text-sm font-bold text-white font-mono">+7.4 kW Peak</span>
-                  <span className="text-[10px] text-slate-400 block">10 kW Mono-PERC</span>
-                </div>
-
-                <div className="p-3 rounded-xl bg-slate-950/80 border border-slate-800 space-y-1">
-                  <span className="text-[10px] font-mono text-sky-400 block">ACTIVE LOAD</span>
-                  <span className="text-sm font-bold text-white font-mono">2.82 kW In Use</span>
-                  <span className="text-[10px] text-slate-400 block">VRV + DALI Lighting</span>
-                </div>
-
-                <div className="p-3 rounded-xl bg-slate-950/80 border border-slate-800 space-y-1">
-                  <span className="text-[10px] font-mono text-emerald-400 block">BESCOM NET EXPORT</span>
-                  <span className="text-sm font-bold text-emerald-400 font-mono">+4.58 kW Grid Feed</span>
-                  <span className="text-[10px] text-slate-400 block">Zero Electricity Bill</span>
-                </div>
-
-                <div className="p-3 rounded-xl bg-slate-950/80 border border-slate-800 space-y-1">
-                  <span className="text-[10px] font-mono text-cyan-400 block">SKA SMART LOCKS</span>
-                  <span className="text-sm font-bold text-white font-mono">Perimeter Armed</span>
-                  <span className="text-[10px] text-emerald-400 block">Matter Cryptographic</span>
-                </div>
-              </div>
-
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2 text-xs">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-slate-400 text-[11px] font-mono">1-Touch Quick Scenes:</span>
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab('smart_home_ska')}
-                    className="px-2.5 py-1 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[11px] font-semibold transition"
-                  >
-                    Welcome Home
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab('smart_home_ska')}
-                    className="px-2.5 py-1 rounded-lg bg-purple-500/10 hover:bg-purple-500/20 text-purple-300 border border-purple-500/30 text-[11px] font-semibold transition"
-                  >
-                    Cinema Blackout
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab('smart_home_ska')}
-                    className="px-2.5 py-1 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 text-[11px] font-semibold transition"
-                  >
-                    Good Night Armed
-                  </button>
-                </div>
-
-                <div className="text-[11px] text-slate-400 font-mono">
-                  Engineered by Ar. S. Gouse (+91 8073947241)
-                </div>
-              </div>
-            </div>
-
-            {/* 4. SEQUENTIAL MILESTONE PROGRESS ROADMAP */}
-            <div className="p-6 rounded-2xl bg-slate-900 border border-slate-800 shadow-xl space-y-5">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800">
+            {/* Stage Roadmap Snapshot */}
+            <div className="p-5 rounded-2xl bg-slate-900 border border-slate-800 space-y-4">
+              <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="text-base font-bold text-white flex items-center gap-2">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                    <span>Turnkey Milestone Roadmap &amp; Escrow Schedule</span>
-                  </h3>
+                  <h3 className="text-sm font-semibold text-white">Milestone &amp; Payment Schedule</h3>
                   <p className="text-xs text-slate-400">
-                    Sequential progress tracking with verified engineering sign-offs prior to escrow release
+                    Disbursed: {formatCurrency(financialSummary.disbursed, currency)} · In Verification:{' '}
+                    {formatCurrency(financialSummary.inEscrow, currency)}
                   </p>
                 </div>
                 <button
                   type="button"
                   onClick={() => setActiveTab('milestones')}
-                  className="flex items-center gap-1 text-xs text-amber-400 hover:underline font-semibold"
+                  className="inline-flex items-center gap-1 text-xs text-amber-400 hover:underline font-medium"
                 >
-                  <span>Open Full Milestone Ledger</span>
+                  <span>Open BOQ &amp; Milestones</span>
                   <ChevronRight className="w-3.5 h-3.5" />
                 </button>
               </div>
 
-              {/* Horizontal / Grid Roadmap Steps */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3">
-                {(activeProject.milestones || []).map((ms, idx) => {
-                  const isCompleted = ms.status === 'completed';
-                  const isInProgress = ms.status === 'in_progress';
-                  const isUpcoming = ms.status === 'upcoming';
-
-                  return (
-                    <div
-                      key={ms.id}
-                      onClick={() => setActiveTab('milestones')}
-                      className={`p-4 rounded-xl border cursor-pointer transition space-y-2.5 ${
-                        isCompleted
-                          ? 'bg-slate-950/70 border-emerald-500/30 hover:border-emerald-500'
-                          : isInProgress
-                          ? 'bg-amber-500/10 border-amber-500/50 ring-1 ring-amber-500/30'
-                          : 'bg-slate-950/40 border-slate-800 hover:border-slate-700'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between text-[11px] font-mono">
-                        <span className="text-slate-500">STAGE 0{idx + 1}</span>
-                        {isCompleted && <span className="text-emerald-400 font-bold">DONE ✓</span>}
-                        {isInProgress && <span className="text-amber-400 font-bold">ACTIVE ►</span>}
-                        {isUpcoming && <span className="text-slate-500">QUEUED</span>}
-                      </div>
-
-                      <div className="text-xs font-bold text-white line-clamp-2 min-h-[32px]">
-                        {ms.title || ms.name || `Stage 0${idx + 1}`}
-                      </div>
-
-                      <div className="w-full bg-slate-800 rounded-full h-1.5 overflow-hidden">
-                        <div
-                          className={`h-1.5 rounded-full ${isCompleted ? 'bg-emerald-400' : isInProgress ? 'bg-amber-400' : 'bg-slate-700'}`}
-                          style={{ width: `${ms.progressPercent || 0}%` }}
-                        />
-                      </div>
-
-                      <div className="flex items-center justify-between text-[10px] text-slate-400 font-mono">
-                        <span>{ms.targetDate}</span>
-                        <span className="text-slate-200">{formatCurrency(ms.amount || ms.escrowReleaseAmount || 0, currency)}</span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* 5. CONFIDENTIAL DOCUMENTS & DRAWINGS REPOSITORY PREVIEW */}
-            <div className="p-6 rounded-2xl bg-slate-900 border border-slate-800 shadow-xl space-y-4">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800">
-                <div className="flex items-center gap-2.5">
-                  <FolderOpen className="w-4 h-4 text-amber-400" />
-                  <div>
-                    <h3 className="text-base font-bold text-white">Confidential Drawings &amp; Sanction Repository</h3>
-                    <p className="text-xs text-slate-400">
-                      Verified working CAD files, structural calculation reports, and client wishlists
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2">
+                {(activeProject.milestones || []).map((ms, idx) => (
                   <button
+                    key={ms.id}
                     type="button"
-                    onClick={() => setIsUploadModalOpen(true)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs transition"
+                    onClick={() => setActiveTab('milestones')}
+                    className={`p-3.5 rounded-xl border text-left transition-colors space-y-2 ${
+                      ms.status === 'completed'
+                        ? 'bg-slate-950 border-emerald-500/30'
+                        : ms.status === 'in_progress'
+                        ? 'bg-amber-500/10 border-amber-500/40'
+                        : 'bg-slate-950/60 border-slate-800 hover:border-slate-700'
+                    }`}
                   >
-                    <Upload className="w-3.5 h-3.5" />
-                    <span>Upload Document</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab('documents')}
-                    className="text-xs text-amber-400 hover:underline font-semibold"
-                  >
-                    View All ({activeProject.sharedDocuments?.length || 5}) →
-                  </button>
-                </div>
-              </div>
-
-              {/* Documents Grid */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                {(activeProject.sharedDocuments || []).slice(0, 4).map((doc) => (
-                  <div
-                    key={doc.id}
-                    className="p-4 rounded-xl bg-slate-950 border border-slate-800/80 hover:border-slate-700 transition space-y-3 flex flex-col justify-between"
-                  >
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between text-[10px] font-mono">
-                        <span className="px-2 py-0.5 rounded bg-slate-900 text-amber-400 uppercase border border-slate-800">
-                          {doc.fileType}
-                        </span>
-                        <span className="text-slate-400">{doc.fileSize}</span>
-                      </div>
-                      <div className="text-xs font-bold text-white line-clamp-2">
-                        {doc.title}
-                      </div>
-                      <div className="text-[11px] text-slate-400 truncate">
-                        {doc.fileName}
-                      </div>
-                    </div>
-
-                    <div className="pt-2 border-t border-slate-800/60 flex items-center justify-between text-xs">
-                      <button
-                        type="button"
-                        onClick={() => setPreviewDoc(doc)}
-                        className="text-slate-300 hover:text-white flex items-center gap-1 font-medium"
+                    <div className="flex items-center justify-between text-[11px] text-slate-400 tabular-nums">
+                      <span>Stage 0{idx + 1}</span>
+                      <span
+                        className={
+                          ms.status === 'completed'
+                            ? 'text-emerald-400 font-medium'
+                            : ms.status === 'in_progress'
+                            ? 'text-amber-300 font-medium'
+                            : 'text-slate-500'
+                        }
                       >
-                        <Eye className="w-3 h-3 text-slate-400" />
-                        <span>Preview</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleDownloadDocument(doc)}
-                        className="text-amber-400 hover:text-amber-300 flex items-center gap-1 font-semibold"
-                      >
-                        <Download className="w-3 h-3" />
-                        <span>Get File</span>
-                      </button>
+                        {ms.status === 'completed' ? 'Approved' : ms.status === 'in_progress' ? 'Active' : 'Queued'}
+                      </span>
                     </div>
-                  </div>
+                    <div className="text-xs font-semibold text-white line-clamp-2 min-h-[32px]">
+                      {ms.title}
+                    </div>
+                    <div className="text-xs text-slate-300 tabular-nums">
+                      {formatCurrency(ms.amount || ms.escrowReleaseAmount || 0, currency)}
+                    </div>
+                  </button>
                 ))}
               </div>
             </div>
 
-            {/* 6. MULTI-PROPERTY PORTFOLIO (Shown if client is assigned to multiple estates) */}
+            {/* Assigned Multi-Project Portfolio Switcher */}
             {assignedProjects.length > 1 && (
-              <div className="p-6 rounded-2xl bg-slate-900 border border-slate-800 shadow-xl space-y-4">
-                <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-                  <div className="flex items-center gap-2">
-                    <Building2 className="w-4 h-4 text-amber-400" />
-                    <div>
-                      <h3 className="text-base font-bold text-white">Your Assigned Estates Portfolio</h3>
-                      <p className="text-xs text-slate-400">
-                        Switch active workspace or compare physical progress across your registered properties
-                      </p>
-                    </div>
-                  </div>
-                  <span className="text-xs font-mono text-slate-400">{assignedProjects.length} Properties Linked</span>
+              <div className="p-5 rounded-2xl bg-slate-900 border border-slate-800 space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-semibold text-white">Assigned Properties</h3>
+                  <span className="text-xs text-slate-400 tabular-nums">{assignedProjects.length} projects</span>
                 </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   {assignedProjects.map((proj) => {
                     const isCurrent = proj.id === activeProject.id;
                     return (
                       <div
                         key={proj.id}
-                        className={`p-4 rounded-xl border transition flex flex-col justify-between gap-3 ${
-                          isCurrent
-                            ? 'bg-amber-500/10 border-amber-500/50'
-                            : 'bg-slate-950 border-slate-800 hover:border-slate-700'
+                        className={`p-4 rounded-xl border flex items-center justify-between gap-3 ${
+                          isCurrent ? 'bg-amber-500/10 border-amber-500/40' : 'bg-slate-950 border-slate-800'
                         }`}
                       >
-                        <div className="flex items-start justify-between gap-3">
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <h4 className="text-sm font-bold text-white">{proj.name}</h4>
-                              {isCurrent && (
-                                <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-amber-500 text-slate-950 font-bold">
-                                  ACTIVE
-                                </span>
-                              )}
-                            </div>
-                            <div className="text-xs text-slate-400 mt-0.5">{proj.location} • {proj.projectType}</div>
-                          </div>
-                          <div className="text-right">
-                            <span className="text-xs font-mono font-bold text-white">
-                              {proj.builtUpAreaSqFt?.toLocaleString() || '5,800'} Sq.Ft
-                            </span>
+                        <div className="min-w-0">
+                          <div className="text-sm font-semibold text-white truncate">{proj.name}</div>
+                          <div className="text-xs text-slate-400 truncate">
+                            {proj.location} · {proj.builtUpAreaSqFt?.toLocaleString() || '5,800'} sq.ft
                           </div>
                         </div>
-
-                        <div className="flex items-center justify-between pt-2 border-t border-slate-800/80">
-                          <span className="text-xs text-slate-400 capitalize">Stage: {proj.status.replace('_', ' ')}</span>
-                          {!isCurrent ? (
-                            <button
-                              type="button"
-                              onClick={() => handleSelectProject(proj.id)}
-                              className="px-3 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition"
-                            >
-                              Switch to Estate
-                            </button>
-                          ) : (
-                            <span className="text-xs text-emerald-400 font-mono flex items-center gap-1">
-                              <Check className="w-3.5 h-3.5" /> Viewing Now
-                            </span>
-                          )}
-                        </div>
+                        {isCurrent ? (
+                          <span className="text-xs text-emerald-400 font-medium shrink-0">Active</span>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => handleSelectProject(proj.id)}
+                            className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs text-white font-medium shrink-0"
+                          >
+                            Switch
+                          </button>
+                        )}
                       </div>
                     );
                   })}
                 </div>
               </div>
             )}
-
-            {/* 7. ARCHITECTURAL & ENGINEERING ADVISORY TEAM CARD */}
-            <div className="p-6 rounded-2xl bg-gradient-to-r from-slate-900 to-slate-950 border border-slate-800 shadow-xl space-y-4">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800">
-                <div className="flex items-center gap-2">
-                  <Users className="w-4 h-4 text-amber-400" />
-                  <h3 className="text-base font-bold text-white">Dedicated Architectural &amp; Structural Leadership</h3>
-                </div>
-                <div className="text-xs text-emerald-400 font-mono flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-emerald-400" />
-                  <span>Principal Office Available (9:00 AM - 7:00 PM IST)</span>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {/* Contact 1: Lead Architect */}
-                <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
-                  <div className="flex items-center gap-3">
-                    <img
-                      src={AVATARS.principal}
-                      alt="Ar. S. Gouse"
-                      className="w-11 h-11 rounded-xl object-cover border border-amber-500/40"
-                    />
-                    <div>
-                      <div className="text-xs font-bold text-white">Ar. S. Gouse</div>
-                      <div className="text-[11px] text-amber-400">Principal Architect &amp; Founder</div>
-                      <div className="text-[10px] text-slate-500 font-mono">CoA Reg: CA/2012/55190</div>
-                    </div>
-                  </div>
-                  <div className="pt-2 border-t border-slate-800/80 flex items-center gap-2">
-                    <a
-                      href="tel:+918073947241"
-                      className="flex-1 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-200 text-xs font-semibold flex items-center justify-center gap-1 border border-slate-800"
-                    >
-                      <Phone className="w-3 h-3 text-amber-400" />
-                      <span>Call</span>
-                    </a>
-                    <a
-                      href="mailto:sgouse14@gmail.com"
-                      className="flex-1 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-200 text-xs font-semibold flex items-center justify-center gap-1 border border-slate-800"
-                    >
-                      <Mail className="w-3 h-3 text-amber-400" />
-                      <span>Email</span>
-                    </a>
-                  </div>
-                </div>
-
-                {/* Contact 2: Lead Structural Engineer */}
-                <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
-                  <div className="flex items-center gap-3">
-                    <img
-                      src={AVATARS.structuralEngineer}
-                      alt="Er. Rajesh Kumar"
-                      className="w-11 h-11 rounded-xl object-cover border border-slate-700"
-                    />
-                    <div>
-                      <div className="text-xs font-bold text-white">Er. Rajesh Kumar</div>
-                      <div className="text-[11px] text-slate-400">Chief Structural Engineer (M.Tech)</div>
-                      <div className="text-[10px] text-slate-500 font-mono">IS 456 / IS 1893 Lead</div>
-                    </div>
-                  </div>
-                  <div className="pt-2 border-t border-slate-800/80 flex items-center gap-2">
-                    <a
-                      href="tel:+919845012890"
-                      className="flex-1 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-200 text-xs font-semibold flex items-center justify-center gap-1 border border-slate-800"
-                    >
-                      <Phone className="w-3 h-3 text-slate-400" />
-                      <span>Call</span>
-                    </a>
-                    <a
-                      href="mailto:sgouse14@gmail.com"
-                      className="flex-1 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-200 text-xs font-semibold flex items-center justify-center gap-1 border border-slate-800"
-                    >
-                      <Mail className="w-3 h-3 text-slate-400" />
-                      <span>Email</span>
-                    </a>
-                  </div>
-                </div>
-
-                {/* Contact 3: Quantity Surveyor */}
-                <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
-                  <div className="flex items-center gap-3">
-                    <img
-                      src={AVATARS.seniorArchitect}
-                      alt="Priya Nair"
-                      className="w-11 h-11 rounded-xl object-cover border border-slate-700"
-                    />
-                    <div>
-                      <div className="text-xs font-bold text-white">Priya Nair</div>
-                      <div className="text-[11px] text-slate-400">Head of Quantity Surveying &amp; BOQ</div>
-                      <div className="text-[10px] text-slate-500 font-mono">CPWD Schedule Auditor</div>
-                    </div>
-                  </div>
-                  <div className="pt-2 border-t border-slate-800/80 flex items-center gap-2">
-                    <a
-                      href="tel:+918041289001"
-                      className="flex-1 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-200 text-xs font-semibold flex items-center justify-center gap-1 border border-slate-800"
-                    >
-                      <Phone className="w-3 h-3 text-slate-400" />
-                      <span>Call</span>
-                    </a>
-                    <a
-                      href="mailto:sgouse14@gmail.com"
-                      className="flex-1 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-200 text-xs font-semibold flex items-center justify-center gap-1 border border-slate-800"
-                    >
-                      <Mail className="w-3 h-3 text-slate-400" />
-                      <span>Email</span>
-                    </a>
-                  </div>
-                </div>
-              </div>
-            </div>
           </div>
         )}
 
         {/* ============================================================== */}
-        {/* TAB 1: MILESTONE PROGRESS & ESCROW                             */}
+        {/* TAB 2: MILESTONES & LIVE BOQ BREAKDOWN                         */}
         {/* ============================================================== */}
         {activeTab === 'milestones' && (
           <div className="space-y-6">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div>
-                <h3 className="text-lg font-bold text-white tracking-tight">
-                  Project Milestones &amp; Financial Escrow Verification
-                </h3>
-                <p className="text-xs text-slate-400">
-                  Track physical completion stages. Funds are released only following structural verification and authorized client sign-off.
-                </p>
+            {/* Live BOQ Cost Allocation Table */}
+            <div className="p-5 rounded-2xl bg-slate-900 border border-slate-800 space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-base font-bold text-white">Live Project BOQ Budget Breakdown</h2>
+                  <p className="text-xs text-slate-400">
+                    Synchronized directly with studio quantity surveying &amp; locked material rates.
+                  </p>
+                </div>
+                {isStaffPreview && onOpenStudioTab && (
+                  <button
+                    type="button"
+                    onClick={() => onOpenStudioTab('boq')}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs text-amber-300 font-medium whitespace-nowrap shrink-0"
+                  >
+                    <span>Edit in Studio BOQ</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
+                )}
               </div>
 
-              {signedOffMilestoneId && (
-                <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-xs font-mono animate-fadeIn">
-                  <Check className="w-4 h-4 text-emerald-400" />
-                  <span>Milestone Approved &amp; Logged to Project Ledger!</span>
+              {boqAccounting.stageRows.length > 0 ? (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs text-left">
+                    <thead>
+                      <tr className="border-b border-slate-800 text-slate-400">
+                        <th className="py-2 pr-4 font-medium">Construction Stage / Trade</th>
+                        <th className="py-2 px-4 font-medium text-right">Line Items</th>
+                        <th className="py-2 px-4 font-medium text-right">Share</th>
+                        <th className="py-2 pl-4 font-medium text-right">Allocation ({currency})</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-800/70">
+                      {boqAccounting.stageRows.map((row) => {
+                        const pct =
+                          boqAccounting.subtotal > 0
+                            ? Math.round((row.amount / boqAccounting.subtotal) * 100)
+                            : 0;
+                        return (
+                          <tr key={row.stage} className="hover:bg-slate-800/30">
+                            <td className="py-2.5 pr-4 font-medium text-white">{row.stage}</td>
+                            <td className="py-2.5 px-4 text-right text-slate-300 tabular-nums">{row.count}</td>
+                            <td className="py-2.5 px-4 text-right text-slate-400 tabular-nums">{pct}%</td>
+                            <td className="py-2.5 pl-4 text-right font-semibold text-white tabular-nums">
+                              {formatCurrency(row.amount, currency)}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                      <tr className="border-t border-slate-700 text-slate-300">
+                        <td className="py-2.5 pr-4">Contingency Reserve ({contingencyPercent}%)</td>
+                        <td className="py-2.5 px-4 text-right">—</td>
+                        <td className="py-2.5 px-4 text-right tabular-nums">{contingencyPercent}%</td>
+                        <td className="py-2.5 pl-4 text-right font-semibold tabular-nums">
+                          {formatCurrency(boqAccounting.contingencyAmt, currency)}
+                        </td>
+                      </tr>
+                      <tr className="border-t border-slate-700 text-amber-300 font-bold">
+                        <td className="py-3 pr-4">Total Authorized BOQ Budget</td>
+                        <td className="py-3 px-4 text-right tabular-nums">{boqItems.length}</td>
+                        <td className="py-3 px-4 text-right">100%</td>
+                        <td className="py-3 pl-4 text-right tabular-nums">
+                          {formatCurrency(boqAccounting.authorizedTotal, currency)}
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 text-xs text-slate-400">
+                  No BOQ line items have been published for this project yet.
                 </div>
               )}
             </div>
 
-            {/* Milestones Sequential Pipeline */}
+            {/* Milestone Escrow Schedule */}
             <div className="space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div>
+                  <h3 className="text-base font-bold text-white">Stage Milestones &amp; Client Sign-Off</h3>
+                  <p className="text-xs text-slate-400">
+                    Escrow releases require verified engineering inspection and client authorization.
+                  </p>
+                </div>
+                {signedOffMilestoneId && (
+                  <span className="text-xs text-emerald-400 font-medium">
+                    Milestone signed off and recorded.
+                  </span>
+                )}
+              </div>
+
               {(activeProject.milestones || []).map((ms) => {
                 const isCompleted = ms.status === 'completed';
                 const isInProgress = ms.status === 'in_progress';
-
                 return (
                   <div
                     key={ms.id}
-                    className={`p-5 rounded-2xl border transition duration-200 space-y-4 ${
-                      isCompleted
-                        ? 'bg-slate-900/60 border-slate-800'
-                        : isInProgress
-                        ? 'bg-slate-900 border-amber-500/40 shadow-lg'
-                        : 'bg-slate-950/60 border-slate-800/60 opacity-80'
+                    className={`p-5 rounded-xl border space-y-3 ${
+                      isInProgress
+                        ? 'bg-slate-900 border-amber-500/40'
+                        : 'bg-slate-900 border-slate-800'
                     }`}
                   >
-                    {/* Header line */}
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                      <div className="flex items-center gap-3">
-                        <div
-                          className={`w-8 h-8 rounded-xl flex items-center justify-center font-mono font-bold text-xs shrink-0 ${
-                            isCompleted
-                              ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                              : isInProgress
-                              ? 'bg-amber-500/20 text-amber-400 border border-amber-500/40'
-                              : 'bg-slate-800 text-slate-400 border border-slate-700'
-                          }`}
-                        >
-                          {isCompleted ? <Check className="w-4 h-4 stroke-[2.5]" /> : ms.stageNumber}
+                      <div>
+                        <div className="text-xs text-slate-400 flex items-center gap-2">
+                          <span>Stage {ms.stageNumber}</span>
+                          <span aria-hidden="true">·</span>
+                          <span className="capitalize">{ms.status.replace('_', ' ')}</span>
+                          <span aria-hidden="true">·</span>
+                          <span className="tabular-nums">Target {ms.targetDate}</span>
                         </div>
-
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <h4 className="text-sm sm:text-base font-bold text-white">{ms.title}</h4>
-                            <span
-                              className={`text-[10px] font-mono px-2 py-0.5 rounded font-semibold uppercase ${
-                                isCompleted
-                                  ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                                  : isInProgress
-                                  ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
-                                  : 'bg-slate-800 text-slate-400 border border-slate-700'
-                              }`}
-                            >
-                              {ms.status.replace('_', ' ')}
-                            </span>
-                          </div>
-                          <div className="text-xs text-slate-400 mt-0.5">
-                            Target Date: <span className="text-slate-300 font-mono">{ms.targetDate}</span>
-                            {ms.completedDate && (
-                              <>
-                                <span aria-hidden="true" className="mx-1.5">·</span>
-                                <span>Completed: <strong className="text-emerald-400 font-mono">{ms.completedDate}</strong></span>
-                              </>
-                            )}
-                          </div>
-                        </div>
+                        <h4 className="text-sm font-bold text-white mt-0.5">{ms.title}</h4>
                       </div>
 
-                      {/* Escrow Value Badge */}
-                      {ms.escrowReleaseAmount && (
-                        <div className="text-right">
-                          <div className="text-[11px] text-slate-400 font-mono uppercase">Escrow Valuation</div>
-                          <div className="text-sm font-bold font-mono text-white">
-                            {formatCurrency(ms.escrowReleaseAmount, currency)}
-                          </div>
-                          <div className="text-[10px] font-mono capitalize text-slate-400">
-                            {ms.escrowStatus?.replace('_', ' ')}
-                          </div>
+                      <div className="sm:text-right">
+                        <div className="text-sm font-bold text-white tabular-nums">
+                          {formatCurrency(ms.escrowReleaseAmount || ms.amount || 0, currency)}
                         </div>
-                      )}
+                        <div className="text-xs text-slate-400 capitalize">
+                          {(ms.escrowStatus || 'scheduled').replace('_', ' ')}
+                        </div>
+                      </div>
                     </div>
 
-                    <p className="text-xs text-slate-300 leading-relaxed font-light">{ms.description}</p>
+                    <p className="text-xs text-slate-300 leading-relaxed">{ms.description}</p>
 
-                    {/* Progress Bar for In-Progress item */}
-                    {isInProgress && (
-                      <div className="space-y-1.5 pt-1">
-                        <div className="flex justify-between text-xs text-slate-400 font-mono">
-                          <span>Physical Progress:</span>
-                          <span className="text-amber-400 font-bold">{ms.progressPercent}%</span>
-                        </div>
-                        <div className="w-full bg-slate-800 rounded-full h-2 overflow-hidden">
-                          <div
-                            className="bg-amber-500 h-2 rounded-full transition-all duration-300"
-                            style={{ width: `${ms.progressPercent}%` }}
-                          />
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Deliverables Checklist */}
                     {ms.deliverables && ms.deliverables.length > 0 && (
-                      <div className="pt-2 border-t border-slate-800/80 space-y-1.5">
-                        <div className="text-[11px] font-semibold text-slate-400 font-mono">Key Deliverables &amp; Test Certificates:</div>
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
-                          {ms.deliverables.map((del, i) => (
-                            <div key={i} className="flex items-center gap-1.5 text-slate-300">
-                              <CheckCircle2
-                                className={`w-3.5 h-3.5 shrink-0 ${
-                                  isCompleted ? 'text-emerald-400' : 'text-slate-500'
-                                }`}
-                              />
-                              <span className="truncate">{del}</span>
-                            </div>
-                          ))}
-                        </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-2 border-t border-slate-800/80 text-xs text-slate-300">
+                        {ms.deliverables.map((del, i) => (
+                          <div key={i} className="flex items-center gap-1.5">
+                            <CheckCircle2
+                              className={`w-3.5 h-3.5 shrink-0 ${
+                                isCompleted ? 'text-emerald-400' : 'text-slate-500'
+                              }`}
+                            />
+                            <span className="truncate">{del}</span>
+                          </div>
+                        ))}
                       </div>
                     )}
 
-                    {/* Client Approval Action Bar */}
-                    <div className="pt-3 border-t border-slate-800/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
-                      <div className="text-slate-400">
-                        {ms.verifiedBy && (
-                          <span>Technical Verification: <strong className="text-slate-200">{ms.verifiedBy}</strong></span>
-                        )}
-                        {ms.isClientSignedOff && (
-                          <span className="text-emerald-400 ml-2 font-mono">✓ Signed off by Client</span>
-                        )}
-                      </div>
+                    <div className="pt-2 border-t border-slate-800/80 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+                      <span className="text-slate-400">
+                        {ms.verifiedBy ? `Verified by ${ms.verifiedBy}` : 'Scheduled engineering audit'}
+                        {ms.isClientSignedOff ? ' · Signed off by client' : ''}
+                      </span>
 
-                      {/* Sign-off button for client if in progress and not yet signed off */}
                       {isInProgress && !ms.isClientSignedOff && (
-                        <div className="flex items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => handleApproveMilestone(ms.id)}
-                            className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs transition shadow-md shadow-amber-500/20 flex items-center gap-1.5"
-                          >
-                            <FileCheck className="w-4 h-4" />
-                            <span>Sign Off &amp; Approve Milestone</span>
-                          </button>
-                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleApproveMilestone(ms.id)}
+                          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold text-xs transition-colors whitespace-nowrap shrink-0"
+                        >
+                          <FileCheck className="w-3.5 h-3.5" />
+                          <span>Approve &amp; Release Milestone</span>
+                        </button>
                       )}
                     </div>
                   </div>
@@ -1771,30 +1709,641 @@ Bangalore, India • Contact: sgouse14@gmail.com
         )}
 
         {/* ============================================================== */}
-        {/* TAB 2: PROJECT STATUS UPDATES & SITE FEED                     */}
+        {/* TAB 3: CHANGE ORDERS & RFIs (SYNCED WITH STUDIO FIELD OPS)     */}
+        {/* ============================================================== */}
+        {activeTab === 'change_orders' && (
+          <div className="space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <h2 className="text-lg font-bold text-white">Change Orders, RFIs &amp; Site Clarifications</h2>
+                <p className="text-xs text-slate-400">
+                  Live sync with Studio Field Operations. Approved change orders update the project BOQ automatically.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0">
+                <div className="flex items-center gap-1 p-1 rounded-lg bg-slate-900 border border-slate-800 text-xs">
+                  {(
+                    [
+                      { id: 'all', label: 'All' },
+                      { id: 'change_order', label: 'Change Orders' },
+                      { id: 'rfi', label: 'RFIs' },
+                      { id: 'snag', label: 'Snags' },
+                    ] as const
+                  ).map((f) => (
+                    <button
+                      key={f.id}
+                      type="button"
+                      onClick={() => setFieldFilter(f.id)}
+                      className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors whitespace-nowrap shrink-0 ${
+                        fieldFilter === f.id
+                          ? 'bg-amber-500 text-slate-950 font-semibold'
+                          : 'text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      {f.label}
+                    </button>
+                  ))}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setIsRequestModalOpen(true)}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold text-xs transition-colors whitespace-nowrap shrink-0"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Raise Request</span>
+                </button>
+              </div>
+            </div>
+
+            {filteredFieldItems.length === 0 ? (
+              <div className="p-8 rounded-2xl bg-slate-900 border border-slate-800 text-center space-y-3">
+                <ClipboardList className="w-8 h-8 text-slate-500 mx-auto" />
+                <div className="space-y-1">
+                  <h3 className="text-sm font-semibold text-white">No Change Orders or RFIs Logged Yet</h3>
+                  <p className="text-xs text-slate-400 max-w-md mx-auto">
+                    Any RFIs, scope variations, or site snags logged in Studio Field Operations or submitted by you appear here for digital sign-off.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsRequestModalOpen(true)}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold text-xs transition-colors"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Submit First Request</span>
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {filteredFieldItems.map((item) => {
+                  const isApproved = item.status === 'approved' || item.status === 'resolved';
+                  return (
+                    <div
+                      key={item.id}
+                      className="p-5 rounded-xl bg-slate-900 border border-slate-800 space-y-3"
+                    >
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                        <div>
+                          <div className="text-xs text-slate-400 flex flex-wrap items-center gap-2">
+                            <span className="font-mono text-amber-300 font-semibold">{item.code}</span>
+                            <span aria-hidden="true">·</span>
+                            <span>{item.trade}</span>
+                            <span aria-hidden="true">·</span>
+                            <span className="capitalize">{item.type.replace('_', ' ')}</span>
+                            <span aria-hidden="true">·</span>
+                            <span>Due {item.dueDate}</span>
+                          </div>
+                          <h3 className="text-sm font-bold text-white mt-0.5">{item.title}</h3>
+                        </div>
+
+                        <div className="flex items-center gap-4 text-xs sm:text-right shrink-0">
+                          <div>
+                            <div className="text-slate-400">Cost impact</div>
+                            <div className="font-bold text-white tabular-nums">
+                              {item.costImpact === 0 ? 'No cost change' : formatCurrency(item.costImpact, currency)}
+                            </div>
+                          </div>
+                          <div>
+                            <div className="text-slate-400">Schedule</div>
+                            <div className="font-semibold text-slate-200 tabular-nums">
+                              {item.scheduleDays > 0 ? `+${item.scheduleDays} days` : 'On schedule'}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {item.notes && <p className="text-xs text-slate-300 leading-relaxed">{item.notes}</p>}
+
+                      <div className="pt-2.5 border-t border-slate-800/80 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+                        <div className="flex items-center gap-2">
+                          <span
+                            className={`font-medium capitalize ${
+                              isApproved ? 'text-emerald-400' : 'text-amber-300'
+                            }`}
+                          >
+                            Status: {item.status.replace('_', ' ')}
+                          </span>
+                          {item.syncedToBoq && (
+                            <>
+                              <span aria-hidden="true" className="text-slate-600">·</span>
+                              <span className="text-emerald-400">Synced to BOQ</span>
+                            </>
+                          )}
+                        </div>
+
+                        {!isApproved && (
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => handleRequestClarification(item.id)}
+                              className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium transition-colors whitespace-nowrap shrink-0"
+                            >
+                              Request Clarification
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleApproveFieldItem(item.id)}
+                              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-semibold text-xs transition-colors whitespace-nowrap shrink-0"
+                            >
+                              <Check className="w-3.5 h-3.5" />
+                              <span>{item.costImpact !== 0 ? 'Approve & Sync BOQ' : 'Approve'}</span>
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ============================================================== */}
+        {/* TAB 4: CLIENT MATERIALS & RATES AREA                           */}
+        {/* ============================================================== */}
+        {activeTab === 'selections' && (
+          <div className="space-y-6">
+            {/* Top Summary & Allowance Sync Card */}
+            <div className="p-5 rounded-2xl bg-slate-900 border border-slate-800 space-y-4">
+              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                <div className="space-y-1">
+                  <h2 className="text-lg font-bold text-white">Materials, Finish Selections &amp; Rates</h2>
+                  <p className="text-xs text-slate-400">
+                    Choose finish tiers, review approved brand unit rates, and estimate material costs transparently.
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-5 shrink-0">
+                  <div className="text-xs">
+                    <div className="text-slate-400">Contract Allowance</div>
+                    <div className="text-sm font-bold text-white tabular-nums">
+                      {formatCurrency(selectionSummary.totalAllowance, currency)}
+                    </div>
+                  </div>
+                  <div className="text-xs">
+                    <div className="text-slate-400">Selected Total</div>
+                    <div className="text-sm font-bold text-white tabular-nums">
+                      {formatCurrency(selectionSummary.totalSelected, currency)}
+                    </div>
+                  </div>
+                  <div className="text-xs">
+                    <div className="text-slate-400">Net Variance</div>
+                    <div
+                      className={`text-sm font-bold tabular-nums ${
+                        selectionSummary.netDelta > 0 ? 'text-amber-300' : 'text-emerald-400'
+                      }`}
+                    >
+                      {selectionSummary.netDelta >= 0 ? '+' : ''}
+                      {formatCurrency(selectionSummary.netDelta, currency)}
+                    </div>
+                  </div>
+                  {onUpdateBOQItems && (
+                    <button
+                      type="button"
+                      onClick={handleSyncSelectionsToBoq}
+                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold text-xs transition-colors whitespace-nowrap shrink-0"
+                    >
+                      <Check className="w-3.5 h-3.5" />
+                      <span>Confirm &amp; Sync to BOQ</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Clean 3-Mode Sub-Navigation */}
+              <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-slate-800">
+                <div className="flex items-center gap-1 p-1 rounded-lg bg-slate-950 border border-slate-800 overflow-x-auto">
+                  {[
+                    { id: 'selections' as const, label: 'Finish Selections & Upgrades', icon: Sliders },
+                    {
+                      id: 'rates' as const,
+                      label: `Approved Material Rates (${allMaterialRates.length})`,
+                      icon: Layers,
+                    },
+                    { id: 'estimator' as const, label: 'Quick Cost Estimator', icon: Calculator },
+                  ].map((sub) => {
+                    const SubIcon = sub.icon;
+                    const isSubActive = materialsSubTab === sub.id;
+                    return (
+                      <button
+                        key={sub.id}
+                        type="button"
+                        onClick={() => setMaterialsSubTab(sub.id)}
+                        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors whitespace-nowrap shrink-0 ${
+                          isSubActive
+                            ? 'bg-amber-500 text-slate-950 font-semibold'
+                            : 'text-slate-400 hover:text-white'
+                        }`}
+                      >
+                        <SubIcon className="w-3.5 h-3.5" />
+                        <span>{sub.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {materialsSubTab === 'rates' && (
+                  <button
+                    type="button"
+                    onClick={handleExportClientRatesCsv}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium transition-colors whitespace-nowrap shrink-0"
+                  >
+                    <Download className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Export Rate Sheet (CSV)</span>
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* SUB-TAB 1: FINISH SELECTIONS & UPGRADES */}
+            {materialsSubTab === 'selections' && (
+              <div className="space-y-4">
+                {SELECTION_CATALOG.map((cat) => {
+                  const currentSel = activeSelections.find((s) => s.categoryId === cat.categoryId);
+                  const delta = (currentSel?.selectedAmount || cat.allowanceAmount) - cat.allowanceAmount;
+
+                  return (
+                    <div
+                      key={cat.categoryId}
+                      className="p-5 rounded-xl bg-slate-900 border border-slate-800 space-y-4"
+                    >
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                        <div>
+                          <h3 className="text-sm font-bold text-white">{cat.categoryName}</h3>
+                          <div className="text-xs text-slate-400 tabular-nums">
+                            Contract allowance: {formatCurrency(cat.allowanceAmount, currency)}
+                            {currentSel?.approvedByClient ? ' · Selected by client' : ''}
+                          </div>
+                        </div>
+                        <div
+                          className={`text-xs font-semibold tabular-nums ${
+                            delta > 0 ? 'text-amber-300' : 'text-emerald-400'
+                          }`}
+                        >
+                          {delta === 0 ? 'Included in Allowance' : `+${formatCurrency(delta, currency)} upgrade`}
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        {cat.options.map((opt) => {
+                          const isPicked = currentSel?.tier === opt.tier;
+                          const optDelta = opt.selectedAmount - cat.allowanceAmount;
+                          return (
+                            <button
+                              key={opt.tier}
+                              type="button"
+                              onClick={() => handleUpdateSelectionTier(cat, opt, true)}
+                              className={`p-4 rounded-xl border text-left transition-colors flex flex-col justify-between gap-3 ${
+                                isPicked
+                                  ? 'bg-amber-500/10 border-amber-500/50'
+                                  : 'bg-slate-950 border-slate-800 hover:border-slate-700'
+                              }`}
+                            >
+                              <div className="space-y-1.5">
+                                <div className="flex items-center justify-between text-xs">
+                                  <span className="capitalize font-semibold text-amber-300">{opt.tier}</span>
+                                  <span className="text-slate-400 tabular-nums">Lead {opt.leadTime}</span>
+                                </div>
+                                <div className="text-xs font-semibold text-white leading-snug">
+                                  {opt.specTitle}
+                                </div>
+                                <p className="text-[11px] text-slate-400 leading-relaxed">{opt.notes}</p>
+                              </div>
+
+                              <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between text-xs">
+                                <span className="font-bold text-white tabular-nums">
+                                  {formatCurrency(opt.selectedAmount, currency)}
+                                </span>
+                                <span className={optDelta > 0 ? 'text-amber-300 tabular-nums' : 'text-emerald-400'}>
+                                  {optDelta === 0 ? 'Base' : `+${formatCurrency(optDelta, currency)}`}
+                                </span>
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* SUB-TAB 2: APPROVED PROJECT MATERIAL RATES */}
+            {materialsSubTab === 'rates' && (
+              <div className="space-y-4">
+                <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-3">
+                  <div className="flex flex-wrap items-center gap-2.5 flex-1">
+                    <div className="flex items-center gap-2 bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-2 text-xs flex-1 min-w-[200px] max-w-xs">
+                      <Search className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                      <input
+                        type="text"
+                        placeholder="Search cement, steel, paint, brand..."
+                        value={clientRateQuery}
+                        onChange={(e) => setClientRateQuery(e.target.value)}
+                        className="w-full bg-transparent text-white focus:outline-none placeholder-slate-500"
+                      />
+                    </div>
+
+                    <select
+                      value={clientRateCategory}
+                      onChange={(e) => setClientRateCategory(e.target.value)}
+                      className="bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-400"
+                    >
+                      <option value="all">All Categories</option>
+                      <option value="Interior">All Interior Items</option>
+                      <option value="Interior & Millwork">Interior &amp; Millwork</option>
+                      <option value="Interior Finishes & Lighting">Interior Finishes &amp; Lighting</option>
+                      <option value="Cement & Concrete">Cement &amp; Concrete</option>
+                      <option value="Steel & Reinforcement">Steel &amp; Reinforcement</option>
+                      <option value="Sand & Aggregates">Sand &amp; Aggregates</option>
+                      <option value="Blocks & Bricks">Blocks &amp; Bricks</option>
+                      <option value="Glass & Fenestration">Glass &amp; Glazing</option>
+                      <option value="Plumbing & MEP">Plumbing &amp; Electrical</option>
+                      <option value="Finishes & Coatings">Finishes &amp; Paints</option>
+                    </select>
+
+                    <button
+                      type="button"
+                      onClick={() => setClientRateBoqOnly(!clientRateBoqOnly)}
+                      className={`px-3 py-2 rounded-lg text-xs font-medium border transition-colors whitespace-nowrap shrink-0 ${
+                        clientRateBoqOnly
+                          ? 'bg-amber-500 text-slate-950 border-amber-400 font-semibold'
+                          : 'bg-slate-950 text-slate-300 border-slate-800 hover:border-slate-700'
+                      }`}
+                    >
+                      Locked in BOQ Only
+                    </button>
+                  </div>
+
+                  <div className="text-xs text-slate-400 tabular-nums shrink-0">
+                    Showing <strong className="text-white">{filteredClientRates.length}</strong> of{' '}
+                    {allMaterialRates.length} rates
+                  </div>
+                </div>
+
+                <div className="rounded-xl bg-slate-900 border border-slate-800 overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs text-left">
+                      <thead>
+                        <tr className="border-b border-slate-800 bg-slate-950/60 text-slate-400">
+                          <th className="py-3 pl-4 pr-3 font-medium whitespace-nowrap">Material</th>
+                          <th className="py-3 px-3 font-medium whitespace-nowrap">Approved Brands</th>
+                          <th className="py-3 px-3 font-medium whitespace-nowrap">Unit</th>
+                          <th className="py-3 px-3 font-medium text-right whitespace-nowrap">
+                            Market Range
+                          </th>
+                          <th className="py-3 px-3 font-medium text-right whitespace-nowrap">
+                            Project / Spot Rate ({currency})
+                          </th>
+                          <th className="py-3 px-3 font-medium text-right whitespace-nowrap">30d Trend</th>
+                          <th className="py-3 px-3 font-medium whitespace-nowrap">BOQ Status</th>
+                          <th className="py-3 pl-3 pr-4 font-medium text-right whitespace-nowrap">
+                            Inquiry
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-800/80">
+                        {filteredClientRates.map((mat) => {
+                          const isUp = mat.trend === 'up' || mat.changePercent > 0;
+                          const isDown = mat.trend === 'down' || mat.changePercent < 0;
+                          const effectiveRate = mat.boqRate ?? mat.currentPrice;
+
+                          return (
+                            <tr key={mat.id} className="hover:bg-slate-800/35 transition-colors">
+                              <td className="py-3 pl-4 pr-3 min-w-[200px]">
+                                <div className="font-semibold text-white">{mat.name}</div>
+                                <div className="text-[11px] text-slate-400">{mat.category}</div>
+                              </td>
+                              <td className="py-3 px-3 text-slate-300 max-w-[200px]">
+                                <div className="truncate" title={mat.brands.join(', ')}>
+                                  {mat.brands.slice(0, 3).join(', ')}
+                                </div>
+                              </td>
+                              <td className="py-3 px-3 text-slate-300 whitespace-nowrap">{mat.unit}</td>
+                              <td className="py-3 px-3 text-right text-slate-400 tabular-nums whitespace-nowrap">
+                                {formatCurrency(mat.minPrice, currency)} –{' '}
+                                {formatCurrency(mat.maxPrice, currency)}
+                              </td>
+                              <td className="py-3 px-3 text-right font-bold text-white tabular-nums whitespace-nowrap">
+                                {formatCurrency(effectiveRate, currency)}
+                              </td>
+                              <td className="py-3 px-3 text-right tabular-nums whitespace-nowrap">
+                                <span
+                                  className={`inline-flex items-center gap-1 font-medium ${
+                                    isUp
+                                      ? 'text-emerald-400'
+                                      : isDown
+                                      ? 'text-rose-400'
+                                      : 'text-slate-400'
+                                  }`}
+                                >
+                                  {isUp ? (
+                                    <TrendingUp className="w-3 h-3" />
+                                  ) : isDown ? (
+                                    <TrendingDown className="w-3 h-3" />
+                                  ) : (
+                                    <Minus className="w-3 h-3" />
+                                  )}
+                                  <span>
+                                    {mat.changePercent > 0 ? `+${mat.changePercent}%` : `${mat.changePercent}%`}
+                                  </span>
+                                </span>
+                              </td>
+                              <td className="py-3 px-3 whitespace-nowrap">
+                                <span
+                                  className={`text-xs font-medium ${
+                                    mat.inProjectBoq ? 'text-emerald-400' : 'text-slate-400'
+                                  }`}
+                                >
+                                  {mat.inProjectBoq ? 'Locked in BOQ' : 'Market Benchmark'}
+                                </span>
+                              </td>
+                              <td className="py-3 pl-3 pr-4 text-right whitespace-nowrap">
+                                <button
+                                  type="button"
+                                  onClick={() => handleAskAboutMaterial(mat)}
+                                  className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium transition-colors whitespace-nowrap shrink-0"
+                                >
+                                  Ask Architect
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* SUB-TAB 3: QUICK MATERIAL COST ESTIMATOR */}
+            {materialsSubTab === 'estimator' && estimatorMaterial && (
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                <div className="lg:col-span-7 p-5 rounded-2xl bg-slate-900 border border-slate-800 space-y-4">
+                  <div>
+                    <h3 className="text-sm font-bold text-white">Simple Material Cost Estimator</h3>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      Pick any material or brand package and enter your estimated quantity to preview cost before requesting an upgrade.
+                    </p>
+                  </div>
+
+                  <div className="space-y-3 text-xs">
+                    <div>
+                      <label className="block text-slate-300 font-medium mb-1">
+                        Select Material / Package
+                      </label>
+                      <select
+                        value={estimatorMaterial.id}
+                        onChange={(e) => setCalcSelectedRateId(e.target.value)}
+                        className="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-800 text-white focus:outline-none focus:border-amber-400"
+                      >
+                        {allMaterialRates.map((m) => (
+                          <option key={m.id} value={m.id}>
+                            {m.name} ({formatCurrency(m.boqRate ?? m.currentPrice, currency)} / {m.unit})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-slate-300 font-medium mb-1">
+                          Quantity ({estimatorMaterial.unit})
+                        </label>
+                        <input
+                          type="number"
+                          min={1}
+                          value={calcQty}
+                          onChange={(e) => setCalcQty(Math.max(1, Number(e.target.value) || 1))}
+                          className="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-800 text-white tabular-nums focus:outline-none focus:border-amber-400"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-slate-300 font-medium mb-1">
+                          Site Wastage Allowance
+                        </label>
+                        <select
+                          value={calcWastage}
+                          onChange={(e) => setCalcWastage(Number(e.target.value))}
+                          className="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-800 text-white focus:outline-none focus:border-amber-400"
+                        >
+                          <option value={0}>0% (Exact Net)</option>
+                          <option value={3}>3% (Standard Factory Cut)</option>
+                          <option value={5}>5% (Standard Site Allowance)</option>
+                          <option value={10}>10% (Stone / Tile Pattern Cut)</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 text-slate-300 space-y-1">
+                      <div>
+                        <span className="text-slate-400">Approved Brands: </span>
+                        <span className="text-white">{estimatorMaterial.brands.join(', ')}</span>
+                      </div>
+                      {(estimatorMaterial.marketNotes || estimatorMaterial.trendReason) && (
+                        <div className="text-slate-400">
+                          {estimatorMaterial.marketNotes || estimatorMaterial.trendReason}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="lg:col-span-5 p-5 rounded-2xl bg-slate-900 border border-slate-800 flex flex-col justify-between space-y-4">
+                  {(() => {
+                    const unitRate = estimatorMaterial.boqRate ?? estimatorMaterial.currentPrice;
+                    const baseTotal = calcQty * unitRate;
+                    const wastageCost = Math.round(baseTotal * (calcWastage / 100));
+                    const grandTotal = baseTotal + wastageCost;
+
+                    return (
+                      <>
+                        <div className="space-y-3">
+                          <div className="text-xs text-slate-400">Estimated Material Budget</div>
+                          <div className="text-2xl font-bold text-amber-400 tabular-nums">
+                            {formatCurrency(grandTotal, currency)}
+                          </div>
+                          <div className="space-y-2 pt-3 border-t border-slate-800 text-xs">
+                            <div className="flex items-center justify-between">
+                              <span className="text-slate-400">Unit Rate</span>
+                              <span className="text-white font-medium tabular-nums">
+                                {formatCurrency(unitRate, currency)} / {estimatorMaterial.unit}
+                              </span>
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <span className="text-slate-400">Base Cost ({calcQty} units)</span>
+                              <span className="text-white tabular-nums">
+                                {formatCurrency(baseTotal, currency)}
+                              </span>
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <span className="text-slate-400">Wastage Buffer ({calcWastage}%)</span>
+                              <span className="text-slate-200 tabular-nums">
+                                {formatCurrency(wastageCost, currency)}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setReqType('change_order');
+                            setReqTrade('Finishes');
+                            setReqTitle(
+                              `Material Estimate Request: ${estimatorMaterial.name} (${calcQty} ${estimatorMaterial.unit})`
+                            );
+                            setReqNotes(
+                              `Client estimator total: ${formatCurrency(
+                                grandTotal,
+                                currency
+                              )} including ${calcWastage}% allowance at ${formatCurrency(
+                                unitRate,
+                                currency
+                              )} / ${estimatorMaterial.unit}.`
+                            );
+                            setIsRequestModalOpen(true);
+                          }}
+                          className="w-full py-2.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold text-xs transition-colors"
+                        >
+                          Send Spec Inquiry to Studio
+                        </button>
+                      </>
+                    );
+                  })()}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ============================================================== */}
+        {/* TAB 5: SITE LOGS & CLIENT MESSAGES                             */}
         {/* ============================================================== */}
         {activeTab === 'updates' && (
           <div className="space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
-                <h3 className="text-lg font-bold text-white tracking-tight">
-                  Live Project Status Feed &amp; Site Logs
-                </h3>
+                <h2 className="text-lg font-bold text-white">Site Logs, Quality Audits &amp; Messages</h2>
                 <p className="text-xs text-slate-400">
-                  Real-time engineering notices, concrete pour inspection certificates, and architectural milestones.
+                  Chronological field journal, structural inspections, and direct client notes.
                 </p>
               </div>
 
-              {/* Category Filter */}
-              <div className="flex items-center gap-1 p-1 rounded-xl bg-slate-900 border border-slate-800 text-xs overflow-x-auto">
-                {['all', 'structural', 'finishes', 'mep', 'civil'].map((cat) => (
+              <div className="flex items-center gap-1 p-1 rounded-lg bg-slate-900 border border-slate-800 text-xs overflow-x-auto">
+                {['all', 'structural', 'finishes', 'mep', 'civil', 'regulatory'].map((cat) => (
                   <button
                     key={cat}
                     type="button"
                     onClick={() => setUpdateCategoryFilter(cat)}
-                    className={`px-3 py-1.5 rounded-lg capitalize transition font-medium ${
+                    className={`px-3 py-1.5 rounded-md capitalize transition-colors font-medium whitespace-nowrap shrink-0 ${
                       updateCategoryFilter === cat
-                        ? 'bg-amber-500 text-slate-950 font-bold'
+                        ? 'bg-amber-500 text-slate-950 font-semibold'
                         : 'text-slate-400 hover:text-white'
                     }`}
                   >
@@ -1804,145 +2353,109 @@ Bangalore, India • Contact: sgouse14@gmail.com
               </div>
             </div>
 
-            {/* Updates Feed */}
-            <div className="space-y-5">
+            {/* Client Note / Warranty Ticket Composer */}
+            <form
+              onSubmit={handleSendComment}
+              className="p-4 rounded-xl bg-slate-900 border border-slate-800 flex flex-col sm:flex-row gap-2.5"
+            >
+              <input
+                type="text"
+                value={clientCommentText}
+                onChange={(e) => setClientCommentText(e.target.value)}
+                placeholder="Post a note, question, or warranty snag request to the site engineering log..."
+                className="flex-1 px-3.5 py-2 rounded-lg bg-slate-950 border border-slate-800 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-400"
+              />
+              <button
+                type="submit"
+                className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold text-xs transition-colors whitespace-nowrap shrink-0"
+              >
+                <Send className="w-3.5 h-3.5" />
+                <span>Post to Project Feed</span>
+              </button>
+            </form>
+
+            <div className="space-y-4">
               {filteredUpdates.map((u) => (
                 <div
                   key={u.id}
-                  className="p-5 rounded-2xl bg-slate-900 border border-slate-800 space-y-4 hover:border-slate-700 transition"
+                  className="p-5 rounded-xl bg-slate-900 border border-slate-800 space-y-3"
                 >
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800/80 pb-3">
-                    <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-center font-bold text-amber-400 text-xs">
-                        {u.authorName.charAt(0)}
-                      </div>
-                      <div>
-                        <div className="text-xs font-bold text-white">{u.authorName}</div>
-                        <div className="text-[11px] text-slate-400 font-mono">{u.authorRole}</div>
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2.5 border-b border-slate-800">
+                    <div>
+                      <h3 className="text-sm font-bold text-white">{u.title}</h3>
+                      <div className="text-xs text-slate-400 flex items-center gap-2 mt-0.5">
+                        <span>{u.authorName}</span>
+                        <span aria-hidden="true">·</span>
+                        <span>{u.authorRole}</span>
                       </div>
                     </div>
-
-                    <div className="flex items-center gap-2 text-xs font-mono text-slate-400">
-                      <span className="capitalize px-2 py-0.5 rounded bg-slate-800 text-amber-300 text-[10px]">
-                        {u.category}
-                      </span>
+                    <div className="text-xs text-slate-400 flex items-center gap-2">
+                      <span className="capitalize">{u.category}</span>
+                      <span aria-hidden="true">·</span>
                       <span>{u.date}</span>
                     </div>
                   </div>
 
-                  <div className="space-y-2">
-                    <h4 className="text-sm sm:text-base font-bold text-white">{u.title}</h4>
-                    <p className="text-xs text-slate-300 leading-relaxed font-light">{u.content}</p>
-                  </div>
+                  <p className="text-xs text-slate-300 leading-relaxed">{u.content}</p>
 
-                  {/* Optional Photos */}
                   {u.mediaUrls && u.mediaUrls.length > 0 && (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
                       {u.mediaUrls.map((url, i) => (
-                        <div key={i} className="h-44 rounded-xl overflow-hidden relative border border-slate-800 group">
+                        <div key={i} className="h-44 rounded-xl overflow-hidden border border-slate-800 bg-slate-950">
                           <img
                             src={url}
-                            alt="Site Verification"
-                            className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
+                            alt={u.title}
+                            referrerPolicy="no-referrer"
+                            className="w-full h-full object-cover"
                           />
-                          <div className="absolute bottom-2 left-2 bg-black/70 px-2 py-0.5 rounded text-[10px] font-mono text-emerald-400 flex items-center gap-1.5">
-                            <Camera className="w-3 h-3" />
-                            <span>Geotagged Inspection Photo</span>
-                          </div>
                         </div>
                       ))}
                     </div>
                   )}
-
-                  {/* Verification Footer */}
-                  <div className="pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs text-slate-400">
-                    <span className="flex items-center gap-1 text-emerald-400">
-                      <CheckCircle2 className="w-3.5 h-3.5" />
-                      <span>Verified by Engineering QC</span>
-                    </span>
-                    <span className="font-mono text-slate-300">Phase Completion: {u.progressPercentage}%</span>
-                  </div>
                 </div>
               ))}
-            </div>
-
-            {/* Client Inquiry Box */}
-            <div className="p-5 rounded-2xl bg-slate-900/60 border border-slate-800 space-y-3">
-              <div className="flex items-center gap-2 text-xs font-bold text-white">
-                <MessageSquare className="w-4 h-4 text-amber-400" />
-                <span>Ask a Question or Request Clarification from the Site Engineer</span>
-              </div>
-
-              {commentSuccessMsg && (
-                <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs">
-                  {commentSuccessMsg}
-                </div>
-              )}
-
-              <form onSubmit={handleSendComment} className="flex flex-col sm:flex-row gap-2">
-                <input
-                  type="text"
-                  value={clientCommentText}
-                  onChange={(e) => setClientCommentText(e.target.value)}
-                  placeholder="e.g. Can we review the lighting circuit routing for the terrace lounge?"
-                  className="flex-1 px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-400"
-                />
-                <button
-                  type="submit"
-                  className="px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs transition flex items-center justify-center gap-1.5 shrink-0"
-                >
-                  <Send className="w-3.5 h-3.5" />
-                  <span>Transmit to Studio</span>
-                </button>
-              </form>
             </div>
           </div>
         )}
 
         {/* ============================================================== */}
-        {/* TAB 3: DOCUMENT SHARING REPOSITORY                             */}
+        {/* TAB 6: DRAWINGS & DOCUMENT VAULT                               */}
         {/* ============================================================== */}
         {activeTab === 'documents' && (
           <div className="space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
-                <h3 className="text-lg font-bold text-white tracking-tight">
-                  Confidential Project Documents &amp; Working Drawings
-                </h3>
+                <h2 className="text-lg font-bold text-white">Drawings, Structural Certificates &amp; Vault</h2>
                 <p className="text-xs text-slate-400">
-                  Access official permits, structural design certificates, locked BOQ matrices, and upload custom finishes wishlists.
+                  Approved working drawings, locked BOQ sheets, permits, and client uploads.
                 </p>
               </div>
-
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setIsUploadModalOpen(true)}
-                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs transition shadow-sm"
-                >
-                  <Upload className="w-3.5 h-3.5" />
-                  <span>Share Client Document</span>
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={() => setIsUploadModalOpen(true)}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold text-xs transition-colors whitespace-nowrap shrink-0"
+              >
+                <Upload className="w-3.5 h-3.5" />
+                <span>Upload Document</span>
+              </button>
             </div>
 
-            {/* Documents Category Pills Filter */}
-            <div className="flex items-center gap-2 overflow-x-auto pb-2 text-xs">
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
               {[
                 { id: 'all', label: 'All Files' },
                 { id: 'architectural_drawings', label: 'Architectural Drawings' },
-                { id: 'structural_reports', label: 'Structural Certificates' },
+                { id: 'structural_reports', label: 'Structural Reports' },
                 { id: 'boq_financials', label: 'BOQ & Financials' },
-                { id: 'site_audit', label: 'Site & Quality Audits' },
+                { id: 'site_audit', label: 'Site Audits' },
                 { id: 'client_uploads', label: 'Client Uploads' },
               ].map((c) => (
                 <button
                   key={c.id}
                   type="button"
                   onClick={() => setDocCategoryFilter(c.id)}
-                  className={`px-3 py-1.5 rounded-lg whitespace-nowrap transition font-medium ${
+                  className={`px-3 py-1.5 rounded-lg whitespace-nowrap shrink-0 transition-colors font-medium ${
                     docCategoryFilter === c.id
-                      ? 'bg-amber-500 text-slate-950 font-bold'
+                      ? 'bg-amber-500 text-slate-950 font-semibold'
                       : 'bg-slate-900 text-slate-400 hover:text-white border border-slate-800'
                   }`}
                 >
@@ -1951,272 +2464,197 @@ Bangalore, India • Contact: sgouse14@gmail.com
               ))}
             </div>
 
-            {/* Documents List */}
-            <div className="rounded-2xl bg-slate-900 border border-slate-800 overflow-hidden shadow-xl">
-              <div className="divide-y divide-slate-800">
-                {filteredDocs.map((doc) => (
-                  <div
-                    key={doc.id}
-                    className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-slate-800/40 transition"
-                  >
-                    <div className="flex items-start gap-3.5 min-w-0">
-                      <div className="w-10 h-10 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-center shrink-0 text-amber-400">
-                        {doc.fileType === 'pdf' ? (
-                          <FileText className="w-5 h-5" />
-                        ) : doc.fileType === 'xlsx' ? (
-                          <FileSpreadsheet className="w-5 h-5" />
-                        ) : (
-                          <Layers className="w-5 h-5" />
-                        )}
-                      </div>
-
-                      <div className="min-w-0 space-y-1">
-                        <div className="flex items-center gap-2">
-                          <h4 className="text-sm font-bold text-white truncate">{doc.title}</h4>
-                          <span
-                            className={`text-[10px] font-mono px-2 py-0.2 rounded capitalize ${
-                              doc.status === 'approved'
-                                ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                                : doc.status === 'final'
-                                ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30'
-                                : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
-                            }`}
-                          >
-                            {doc.status}
-                          </span>
-                        </div>
-
-                        <div className="flex flex-wrap items-center gap-2 text-xs text-slate-400 font-mono">
-                          <span className="text-slate-300">{doc.fileName}</span>
-                          <span aria-hidden="true">·</span>
-                          <span>{doc.fileSize}</span>
-                          <span aria-hidden="true">·</span>
-                          <span>{doc.version}</span>
-                          <span aria-hidden="true">·</span>
-                          <span>Uploaded: {doc.uploadedAt}</span>
-                        </div>
-
-                        {doc.notes && (
-                          <p className="text-xs text-slate-400 font-light pt-0.5 line-clamp-1">{doc.notes}</p>
-                        )}
-                      </div>
+            <div className="rounded-xl bg-slate-900 border border-slate-800 divide-y divide-slate-800">
+              {filteredDocs.map((doc) => (
+                <div
+                  key={doc.id}
+                  className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-slate-800/30 transition-colors"
+                >
+                  <div className="flex items-start gap-3 min-w-0">
+                    <div className="w-9 h-9 rounded-lg bg-slate-950 border border-slate-800 flex items-center justify-center shrink-0 text-amber-400">
+                      {doc.fileType === 'pdf' ? (
+                        <FileText className="w-4 h-4" />
+                      ) : doc.fileType === 'xlsx' ? (
+                        <FileSpreadsheet className="w-4 h-4" />
+                      ) : (
+                        <Layers className="w-4 h-4" />
+                      )}
                     </div>
-
-                    <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
-                      <button
-                        type="button"
-                        onClick={() => setPreviewDoc(doc)}
-                        className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition"
-                      >
-                        <Eye className="w-3.5 h-3.5" />
-                        <span>Preview</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => handleDownloadDocument(doc)}
-                        className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold transition shadow-sm"
-                      >
-                        <Download className="w-3.5 h-3.5" />
-                        <span>Download</span>
-                      </button>
+                    <div className="min-w-0 space-y-0.5">
+                      <h3 className="text-sm font-semibold text-white truncate">{doc.title}</h3>
+                      <div className="flex flex-wrap items-center gap-2 text-xs text-slate-400 tabular-nums">
+                        <span>{doc.fileName}</span>
+                        <span aria-hidden="true">·</span>
+                        <span>{doc.fileSize}</span>
+                        <span aria-hidden="true">·</span>
+                        <span>{doc.version}</span>
+                        <span aria-hidden="true">·</span>
+                        <span className="capitalize text-emerald-400">{doc.status}</span>
+                      </div>
                     </div>
                   </div>
-                ))}
-              </div>
+
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => setPreviewDoc(doc)}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium transition-colors"
+                    >
+                      <Eye className="w-3.5 h-3.5" />
+                      <span>Preview</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDownloadDocument(doc)}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-semibold transition-colors"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      <span>Download</span>
+                    </button>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         )}
 
         {/* ============================================================== */}
-        {/* TAB 4: DESIGN TEAM & CONTACTS                                  */}
+        {/* TAB 7: PROJECT TEAM                                            */}
         {/* ============================================================== */}
         {activeTab === 'team' && (
           <div className="space-y-6">
             <div>
-              <h3 className="text-lg font-bold text-white tracking-tight">
-                Project Leadership &amp; Engineering Contacts
-              </h3>
+              <h2 className="text-lg font-bold text-white">Architectural &amp; Engineering Leadership</h2>
               <p className="text-xs text-slate-400">
-                Direct contacts for your dedicated architectural team, structural engineer, and cost controller.
+                Direct studio contacts for architectural coordination, structural sign-off, and BOQ accounting.
               </p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-              {/* Lead Architect */}
-              <div className="p-5 rounded-2xl bg-slate-900 border border-slate-800 space-y-4">
-                <div className="flex items-center gap-3">
-                  <img
-                    src={AVATARS.principal}
-                    alt="Ar. S. Gouse"
-                    className="w-14 h-14 rounded-2xl object-cover border border-amber-500/40"
-                  />
-                  <div>
-                    <div className="text-sm font-bold text-white">Ar. S. Gouse</div>
-                    <div className="text-xs text-amber-400 font-mono">Principal Architect</div>
-                    <div className="text-[11px] text-slate-400 mt-0.5">Council of Architecture CA/2012/55190</div>
+              {[
+                {
+                  name: 'Ar. S. Gouse',
+                  role: 'Principal Architect',
+                  cred: 'Council of Architecture CA/2012/55190',
+                  email: 'sgouse14@gmail.com',
+                  phone: '+91 80739 47241',
+                  avatar: AVATARS.principal,
+                  scope: 'Spatial architecture, municipal sanctions, and turnkey interior fit-out.',
+                },
+                {
+                  name: 'Er. Rajesh Kumar',
+                  role: 'Structural Consultant',
+                  cred: 'M.Tech IIT · IS 456 / IS 1893 Lead',
+                  email: 'rajesh.kumar@gouseai.com',
+                  phone: '+91 80412 89001',
+                  avatar: AVATARS.structuralEngineer,
+                  scope: 'RCC frame design, rebar spacing audits, and concrete compressive testing.',
+                },
+                {
+                  name: 'Amit Verma (QS)',
+                  role: 'Senior Quantity Surveyor',
+                  cred: 'MRICS Certified Cost Engineer',
+                  email: 'amit.verma@gouseai.com',
+                  phone: '+91 98112 34567',
+                  avatar: AVATARS.qsDirector,
+                  scope: 'BOQ cost validation, CPWD rate indexing, and milestone escrow accounting.',
+                },
+              ].map((member) => (
+                <div
+                  key={member.name}
+                  className="p-5 rounded-xl bg-slate-900 border border-slate-800 space-y-4"
+                >
+                  <div className="flex items-center gap-3">
+                    <img
+                      src={member.avatar}
+                      alt={member.name}
+                      referrerPolicy="no-referrer"
+                      className="w-12 h-12 rounded-xl object-cover border border-slate-700 shrink-0"
+                    />
+                    <div>
+                      <h3 className="text-sm font-bold text-white">{member.name}</h3>
+                      <div className="text-xs text-amber-400">{member.role}</div>
+                      <div className="text-[11px] text-slate-400">{member.cred}</div>
+                    </div>
+                  </div>
+                  <p className="text-xs text-slate-400 leading-relaxed">{member.scope}</p>
+                  <div className="pt-3 border-t border-slate-800 space-y-1.5 text-xs text-slate-300">
+                    <div className="flex items-center gap-2">
+                      <Mail className="w-3.5 h-3.5 text-slate-500" />
+                      <span>{member.email}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Phone className="w-3.5 h-3.5 text-slate-500" />
+                      <span className="tabular-nums">{member.phone}</span>
+                    </div>
                   </div>
                 </div>
-
-                <div className="space-y-2 text-xs text-slate-300">
-                  <div className="flex items-center gap-2">
-                    <Mail className="w-3.5 h-3.5 text-slate-500" />
-                    <span>sgouse14@gmail.com</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Phone className="w-3.5 h-3.5 text-slate-500" />
-                    <span>+91 80739 47241</span>
-                  </div>
-                </div>
-
-                <div className="pt-2 border-t border-slate-800 text-[11px] text-slate-400">
-                  Responsible for spatial planning, municipal sanction clearances, and luxury finish execution.
-                </div>
-              </div>
-
-              {/* Structural Consultant */}
-              <div className="p-5 rounded-2xl bg-slate-900 border border-slate-800 space-y-4">
-                <div className="flex items-center gap-3">
-                  <img
-                    src={AVATARS.structuralEngineer}
-                    alt="Er. Rajesh Kumar"
-                    className="w-14 h-14 rounded-2xl object-cover border border-slate-700"
-                  />
-                  <div>
-                    <div className="text-sm font-bold text-white">Er. Rajesh Kumar</div>
-                    <div className="text-xs text-cyan-400 font-mono">Structural Consultant</div>
-                    <div className="text-[11px] text-slate-400 mt-0.5">M.Tech IIT • IS 456 Lead</div>
-                  </div>
-                </div>
-
-                <div className="space-y-2 text-xs text-slate-300">
-                  <div className="flex items-center gap-2">
-                    <Mail className="w-3.5 h-3.5 text-slate-500" />
-                    <span>rajesh.kumar@gouseai.com</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Phone className="w-3.5 h-3.5 text-slate-500" />
-                    <span>+91 80412 89001</span>
-                  </div>
-                </div>
-
-                <div className="pt-2 border-t border-slate-800 text-[11px] text-slate-400">
-                  Audits RCC frame calculations, steel rebar spacing, concrete cube test strengths, and seismic resilience.
-                </div>
-              </div>
-
-              {/* Quantity Surveyor */}
-              <div className="p-5 rounded-2xl bg-slate-900 border border-slate-800 space-y-4">
-                <div className="flex items-center gap-3">
-                  <img
-                    src={AVATARS.qsDirector}
-                    alt="Amit Verma"
-                    className="w-14 h-14 rounded-2xl object-cover border border-slate-700"
-                  />
-                  <div>
-                    <div className="text-sm font-bold text-white">Amit Verma (QS)</div>
-                    <div className="text-xs text-amber-400 font-mono">Senior Quantity Surveyor</div>
-                    <div className="text-[11px] text-slate-400 mt-0.5">MRICS Certified Cost Engineer</div>
-                  </div>
-                </div>
-
-                <div className="space-y-2 text-xs text-slate-300">
-                  <div className="flex items-center gap-2">
-                    <Mail className="w-3.5 h-3.5 text-slate-500" />
-                    <span>amit.verma@gouseai.com</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Phone className="w-3.5 h-3.5 text-slate-500" />
-                    <span>+91 98112 34567</span>
-                  </div>
-                </div>
-
-                <div className="pt-2 border-t border-slate-800 text-[11px] text-slate-400">
-                  Oversees regional material supply rate indexes, milestone escrow accounting, and supplier contracts.
-                </div>
-              </div>
+              ))}
             </div>
           </div>
         )}
 
         {/* ============================================================== */}
-        {/* TAB 5: SMART HOME SKA AGENT (AUTONOMIC IOT CONTROL CENTER)      */}
+        {/* TAB 8: SMART HOME SKA AGENT                                    */}
         {/* ============================================================== */}
         {activeTab === 'smart_home_ska' && (
-          <div className="space-y-6">
-            <SmartHomeSkaAgent
-              activeProject={activeProject}
-              onOpenConsultation={() => setActiveTab('team')}
-            />
-          </div>
+          <SmartHomeSkaAgent
+            activeProject={activeProject}
+            onOpenConsultation={() => setActiveTab('team')}
+          />
         )}
-      </div>
+      </main>
 
-      {/* ============================================================== */}
-      {/* MODAL 1: DOCUMENT PREVIEW MODAL                                */}
-      {/* ============================================================== */}
+      {/* Document Preview Modal */}
       {previewDoc && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="max-w-2xl w-full rounded-3xl bg-slate-900 border border-slate-800 p-6 space-y-5 shadow-2xl">
+          <div className="max-w-xl w-full rounded-2xl bg-slate-900 border border-slate-800 p-6 space-y-4 shadow-2xl">
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <div className="flex items-center gap-2 text-white font-bold text-base">
-                <FileText className="w-5 h-5 text-amber-400" />
-                <span>Document Preview &amp; Verification Details</span>
+              <div className="flex items-center gap-2 text-white font-semibold text-sm">
+                <FileText className="w-4 h-4 text-amber-400" />
+                <span>Document Details</span>
               </div>
               <button
                 type="button"
                 onClick={() => setPreviewDoc(null)}
                 className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800"
               >
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4" />
               </button>
             </div>
-
             <div className="space-y-3 text-xs">
-              <div>
-                <span className="text-slate-400">Document Title:</span>
-                <div className="text-sm font-bold text-white mt-0.5">{previewDoc.title}</div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3 p-3 rounded-xl bg-slate-950 border border-slate-800 font-mono">
+              <div className="text-sm font-bold text-white">{previewDoc.title}</div>
+              <div className="grid grid-cols-2 gap-3 p-3 rounded-xl bg-slate-950 border border-slate-800">
                 <div>
-                  <span className="text-slate-400 text-[11px]">File Name:</span>
-                  <div className="text-white text-xs truncate mt-0.5">{previewDoc.fileName}</div>
+                  <div className="text-slate-400">File</div>
+                  <div className="text-white truncate">{previewDoc.fileName}</div>
                 </div>
                 <div>
-                  <span className="text-slate-400 text-[11px]">File Size:</span>
-                  <div className="text-white text-xs mt-0.5">{previewDoc.fileSize}</div>
+                  <div className="text-slate-400">Version</div>
+                  <div className="text-amber-300">{previewDoc.version}</div>
                 </div>
                 <div>
-                  <span className="text-slate-400 text-[11px]">Version:</span>
-                  <div className="text-amber-400 text-xs mt-0.5">{previewDoc.version}</div>
+                  <div className="text-slate-400">Size</div>
+                  <div className="text-white tabular-nums">{previewDoc.fileSize}</div>
                 </div>
                 <div>
-                  <span className="text-slate-400 text-[11px]">Uploaded Date:</span>
-                  <div className="text-slate-300 text-xs mt-0.5">{previewDoc.uploadedAt}</div>
+                  <div className="text-slate-400">Uploaded</div>
+                  <div className="text-slate-300 tabular-nums">{previewDoc.uploadedAt}</div>
                 </div>
               </div>
-
-              <div>
-                <span className="text-slate-400">Uploaded By:</span>
-                <div className="text-slate-200 mt-0.5 font-medium">{previewDoc.uploadedBy}</div>
-              </div>
-
               {previewDoc.notes && (
-                <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 text-slate-300 leading-relaxed font-light">
-                  <span className="font-semibold text-white">Engineering Notes: </span>
+                <p className="p-3 rounded-xl bg-slate-950 border border-slate-800 text-slate-300 leading-relaxed">
                   {previewDoc.notes}
-                </div>
+                </p>
               )}
             </div>
-
-            <div className="pt-3 border-t border-slate-800 flex items-center justify-end gap-3">
+            <div className="pt-2 flex justify-end gap-2">
               <button
                 type="button"
                 onClick={() => setPreviewDoc(null)}
-                className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition"
+                className="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium"
               >
-                Close Preview
+                Close
               </button>
               <button
                 type="button"
@@ -2224,106 +2662,96 @@ Bangalore, India • Contact: sgouse14@gmail.com
                   handleDownloadDocument(previewDoc);
                   setPreviewDoc(null);
                 }}
-                className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold transition flex items-center gap-1.5"
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-semibold"
               >
-                <Download className="w-4 h-4" />
-                <span>Download File</span>
+                <Download className="w-3.5 h-3.5" />
+                <span>Download</span>
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* ============================================================== */}
-      {/* MODAL 2: UPLOAD DOCUMENT MODAL                                  */}
-      {/* ============================================================== */}
+      {/* Upload Document Modal */}
       {isUploadModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="max-w-lg w-full rounded-3xl bg-slate-900 border border-slate-800 p-6 space-y-5 shadow-2xl">
+          <div className="max-w-lg w-full rounded-2xl bg-slate-900 border border-slate-800 p-6 space-y-4 shadow-2xl">
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <div className="flex items-center gap-2 text-white font-bold text-base">
-                <Upload className="w-5 h-5 text-amber-400" />
-                <span>Share Document with Architectural Team</span>
+              <div className="flex items-center gap-2 text-white font-semibold text-sm">
+                <Upload className="w-4 h-4 text-amber-400" />
+                <span>Upload Client Document</span>
               </div>
               <button
                 type="button"
                 onClick={() => setIsUploadModalOpen(false)}
                 className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800"
               >
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4" />
               </button>
             </div>
-
-            <form onSubmit={handleUploadSubmit} className="space-y-4 text-xs">
-              <div className="space-y-1.5">
-                <label className="text-slate-300 font-semibold">Document Title *</label>
+            <form onSubmit={handleUploadSubmit} className="space-y-3.5 text-xs">
+              <div>
+                <label className="block text-slate-300 font-medium mb-1">Document Title *</label>
                 <input
                   type="text"
                   required
                   value={newDocTitle}
                   onChange={(e) => setNewDocTitle(e.target.value)}
-                  placeholder="e.g. Master Bedroom Lighting Preference Wishlist"
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-400"
+                  placeholder="e.g. Kitchen Appliance Spec Sheet"
+                  className="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-800 text-white placeholder-slate-500 focus:outline-none focus:border-amber-400"
                 />
               </div>
-
-              <div className="space-y-1.5">
-                <label className="text-slate-300 font-semibold">Document Category</label>
+              <div>
+                <label className="block text-slate-300 font-medium mb-1">Category</label>
                 <select
                   value={newDocCategory}
-                  onChange={(e) => setNewDocCategory(e.target.value as any)}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-xs text-white focus:outline-none focus:border-amber-400"
+                  onChange={(e) => setNewDocCategory(e.target.value as SharedDocument['category'])}
+                  className="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-800 text-white focus:outline-none focus:border-amber-400"
                 >
                   <option value="client_uploads">Client Uploads &amp; Preferences</option>
-                  <option value="architectural_drawings">Architectural &amp; CAD Review</option>
-                  <option value="structural_reports">Structural &amp; Soil Inspection</option>
-                  <option value="permits_sanctions">Government Sanctions &amp; Deeds</option>
-                  <option value="boq_financials">Payment &amp; Financial Receipts</option>
+                  <option value="architectural_drawings">Architectural Drawings</option>
+                  <option value="structural_reports">Structural Reports</option>
+                  <option value="permits_sanctions">Permits &amp; Sanctions</option>
+                  <option value="boq_financials">Financials &amp; Receipts</option>
                 </select>
               </div>
-
-              <div className="space-y-1.5">
-                <label className="text-slate-300 font-semibold">Choose File (PDF, DWG, XLSX, Image)</label>
+              <div>
+                <label className="block text-slate-300 font-medium mb-1">Select File</label>
                 <input
                   type="file"
                   onChange={(e) => {
-                    if (e.target.files && e.target.files[0]) {
+                    if (e.target.files?.[0]) {
                       setNewDocFile(e.target.files[0]);
-                      if (!newDocTitle) {
-                        setNewDocTitle(e.target.files[0].name.replace(/\.[^/.]+$/, ''));
-                      }
+                      if (!newDocTitle) setNewDocTitle(e.target.files[0].name.replace(/\.[^/.]+$/, ''));
                     }
                   }}
-                  className="w-full text-slate-400 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-slate-800 file:text-amber-400 hover:file:bg-slate-700"
+                  className="w-full text-slate-400 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-slate-800 file:text-amber-300"
                 />
               </div>
-
-              <div className="space-y-1.5">
-                <label className="text-slate-300 font-semibold">Notes for Ar. S. Gouse</label>
+              <div>
+                <label className="block text-slate-300 font-medium mb-1">Notes</label>
                 <textarea
-                  rows={3}
+                  rows={2}
                   value={newDocNotes}
                   onChange={(e) => setNewDocNotes(e.target.value)}
-                  placeholder="Explain purpose of this document, instructions, or specific items to incorporate..."
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-400"
+                  placeholder="Context for Ar. S. Gouse..."
+                  className="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-800 text-white placeholder-slate-500 focus:outline-none focus:border-amber-400"
                 />
               </div>
-
-              <div className="pt-2 flex items-center justify-end gap-2">
+              <div className="flex justify-end gap-2 pt-2">
                 <button
                   type="button"
                   onClick={() => setIsUploadModalOpen(false)}
-                  className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition"
+                  className="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isUploading}
-                  className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold transition flex items-center gap-1.5 disabled:opacity-50"
+                  className="px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold"
                 >
-                  <Upload className="w-4 h-4" />
-                  <span>{isUploading ? 'Uploading Document...' : 'Submit to Project Repository'}</span>
+                  {isUploading ? 'Uploading...' : 'Upload to Vault'}
                 </button>
               </div>
             </form>
@@ -2331,7 +2759,95 @@ Bangalore, India • Contact: sgouse14@gmail.com
         </div>
       )}
 
-      {/* 5. SITE VISIT CAMERA MODAL */}
+      {/* Raise Client Request / RFI Modal */}
+      {isRequestModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="max-w-lg w-full rounded-2xl bg-slate-900 border border-slate-800 p-6 space-y-4 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-2 text-white font-semibold text-sm">
+                <AlertCircle className="w-4 h-4 text-amber-400" />
+                <span>Raise Client Request / RFI</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsRequestModalOpen(false)}
+                className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <form onSubmit={handleRaiseClientRequest} className="space-y-3.5 text-xs">
+              <div>
+                <label className="block text-slate-300 font-medium mb-1">Summary *</label>
+                <input
+                  type="text"
+                  required
+                  value={reqTitle}
+                  onChange={(e) => setReqTitle(e.target.value)}
+                  placeholder="e.g. Add outdoor BBQ pergola power conduit on terrace"
+                  className="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-800 text-white placeholder-slate-500 focus:outline-none focus:border-amber-400"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-300 font-medium mb-1">Request Type</label>
+                  <select
+                    value={reqType}
+                    onChange={(e) => setReqType(e.target.value as 'change_order' | 'rfi' | 'snag')}
+                    className="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-800 text-white focus:outline-none focus:border-amber-400"
+                  >
+                    <option value="rfi">Question / RFI</option>
+                    <option value="change_order">Scope Change Order</option>
+                    <option value="snag">Site Snag / Warranty</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-slate-300 font-medium mb-1">Trade</label>
+                  <select
+                    value={reqTrade}
+                    onChange={(e) => setReqTrade(e.target.value as FieldOperationItem['trade'])}
+                    className="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-800 text-white focus:outline-none focus:border-amber-400"
+                  >
+                    <option value="Finishes">Finishes</option>
+                    <option value="MEP">MEP</option>
+                    <option value="Structural">Structural</option>
+                    <option value="Civil & Masonry">Civil &amp; Masonry</option>
+                    <option value="Waterproofing">Waterproofing</option>
+                    <option value="Bylaws">Bylaws</option>
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className="block text-slate-300 font-medium mb-1">Details</label>
+                <textarea
+                  rows={3}
+                  value={reqNotes}
+                  onChange={(e) => setReqNotes(e.target.value)}
+                  placeholder="Describe the requested change, location, or clarification..."
+                  className="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-800 text-white placeholder-slate-500 focus:outline-none focus:border-amber-400"
+                />
+              </div>
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsRequestModalOpen(false)}
+                  className="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold"
+                >
+                  Submit to Studio
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Site Visit Camera Modal */}
       <SiteVisitCameraModal
         isOpen={isSiteCameraModalOpen}
         onClose={() => setIsSiteCameraModalOpen(false)}
@@ -2340,3 +2856,5 @@ Bangalore, India • Contact: sgouse14@gmail.com
     </div>
   );
 };
+
+export default ClientView;

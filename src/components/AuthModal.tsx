@@ -25,7 +25,7 @@ import { useTheme } from '../context/ThemeContext';
 import { UserRole } from '../types';
 
 export interface AuthModalProps {
-  onSelectUnauthView?: (view: 'client_page' | 'client_dashboard' | 'platform_demo' | 'broker') => void;
+  onSelectUnauthView?: (view: 'client_page' | 'client_dashboard' | 'broker') => void;
 }
 
 export const AuthModal: React.FC<AuthModalProps> = ({ onSelectUnauthView }) => {
@@ -260,17 +260,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onSelectUnauthView }) => {
                   >
                     <span>Client Portal</span>
                   </button>
-                  <span className="text-slate-700">·</span>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsAuthModalOpen(false);
-                      onSelectUnauthView('platform_demo');
-                    }}
-                    className="text-slate-300 hover:text-white hover:underline font-medium flex items-center gap-1"
-                  >
-                    <span>Platform Demo</span>
-                  </button>
                 </div>
               )}
             </div>
@@ -407,7 +396,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onSelectUnauthView }) => {
                   <div className="space-y-1">
                     <p className="font-semibold">{loginError}</p>
                     <p className="text-[11px] text-rose-400">
-                      Tip: You can click any of the one-click demo personas below to log in instantly.
+                      Tip: You can select any verified studio or client profile below to switch immediately.
                     </p>
                   </div>
                 </div>
@@ -498,11 +487,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onSelectUnauthView }) => {
               {/* QUICK ONE-CLICK LOGIN PERSONAS */}
               <div className="pt-3 border-t border-slate-800">
                 <div className="flex items-center justify-between mb-2.5">
-                  <span className="text-[11px] font-mono uppercase tracking-wider text-slate-400 font-semibold flex items-center gap-1.5">
-                    <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-                    Instant Demo Login (Choose Persona)
+                  <span className="text-xs font-medium text-slate-300 flex items-center gap-1.5">
+                    <Users className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Studio &amp; Client Profiles</span>
                   </span>
-                  <span className="text-[10px] text-slate-500">Click to switch</span>
+                  <span className="text-[11px] text-slate-500">Click to sign in</span>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">

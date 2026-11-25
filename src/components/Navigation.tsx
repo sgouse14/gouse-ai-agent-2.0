@@ -1,7 +1,7 @@
 import React from 'react';
-import { Building2, Calculator, Store, Layers, Sparkles } from 'lucide-react';
+import { Building2, Calculator, Store, Layers, Sparkles, Sofa } from 'lucide-react';
 
-export type TabType = 'projects' | 'social' | 'broker' | 'pg_coliving' | 'rent_house' | 'boq' | 'marketplace' | 'materials' | 'specialist';
+export type TabType = 'projects' | 'social' | 'broker' | 'pg_coliving' | 'rent_house' | 'boq' | 'interior' | 'marketplace' | 'materials' | 'specialist';
 
 interface NavigationProps {
   activeTab: TabType;
@@ -12,6 +12,7 @@ export const Navigation: React.FC<NavigationProps> = ({ activeTab, onSelectTab }
   const tabs = [
     { id: 'projects' as TabType, label: 'Projects', icon: Building2, count: null },
     { id: 'boq' as TabType, label: 'BOQ & Estimation', icon: Calculator, count: null },
+    { id: 'interior' as TabType, label: 'Interior', icon: Sofa, count: null },
     { id: 'marketplace' as TabType, label: 'Marketplace & Enquiries', icon: Store, count: null },
     { id: 'materials' as TabType, label: 'Materials & Standards', icon: Layers, count: null },
     { id: 'specialist' as TabType, label: 'Gouse AI Super Agent', icon: Sparkles, count: null },

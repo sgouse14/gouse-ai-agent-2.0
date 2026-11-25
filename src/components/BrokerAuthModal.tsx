@@ -33,7 +33,7 @@ export const BrokerAuthModal: React.FC<BrokerAuthModalProps> = ({
   onClose,
   defaultRole = 'tenant',
 }) => {
-  const { users, login, signup, loginAsDemo } = useAuth();
+  const { users, login, signup, quickSignIn } = useAuth();
 
   const [activeRole, setActiveRole] = useState<'tenant' | 'property_owner' | 'broker_agent'>(defaultRole);
   const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
@@ -60,8 +60,8 @@ export const BrokerAuthModal: React.FC<BrokerAuthModalProps> = ({
 
   if (!isOpen) return null;
 
-  // Demo accounts for fast 1-click broker login
-  const demoAccounts = [
+  // Verified accounts for fast broker sign-in
+  const quickAccounts = [
     {
       role: 'tenant' as const,
       id: 'user-aarav-07',
@@ -107,7 +107,7 @@ export const BrokerAuthModal: React.FC<BrokerAuthModalProps> = ({
   const handleQuickLogin = (email: string) => {
     const matched = users.find((u) => u.email.toLowerCase() === email.toLowerCase());
     if (matched) {
-      loginAsDemo(matched.id);
+      quickSignIn(matched.id);
       onClose();
     } else {
       login(email).then((res) => {
@@ -145,13 +145,13 @@ export const BrokerAuthModal: React.FC<BrokerAuthModalProps> = ({
       if (res.success) {
         onClose();
       } else {
-        // Fallback demo matching
+        // Fallback quick profile matching
         const found = users.find((u) => u.email.toLowerCase().includes(loginEmail.toLowerCase().trim()));
         if (found) {
-          loginAsDemo(found.id);
+          quickSignIn(found.id);
           onClose();
         } else {
-          setLoginError(res.error || 'Invalid credentials. Choose a 1-click demo profile below or register.');
+          setLoginError(res.error || 'Invalid credentials. Choose a verified profile below or register.');
         }
       }
     } catch {
@@ -453,18 +453,18 @@ export const BrokerAuthModal: React.FC<BrokerAuthModalProps> = ({
                 </button>
               </form>
 
-              {/* 1-CLICK DEMO PERSONAS FOR BROKER PLATFORM */}
+              {/* VERIFIED PERSONAS FOR BROKER PLATFORM */}
               <div className="pt-2 border-t border-slate-800 space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-mono uppercase tracking-wider text-slate-400 font-semibold flex items-center gap-1.5">
+                  <span className="text-xs font-medium text-slate-300 flex items-center gap-1.5">
                     <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-                    Instant 1-Click Broker Demo Logins
+                    <span>Verified Broker &amp; Tenant Profiles</span>
                   </span>
-                  <span className="text-[10px] text-slate-500 font-mono">Click to test</span>
+                  <span className="text-[11px] text-slate-500">Click to sign in</span>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  {demoAccounts.map((acc) => {
+                  {quickAccounts.map((acc) => {
                     const Icon = acc.icon;
                     return (
                       <button

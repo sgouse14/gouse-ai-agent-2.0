@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   X,
   Wand2,
@@ -18,6 +18,10 @@ import {
   Loader2,
   BookmarkCheck,
   Building2,
+  Compass,
+  ClipboardList,
+  Calculator,
+  Volume2,
 } from 'lucide-react';
 import { Project, BOQItem } from '../types';
 import { TabType } from './Navigation';
@@ -25,8 +29,18 @@ import { CurrencyCode, formatCurrency } from '../utils/formatters';
 import { SmartHomeSkaAgent } from './SmartHomeSkaAgent';
 import { getBimBoqSubscription } from './BimBoqSubscriptionModal';
 import { ensureItemFloorBreakdown } from '../utils/floorTakeoffEngine';
+import { SiteFeasibilityPanel } from './studio/SiteFeasibilityPanel';
+import { FieldOperationsPanel } from './studio/FieldOperationsPanel';
+import { EngineeringCalcsPanel } from './studio/EngineeringCalcsPanel';
 
-export type StudioToolkitTab = 'render' | 'smart_building' | 'translator' | 'dossier';
+export type StudioToolkitTab =
+  | 'feasibility'
+  | 'field_ops'
+  | 'calculators'
+  | 'render'
+  | 'translator'
+  | 'smart_building'
+  | 'dossier';
 
 export interface StudioToolkitModalProps {
   isOpen: boolean;
@@ -80,13 +94,43 @@ const RENDER_PRESETS = [
   },
 ];
 
-const MATERIAL_CHIPS = [
-  'Board-formed concrete',
-  'Burma teak louvers',
-  'Italian travertine',
-  'Low-E glazing',
-  'Terracotta jaali',
-  'Standing-seam zinc',
+const MATERIAL_BOARD_SPECS = [
+  {
+    id: 'mat-travertine',
+    name: 'Honed Italian Travertine Flooring',
+    swatch: '#d6cbb8',
+    category: 'Finishes',
+    unit: 'sq.ft',
+    rate: 420,
+    specNote: '20mm thick anti-slip honed slab finish for living & foyer',
+  },
+  {
+    id: 'mat-teak',
+    name: 'Vertical Burma Teak Facade Louvers',
+    swatch: '#8b5a2b',
+    category: 'Finishes',
+    unit: 'sq.ft',
+    rate: 680,
+    specNote: 'Seasoned exterior-grade timber fins on anodized subframe',
+  },
+  {
+    id: 'mat-terracotta',
+    name: 'Architectural Terracotta Jaali Screen',
+    swatch: '#b85d43',
+    category: 'Civil & Masonry',
+    unit: 'sq.ft',
+    rate: 265,
+    specNote: 'Perforated natural clay sun-breaker screen for West elevation',
+  },
+  {
+    id: 'mat-lowe',
+    name: '24mm Low-E DGU Acoustic Glazing',
+    swatch: '#4b6b7a',
+    category: 'Finishes',
+    unit: 'sq.ft',
+    rate: 790,
+    specNote: '6+12A+6 toughened DGU (U-value 1.8 W/m²K, SHGC 0.26)',
+  },
 ];
 
 const RENDER_STYLES = [
@@ -138,7 +182,7 @@ const COA_STAGES = [
 export const StudioToolkitModal: React.FC<StudioToolkitModalProps> = ({
   isOpen,
   onClose,
-  initialTab = 'render',
+  initialTab = 'feasibility',
   activeProject,
   boqItems,
   contingencyPercent,
@@ -156,7 +200,7 @@ export const StudioToolkitModal: React.FC<StudioToolkitModalProps> = ({
     }
   }, [isOpen, initialTab]);
 
-  // Tab 1: AI Render Studio state
+  // AI Render & Material Board state
   const [renderDescription, setRenderDescription] = useState(RENDER_PRESETS[0].description);
   const [renderStyle, setRenderStyle] = useState(RENDER_PRESETS[0].style);
   const [generatedRenderPrompt, setGeneratedRenderPrompt] = useState('');
@@ -164,22 +208,37 @@ export const StudioToolkitModal: React.FC<StudioToolkitModalProps> = ({
   const [renderError, setRenderError] = useState<string | null>(null);
   const [copiedPrompt, setCopiedPrompt] = useState(false);
   const [savedPromptToLog, setSavedPromptToLog] = useState(false);
+  const [addedFinishId, setAddedFinishId] = useState<string | null>(null);
 
-  // Tab 3: Site Memo Translator state
+  // Site Memo Translator state
   const [sourceMemoText, setSourceMemoText] = useState(SITE_MEMO_TEMPLATES[0].text);
   const [targetLang, setTargetLang] = useState('kn-IN');
   const [translatedMemo, setTranslatedMemo] = useState('');
   const [isTranslating, setIsTranslating] = useState(false);
+  const [isSpeakingTranslation, setIsSpeakingTranslation] = useState(false);
   const [translateError, setTranslateError] = useState<string | null>(null);
   const [copiedTranslation, setCopiedTranslation] = useState(false);
+  const ttsAudioRef = useRef<HTMLAudioElement | null>(null);
 
-  // Tab 4: Architectural Fee Estimator & Dossier state
+  // Architectural Fee Estimator & Dossier state
   const [feeMode, setFeeMode] = useState<'percent' | 'per_sqft'>('percent');
   const [feePercent, setFeePercent] = useState<number>(6.5);
   const [feePerSqFt, setFeePerSqFt] = useState<number>(125);
   const [includeGst, setIncludeGst] = useState<boolean>(true);
   const [addedFeeToBoq, setAddedFeeToBoq] = useState(false);
   const [copiedDossier, setCopiedDossier] = useState(false);
+
+  useEffect(() => {
+    return () => {
+      if (ttsAudioRef.current) {
+        ttsAudioRef.current.pause();
+        ttsAudioRef.current = null;
+      }
+      if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+      }
+    };
+  }, []);
 
   const boqTotals = useMemo(() => {
     const subtotal = boqItems.reduce((sum, item) => sum + (item.amount || item.quantity * item.rate || 0), 0);
@@ -249,7 +308,7 @@ export const StudioToolkitModal: React.FC<StudioToolkitModalProps> = ({
       ...(recentLogs.length > 0 ? recentLogs : ['- No recent logs recorded.']),
       ``,
       `---`,
-      `Generated via Gouse AI Studio Toolkit · ${new Date().toISOString().slice(0, 10)}`,
+      `Generated via Gouse AI Studio Utilities · ${new Date().toISOString().slice(0, 10)}`,
     ].join('\n');
   };
 
@@ -266,6 +325,28 @@ export const StudioToolkitModal: React.FC<StudioToolkitModalProps> = ({
       if (prev.toLowerCase().includes(chip.toLowerCase())) return prev;
       return `${prev.replace(/\.?\s*$/, '')}, featuring ${chip.toLowerCase()}.`;
     });
+  };
+
+  const handleAddMaterialBoardSpecToBoq = (spec: (typeof MATERIAL_BOARD_SPECS)[number]) => {
+    const qty = Math.max(120, Math.round(builtUpArea * 0.18));
+    const itemId = `boq-spec-${spec.id}`;
+    const raw: BOQItem = {
+      id: itemId,
+      name: spec.name,
+      category: spec.category,
+      unit: spec.unit,
+      quantity: qty,
+      rate: spec.rate,
+      amount: qty * spec.rate,
+      notes: `${spec.specNote} · Added from Material Spec Board`,
+      stage: 'Finishes',
+      status: 'estimated',
+    };
+    const withFloors = ensureItemFloorBreakdown(raw, activeProject.floors);
+    const exists = boqItems.some((b) => b.id === itemId);
+    onUpdateBOQItems(exists ? boqItems.map((b) => (b.id === itemId ? withFloors : b)) : [withFloors, ...boqItems]);
+    setAddedFinishId(spec.id);
+    setTimeout(() => setAddedFinishId(null), 2500);
   };
 
   const handleGenerateRenderPrompt = async () => {
@@ -338,6 +419,53 @@ export const StudioToolkitModal: React.FC<StudioToolkitModalProps> = ({
     }
   };
 
+  const handleSpeakTranslatedMemo = async () => {
+    if (!translatedMemo.trim()) return;
+    if (ttsAudioRef.current) {
+      ttsAudioRef.current.pause();
+      ttsAudioRef.current = null;
+    }
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+    }
+    setIsSpeakingTranslation(true);
+
+    try {
+      const res = await fetch('/api/voice/tts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          text: translatedMemo,
+          voiceName: 'Zephyr',
+          language: targetLang,
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.audioBase64) {
+          const audio = new Audio(`data:audio/wav;base64,${data.audioBase64}`);
+          ttsAudioRef.current = audio;
+          audio.onended = () => setIsSpeakingTranslation(false);
+          audio.onerror = () => setIsSpeakingTranslation(false);
+          await audio.play();
+          return;
+        }
+      }
+    } catch {
+      // fall through to browser speech synthesis
+    }
+
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      const u = new SpeechSynthesisUtterance(translatedMemo);
+      u.lang = targetLang;
+      u.onend = () => setIsSpeakingTranslation(false);
+      u.onerror = () => setIsSpeakingTranslation(false);
+      window.speechSynthesis.speak(u);
+    } else {
+      setIsSpeakingTranslation(false);
+    }
+  };
+
   const handleAddFeeToBoq = () => {
     const feeId = 'boq-arch-consultancy-fee';
     const noteText =
@@ -400,6 +528,16 @@ export const StudioToolkitModal: React.FC<StudioToolkitModalProps> = ({
 
   const selectedLangObj = SITE_LANGUAGES.find((l) => l.code === targetLang) || SITE_LANGUAGES[0];
 
+  const TABS: Array<{ id: StudioToolkitTab; label: string; icon: React.ComponentType<{ className?: string }> }> = [
+    { id: 'feasibility', label: 'Site Feasibility & Yield', icon: Compass },
+    { id: 'field_ops', label: 'RFIs & Change Orders', icon: ClipboardList },
+    { id: 'calculators', label: 'Engineering & Carbon', icon: Calculator },
+    { id: 'render', label: 'Render & Finish Board', icon: Wand2 },
+    { id: 'translator', label: 'Site Translator', icon: Languages },
+    { id: 'smart_building', label: 'Smart Building (SKA)', icon: Cpu },
+    { id: 'dossier', label: 'Fee & Dossier', icon: FileSpreadsheet },
+  ];
+
   return (
     <div
       className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-sm flex items-center justify-center p-3 sm:p-5"
@@ -409,28 +547,32 @@ export const StudioToolkitModal: React.FC<StudioToolkitModalProps> = ({
         className="w-full max-w-6xl max-h-[92vh] bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl flex flex-col overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Top Modal Header */}
+        {/* Clean Single-Row Modal Header */}
         <div className="px-5 py-4 border-b border-slate-800 bg-slate-950/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shrink-0">
-          <div>
+          <div className="min-w-0">
             <div className="flex items-center gap-2 text-xs text-slate-400">
-              <Building2 className="w-3.5 h-3.5 text-amber-400" />
-              <span className="font-medium text-amber-300">{activeProject.name}</span>
-              <span>·</span>
+              <Building2 className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+              <span className="font-medium text-slate-200 truncate">{activeProject.name}</span>
+              <span aria-hidden="true">·</span>
               <span className="truncate">{activeProject.location}</span>
+              <span aria-hidden="true">·</span>
+              <span className="font-mono tabular-nums whitespace-nowrap">
+                {builtUpArea.toLocaleString()} sq.ft
+              </span>
             </div>
             <h2 className="text-base sm:text-lg font-bold text-white mt-0.5">
-              Studio Toolkit &amp; Site Utilities
+              Studio Utilities Suite
             </h2>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 shrink-0">
             <button
               type="button"
               onClick={() => {
                 onClose();
                 onOpenBimLicense();
               }}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-700 hover:border-amber-500/60 text-xs font-medium text-slate-200 transition whitespace-nowrap"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-950 border border-slate-700 hover:border-amber-500/60 text-xs font-medium text-slate-200 transition whitespace-nowrap"
             >
               <CreditCard className="w-3.5 h-3.5 text-amber-400" />
               <span>{subscription.isSubscribed ? 'BIM Pro Active' : 'BIM & BOQ License'}</span>
@@ -438,7 +580,7 @@ export const StudioToolkitModal: React.FC<StudioToolkitModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              aria-label="Close Studio Toolkit"
+              aria-label="Close Studio Utilities"
               className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition"
             >
               <X className="w-4 h-4" />
@@ -446,14 +588,9 @@ export const StudioToolkitModal: React.FC<StudioToolkitModalProps> = ({
           </div>
         </div>
 
-        {/* Tab Bar */}
-        <div className="px-5 py-2.5 border-b border-slate-800 bg-slate-950/40 flex items-center gap-2 overflow-x-auto shrink-0">
-          {[
-            { id: 'render' as const, label: 'AI Render Studio', icon: Wand2 },
-            { id: 'smart_building' as const, label: 'Smart Building (SKA IoT)', icon: Cpu },
-            { id: 'translator' as const, label: 'Site Memo Translator', icon: Languages },
-            { id: 'dossier' as const, label: 'Fee Estimator & Dossier', icon: FileSpreadsheet },
-          ].map((tab) => {
+        {/* Navigation Tab Bar */}
+        <div className="px-5 py-2.5 border-b border-slate-800 bg-slate-950/40 flex items-center gap-1.5 overflow-x-auto shrink-0">
+          {TABS.map((tab) => {
             const Icon = tab.icon;
             const active = activeTab === tab.id;
             return (
@@ -477,216 +614,272 @@ export const StudioToolkitModal: React.FC<StudioToolkitModalProps> = ({
 
         {/* Scrollable Content Viewport */}
         <div className="flex-1 overflow-y-auto p-5 space-y-6">
-          {/* TAB 1: AI RENDER PROMPT STUDIO */}
+          {/* TAB 1: SITE FEASIBILITY & PLOT YIELD */}
+          {activeTab === 'feasibility' && (
+            <SiteFeasibilityPanel
+              activeProject={activeProject}
+              boqSubtotal={boqTotals.subtotal}
+              currency={currency}
+              onUpdateProject={onUpdateProject}
+              onNavigateTab={(tab) => onNavigateTab(tab)}
+              onCloseModal={onClose}
+            />
+          )}
+
+          {/* TAB 2: FIELD RFIS, CHANGE ORDERS & SNAGS */}
+          {activeTab === 'field_ops' && (
+            <FieldOperationsPanel
+              activeProject={activeProject}
+              boqItems={boqItems}
+              currency={currency}
+              onUpdateProject={onUpdateProject}
+              onUpdateBOQItems={onUpdateBOQItems}
+            />
+          )}
+
+          {/* TAB 3: STRUCTURAL, MEP & CARBON CALCULATORS */}
+          {activeTab === 'calculators' && (
+            <EngineeringCalcsPanel
+              activeProject={activeProject}
+              boqItems={boqItems}
+              currency={currency}
+              onUpdateBOQItems={onUpdateBOQItems}
+              onUpdateProject={onUpdateProject}
+            />
+          )}
+
+          {/* TAB 4: AI RENDER & ARCHITECTURAL FINISH BOARD */}
           {activeTab === 'render' && (
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-              <div className="lg:col-span-7 space-y-4">
-                <div className="flex items-center justify-between gap-2 flex-wrap">
-                  <div>
-                    <h3 className="text-sm font-bold text-white">
-                      Architectural Visualization Prompt Builder
-                    </h3>
-                    <p className="text-xs text-slate-400">
-                      Generate camera-calibrated, material-accurate render briefs via Gemini 4 Hydrogen.
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleLoadProjectIntoRender}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-950 border border-slate-700 hover:border-amber-500/50 text-xs font-medium text-amber-300 transition"
-                  >
-                    <Sparkles className="w-3.5 h-3.5" />
-                    <span>Load Active Project</span>
-                  </button>
-                </div>
-
-                {/* Preset Scenes */}
-                <div>
-                  <span className="block text-[11px] font-medium text-slate-400 mb-1.5">
-                    Shot Typology Presets
-                  </span>
-                  <div className="flex flex-wrap gap-1.5">
-                    {RENDER_PRESETS.map((preset) => (
-                      <button
-                        key={preset.id}
-                        type="button"
-                        onClick={() => {
-                          setRenderDescription(preset.description);
-                          setRenderStyle(preset.style);
-                        }}
-                        className="px-2.5 py-1.5 rounded-lg bg-slate-950 border border-slate-800 hover:border-slate-600 text-xs text-slate-300 hover:text-white transition"
-                      >
-                        {preset.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Description Input */}
-                <div>
-                  <label className="block text-xs font-medium text-slate-300 mb-1.5">
-                    Massing, Spatial &amp; Material Brief
-                  </label>
-                  <textarea
-                    rows={4}
-                    value={renderDescription}
-                    onChange={(e) => setRenderDescription(e.target.value)}
-                    placeholder="Describe facade geometry, window proportions, landscape edges, and interior focal points..."
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-slate-100 leading-relaxed focus:outline-none focus:border-amber-500"
-                  />
-                </div>
-
-                {/* Material Tags */}
-                <div>
-                  <span className="block text-[11px] font-medium text-slate-400 mb-1.5">
-                    Append Architectural Materials
-                  </span>
-                  <div className="flex flex-wrap gap-1.5">
-                    {MATERIAL_CHIPS.map((chip) => (
-                      <button
-                        key={chip}
-                        type="button"
-                        onClick={() => handleAppendMaterial(chip)}
-                        className="px-2.5 py-1 rounded-md bg-slate-950 border border-slate-800 hover:border-cyan-500/50 text-[11px] text-slate-300 hover:text-cyan-300 transition"
-                      >
-                        + {chip}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Lighting Style & Submit */}
-                <div className="flex flex-col sm:flex-row sm:items-end gap-3 pt-1">
-                  <div className="flex-1">
-                    <label className="block text-xs font-medium text-slate-300 mb-1.5">
-                      Lighting &amp; Atmosphere
-                    </label>
-                    <select
-                      value={renderStyle}
-                      onChange={(e) => setRenderStyle(e.target.value)}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500"
-                    >
-                      {RENDER_STYLES.map((st) => (
-                        <option key={st} value={st} className="bg-slate-900">
-                          {st}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <button
-                    id="btn-generate-render-prompt"
-                    type="button"
-                    disabled={isGeneratingPrompt || !renderDescription.trim()}
-                    onClick={handleGenerateRenderPrompt}
-                    className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-slate-950 font-semibold text-xs transition whitespace-nowrap"
-                  >
-                    {isGeneratingPrompt ? (
-                      <>
-                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                        <span>Synthesizing Brief...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Wand2 className="w-3.5 h-3.5" />
-                        <span>Generate Render Prompt</span>
-                      </>
-                    )}
-                  </button>
-                </div>
-
-                {renderError && (
-                  <p className="text-xs text-rose-400 bg-rose-500/10 border border-rose-500/30 rounded-lg px-3 py-2">
-                    {renderError}
-                  </p>
-                )}
-              </div>
-
-              {/* Output Panel */}
-              <div className="lg:col-span-5 rounded-xl bg-slate-950 border border-slate-800 p-4 flex flex-col justify-between space-y-4">
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between border-b border-slate-800 pb-2.5">
-                    <span className="text-xs font-semibold text-white">
-                      Calibrated Visualization Prompt
-                    </span>
-                    <span className="text-[11px] font-mono text-slate-400">
-                      Gemini 4 Hydrogen
-                    </span>
-                  </div>
-
-                  {generatedRenderPrompt ? (
-                    <div className="p-3.5 rounded-lg bg-slate-900 border border-slate-800 text-xs text-slate-200 leading-relaxed whitespace-pre-wrap max-h-72 overflow-y-auto">
-                      {generatedRenderPrompt}
-                    </div>
-                  ) : (
-                    <div className="p-6 rounded-lg border border-dashed border-slate-800 text-center space-y-1.5">
-                      <Wand2 className="w-6 h-6 text-slate-500 mx-auto" />
+            <div className="space-y-5">
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+                <div className="lg:col-span-7 space-y-4">
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <div>
+                      <h3 className="text-sm font-bold text-white">
+                        Architectural Visualization &amp; Finish Board
+                      </h3>
                       <p className="text-xs text-slate-400">
-                        Select a preset or load your active project brief, then click Generate Render Prompt for V-Ray, Corona, D5, or Midjourney camera &amp; lighting specs.
+                        Build camera-calibrated render briefs and push exterior/interior finish specs straight to BOQ.
                       </p>
                     </div>
+                    <button
+                      type="button"
+                      onClick={handleLoadProjectIntoRender}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-950 border border-slate-700 hover:border-amber-500/50 text-xs font-medium text-amber-300 transition whitespace-nowrap shrink-0"
+                    >
+                      <Sparkles className="w-3.5 h-3.5" />
+                      <span>Load Active Project</span>
+                    </button>
+                  </div>
+
+                  {/* Preset Scenes */}
+                  <div>
+                    <span className="block text-[11px] font-medium text-slate-400 mb-1.5">
+                      Shot Typology Presets
+                    </span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {RENDER_PRESETS.map((preset) => (
+                        <button
+                          key={preset.id}
+                          type="button"
+                          onClick={() => {
+                            setRenderDescription(preset.description);
+                            setRenderStyle(preset.style);
+                          }}
+                          className="px-2.5 py-1.5 rounded-lg bg-slate-950 border border-slate-800 hover:border-slate-600 text-xs text-slate-300 hover:text-white transition whitespace-nowrap"
+                        >
+                          {preset.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Description Input */}
+                  <div>
+                    <label className="block text-xs font-medium text-slate-300 mb-1.5">
+                      Massing, Spatial &amp; Material Brief
+                    </label>
+                    <textarea
+                      rows={4}
+                      value={renderDescription}
+                      onChange={(e) => setRenderDescription(e.target.value)}
+                      placeholder="Describe facade geometry, window proportions, landscape edges, and interior focal points..."
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-slate-100 leading-relaxed focus:outline-none focus:border-amber-500"
+                    />
+                  </div>
+
+                  {/* Lighting Style & Submit */}
+                  <div className="flex flex-col sm:flex-row sm:items-end gap-3 pt-1">
+                    <div className="flex-1">
+                      <label className="block text-xs font-medium text-slate-300 mb-1.5">
+                        Lighting &amp; Atmosphere
+                      </label>
+                      <select
+                        value={renderStyle}
+                        onChange={(e) => setRenderStyle(e.target.value)}
+                        className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500"
+                      >
+                        {RENDER_STYLES.map((st) => (
+                          <option key={st} value={st} className="bg-slate-900">
+                            {st}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <button
+                      id="btn-generate-render-prompt"
+                      type="button"
+                      disabled={isGeneratingPrompt || !renderDescription.trim()}
+                      onClick={handleGenerateRenderPrompt}
+                      className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-slate-950 font-semibold text-xs transition whitespace-nowrap shrink-0"
+                    >
+                      {isGeneratingPrompt ? (
+                        <>
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          <span>Synthesizing Brief...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Wand2 className="w-3.5 h-3.5" />
+                          <span>Generate Render Prompt</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+
+                  {renderError && (
+                    <p className="text-xs text-rose-400 bg-rose-500/10 border border-rose-500/30 rounded-lg px-3 py-2">
+                      {renderError}
+                    </p>
                   )}
                 </div>
 
-                {generatedRenderPrompt && (
-                  <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-800">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        navigator.clipboard?.writeText(generatedRenderPrompt).catch(() => {});
-                        setCopiedPrompt(true);
-                        setTimeout(() => setCopiedPrompt(false), 2000);
-                      }}
-                      className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 hover:border-slate-500 text-xs font-medium text-white transition"
-                    >
-                      {copiedPrompt ? (
-                        <Check className="w-3.5 h-3.5 text-emerald-400" />
-                      ) : (
-                        <Copy className="w-3.5 h-3.5" />
-                      )}
-                      <span>{copiedPrompt ? 'Copied' : 'Copy Prompt'}</span>
-                    </button>
+                {/* Output Panel */}
+                <div className="lg:col-span-5 rounded-xl bg-slate-950 border border-slate-800 p-4 flex flex-col justify-between space-y-4">
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between border-b border-slate-800 pb-2.5">
+                      <span className="text-xs font-semibold text-white">
+                        Calibrated Visualization Prompt
+                      </span>
+                      <span className="text-[11px] font-mono text-slate-400">
+                        Gemini 4 Hydrogen
+                      </span>
+                    </div>
 
-                    <button
-                      type="button"
-                      onClick={handleSavePromptToAuditLog}
-                      className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 hover:border-emerald-500/50 text-xs font-medium text-emerald-300 transition"
-                    >
-                      <BookmarkCheck className="w-3.5 h-3.5" />
-                      <span>{savedPromptToLog ? 'Saved to Log' : 'Save to Project Log'}</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSourceMemoText(generatedRenderPrompt);
-                        setActiveTab('translator');
-                      }}
-                      className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 hover:border-cyan-500/50 text-xs font-medium text-cyan-300 transition"
-                    >
-                      <Languages className="w-3.5 h-3.5" />
-                      <span>Translate Spec</span>
-                    </button>
+                    {generatedRenderPrompt ? (
+                      <div className="p-3.5 rounded-lg bg-slate-900 border border-slate-800 text-xs text-slate-200 leading-relaxed whitespace-pre-wrap max-h-64 overflow-y-auto">
+                        {generatedRenderPrompt}
+                      </div>
+                    ) : (
+                      <div className="p-6 rounded-lg border border-dashed border-slate-800 text-center space-y-1.5">
+                        <Wand2 className="w-6 h-6 text-slate-500 mx-auto" />
+                        <p className="text-xs text-slate-400">
+                          Select a preset or load your active project brief, then click Generate Render Prompt for V-Ray, Corona, D5, or architectural image briefs.
+                        </p>
+                      </div>
+                    )}
                   </div>
-                )}
+
+                  {generatedRenderPrompt && (
+                    <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-800">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          navigator.clipboard?.writeText(generatedRenderPrompt).catch(() => {});
+                          setCopiedPrompt(true);
+                          setTimeout(() => setCopiedPrompt(false), 2000);
+                        }}
+                        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 hover:border-slate-500 text-xs font-medium text-white transition"
+                      >
+                        {copiedPrompt ? (
+                          <Check className="w-3.5 h-3.5 text-emerald-400" />
+                        ) : (
+                          <Copy className="w-3.5 h-3.5" />
+                        )}
+                        <span>{copiedPrompt ? 'Copied' : 'Copy Prompt'}</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={handleSavePromptToAuditLog}
+                        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 hover:border-emerald-500/50 text-xs font-medium text-emerald-300 transition"
+                      >
+                        <BookmarkCheck className="w-3.5 h-3.5" />
+                        <span>{savedPromptToLog ? 'Saved to Log' : 'Save to Project Log'}</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSourceMemoText(generatedRenderPrompt);
+                          setActiveTab('translator');
+                        }}
+                        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 hover:border-cyan-500/50 text-xs font-medium text-cyan-300 transition"
+                      >
+                        <Languages className="w-3.5 h-3.5" />
+                        <span>Translate Spec</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Architectural Material & Finish Schedule Board */}
+              <div className="border-t border-slate-800 pt-4 space-y-2.5">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-xs font-semibold text-white">
+                    Curated Architectural Material &amp; Finish Schedule
+                  </span>
+                  <span className="text-[11px] text-slate-400">
+                    Click to include in brief or push directly to BOQ
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                  {MATERIAL_BOARD_SPECS.map((spec) => (
+                    <div
+                      key={spec.id}
+                      className="rounded-xl bg-slate-950 border border-slate-800 p-3 flex flex-col justify-between gap-2.5"
+                    >
+                      <div className="flex items-start gap-2.5">
+                        <div
+                          className="w-8 h-8 rounded-lg border border-slate-700 shrink-0"
+                          style={{ backgroundColor: spec.swatch }}
+                        />
+                        <div className="min-w-0">
+                          <div className="text-xs font-semibold text-white truncate">
+                            {spec.name}
+                          </div>
+                          <div className="text-[11px] text-slate-400 font-mono tabular-nums">
+                            {formatCurrency(spec.rate, currency)} / {spec.unit}
+                          </div>
+                        </div>
+                      </div>
+                      <p className="text-[11px] text-slate-400 leading-snug">{spec.specNote}</p>
+                      <div className="flex items-center gap-1.5 pt-1">
+                        <button
+                          type="button"
+                          onClick={() => handleAppendMaterial(spec.name)}
+                          className="flex-1 py-1.5 px-2 rounded-md bg-slate-900 border border-slate-800 hover:border-slate-600 text-[11px] font-medium text-slate-200 transition whitespace-nowrap"
+                        >
+                          Use in Render
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleAddMaterialBoardSpecToBoq(spec)}
+                          className="py-1.5 px-2.5 rounded-md bg-slate-900 border border-slate-700 hover:border-amber-500/60 text-[11px] font-medium text-amber-300 transition whitespace-nowrap"
+                        >
+                          {addedFinishId === spec.id ? 'Added' : '+ BOQ'}
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           )}
 
-          {/* TAB 2: SMART BUILDING SKA IOT */}
-          {activeTab === 'smart_building' && (
-            <div className="space-y-3">
-              <SmartHomeSkaAgent
-                activeProject={activeProject}
-                onOpenConsultation={() => {
-                  onClose();
-                  onNavigateTab('specialist');
-                }}
-              />
-            </div>
-          )}
-
-          {/* TAB 3: SITE MEMO TRANSLATOR */}
+          {/* TAB 5: SITE MEMO TRANSLATOR + VOICE PLAYBACK */}
           {activeTab === 'translator' && (
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
               <div className="lg:col-span-6 space-y-4">
@@ -696,7 +889,7 @@ export const StudioToolkitModal: React.FC<StudioToolkitModalProps> = ({
                       Multilingual Site Memo &amp; Spec Translator
                     </h3>
                     <p className="text-xs text-slate-400">
-                      Translate structural, rebar, and curing instructions accurately for site crews.
+                      Translate structural, rebar, and curing instructions and play voice audio for site crews.
                     </p>
                   </div>
                   <button
@@ -710,13 +903,12 @@ export const StudioToolkitModal: React.FC<StudioToolkitModalProps> = ({
                         `Project ${activeProject.name} (${activeProject.location}) active BOQ checklist: ${topItems}. Confirm site readiness before scheduling material delivery.`
                       );
                     }}
-                    className="px-3 py-1.5 rounded-lg bg-slate-950 border border-slate-700 hover:border-slate-500 text-xs font-medium text-slate-200 transition"
+                    className="px-3 py-1.5 rounded-lg bg-slate-950 border border-slate-700 hover:border-slate-500 text-xs font-medium text-slate-200 transition whitespace-nowrap"
                   >
                     Load BOQ Note
                   </button>
                 </div>
 
-                {/* Quick Templates */}
                 <div>
                   <span className="block text-[11px] font-medium text-slate-400 mb-1.5">
                     Site Supervisor Templates
@@ -727,7 +919,7 @@ export const StudioToolkitModal: React.FC<StudioToolkitModalProps> = ({
                         key={tpl.label}
                         type="button"
                         onClick={() => setSourceMemoText(tpl.text)}
-                        className="px-2.5 py-1.5 rounded-lg bg-slate-950 border border-slate-800 hover:border-slate-600 text-xs text-slate-300 hover:text-white transition"
+                        className="px-2.5 py-1.5 rounded-lg bg-slate-950 border border-slate-800 hover:border-slate-600 text-xs text-slate-300 hover:text-white transition whitespace-nowrap"
                       >
                         {tpl.label}
                       </button>
@@ -771,7 +963,7 @@ export const StudioToolkitModal: React.FC<StudioToolkitModalProps> = ({
                     type="button"
                     disabled={isTranslating || !sourceMemoText.trim()}
                     onClick={handleTranslateMemo}
-                    className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-slate-950 font-semibold text-xs transition whitespace-nowrap"
+                    className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-slate-950 font-semibold text-xs transition whitespace-nowrap shrink-0"
                   >
                     {isTranslating ? (
                       <>
@@ -823,12 +1015,21 @@ export const StudioToolkitModal: React.FC<StudioToolkitModalProps> = ({
                   <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-800">
                     <button
                       type="button"
+                      onClick={handleSpeakTranslatedMemo}
+                      className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 hover:border-amber-500/60 text-xs font-medium text-amber-300 transition whitespace-nowrap"
+                    >
+                      <Volume2 className="w-3.5 h-3.5" />
+                      <span>{isSpeakingTranslation ? 'Speaking...' : 'Play Audio'}</span>
+                    </button>
+
+                    <button
+                      type="button"
                       onClick={() => {
                         navigator.clipboard?.writeText(translatedMemo).catch(() => {});
                         setCopiedTranslation(true);
                         setTimeout(() => setCopiedTranslation(false), 2000);
                       }}
-                      className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 hover:border-slate-500 text-xs font-medium text-white transition"
+                      className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 hover:border-slate-500 text-xs font-medium text-white transition whitespace-nowrap"
                     >
                       {copiedTranslation ? (
                         <Check className="w-3.5 h-3.5 text-emerald-400" />
@@ -844,7 +1045,7 @@ export const StudioToolkitModal: React.FC<StudioToolkitModalProps> = ({
                       )}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-xs font-semibold text-white transition"
+                      className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-xs font-semibold text-white transition whitespace-nowrap"
                     >
                       <MessageSquare className="w-3.5 h-3.5" />
                       <span>Send to Site Supervisor</span>
@@ -855,10 +1056,22 @@ export const StudioToolkitModal: React.FC<StudioToolkitModalProps> = ({
             </div>
           )}
 
-          {/* TAB 4: FEE ESTIMATOR & EXECUTIVE DOSSIER */}
+          {/* TAB 6: SMART BUILDING SKA IOT */}
+          {activeTab === 'smart_building' && (
+            <div className="space-y-3">
+              <SmartHomeSkaAgent
+                activeProject={activeProject}
+                onOpenConsultation={() => {
+                  onClose();
+                  onNavigateTab('specialist');
+                }}
+              />
+            </div>
+          )}
+
+          {/* TAB 7: COA FEE DESK & EXECUTIVE DOSSIER */}
           {activeTab === 'dossier' && (
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-              {/* Architectural Fee Calculator */}
               <div className="lg:col-span-7 rounded-xl bg-slate-950 border border-slate-800 p-5 space-y-4">
                 <div className="flex items-start justify-between gap-3 flex-wrap border-b border-slate-800 pb-3">
                   <div>
@@ -873,7 +1086,7 @@ export const StudioToolkitModal: React.FC<StudioToolkitModalProps> = ({
                     <button
                       type="button"
                       onClick={() => setFeeMode('percent')}
-                      className={`px-2.5 py-1 rounded-md text-xs font-medium transition ${
+                      className={`px-2.5 py-1 rounded-md text-xs font-medium transition whitespace-nowrap ${
                         feeMode === 'percent' ? 'bg-amber-500 text-slate-950' : 'text-slate-400 hover:text-white'
                       }`}
                     >
@@ -882,7 +1095,7 @@ export const StudioToolkitModal: React.FC<StudioToolkitModalProps> = ({
                     <button
                       type="button"
                       onClick={() => setFeeMode('per_sqft')}
-                      className={`px-2.5 py-1 rounded-md text-xs font-medium transition ${
+                      className={`px-2.5 py-1 rounded-md text-xs font-medium transition whitespace-nowrap ${
                         feeMode === 'per_sqft' ? 'bg-amber-500 text-slate-950' : 'text-slate-400 hover:text-white'
                       }`}
                     >
@@ -925,7 +1138,7 @@ export const StudioToolkitModal: React.FC<StudioToolkitModalProps> = ({
                         max={12}
                         step={0.5}
                         value={feePercent}
-                        onChange={(e) => setFeePercent( parseFloat(e.target.value) )}
+                        onChange={(e) => setFeePercent(parseFloat(e.target.value))}
                         className="w-full accent-amber-500 cursor-pointer"
                       />
                     </div>
@@ -955,7 +1168,6 @@ export const StudioToolkitModal: React.FC<StudioToolkitModalProps> = ({
                   </label>
                 </div>
 
-                {/* CoA Stage Payment Split */}
                 <div className="space-y-1.5 pt-1">
                   <span className="block text-[11px] font-medium text-slate-400">
                     Stage-Wise Fee Schedule
@@ -983,7 +1195,7 @@ export const StudioToolkitModal: React.FC<StudioToolkitModalProps> = ({
                     id="btn-add-fee-to-boq"
                     type="button"
                     onClick={handleAddFeeToBoq}
-                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold text-xs transition"
+                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold text-xs transition whitespace-nowrap"
                   >
                     {addedFeeToBoq ? <Check className="w-3.5 h-3.5" /> : <PlusCircle className="w-3.5 h-3.5" />}
                     <span>{addedFeeToBoq ? 'Consultancy Fee Synced to BOQ' : 'Add Consultancy Fee to BOQ'}</span>
@@ -994,7 +1206,7 @@ export const StudioToolkitModal: React.FC<StudioToolkitModalProps> = ({
                       onClose();
                       onNavigateTab('boq');
                     }}
-                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-slate-900 border border-slate-700 hover:border-slate-500 text-xs font-medium text-slate-200 transition"
+                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-slate-900 border border-slate-700 hover:border-slate-500 text-xs font-medium text-slate-200 transition whitespace-nowrap"
                   >
                     <span>Open BOQ Table</span>
                     <ArrowRight className="w-3.5 h-3.5" />
@@ -1002,7 +1214,6 @@ export const StudioToolkitModal: React.FC<StudioToolkitModalProps> = ({
                 </div>
               </div>
 
-              {/* Project Dossier Export & License */}
               <div className="lg:col-span-5 space-y-4">
                 <div className="rounded-xl bg-slate-950 border border-slate-800 p-5 space-y-4">
                   <div className="border-b border-slate-800 pb-3">
@@ -1030,9 +1241,9 @@ export const StudioToolkitModal: React.FC<StudioToolkitModalProps> = ({
                       <span className="font-mono text-slate-200 tabular-nums">{boqItems.length}</span>
                     </div>
                     <div className="flex justify-between text-slate-300">
-                      <span>Site Audits &amp; Logs</span>
+                      <span>Site Audits &amp; RFIs</span>
                       <span className="font-mono text-slate-200 tabular-nums">
-                        {(activeProject.siteAudits?.length || 0)} audits · {(activeProject.auditLogs?.length || 0)} logs
+                        {(activeProject.siteAudits?.length || 0)} audits · {(activeProject.fieldItems?.length || 0)} field items
                       </span>
                     </div>
                   </div>
@@ -1042,7 +1253,7 @@ export const StudioToolkitModal: React.FC<StudioToolkitModalProps> = ({
                       id="btn-download-dossier"
                       type="button"
                       onClick={handleDownloadDossier}
-                      className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 hover:border-amber-500/60 text-xs font-semibold text-white transition"
+                      className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 hover:border-amber-500/60 text-xs font-semibold text-white transition whitespace-nowrap"
                     >
                       <Download className="w-3.5 h-3.5 text-amber-400" />
                       <span>Export .MD</span>
@@ -1055,7 +1266,7 @@ export const StudioToolkitModal: React.FC<StudioToolkitModalProps> = ({
                         setCopiedDossier(true);
                         setTimeout(() => setCopiedDossier(false), 2000);
                       }}
-                      className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 hover:border-slate-500 text-xs font-semibold text-slate-200 transition"
+                      className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 hover:border-slate-500 text-xs font-semibold text-slate-200 transition whitespace-nowrap"
                     >
                       {copiedDossier ? (
                         <Check className="w-3.5 h-3.5 text-emerald-400" />
@@ -1070,7 +1281,7 @@ export const StudioToolkitModal: React.FC<StudioToolkitModalProps> = ({
                       onClick={() => {
                         if (typeof window !== 'undefined') window.print();
                       }}
-                      className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 hover:border-slate-500 text-xs font-semibold text-slate-200 transition"
+                      className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 hover:border-slate-500 text-xs font-semibold text-slate-200 transition whitespace-nowrap"
                     >
                       <Printer className="w-3.5 h-3.5" />
                       <span>Print</span>
@@ -1078,7 +1289,6 @@ export const StudioToolkitModal: React.FC<StudioToolkitModalProps> = ({
                   </div>
                 </div>
 
-                {/* BIM & BOQ License Card */}
                 <div className="rounded-xl bg-slate-950 border border-slate-800 p-5 space-y-3">
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex items-center gap-2.5">
