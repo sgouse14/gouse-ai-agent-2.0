@@ -1470,7 +1470,7 @@ const AGENT_WORKFLOWS = [
     title: 'Dual AI: Gemini & ChatGPT',
     icon: '⚡',
     tag: 'Dual Brain Engine',
-    prompt: 'How do Google Gemini 3.8 Flash and OpenAI ChatGPT (GPT-4o) integrate in Gouse AI Specialist to cross-validate structural calculations, code compliance, and CAD takeoffs?',
+    prompt: 'How do Google Gemini 4 Hydrogen and OpenAI ChatGPT (GPT-4o) integrate in Gouse AI Specialist to cross-validate structural calculations, code compliance, and CAD takeoffs?',
   },
   {
     title: 'A-One Gold & Bharati Cement',
@@ -2277,7 +2277,7 @@ I operate as your **Autonomous Engineering & Municipal Specialist**:
       specialist: 'general',
       language: 'en-IN',
       aiEngine: 'hybrid',
-      modelName: 'Gemini 3.8 + ChatGPT Dual Ensemble',
+      modelName: 'Gemini 4 + ChatGPT Dual Ensemble',
       agentToolsUsed: ['Nambike Nakshe 2.0 Gatekeeper', 'IS 456 Structural Rules', 'BOQ Inspector'],
       agentThought: `Synchronized with ${activeProject.name} active spatial data (${(activeProject.builtUpAreaSqFt || 3500).toLocaleString()} sq.ft). Ready to audit Nambike Nakshe 2.0 bylaws, structural framing, NBC statutory egress, and bill of quantities as Gouse AI.`,
     },
@@ -3140,7 +3140,7 @@ ${autonomousPowerActive ? '*Autonomous Agent Status: All price hedge actions are
         agentToolsUsed: data.toolsUsed,
         agentActions: data.actions,
         aiEngine: data.engineUsed || engineToUse,
-        modelName: data.modelName || (engineToUse === 'chatgpt' ? 'OpenAI ChatGPT (GPT-4o)' : engineToUse === 'hydrogen' ? 'Google Gemini 4 Hydrogen' : engineToUse === 'hybrid' ? 'Gemini 3.8 + ChatGPT Dual Ensemble' : 'Google Gemini 3.8 Flash'),
+        modelName: data.modelName || (engineToUse === 'chatgpt' ? 'OpenAI ChatGPT (GPT-4o)' : engineToUse === 'hydrogen' ? 'Google Gemini 4 Hydrogen' : engineToUse === 'hybrid' ? 'Gemini 4 + ChatGPT Dual Ensemble' : 'Google Gemini 4 Spatial'),
       };
 
       setMessages((prev) => [...prev, aiMsg]);
@@ -3321,7 +3321,7 @@ For **${activeProject.name || 'this proposal'}** (${activeProject.projectType ||
         specialist: selectedSpecialist,
         language: selectedLanguage,
         aiEngine: engineToUse,
-        modelName: engineToUse === 'chatgpt' ? 'OpenAI ChatGPT (GPT-4o)' : engineToUse === 'hydrogen' ? 'Google Gemini 4 Hydrogen' : engineToUse === 'hybrid' ? 'Gemini 3.8 + ChatGPT Dual Ensemble' : 'Google Gemini 3.8 Flash',
+        modelName: engineToUse === 'chatgpt' ? 'OpenAI ChatGPT (GPT-4o)' : engineToUse === 'hydrogen' ? 'Google Gemini 4 Hydrogen' : engineToUse === 'hybrid' ? 'Gemini 4 + ChatGPT Dual Ensemble' : 'Google Gemini 4 Spatial',
         agentThought: fallbackThought,
         agentToolsUsed: fallbackTools,
         agentActions: fallbackActions,
@@ -3796,7 +3796,7 @@ For **${activeProject.name || 'this proposal'}** (${activeProject.projectType ||
                           </span>
                         ) : (
                           <span className="inline-flex items-center gap-1 text-[10px] font-mono text-amber-400">
-                            <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                            <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
                             <span>ACTION REQUIRED</span>
                           </span>
                         )}
@@ -4114,7 +4114,7 @@ For **${activeProject.name || 'this proposal'}** (${activeProject.projectType ||
                         className={`w-full sm:w-auto px-5 py-2.5 rounded-lg text-xs font-bold transition flex items-center justify-center gap-2 shadow-md ${
                           activeProb.isResolved
                             ? 'bg-slate-800 text-slate-400 cursor-not-allowed border border-slate-700'
-                            : 'bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-slate-950 active:scale-95 shadow-amber-500/20'
+                            : 'bg-amber-500 hover:bg-amber-400 text-slate-950'
                         }`}
                       >
                         {activeProb.isResolved ? (
@@ -5953,7 +5953,7 @@ For **${activeProject.name || 'this proposal'}** (${activeProject.projectType ||
                 Connected Specialized AI Agents (7 Live Nodes)
               </span>
               <span className="text-[11px] font-mono text-emerald-400">
-                Gemini 4 Hydrogen &amp; 3.8 Flash · High-Speed IPC
+                Gemini 4 Hydrogen &amp; Spatial · High-Speed IPC
               </span>
             </div>
 
@@ -5963,7 +5963,7 @@ For **${activeProject.name || 'this proposal'}** (${activeProject.projectType ||
                   id: 'ag-master',
                   name: 'Gouse AI Master Specialist',
                   role: 'Principal Architectural Lead',
-                  model: 'Gemini 3.8 Flash + Native Voice',
+                  model: 'Gemini 4 Hydrogen + Native Voice',
                   icon: Sparkles,
                   color: 'amber',
                   status: 'LEAD ORCHESTRATOR',
@@ -6178,7 +6178,7 @@ For **${activeProject.name || 'this proposal'}** (${activeProject.projectType ||
             </div>
           </div>
 
-          {/* AI Model Architecture Switcher (Gemini 4 Hydrogen vs Gemini 3.8 Flash vs OpenAI ChatGPT GPT-4o vs Dual Ensemble) */}
+          {/* AI Model Architecture Switcher (Gemini 4 Hydrogen vs Gemini 4 Spatial vs OpenAI ChatGPT GPT-4o vs Dual Ensemble) */}
           <div className="bg-slate-950/90 border border-slate-800 rounded-xl p-3 flex flex-col md:flex-row md:items-center justify-between gap-3 shadow-lg">
             <div className="flex items-center gap-2.5">
               <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-500/20 via-cyan-500/15 to-emerald-500/20 border border-slate-700 flex items-center justify-center shrink-0">
@@ -6190,14 +6190,14 @@ For **${activeProject.name || 'this proposal'}** (${activeProject.projectType ||
                     Gouse AI Engine Architecture
                   </span>
                   <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
-                    Gemini 4 Hydrogen + 3.8 + ChatGPT
+                    Gemini 4 Hydrogen + Spatial + ChatGPT
                   </span>
                 </div>
                 <p className="text-[11px] text-slate-400 font-mono">
                   {selectedEngine === 'hydrogen'
                     ? 'Google Gemini 4 Hydrogen (gemini-4-hydrogen) • Next-gen adaptive reasoning, multimodal CAD & BOQ synthesis'
                     : selectedEngine === 'gemini'
-                    ? 'Google Gemini 4 Hydrogen · Multi-modal CAD visual parsing, adaptive reasoning & natural voice'
+                    ? 'Google Gemini 4 Spatial · Multi-modal CAD visual parsing, adaptive reasoning & natural voice'
                     : selectedEngine === 'chatgpt'
                     ? 'OpenAI ChatGPT (GPT-4o) • Granular structural engineering logic, NBC 2016 Part 4 & BOQ math'
                     : 'Dual AI Ensemble • Cross-verifies spatial geometry with structural calculations for zero-error consensus'}
@@ -6229,10 +6229,10 @@ For **${activeProject.name || 'this proposal'}** (${activeProject.projectType ||
                     ? 'bg-amber-500 text-slate-950 shadow-md shadow-amber-500/20'
                     : 'text-slate-400 hover:text-white hover:bg-slate-800'
                 }`}
-                title="Google Gemini 3.8 Flash Engine"
+                title="Google Gemini 4 Spatial Engine"
               >
                 <Sparkles className="w-3.5 h-3.5 text-inherit" />
-                <span>Gemini 3.8 Flash</span>
+                <span>Gemini 4 Spatial</span>
               </button>
               <button
                 type="button"
@@ -6389,7 +6389,7 @@ For **${activeProject.name || 'this proposal'}** (${activeProject.projectType ||
                   id="btn-run-self-operation-cycle"
                   disabled={isSelfOperatingCycleRunning}
                   onClick={handleRunAutonomousSelfOperationCycle}
-                  className="px-3 py-1.5 rounded-lg bg-teal-500 hover:bg-teal-400 disabled:opacity-50 text-slate-950 text-xs font-mono font-bold flex items-center gap-1.5 transition shadow-sm active:scale-95"
+                  className="px-3 py-1.5 rounded-lg bg-teal-500 hover:bg-teal-400 disabled:opacity-50 text-slate-950 text-xs font-mono font-bold flex items-center gap-1.5 transition-colors shadow-sm"
                   title="Trigger Gouse AI Specialist to inspect and self-operate all project specs"
                 >
                   <Play className={`w-3.5 h-3.5 fill-current ${isSelfOperatingCycleRunning ? 'animate-spin' : ''}`} />
@@ -6428,7 +6428,7 @@ For **${activeProject.name || 'this proposal'}** (${activeProject.projectType ||
                   type="button"
                   id="btn-show-agent-workface"
                   onClick={() => setStudioTab('agent_mesh')}
-                  className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-slate-950 text-xs font-mono font-bold flex items-center gap-1.5 transition shadow-sm active:scale-95"
+                  className="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-mono font-bold flex items-center gap-1.5 transition-colors shadow-sm"
                   title="Open Gouse AI Autonomous Multi-Agent Workface & Orchestration Mesh"
                 >
                   <Network className="w-3.5 h-3.5 fill-slate-950 text-slate-950" />
@@ -6497,7 +6497,7 @@ For **${activeProject.name || 'this proposal'}** (${activeProject.projectType ||
                           <button
                             type="button"
                             onClick={() => handleHedgeSpecificAlert(alert)}
-                            className="px-2 py-0.5 rounded bg-teal-500/20 hover:bg-teal-500/30 text-teal-300 border border-teal-500/40 text-[10px] font-mono font-bold transition flex items-center gap-1 active:scale-95"
+                            className="px-2 py-0.5 rounded bg-teal-500/20 hover:bg-teal-500/30 text-teal-300 border border-teal-500/40 text-[10px] font-mono font-bold transition-colors flex items-center gap-1"
                             title="Auto-hedge and commit spot contract to BOQ schedule"
                           >
                             <Zap className="w-2.5 h-2.5 text-teal-400" />
@@ -6577,7 +6577,7 @@ For **${activeProject.name || 'this proposal'}** (${activeProject.projectType ||
               type="button"
               id="quick-self-operate"
               onClick={handleRunAutonomousSelfOperationCycle}
-              className="px-2.5 py-1 rounded-full bg-gradient-to-r from-amber-500 via-teal-400 to-emerald-400 text-slate-950 whitespace-nowrap text-[11px] font-bold font-mono transition shrink-0 flex items-center gap-1 shadow-sm hover:brightness-110 active:scale-95"
+              className="px-2.5 py-1 rounded-full bg-amber-500 hover:bg-amber-400 text-slate-950 whitespace-nowrap text-[11px] font-bold font-mono transition-colors shrink-0 flex items-center gap-1 shadow-sm"
               title="Give Gouse AI power to self-operate all project specs"
             >
               <Zap className="w-3 h-3 fill-slate-950" />
@@ -6705,7 +6705,7 @@ For **${activeProject.name || 'this proposal'}** (${activeProject.projectType ||
                               ) : (
                                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-sm">
                                   <Sparkles className="w-2.5 h-2.5 text-amber-400" />
-                                  Gemini 3.8 Flash
+                                  Gemini 4 Spatial
                                 </span>
                               )}
                             </>
@@ -6828,7 +6828,7 @@ For **${activeProject.name || 'this proposal'}** (${activeProject.projectType ||
                                       <button
                                         type="button"
                                         onClick={() => handleExecuteAction(action, msg.id, false)}
-                                        className="px-2.5 py-1 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-[11px] transition shadow-sm active:scale-95 flex items-center gap-1"
+                                        className="px-2.5 py-1 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-[11px] transition-colors shadow-sm flex items-center gap-1"
                                       >
                                         <Zap className="w-3 h-3 fill-slate-950" />
                                         <span>Execute Action</span>
@@ -6871,7 +6871,7 @@ For **${activeProject.name || 'this proposal'}** (${activeProject.projectType ||
                         <div className="pt-2.5 border-t border-slate-800/80 flex items-center justify-between gap-2 flex-wrap">
                           <div className="flex items-center gap-1.5">
                             {isSpeaking && (
-                              <div className="flex items-center gap-1 text-[11px] text-amber-400 font-mono animate-pulse">
+                              <div className="flex items-center gap-1 text-[11px] text-amber-400 font-mono">
                                 <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
                                 <span>Voice Playing...</span>
                                 <span className="text-slate-500">({playbackSpeed}x)</span>
@@ -6934,10 +6934,10 @@ For **${activeProject.name || 'this proposal'}** (${activeProject.projectType ||
                                 handleSendMessage(queryToRerun, altEngine);
                               }}
                               className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded bg-slate-900 border border-slate-800 text-teal-300 hover:text-white hover:bg-slate-800 transition shadow-sm"
-                              title={msg.aiEngine === 'hydrogen' ? 'Re-run analysis with Google Gemini 3.8' : 'Re-run analysis with Google Gemini 4 Hydrogen'}
+                              title={msg.aiEngine === 'hydrogen' ? 'Re-run analysis with Google Gemini 4 Spatial' : 'Re-run analysis with Google Gemini 4 Hydrogen'}
                             >
                               <RefreshCw className="w-3 h-3 text-teal-400" />
-                              <span>{msg.aiEngine === 'hydrogen' ? 'Compare w/ Gemini 3.8' : 'Compare w/ Hydrogen'}</span>
+                              <span>{msg.aiEngine === 'hydrogen' ? 'Compare w/ Spatial' : 'Compare w/ Hydrogen'}</span>
                             </button>
 
                             {/* Transel (Translate) Button */}
@@ -6985,7 +6985,7 @@ For **${activeProject.name || 'this proposal'}** (${activeProject.projectType ||
                           ? 'Google Gemini 4 Hydrogen'
                           : selectedEngine === 'hybrid'
                           ? 'Dual AI Ensemble'
-                          : 'Google Gemini 3.8 Flash'}
+                          : 'Google Gemini 4 Spatial'}
                       </strong>{' '}
                       in <span className="text-amber-400 font-mono">{currentLangObj.native}</span>...
                     </span>
@@ -7026,7 +7026,7 @@ For **${activeProject.name || 'this proposal'}** (${activeProject.projectType ||
                     }`}
                   >
                     <Sparkles className="w-2.5 h-2.5" />
-                    <span>Gemini 3.8 Flash</span>
+                    <span>Gemini 4 Spatial</span>
                   </button>
                   <button
                     type="button"
@@ -7054,7 +7054,7 @@ For **${activeProject.name || 'this proposal'}** (${activeProject.projectType ||
                   </button>
                 </div>
                 <div className="hidden sm:flex items-center gap-1.5 text-[10px] text-emerald-400">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
                   <span>
                     {selectedEngine === 'hydrogen'
                       ? 'Hydrogen 4.0 Active'
@@ -7068,9 +7068,9 @@ For **${activeProject.name || 'this proposal'}** (${activeProject.projectType ||
               </div>
               {/* Active Voice Recording Live Visualizer */}
               {isListening && (
-                <div className="flex items-center justify-between text-xs text-amber-400 bg-amber-500/10 px-3.5 py-2 rounded-lg border border-amber-500/30 font-mono animate-pulse">
+                <div className="flex items-center justify-between text-xs text-amber-400 bg-amber-500/10 px-3.5 py-2 rounded-lg border border-amber-500/30 font-mono">
                   <div className="flex items-center gap-2">
-                    <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-ping" />
+                    <span className="w-2.5 h-2.5 rounded-full bg-red-500" />
                     <span className="font-semibold">
                       Listening in {currentLangObj.native} ({currentLangObj.name})...
                     </span>
@@ -7093,7 +7093,7 @@ For **${activeProject.name || 'this proposal'}** (${activeProject.projectType ||
                   onClick={toggleVoiceInput}
                   className={`p-2.5 rounded-lg transition border flex items-center justify-center shrink-0 ${
                     isListening
-                      ? 'bg-red-500 border-red-400 text-white animate-pulse'
+                      ? 'bg-red-500 border-red-400 text-white'
                       : 'bg-slate-900 border-slate-800 text-amber-400 hover:bg-slate-800 hover:border-amber-500/40'
                   }`}
                   title={`Voice Input in ${currentLangObj.native} (Speech-to-Text)`}
@@ -7130,7 +7130,7 @@ For **${activeProject.name || 'this proposal'}** (${activeProject.projectType ||
                   Specialist: <strong className="text-slate-400">{activeSpecialistObj.title}</strong> | Voice: <strong className="text-amber-400">{activeSpecialistObj.voiceName}</strong>
                 </span>
                 <span className="flex items-center gap-2">
-                  <span>Engine: <strong className="text-amber-400">{selectedEngine === 'hydrogen' ? 'Gemini 4 Hydrogen' : selectedEngine === 'gemini' ? 'Gemini 3.8 Flash' : selectedEngine === 'chatgpt' ? 'ChatGPT (GPT-4o)' : 'Dual AI Ensemble'}</strong></span>
+                  <span>Engine: <strong className="text-amber-400">{selectedEngine === 'hydrogen' ? 'Gemini 4 Hydrogen' : selectedEngine === 'gemini' ? 'Gemini 4 Spatial' : selectedEngine === 'chatgpt' ? 'ChatGPT (GPT-4o)' : 'Dual AI Ensemble'}</strong></span>
                   <span className="text-slate-600">•</span>
                   <span>Lang: <strong className="text-slate-400">{currentLangObj.native}</strong></span>
                 </span>
@@ -7205,7 +7205,7 @@ For **${activeProject.name || 'this proposal'}** (${activeProject.projectType ||
 
               {/* Progress Bar when analyzing */}
               {isAnalyzingBlueprint && (
-                <div className="p-4 rounded-xl bg-slate-950 border border-amber-500/30 space-y-2.5 animate-pulse">
+                <div className="p-4 rounded-xl bg-slate-950 border border-amber-500/30 space-y-2.5">
                   <div className="flex items-center justify-between text-xs font-mono">
                     <span className="text-amber-400 font-bold flex items-center gap-2">
                       <RefreshCw className="w-3.5 h-3.5 animate-spin" />

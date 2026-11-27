@@ -531,7 +531,7 @@ export const LabourCostBreakdownModal: React.FC<LabourCostBreakdownModalProps> =
 
             <button
               onClick={handleUpdateAllRates}
-              className="px-5 py-2 rounded-xl text-xs font-bold text-slate-950 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 hover:from-amber-300 hover:to-amber-500 shadow-md transition flex items-center gap-2 active:scale-95"
+              className="px-5 py-2 rounded-lg text-xs font-semibold text-slate-950 bg-amber-500 hover:bg-amber-400 transition-colors flex items-center gap-2 whitespace-nowrap shrink-0"
             >
               <Sparkles className="w-4 h-4" />
               <span>⚡ 1-Click Update All BOQ Rates With Labour Schedule</span>

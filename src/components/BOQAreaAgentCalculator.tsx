@@ -597,7 +597,7 @@ export const BOQAreaAgentCalculator: React.FC<BOQAreaAgentCalculatorProps> = ({
             onClick={handleToggleVoice}
             className={`p-1.5 rounded-lg border text-xs font-mono transition flex items-center gap-1 ${
               isSpeaking
-                ? 'bg-amber-500 text-slate-950 border-amber-400 animate-pulse'
+                ? 'bg-amber-500 text-slate-950 border-amber-400'
                 : 'bg-slate-900 text-slate-300 border-slate-700 hover:text-white'
             }`}
             title="Read auto-calculation summary aloud"
@@ -952,7 +952,7 @@ export const BOQAreaAgentCalculator: React.FC<BOQAreaAgentCalculatorProps> = ({
                   <Sparkles className="w-3 h-3" />
                   <span>Multimodal Vision & Prompt</span>
                   {attachedImage && (
-                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" title="Drawing attached" />
+                    <span className="w-2 h-2 rounded-full bg-emerald-400" title="Drawing attached" />
                   )}
                 </button>
               </div>
@@ -1300,7 +1300,7 @@ export const BOQAreaAgentCalculator: React.FC<BOQAreaAgentCalculatorProps> = ({
 
                 {/* Multimodal Analysis Feedback / Loading State */}
                 {isPromptLoading && (
-                  <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center gap-3 text-xs text-amber-300 font-mono animate-pulse">
+                  <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center gap-3 text-xs text-amber-300 font-mono">
                     <RefreshCw className="w-4 h-4 animate-spin shrink-0 text-amber-400" />
                     <div className="space-y-0.5">
                       <div className="font-bold">Multimodal Vision Engine Active...</div>
@@ -1452,7 +1452,7 @@ export const BOQAreaAgentCalculator: React.FC<BOQAreaAgentCalculatorProps> = ({
           {/* 7. ACTION APPLICATION BUTTONS */}
           <div className="flex items-center justify-between flex-wrap gap-3 pt-2 border-t border-slate-800/80">
             <div className="flex items-center gap-2 text-xs text-slate-400 font-mono">
-              <Zap className="w-4 h-4 text-amber-400 animate-pulse" />
+              <Zap className="w-4 h-4 text-amber-400" />
               <span>
                 Calculated for: <strong className="text-white">{metrics.validArea.toLocaleString()} sq.ft</strong> @ <strong className="text-emerald-400">₹{metrics.costPerSqFt}/sq.ft</strong>
               </span>

@@ -471,7 +471,7 @@ export const BOQDistributionAnalytics: React.FC<BOQDistributionAnalyticsProps> =
           <Sliders className="w-3.5 h-3.5" />
           <span>Sensitivity Sliders</span>
           {(materialDeltaPct !== 0 || laborDeltaPct !== 0 || overheadDeltaPct !== 0) && (
-            <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+            <span className="w-2 h-2 rounded-full bg-amber-400" />
           )}
         </button>
       </div>

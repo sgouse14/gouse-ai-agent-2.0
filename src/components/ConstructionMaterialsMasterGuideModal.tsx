@@ -500,9 +500,9 @@ export const ConstructionMaterialsMasterGuideModal: React.FC<ConstructionMateria
                                   <span
                                     className={`w-1.5 h-1.5 rounded-full ${
                                       brand.trend === 'up'
-                                        ? 'bg-emerald-400 animate-pulse'
+                                        ? 'bg-emerald-400'
                                         : brand.trend === 'down'
-                                        ? 'bg-rose-400 animate-pulse'
+                                        ? 'bg-rose-400'
                                         : 'bg-slate-500'
                                     }`}
                                   />

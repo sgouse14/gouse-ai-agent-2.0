@@ -53,3 +53,30 @@
 .scrollbar-none::-webkit-scrollbar {
   display: none;
 }
+
+@layer base {
+  button:focus-visible,
+  a:focus-visible,
+  input:focus-visible,
+  select:focus-visible,
+  textarea:focus-visible {
+    outline: 2px solid rgba(245, 158, 11, 0.7);
+    outline-offset: 2px;
+  }
+}
+
+@media print {
+  html,
+  body {
+    background: #ffffff !important;
+    color: #0f172a !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .blueprint-grid,
+  .blueprint-grid-light {
+    display: none !important;
+  }
+}
+

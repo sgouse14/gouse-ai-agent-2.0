@@ -20,7 +20,6 @@ import {
   User,
   UserPlus,
   Check,
-  Briefcase,
   LayoutDashboard,
   X,
   Wand2,
@@ -28,12 +27,18 @@ import {
   AudioWaveform,
   ClipboardList,
   Sofa,
+  Lock,
 } from 'lucide-react';
 import { TabType } from './Navigation';
 import { StudioToolkitTab } from './StudioToolkitModal';
 import { Project } from '../types';
 import { useTheme } from '../context/ThemeContext';
-import { useAuth } from '../context/AuthContext';
+import {
+  useAuth,
+  isFreeProfile,
+  isZeroBrokerRole,
+  isClientRole,
+} from '../context/AuthContext';
 
 interface SidebarProps {
   activeTab: TabType;
@@ -74,11 +79,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const {
     user,
     users,
+    canAccessProfile,
+    hasBoqAccess,
+    getTrialStatus,
     switchUser,
     logout,
     openLoginModal,
     openSignUpModal,
     setIsProfileEditorOpen,
+    openSubscriptionModal,
   } = useAuth();
 
   const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
@@ -104,7 +113,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   ];
 
   const portfolioNav: Array<{ id: TabType; label: string; icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }> }> = [
-    { id: 'broker', label: 'Property & Brokerage', icon: Home },
+    { id: 'broker', label: 'Zero-Broker (2028)', icon: Home },
     { id: 'social', label: 'Realstate Media', icon: ImageIcon },
   ];
 
@@ -126,9 +135,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
       case 'contractor':
         return 'EPC Contractor';
       case 'property_owner':
-        return 'Property Owner';
+        return 'Property Owner (0% Fee)';
+      case 'tenant':
+        return 'Verified Tenant (0% Fee)';
       case 'broker_agent':
-        return 'Real Estate Broker';
+        return 'Zero-Broker Advisor (0% Fee)';
       case 'client':
         return 'Client Stakeholder';
       default:
@@ -225,6 +236,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           {primaryNav.map((item) => {
             const Icon = item.icon;
             const isActive = activeTab === item.id;
+            const isBoqLocked = item.id === 'boq' && !hasBoqAccess(user);
             return (
               <button
                 key={item.id}
@@ -244,7 +256,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   className={`w-4 h-4 shrink-0 ${isActive ? '' : 'text-slate-400'}`}
                   style={isActive ? { color: currentTheme.colors['400'] } : undefined}
                 />
-                {!isCollapsed && <span className="truncate">{item.label}</span>}
+                {!isCollapsed && <span className="truncate flex-1 text-left">{item.label}</span>}
+                {!isCollapsed && isBoqLocked && (
+                  <span title="BOQ Pro License Required (Gouse AI Lifetime Free)" className="shrink-0">
+                    <Lock className="w-3 h-3 text-amber-400" />
+                  </span>
+                )}
               </button>
             );
           })}
@@ -263,6 +280,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
               item.id === 'broker'
                 ? activeTab === 'broker' || activeTab === 'pg_coliving' || activeTab === 'rent_house'
                 : activeTab === item.id;
+            const isBrokerLocked =
+              item.id === 'broker' && !isFreeProfile(user) && !isZeroBrokerRole(user?.role);
             return (
               <button
                 key={item.id}
@@ -283,7 +302,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   style={isActive ? { color: currentTheme.colors['400'] } : undefined}
                 />
                 {!isCollapsed && (
-                  <span className="truncate">{item.label}</span>
+                  <span className="truncate flex-1 text-left">{item.label}</span>
+                )}
+                {!isCollapsed && isBrokerLocked && (
+                  <span
+                    title="Separate Zero-Broker Login required (Gouse AI enters without login)"
+                    className="shrink-0"
+                  >
+                    <Lock className="w-3 h-3 text-amber-400" />
+                  </span>
                 )}
               </button>
             );
@@ -437,25 +464,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <div className="space-y-1">
           {!isCollapsed && (
             <div className="px-2.5 pb-1 text-[11px] font-medium text-slate-500">
-              Client Access
+              Client Access (Clients Only)
             </div>
           )}
-          <button
-            id="btn-sidebar-client-workspace"
-            type="button"
-            onClick={() => {
-              onOpenClientWorkspace();
-              onCloseMobile();
-            }}
-            title={isCollapsed ? 'Client Workspace' : undefined}
-            className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[13px] font-medium text-slate-300 hover:text-white hover:bg-slate-800/70 transition-colors whitespace-nowrap ${
-              isCollapsed ? 'justify-center' : ''
-            }`}
-          >
-            <LayoutDashboard className="w-4 h-4 shrink-0 text-amber-400" />
-            {!isCollapsed && <span className="truncate">Client Workspace</span>}
-          </button>
-
           <button
             id="btn-sidebar-client-portal"
             type="button"
@@ -463,13 +474,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
               onOpenClientPortal();
               onCloseMobile();
             }}
-            title={isCollapsed ? 'Client Intake & Brief' : undefined}
-            className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[13px] font-medium text-slate-400 hover:text-slate-100 hover:bg-slate-800/50 transition-colors whitespace-nowrap ${
+            title={isCollapsed ? 'Separate Client Login (Clients Only)' : undefined}
+            className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[13px] font-medium text-slate-300 hover:text-white hover:bg-slate-800/70 transition-colors whitespace-nowrap ${
               isCollapsed ? 'justify-center' : ''
             }`}
           >
-            <Briefcase className="w-4 h-4 shrink-0 text-slate-400" />
-            {!isCollapsed && <span className="truncate">Client Intake &amp; Brief</span>}
+            <LayoutDashboard className="w-4 h-4 shrink-0 text-amber-400" />
+            {!isCollapsed && <span className="truncate flex-1 text-left">Separate Client Login</span>}
+            {!isCollapsed && user?.role !== 'client' && (
+              <span title="Only Client role can access" className="shrink-0">
+                <Lock className="w-3 h-3 text-amber-400" />
+              </span>
+            )}
           </button>
         </div>
       </div>
@@ -509,7 +525,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <>
                   <div className="min-w-0 flex-1">
                     <div className="text-xs font-semibold text-white truncate">{user.name}</div>
-                    <div className="text-[11px] text-slate-400 truncate">{formatRole(user.role)}</div>
+                    <div className="text-[11px] text-slate-400 truncate">
+                      {formatRole(user.role)} · {getTrialStatus(user).statusLabel}
+                    </div>
                   </div>
                   <ChevronUp className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                 </>
@@ -528,38 +546,60 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
                 <div>
                   <div className="px-2 py-1 text-[11px] font-medium text-slate-500">
-                    Switch role profile
+                    Switch studio profile
                   </div>
-                  <div className="space-y-0.5 max-h-36 overflow-y-auto">
-                    {users.map((u) => {
-                      const isCurrent = u.id === user.id;
-                      return (
-                        <button
-                          key={u.id}
-                          type="button"
-                          onClick={() => {
-                            switchUser(u.id);
-                            setIsAccountMenuOpen(false);
-                          }}
-                          className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs text-left transition-colors ${
-                            isCurrent
-                              ? 'bg-slate-800 text-white'
-                              : 'text-slate-300 hover:bg-slate-800/60 hover:text-white'
-                          }`}
-                        >
-                          <img
-                            src={u.avatarUrl}
-                            alt={u.name}
-                            referrerPolicy="no-referrer"
-                            className="w-5 h-5 rounded object-cover shrink-0"
-                          />
-                          <div className="min-w-0 flex-1">
-                            <div className="truncate font-medium">{u.name}</div>
-                          </div>
-                          {isCurrent && <Check className="w-3.5 h-3.5 text-amber-400 shrink-0" />}
-                        </button>
-                      );
-                    })}
+                  <div className="space-y-0.5 max-h-40 overflow-y-auto">
+                    {users
+                      .filter((u) => !isZeroBrokerRole(u.role) && !isClientRole(u.role))
+                      .map((u) => {
+                        const isCurrent = u.id === user.id;
+                        const free = isFreeProfile(u);
+                        const unlocked = canAccessProfile(u);
+                        const boqOk = hasBoqAccess(u);
+                        return (
+                          <button
+                            key={u.id}
+                            type="button"
+                            onClick={() => {
+                              if (!unlocked) {
+                                setIsAccountMenuOpen(false);
+                                openSubscriptionModal();
+                                return;
+                              }
+                              switchUser(u.id);
+                              setIsAccountMenuOpen(false);
+                            }}
+                            className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs text-left transition-colors ${
+                              isCurrent
+                                ? 'bg-slate-800 text-white'
+                                : unlocked
+                                ? 'text-slate-300 hover:bg-slate-800/60 hover:text-white'
+                                : 'text-slate-400 hover:bg-slate-800/40'
+                            }`}
+                          >
+                            <img
+                              src={u.avatarUrl}
+                              alt={u.name}
+                              referrerPolicy="no-referrer"
+                              className="w-5 h-5 rounded object-cover shrink-0"
+                            />
+                            <div className="min-w-0 flex-1">
+                              <div className="truncate font-medium">{u.name}</div>
+                            </div>
+                            {isCurrent ? (
+                              <Check className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                            ) : free ? (
+                              <span className="text-[10px] font-mono text-emerald-400 shrink-0">Free</span>
+                            ) : boqOk ? (
+                              <span className="text-[10px] font-mono text-amber-300 shrink-0">Pro</span>
+                            ) : unlocked ? (
+                              <span className="text-[10px] font-mono text-sky-400 shrink-0">6-Mo</span>
+                            ) : (
+                              <Lock className="w-3 h-3 text-amber-400 shrink-0" />
+                            )}
+                          </button>
+                        );
+                      })}
                   </div>
                 </div>
 
@@ -633,7 +673,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     <>
       {/* Desktop Sticky Sidebar */}
       <aside
-        className={`hidden lg:block shrink-0 sticky top-0 h-screen transition-all duration-200 z-30 ${
+        className={`hidden lg:block print:hidden shrink-0 sticky top-0 h-screen transition-all duration-200 z-30 ${
           isCollapsed ? 'w-[72px]' : 'w-[260px]'
         }`}
       >

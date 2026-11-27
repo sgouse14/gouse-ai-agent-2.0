@@ -152,7 +152,7 @@ export const MarketPriceAutoUpdateModal: React.FC<MarketPriceAutoUpdateModalProp
         <div className="p-4 sm:p-5 bg-gradient-to-r from-slate-950 via-slate-900 to-slate-950 border-b border-slate-800 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3">
             <div className="p-2.5 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-400">
-              <Zap className="w-5 h-5 animate-pulse" />
+              <Zap className="w-5 h-5" />
             </div>
             <div>
               <div className="flex items-center gap-2">

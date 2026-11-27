@@ -34,6 +34,13 @@ import {
   ArrowRight,
   CheckSquare,
   Square,
+  Copy,
+  Check,
+  Eye,
+  Clock,
+  RotateCcw,
+  Lock,
+  UserCheck,
 } from 'lucide-react';
 import {
   ProfessionalProfile,
@@ -50,6 +57,14 @@ import {
   detectSouthIndiaRegion,
   SOUTH_INDIA_REGION_LABELS,
 } from '../data/southIndiaDirectory';
+import { useAuth, isFreeProfile } from '../context/AuthContext';
+
+const GOUSE_COORDINATOR = {
+  name: 'Ar. S. Gouse (Gouse AI Desk)',
+  email: 'sgouse14@gmail.com',
+  phone: '+91 8073947241',
+  whatsapp: '918073947241',
+} as const;
 
 interface MarketplaceViewProps {
   professionals: ProfessionalProfile[];
@@ -108,6 +123,21 @@ function parseQuotedAmountToINR(quoted?: string, fallbackBudget?: string): numbe
   return Math.round(numeric);
 }
 
+function getPaginationRange(current: number, total: number): Array<number | 'ellipsis'> {
+  if (total <= 7) {
+    return Array.from({ length: total }, (_, i) => i + 1);
+  }
+  const pages: Array<number | 'ellipsis'> = [1];
+  const left = Math.max(2, current - 1);
+  const right = Math.min(total - 1, current + 1);
+
+  if (left > 2) pages.push('ellipsis');
+  for (let i = left; i <= right; i++) pages.push(i);
+  if (right < total - 1) pages.push('ellipsis');
+  pages.push(total);
+  return pages;
+}
+
 function buildBoqPackagePayload(
   stageKey: string,
   items: BOQItem[],
@@ -163,6 +193,9 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
   onUpdateBOQItems,
   onNavigateToBOQ,
 }) => {
+  const { user, quickSignIn } = useAuth();
+  const isOwnerCoordinator = isFreeProfile(user);
+
   const [activeTab, setActiveTab] = useState<'browse' | 'google-search' | 'enquiries' | 'profile'>(
     'browse'
   );
@@ -173,13 +206,18 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
   const [selectedType, setSelectedType] = useState<string>(initialCategory || 'all');
   const [selectedRegion, setSelectedRegion] = useState<string>('all');
   const [selectedLocation, setSelectedLocation] = useState<string>('all');
+  const [verifiedOnly, setVerifiedOnly] = useState<boolean>(false);
+  const [shortlistOnly, setShortlistOnly] = useState<boolean>(false);
   const [sortBy, setSortBy] = useState<SortOption>('rating');
   const [searchQuery, setSearchQuery] = useState<string>(initialQuery || initialSearchQuery || '');
   const [activeBoqStagePreset, setActiveBoqStagePreset] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [pageSize, setPageSize] = useState<number>(24);
+  const [pageJumpInput, setPageJumpInput] = useState<string>('');
 
-  // Compare & Broadcast Shortlist Selection (up to 4 vendors)
+  // Vendor Inspection, Copy Feedback, Compare & Broadcast Shortlist
+  const [inspectedVendor, setInspectedVendor] = useState<ProfessionalProfile | null>(null);
+  const [copiedField, setCopiedField] = useState<string | null>(null);
   const [selectedCompareIds, setSelectedCompareIds] = useState<string[]>([]);
   const [isCompareModalOpen, setIsCompareModalOpen] = useState<boolean>(false);
   const [isBroadcastModalOpen, setIsBroadcastModalOpen] = useState<boolean>(false);
@@ -212,25 +250,28 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
   const [enquiryStatusFilter, setEnquiryStatusFilter] = useState<string>('all');
   const [requestingQuoteId, setRequestingQuoteId] = useState<string | null>(null);
   const [syncedBoqEnquiryIds, setSyncedBoqEnquiryIds] = useState<string[]>([]);
+  const [editingQuoteEnquiryId, setEditingQuoteEnquiryId] = useState<string | null>(null);
+  const [manualQuoteAmount, setManualQuoteAmount] = useState<string>('');
+  const [manualQuoteDelivery, setManualQuoteDelivery] = useState<string>('');
+  const [manualQuoteNotes, setManualQuoteNotes] = useState<string>('');
 
-  // Send Single RFQ Modal State
+  // Send Single RFQ Modal State (First Connect to Gouse AI -> Then Pass to Partner)
   const [selectedProfessional, setSelectedProfessional] = useState<ProfessionalProfile | null>(null);
   const [enquiryProjectTitle, setEnquiryProjectTitle] = useState('');
   const [enquiryMessage, setEnquiryMessage] = useState('');
   const [enquiryBudget, setEnquiryBudget] = useState('');
-  const [enquiryClientName, setEnquiryClientName] = useState('Ar. S. Gouse');
-  const [enquiryClientEmail, setEnquiryClientEmail] = useState('sgouse14@gmail.com');
-  const [enquiryClientPhone, setEnquiryClientPhone] = useState('+91 8073947241');
+  const [enquiryClientName, setEnquiryClientName] = useState(user?.name || 'Ar. S. Gouse');
+  const [enquiryClientEmail, setEnquiryClientEmail] = useState(user?.email || 'sgouse14@gmail.com');
+  const [enquiryClientPhone, setEnquiryClientPhone] = useState(user?.phone || '+91 8073947241');
   const [enquirySentSuccess, setEnquirySentSuccess] = useState(false);
+  const [submittedStep1Enquiry, setSubmittedStep1Enquiry] = useState<MarketplaceEnquiry | null>(null);
   const [sendViaWhatsApp, setSendViaWhatsApp] = useState<boolean>(false);
-  const [autoRequestQuoteOnSubmit, setAutoRequestQuoteOnSubmit] = useState<boolean>(true);
   const [isSubmittingEnquiry, setIsSubmittingEnquiry] = useState<boolean>(false);
 
   // Broadcast RFQ Modal State
   const [broadcastTitle, setBroadcastTitle] = useState('');
   const [broadcastMessage, setBroadcastMessage] = useState('');
   const [broadcastBudget, setBroadcastBudget] = useState('');
-  const [broadcastAutoQuote, setBroadcastAutoQuote] = useState<boolean>(true);
   const [isSubmittingBroadcast, setIsSubmittingBroadcast] = useState<boolean>(false);
   const [broadcastSuccessCount, setBroadcastSuccessCount] = useState<number | null>(null);
 
@@ -265,14 +306,45 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
     setTimeout(() => setFeedbackToast(null), 5000);
   };
 
+  const handleCopyText = async (value: string, fieldKey: string, label: string) => {
+    if (!value) return;
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopiedField(fieldKey);
+      showToast(`Copied ${label} (${value}) to clipboard.`);
+      setTimeout(() => {
+        setCopiedField((prev) => (prev === fieldKey ? null : prev));
+      }, 2000);
+    } catch {
+      showToast(`${label}: ${value}`);
+    }
+  };
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      if (selectedProfessional) setSelectedProfessional(null);
+      else if (inspectedVendor) setInspectedVendor(null);
+      else if (isBroadcastModalOpen) setIsBroadcastModalOpen(false);
+      else if (isCompareModalOpen) setIsCompareModalOpen(false);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [selectedProfessional, inspectedVendor, isBroadcastModalOpen, isCompareModalOpen]);
+
   // Summary Metrics
   const counts = useMemo(() => {
     const architects = professionals.filter((p) => p.professionalType === 'architect').length;
     const builders = professionals.filter((p) => p.professionalType === 'builder').length;
     const suppliers = professionals.filter((p) => p.professionalType === 'material_supplier').length;
+    const verified = professionals.filter((p) => p.verified).length;
     const quoted = enquiries.filter((e) => e.status === 'quoted' || Boolean(e.quotedAmount)).length;
     const accepted = enquiries.filter((e) => e.status === 'accepted').length;
-    return { architects, builders, suppliers, quoted, accepted };
+    const open = enquiries.filter((e) => e.status === 'open' || e.status === 'in_progress').length;
+    const awardedValueINR = enquiries
+      .filter((e) => e.status === 'accepted')
+      .reduce((sum, e) => sum + parseQuotedAmountToINR(e.quotedAmount, e.budget), 0);
+    return { architects, builders, suppliers, verified, quoted, accepted, open, awardedValueINR };
   }, [professionals, enquiries]);
 
   const myPractices = useMemo(() => {
@@ -390,6 +462,12 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
     if (selectedType !== 'all') {
       list = list.filter((p) => p.professionalType === selectedType);
     }
+    if (verifiedOnly) {
+      list = list.filter((p) => p.verified);
+    }
+    if (shortlistOnly) {
+      list = list.filter((p) => p.isMyPractice || p.id.startsWith('prof-custom-'));
+    }
     if (selectedRegion !== 'all') {
       list = list.filter((p) => detectSouthIndiaRegion(p.location) === selectedRegion);
     }
@@ -420,13 +498,51 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
     });
 
     return list;
-  }, [professionals, selectedType, selectedRegion, selectedLocation, searchQuery, sortBy]);
+  }, [
+    professionals,
+    selectedType,
+    verifiedOnly,
+    shortlistOnly,
+    selectedRegion,
+    selectedLocation,
+    searchQuery,
+    sortBy,
+  ]);
+
+  const hasActiveDirectoryFilters = Boolean(
+    selectedType !== 'all' ||
+      verifiedOnly ||
+      shortlistOnly ||
+      selectedRegion !== 'all' ||
+      selectedLocation !== 'all' ||
+      activeBoqStagePreset ||
+      searchQuery.trim()
+  );
+
+  const handleResetDirectoryFilters = () => {
+    setSelectedType('all');
+    setVerifiedOnly(false);
+    setShortlistOnly(false);
+    setSelectedRegion('all');
+    setSelectedLocation('all');
+    setActiveBoqStagePreset(null);
+    setSearchQuery('');
+  };
 
   const totalPages = Math.max(1, Math.ceil(displayedProfessionals.length / pageSize));
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [selectedType, selectedRegion, selectedLocation, searchQuery, sortBy, pageSize]);
+  }, [
+    selectedType,
+    verifiedOnly,
+    shortlistOnly,
+    selectedRegion,
+    selectedLocation,
+    searchQuery,
+    sortBy,
+    pageSize,
+  ]);
 
   const paginatedProfessionals = useMemo(() => {
     const safePage = Math.min(currentPage, totalPages);
@@ -434,7 +550,7 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
     return displayedProfessionals.slice(startIdx, startIdx + pageSize);
   }, [displayedProfessionals, currentPage, pageSize, totalPages]);
 
-  // Filtered Enquiries
+  // Filtered Enquiries & Bid Leveling Metrics
   const displayedEnquiries = useMemo(() => {
     return enquiries.filter((enq) => {
       if (enquiryCategoryFilter !== 'all' && enq.professionalType !== enquiryCategoryFilter) {
@@ -447,6 +563,64 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
     });
   }, [enquiries, enquiryCategoryFilter, enquiryStatusFilter]);
 
+  const bidLevelingMetrics = useMemo(() => {
+    const numericQuotes = displayedEnquiries
+      .map((e) => ({
+        id: e.id,
+        vendor: e.company || e.professionalName || 'Vendor',
+        quotedAmount: e.quotedAmount || '',
+        amountINR: parseQuotedAmountToINR(e.quotedAmount),
+      }))
+      .filter((item) => item.quotedAmount && item.amountINR > 0);
+
+    numericQuotes.sort((a, b) => a.amountINR - b.amountINR);
+    const lowest = numericQuotes[0] || null;
+    const syncedValueINR = displayedEnquiries
+      .filter((e) => e.status === 'accepted' || syncedBoqEnquiryIds.includes(e.id))
+      .reduce((sum, e) => sum + parseQuotedAmountToINR(e.quotedAmount, e.budget), 0);
+
+    return {
+      lowestId: lowest?.id || null,
+      lowestVendor: lowest?.vendor || null,
+      lowestAmountLabel: lowest?.quotedAmount || null,
+      quotedCount: displayedEnquiries.filter((e) => Boolean(e.quotedAmount)).length,
+      syncedValueINR,
+    };
+  }, [displayedEnquiries, syncedBoqEnquiryIds]);
+
+  const handleOpenManualQuoteEditor = (enq: MarketplaceEnquiry) => {
+    if (editingQuoteEnquiryId === enq.id) {
+      setEditingQuoteEnquiryId(null);
+      return;
+    }
+    setEditingQuoteEnquiryId(enq.id);
+    setManualQuoteAmount(enq.quotedAmount || enq.budget || '');
+    setManualQuoteDelivery(enq.estimatedDelivery || '');
+    setManualQuoteNotes(enq.responseMessage || '');
+  };
+
+  const handleSaveManualQuote = (enq: MarketplaceEnquiry) => {
+    if (!manualQuoteAmount.trim()) return;
+    const updated: MarketplaceEnquiry = {
+      ...enq,
+      status: enq.status === 'accepted' ? 'accepted' : 'quoted',
+      quotedAmount: manualQuoteAmount.trim(),
+      estimatedDelivery: manualQuoteDelivery.trim() || enq.estimatedDelivery,
+      responseMessage:
+        manualQuoteNotes.trim() ||
+        enq.responseMessage ||
+        `Logged commercial quotation from ${enq.company || enq.professionalName}.`,
+      respondedAt: new Date().toISOString(),
+    };
+    if (onUpdateEnquiry) {
+      onUpdateEnquiry(updated);
+    } else {
+      onUpdateEnquiryStatus(enq.id, updated.status);
+    }
+    setEditingQuoteEnquiryId(null);
+    showToast(`Saved quotation (${updated.quotedAmount}) for ${enq.company || enq.professionalName}.`);
+  };
+
   const toggleVendorCompare = (profId: string) => {
     setSelectedCompareIds((prev) => {
       if (prev.includes(profId)) return prev.filter((id) => id !== profId);
@@ -458,9 +632,61 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
     });
   };
 
+  const passedPartnerIds = useMemo(() => {
+    const set = new Set<string>();
+    enquiries.forEach((e) => {
+      if (e.routingStage === 'passed_to_partner') {
+        set.add(e.professionalId);
+      }
+    });
+    return set;
+  }, [enquiries]);
+
+  const pendingCoordinatorPassCount = useMemo(
+    () => enquiries.filter((e) => e.routingStage === 'connected_to_gouse').length,
+    [enquiries]
+  );
+
+  const isEnquiryPassedToPartner = (enq: MarketplaceEnquiry): boolean =>
+    enq.routingStage !== 'connected_to_gouse';
+
+  const canDirectContactPartner = (profId: string): boolean =>
+    isOwnerCoordinator || passedPartnerIds.has(profId);
+
+  const handlePassEnquiryToPartner = async (enq: MarketplaceEnquiry) => {
+    if (!isOwnerCoordinator) {
+      showToast(
+        `Connect to Gouse AI first (${GOUSE_COORDINATOR.phone} · ${GOUSE_COORDINATOR.email}). Only Gouse AI can pass requests to ${enq.company || enq.professionalName}.`
+      );
+      return;
+    }
+
+    const passedEnquiry: MarketplaceEnquiry = {
+      ...enq,
+      routingStage: 'passed_to_partner',
+      status: enq.status === 'open' ? 'in_progress' : enq.status,
+      passedToPartnerAt: new Date().toISOString(),
+    };
+
+    if (onUpdateEnquiry) {
+      onUpdateEnquiry(passedEnquiry);
+    } else {
+      onUpdateEnquiryStatus(enq.id, passedEnquiry.status);
+    }
+
+    if (submittedStep1Enquiry?.id === enq.id) {
+      setSubmittedStep1Enquiry(passedEnquiry);
+    }
+
+    showToast(
+      `Connected & Passed to Partner: ${enq.company || enq.professionalName} has now received "${enq.projectTitle}".`
+    );
+  };
+
   const openSingleRfqModal = (prof: ProfessionalProfile) => {
     setSelectedProfessional(prof);
     setEnquirySentSuccess(false);
+    setSubmittedStep1Enquiry(null);
     if (activeBoqStagePreset && boqItems.length > 0) {
       const payload = buildBoqPackagePayload(activeBoqStagePreset, boqItems, activeProject, currency);
       setEnquiryProjectTitle(payload.title);
@@ -551,11 +777,31 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
     );
   };
 
+  const handleOpenCoordinatorWhatsApp = (prof: ProfessionalProfile, customScope?: string) => {
+    const text = encodeURIComponent(
+      `Hello ${GOUSE_COORDINATOR.name},\n\nI would like to connect with you first regarding Marketplace Partner: ${prof.name} (${prof.company}) in ${prof.location || projectCity}.\n\n${
+        customScope ? `Project / Scope: ${customScope}\n\n` : ''
+      }Please review and pass this request to the partner.`
+    );
+    const a = document.createElement('a');
+    a.href = `https://wa.me/${GOUSE_COORDINATOR.whatsapp}?text=${text}`;
+    a.target = '_blank';
+    a.rel = 'noopener noreferrer';
+    a.click();
+  };
+
   const handleOpenWhatsAppRFQ = (prof: ProfessionalProfile, customScope?: string) => {
+    if (!canDirectContactPartner(prof.id)) {
+      openSingleRfqModal(prof);
+      showToast(
+        `Connect to Gouse AI first (${GOUSE_COORDINATOR.phone}) before contacting ${prof.company || prof.name}.`
+      );
+      return;
+    }
     const cleanNum = (prof.whatsapp || prof.phone || '').replace(/[^0-9]/g, '');
     if (!cleanNum) return;
     const text = encodeURIComponent(
-      `Hello ${prof.name} (${prof.company}),\n\nI am reaching out regarding ${
+      `Hello ${prof.name} (${prof.company}),\n\nI am reaching out via Gouse AI Coordinator Desk regarding ${
         activeProject?.name || 'an architectural/construction project'
       } in ${prof.location || projectCity}.\n\n${
         customScope ? `Scope: ${customScope}\n\n` : ''
@@ -788,64 +1034,36 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
       company: selectedProfessional.company,
       professionalType: selectedProfessional.professionalType,
       clientName: enquiryClientName.trim() || 'Client',
-      clientEmail: enquiryClientEmail.trim() || 'client@example.com',
+      clientEmail: enquiryClientEmail.trim() || 'sgouse14@gmail.com',
       clientPhone: enquiryClientPhone.trim(),
       projectTitle: enquiryProjectTitle.trim(),
       message: `${enquiryMessage.trim()}\n\nContact Phone: ${enquiryClientPhone}`,
       budget: enquiryBudget.trim(),
       status: 'open',
+      routingStage: 'connected_to_gouse',
+      coordinatorName: GOUSE_COORDINATOR.name,
+      coordinatorEmail: GOUSE_COORDINATOR.email,
+      coordinatorPhone: GOUSE_COORDINATOR.phone,
       createdAt: new Date().toISOString(),
     };
 
-    if (autoRequestQuoteOnSubmit) {
-      try {
-        const res = await fetch('/api/enquiries/live-quote', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            enquiryId: newEnquiryId,
-            professionalName: selectedProfessional.name,
-            company: selectedProfessional.company,
-            professionalType: selectedProfessional.professionalType,
-            projectTitle: enquiryProjectTitle.trim(),
-            message: enquiryMessage.trim(),
-            budget: enquiryBudget.trim(),
-            clientName: enquiryClientName.trim(),
-          }),
-        });
-
-        if (res.ok) {
-          const quoteData = await res.json();
-          newEnquiry.status = 'quoted';
-          newEnquiry.quotedAmount = quoteData.quotedAmount;
-          newEnquiry.responseMessage = quoteData.responseMessage;
-          newEnquiry.estimatedDelivery = quoteData.estimatedDelivery;
-          newEnquiry.respondedAt = quoteData.respondedAt;
-          newEnquiry.isLiveQuote = true;
-        }
-      } catch {
-        // Silent fallback keeps enquiry open cleanly
-      }
-    }
-
     onAddEnquiry(newEnquiry);
+    setSubmittedStep1Enquiry(newEnquiry);
     setIsSubmittingEnquiry(false);
     setEnquirySentSuccess(true);
+    showToast(
+      `Step 1 Complete: Connected to Gouse AI (${GOUSE_COORDINATOR.phone}) first before passing to ${selectedProfessional.company || selectedProfessional.name}.`
+    );
 
     if (sendViaWhatsApp && selectedProfessional) {
-      handleOpenWhatsAppRFQ(selectedProfessional, `${enquiryProjectTitle}\n${enquiryMessage}`);
+      handleOpenCoordinatorWhatsApp(
+        selectedProfessional,
+        `${enquiryProjectTitle}\n${enquiryMessage}`
+      );
     }
-
-    setTimeout(() => {
-      setEnquirySentSuccess(false);
-      setSelectedProfessional(null);
-      setEnquiryProjectTitle('');
-      setEnquiryMessage('');
-      setEnquiryBudget('');
-    }, 1400);
   };
 
-  // Multi-Vendor Broadcast RFQ Submit
+  // Multi-Vendor Broadcast RFQ Submit (Connects to Gouse AI First -> Passed to Partners)
   const handleSendBroadcastSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (selectedCompareVendors.length === 0 || !broadcastTitle.trim() || !broadcastMessage.trim()) {
@@ -855,63 +1073,33 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
     setIsSubmittingBroadcast(true);
     const vendors = [...selectedCompareVendors];
 
-    const createdEnquiries: MarketplaceEnquiry[] = await Promise.all(
-      vendors.map(async (vendor, idx) => {
-        const newEnqId = `enq-${Date.now()}-${idx}`;
-        const baseEnq: MarketplaceEnquiry = {
-          id: newEnqId,
-          professionalId: vendor.id,
-          professionalName: vendor.name,
-          company: vendor.company,
-          professionalType: vendor.professionalType,
-          clientName: enquiryClientName.trim() || 'Client',
-          clientEmail: enquiryClientEmail.trim() || 'client@example.com',
-          clientPhone: enquiryClientPhone.trim(),
-          projectTitle: broadcastTitle.trim(),
-          message: `${broadcastMessage.trim()}\n\nContact Phone: ${enquiryClientPhone}`,
-          budget: broadcastBudget.trim(),
-          status: 'open',
-          createdAt: new Date().toISOString(),
-        };
-
-        if (broadcastAutoQuote) {
-          try {
-            const res = await fetch('/api/enquiries/live-quote', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                enquiryId: newEnqId,
-                professionalName: vendor.name,
-                company: vendor.company,
-                professionalType: vendor.professionalType,
-                projectTitle: broadcastTitle.trim(),
-                message: broadcastMessage.trim(),
-                budget: broadcastBudget.trim(),
-                clientName: enquiryClientName.trim(),
-              }),
-            });
-            if (res.ok) {
-              const quoteData = await res.json();
-              baseEnq.status = 'quoted';
-              baseEnq.quotedAmount = quoteData.quotedAmount;
-              baseEnq.responseMessage = quoteData.responseMessage;
-              baseEnq.estimatedDelivery = quoteData.estimatedDelivery;
-              baseEnq.respondedAt = quoteData.respondedAt;
-              baseEnq.isLiveQuote = true;
-            }
-          } catch {
-            // Keeps base enquiry open cleanly
-          }
-        }
-        return baseEnq;
-      })
-    );
+    const createdEnquiries: MarketplaceEnquiry[] = vendors.map((vendor, idx) => ({
+      id: `enq-${Date.now()}-${idx}`,
+      professionalId: vendor.id,
+      professionalName: vendor.name,
+      company: vendor.company,
+      professionalType: vendor.professionalType,
+      clientName: enquiryClientName.trim() || 'Client',
+      clientEmail: enquiryClientEmail.trim() || 'sgouse14@gmail.com',
+      clientPhone: enquiryClientPhone.trim(),
+      projectTitle: broadcastTitle.trim(),
+      message: `${broadcastMessage.trim()}\n\nContact Phone: ${enquiryClientPhone}`,
+      budget: broadcastBudget.trim(),
+      status: 'open',
+      routingStage: 'connected_to_gouse',
+      coordinatorName: GOUSE_COORDINATOR.name,
+      coordinatorEmail: GOUSE_COORDINATOR.email,
+      coordinatorPhone: GOUSE_COORDINATOR.phone,
+      createdAt: new Date().toISOString(),
+    }));
 
     createdEnquiries.forEach((enq) => onAddEnquiry(enq));
     setIsSubmittingBroadcast(false);
     setBroadcastSuccessCount(createdEnquiries.length);
     setSelectedCompareIds([]);
-    showToast(`Broadcasted RFQ to ${createdEnquiries.length} shortlisted vendors.`);
+    showToast(
+      `Connected ${createdEnquiries.length} partner enquiries to Gouse AI first for review and partner handoff.`
+    );
   };
 
   const handleStartNewPractice = () => {
@@ -1078,7 +1266,13 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
               </div>
               <div className="min-w-0">
                 <div className="flex items-center gap-1.5">
-                  <h3 className="text-sm font-bold text-white truncate">{prof.name}</h3>
+                  <button
+                    type="button"
+                    onClick={() => setInspectedVendor(prof)}
+                    className="text-sm font-bold text-white hover:text-amber-300 truncate text-left transition-colors"
+                  >
+                    {prof.name}
+                  </button>
                   {prof.verified && (
                     <ShieldCheck
                       className="w-3.5 h-3.5 text-emerald-400 shrink-0"
@@ -1086,7 +1280,13 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
                     />
                   )}
                 </div>
-                <div className="text-xs text-slate-300 font-medium truncate">{prof.company}</div>
+                <button
+                  type="button"
+                  onClick={() => setInspectedVendor(prof)}
+                  className="text-xs text-slate-300 hover:text-white font-medium truncate text-left block max-w-full transition-colors"
+                >
+                  {prof.company}
+                </button>
                 <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-slate-400 tabular-nums">
                   <span>{typeLabel}</span>
                   <span aria-hidden="true">·</span>
@@ -1154,39 +1354,108 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
             {prof.services}
           </div>
 
-          {/* Direct Contact Info */}
+          {/* Contact Routing: First Connect to Gouse AI -> Then Pass to Partner */}
           <div className="pt-2.5 border-t border-slate-800/80 space-y-1.5 text-xs">
-            {prof.phone && (
-              <div className="flex items-center justify-between gap-2">
-                <a
-                  href={`tel:${cleanPhone}`}
-                  className="inline-flex items-center gap-1.5 text-slate-200 hover:text-amber-300 tabular-nums transition-colors"
-                >
-                  <Phone className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                  <span>{prof.phone}</span>
-                </a>
-                {cleanWhatsapp && (
+            {canDirectContactPartner(prof.id) ? (
+              <>
+                <div className="flex items-center justify-between gap-2 text-[11px] text-emerald-400 font-medium">
+                  <span className="inline-flex items-center gap-1">
+                    <ShieldCheck className="w-3 h-3 shrink-0" />
+                    <span>
+                      {isOwnerCoordinator
+                        ? 'Owner Direct Access · Ready to Pass'
+                        : 'Passed via Gouse AI · Direct Contact Unlocked'}
+                    </span>
+                  </span>
+                </div>
+                {prof.phone && (
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <a
+                        href={`tel:${cleanPhone}`}
+                        className="inline-flex items-center gap-1.5 text-slate-200 hover:text-amber-300 tabular-nums transition-colors"
+                      >
+                        <Phone className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                        <span>{prof.phone}</span>
+                      </a>
+                      <button
+                        type="button"
+                        onClick={() => handleCopyText(prof.phone, `phone-${prof.id}`, 'phone number')}
+                        title="Copy phone number"
+                        className="p-1 rounded text-slate-500 hover:text-white transition-colors"
+                      >
+                        {copiedField === `phone-${prof.id}` ? (
+                          <Check className="w-3 h-3 text-emerald-400" />
+                        ) : (
+                          <Copy className="w-3 h-3" />
+                        )}
+                      </button>
+                    </div>
+                    {cleanWhatsapp && (
+                      <button
+                        type="button"
+                        onClick={() => handleOpenWhatsAppRFQ(prof)}
+                        className="inline-flex items-center gap-1 text-[11px] text-emerald-400 hover:text-emerald-300 font-medium whitespace-nowrap shrink-0"
+                      >
+                        <MessageCircle className="w-3 h-3" />
+                        <span>WhatsApp</span>
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                {prof.email && (
+                  <div className="flex items-center justify-between gap-2 text-slate-400">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <Mail className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                      <a
+                        href={`mailto:${prof.email}?subject=Project%20Enquiry`}
+                        className="hover:text-amber-300 truncate transition-colors"
+                      >
+                        {prof.email}
+                      </a>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleCopyText(prof.email, `email-${prof.id}`, 'email address')}
+                      title="Copy email address"
+                      className="p-1 rounded text-slate-500 hover:text-white transition-colors shrink-0"
+                    >
+                      {copiedField === `email-${prof.id}` ? (
+                        <Check className="w-3 h-3 text-emerald-400" />
+                      ) : (
+                        <Copy className="w-3 h-3" />
+                      )}
+                    </button>
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="p-2.5 rounded-lg bg-slate-950 border border-amber-500/25 space-y-1.5">
+                <div className="flex items-center justify-between gap-2 text-[11px] font-semibold text-amber-300">
+                  <span className="inline-flex items-center gap-1">
+                    <Lock className="w-3 h-3 shrink-0" />
+                    <span>Connect to Gouse AI First</span>
+                  </span>
+                  <span className="text-slate-400 font-normal">Then Pass to Partner</span>
+                </div>
+                <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-300">
+                  <a
+                    href={`tel:${GOUSE_COORDINATOR.phone.replace(/[^0-9+]/g, '')}`}
+                    className="inline-flex items-center gap-1 hover:text-amber-300 tabular-nums"
+                  >
+                    <Phone className="w-3 h-3 text-emerald-400 shrink-0" />
+                    <span>{GOUSE_COORDINATOR.phone}</span>
+                  </a>
                   <button
                     type="button"
-                    onClick={() => handleOpenWhatsAppRFQ(prof)}
-                    className="inline-flex items-center gap-1 text-[11px] text-emerald-400 hover:text-emerald-300 font-medium whitespace-nowrap shrink-0"
+                    onClick={() => handleOpenCoordinatorWhatsApp(prof)}
+                    className="inline-flex items-center gap-1 text-emerald-400 hover:text-emerald-300 font-medium"
                   >
                     <MessageCircle className="w-3 h-3" />
-                    <span>WhatsApp</span>
+                    <span>WhatsApp Gouse AI</span>
                   </button>
-                )}
-              </div>
-            )}
-
-            {prof.email && (
-              <div className="flex items-center gap-1.5 text-slate-400 truncate">
-                <Mail className="w-3.5 h-3.5 text-slate-500 shrink-0" />
-                <a
-                  href={`mailto:${prof.email}?subject=Project%20Enquiry`}
-                  className="hover:text-amber-300 truncate transition-colors"
-                >
-                  {prof.email}
-                </a>
+                </div>
               </div>
             )}
 
@@ -1223,14 +1492,24 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
             className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold text-xs transition-colors whitespace-nowrap shrink-0"
           >
             <Send className="w-3.5 h-3.5" />
-            <span>Send RFQ</span>
+            <span>{canDirectContactPartner(prof.id) ? 'Send RFQ' : 'Connect & Pass'}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setInspectedVendor(prof)}
+            title="View complete vendor profile & dossier"
+            className="inline-flex items-center gap-1 px-2.5 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium transition-colors whitespace-nowrap shrink-0"
+          >
+            <Eye className="w-3.5 h-3.5 text-amber-400" />
+            <span>Profile</span>
           </button>
 
           {isPracticeMember ? (
             <button
               type="button"
               onClick={() => setProfileDeleteConfirmId(prof.id)}
-              className="px-3 py-2 rounded-lg bg-slate-800 hover:bg-rose-950/60 text-rose-300 text-xs font-medium transition-colors whitespace-nowrap shrink-0"
+              className="px-2.5 py-2 rounded-lg bg-slate-800 hover:bg-rose-950/60 text-rose-300 text-xs font-medium transition-colors whitespace-nowrap shrink-0"
             >
               Remove
             </button>
@@ -1239,7 +1518,7 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
               type="button"
               onClick={() => handleAddToMyPractice(prof)}
               title="Bookmark to My Practice"
-              className="px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium transition-colors whitespace-nowrap shrink-0"
+              className="px-2.5 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium transition-colors whitespace-nowrap shrink-0"
             >
               Shortlist
             </button>
@@ -1388,32 +1667,97 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
 
       {/* Executive Summary KPIs */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-1">
-          <div className="text-xs text-slate-400">Verified Directory</div>
-          <div className="text-xl font-bold text-white tabular-nums">{professionals.length.toLocaleString()}</div>
+        <button
+          type="button"
+          onClick={() => setActiveTab('browse')}
+          className="text-left p-4 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 space-y-1 transition-colors"
+        >
+          <div className="text-xs text-slate-400 flex items-center justify-between gap-2">
+            <span>Verified Partner Network</span>
+            <span className="text-emerald-400 font-medium tabular-nums">
+              {counts.verified.toLocaleString()} verified
+            </span>
+          </div>
+          <div className="text-xl font-bold text-white tabular-nums">
+            {professionals.length.toLocaleString()}
+          </div>
           <div className="text-xs text-slate-400 tabular-nums">
             {counts.architects.toLocaleString()} Architects · {counts.builders.toLocaleString()} Builders · {counts.suppliers.toLocaleString()} Suppliers
           </div>
-        </div>
+        </button>
 
-        <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-1">
+        <button
+          type="button"
+          onClick={() => setActiveTab('enquiries')}
+          className="text-left p-4 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 space-y-1 transition-colors"
+        >
           <div className="text-xs text-slate-400">Active RFQs Sent</div>
           <div className="text-xl font-bold text-white tabular-nums">{enquiries.length}</div>
           <div className="text-xs text-slate-400 tabular-nums">
-            {counts.accepted} accepted into project scope
+            {counts.open} awaiting response · {counts.accepted} accepted
           </div>
-        </div>
+        </button>
 
-        <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-1">
-          <div className="text-xs text-slate-400">Quotes Received</div>
-          <div className="text-xl font-bold text-emerald-400 tabular-nums">{counts.quoted}</div>
-          <div className="text-xs text-slate-400">Ready for BOQ rate comparison</div>
-        </div>
+        <button
+          type="button"
+          onClick={() => {
+            setActiveTab('enquiries');
+            setEnquiriesViewMode('compare');
+          }}
+          className="text-left p-4 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 space-y-1 transition-colors"
+        >
+          <div className="text-xs text-slate-400">Quotes &amp; Awarded Scope</div>
+          <div className="text-xl font-bold text-emerald-400 tabular-nums">
+            {counts.quoted} {counts.quoted === 1 ? 'Quote' : 'Quotes'}
+          </div>
+          <div className="text-xs text-slate-400 tabular-nums">
+            {counts.awardedValueINR > 0
+              ? `Awarded: ${formatCurrency(counts.awardedValueINR, currency)}`
+              : 'Click to compare vendor bids'}
+          </div>
+        </button>
 
-        <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-1">
+        <button
+          type="button"
+          onClick={() => setActiveTab('profile')}
+          className="text-left p-4 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 space-y-1 transition-colors"
+        >
           <div className="text-xs text-slate-400">My Shortlisted / Practice</div>
           <div className="text-xl font-bold text-amber-400 tabular-nums">{myPractices.length}</div>
           <div className="text-xs text-slate-400">Preferred firms &amp; own listings</div>
+        </button>
+      </div>
+
+      {/* Partner Contact Routing Notice (Connect to Gouse AI First -> Then Pass to Partner) */}
+      <div
+        id="marketplace-coordinator-routing-banner"
+        className="rounded-xl bg-slate-900 border border-amber-500/35 px-4 py-3 flex flex-wrap items-center justify-between gap-3 text-xs"
+      >
+        <div className="flex items-start sm:items-center gap-2.5">
+          <UserCheck className="w-4 h-4 text-amber-400 shrink-0 mt-0.5 sm:mt-0" />
+          <div className="text-slate-200">
+            <strong className="text-amber-300">Step 1: Connect to Gouse AI First</strong> ({GOUSE_COORDINATOR.phone} ·{' '}
+            <span className="font-mono text-emerald-300">{GOUSE_COORDINATOR.email}</span>) →{' '}
+            <strong className="text-white">Step 2: Passed to Partner</strong>. All Marketplace partner contacts route through Gouse AI before forwarding to the selected firm.
+          </div>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          {pendingCoordinatorPassCount > 0 && (
+            <button
+              type="button"
+              onClick={() => setActiveTab('enquiries')}
+              className="px-2.5 py-1 rounded-lg bg-amber-500/15 border border-amber-500/40 text-amber-300 font-semibold hover:bg-amber-500/25 transition-colors whitespace-nowrap"
+            >
+              {pendingCoordinatorPassCount} Awaiting Gouse AI Pass →
+            </button>
+          )}
+          <a
+            href={`tel:${GOUSE_COORDINATOR.phone.replace(/[^0-9+]/g, '')}`}
+            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold transition-colors whitespace-nowrap"
+          >
+            <Phone className="w-3 h-3" />
+            <span>Call Gouse AI</span>
+          </a>
         </div>
       </div>
 
@@ -1430,12 +1774,26 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
                 <div>
                   <span className="font-semibold text-white">Source for {activeProject.name}</span>
                   <span className="text-slate-400 ml-2">
-                    Pick a BOQ stage to filter vendors and auto-fill RFQs with project quantities:
+                    Pick a BOQ package to filter vendors and auto-fill RFQs with project quantities:
                   </span>
                 </div>
               </div>
 
               <div className="flex flex-wrap items-center gap-1.5 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => handleApplyBoqStageShortcut('all')}
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium border transition-colors whitespace-nowrap shrink-0 tabular-nums ${
+                    activeBoqStagePreset === 'all'
+                      ? 'bg-amber-500 text-slate-950 border-amber-400 font-semibold'
+                      : 'bg-slate-950 text-slate-300 border-slate-800 hover:border-slate-700'
+                  }`}
+                >
+                  <span>Full BOQ</span>
+                  <span className={activeBoqStagePreset === 'all' ? 'text-slate-900' : 'text-slate-500'}>
+                    ({boqItems.length})
+                  </span>
+                </button>
                 {boqStageSummaries.map((s) => {
                   const isActive = activeBoqStagePreset === s.stage;
                   return (
@@ -1574,6 +1932,32 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
 
                 <button
                   type="button"
+                  onClick={() => setVerifiedOnly((v) => !v)}
+                  className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium border transition-colors whitespace-nowrap shrink-0 ${
+                    verifiedOnly
+                      ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/50'
+                      : 'bg-slate-950 text-slate-300 border-slate-800 hover:border-slate-700'
+                  }`}
+                >
+                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Verified Only</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setShortlistOnly((s) => !s)}
+                  className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium border transition-colors whitespace-nowrap shrink-0 ${
+                    shortlistOnly
+                      ? 'bg-amber-500/15 text-amber-300 border-amber-500/50'
+                      : 'bg-slate-950 text-slate-300 border-slate-800 hover:border-slate-700'
+                  }`}
+                >
+                  <BookmarkPlus className="w-3.5 h-3.5 text-amber-400" />
+                  <span>Shortlisted ({myPractices.length})</span>
+                </button>
+
+                <button
+                  type="button"
                   onClick={() => {
                     setGoogleQuery(searchQuery);
                     setGoogleType(selectedType);
@@ -1623,18 +2007,36 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
                   );
                 })}
               </div>
-              <span className="text-xs text-slate-400 tabular-nums">
-                Showing{' '}
-                <strong className="text-white">
-                  {displayedProfessionals.length === 0
-                    ? 0
-                    : (Math.min(currentPage, totalPages) - 1) * pageSize + 1}
-                  –
-                  {Math.min(Math.min(currentPage, totalPages) * pageSize, displayedProfessionals.length)}
-                </strong>{' '}
-                of <strong className="text-white">{displayedProfessionals.length.toLocaleString()}</strong>{' '}
-                ({professionals.length.toLocaleString()} total contacts)
-              </span>
+              <div className="flex items-center gap-3">
+                {hasActiveDirectoryFilters && (
+                  <button
+                    type="button"
+                    onClick={handleResetDirectoryFilters}
+                    className="inline-flex items-center gap-1 text-xs text-amber-400 hover:text-amber-300 font-medium whitespace-nowrap shrink-0"
+                  >
+                    <RotateCcw className="w-3 h-3" />
+                    <span>Reset Filters</span>
+                  </button>
+                )}
+                <span className="text-xs text-slate-400 tabular-nums">
+                  Showing{' '}
+                  <strong className="text-white">
+                    {displayedProfessionals.length === 0
+                      ? 0
+                      : (Math.min(currentPage, totalPages) - 1) * pageSize + 1}
+                    –
+                    {Math.min(
+                      Math.min(currentPage, totalPages) * pageSize,
+                      displayedProfessionals.length
+                    )}
+                  </strong>{' '}
+                  of{' '}
+                  <strong className="text-white">
+                    {displayedProfessionals.length.toLocaleString()}
+                  </strong>{' '}
+                  ({professionals.length.toLocaleString()} total contacts)
+                </span>
+              </div>
             </div>
 
             {/* Clean Quick Discipline Filter Row */}
@@ -1774,12 +2176,16 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
                             </button>
                           </td>
                           <td className="py-3 px-3 min-w-[210px]">
-                            <div className="font-semibold text-white flex items-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => setInspectedVendor(prof)}
+                              className="font-semibold text-white hover:text-amber-300 flex items-center gap-1.5 text-left transition-colors"
+                            >
                               <span>{prof.company || prof.name}</span>
                               {prof.verified && (
                                 <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
                               )}
-                            </div>
+                            </button>
                             <div className="text-[11px] text-slate-400 truncate max-w-[260px]">
                               {prof.name} · {prof.services}
                             </div>
@@ -1798,10 +2204,24 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
                             </span>
                           </td>
                           <td className="py-3 px-3 whitespace-nowrap">
-                            <div className="text-slate-200 tabular-nums">{prof.phone}</div>
-                            <div className="text-[11px] text-slate-400 truncate max-w-[180px]">
-                              {prof.email}
-                            </div>
+                            {canDirectContactPartner(prof.id) ? (
+                              <>
+                                <div className="text-slate-200 tabular-nums">{prof.phone}</div>
+                                <div className="text-[11px] text-slate-400 truncate max-w-[180px]">
+                                  {prof.email}
+                                </div>
+                              </>
+                            ) : (
+                              <>
+                                <div className="text-amber-300 font-medium text-[11px] inline-flex items-center gap-1">
+                                  <Lock className="w-3 h-3" />
+                                  <span>Connect to Gouse AI First</span>
+                                </div>
+                                <div className="text-[11px] text-slate-400 tabular-nums">
+                                  {GOUSE_COORDINATOR.phone}
+                                </div>
+                              </>
+                            )}
                           </td>
                           <td className="py-3 pl-3 pr-4 text-right whitespace-nowrap">
                             <div className="inline-flex items-center gap-1.5">
@@ -1811,14 +2231,30 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
                                 className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold text-xs transition-colors"
                               >
                                 <Send className="w-3 h-3" />
-                                <span>Send RFQ</span>
+                                <span>
+                                  {canDirectContactPartner(prof.id) ? 'Send RFQ' : 'Connect & Pass'}
+                                </span>
                               </button>
-                              {cleanPhone && (
+                              <button
+                                type="button"
+                                onClick={() => setInspectedVendor(prof)}
+                                className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium transition-colors"
+                              >
+                                Profile
+                              </button>
+                              {canDirectContactPartner(prof.id) && cleanPhone ? (
                                 <a
                                   href={`tel:${cleanPhone}`}
                                   className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium transition-colors"
                                 >
                                   Call
+                                </a>
+                              ) : (
+                                <a
+                                  href={`tel:${GOUSE_COORDINATOR.phone.replace(/[^0-9+]/g, '')}`}
+                                  className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-emerald-300 text-xs font-medium transition-colors"
+                                >
+                                  Call Gouse AI
                                 </a>
                               )}
                             </div>
@@ -1832,10 +2268,10 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
             </div>
           )}
 
-          {/* Pagination Bar */}
+          {/* Smart Numbered Pagination Bar */}
           {displayedProfessionals.length > 0 && (
             <div className="p-3.5 rounded-xl bg-slate-900 border border-slate-800 flex flex-wrap items-center justify-between gap-3 text-xs">
-              <div className="flex items-center gap-2 text-slate-400 tabular-nums">
+              <div className="flex flex-wrap items-center gap-2 text-slate-400 tabular-nums">
                 <span>
                   Page <strong className="text-white">{Math.min(currentPage, totalPages)}</strong> of{' '}
                   <strong className="text-white">{totalPages.toLocaleString()}</strong>
@@ -1853,40 +2289,78 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
                     <option value={96}>96</option>
                   </select>
                 </label>
+                {totalPages > 5 && (
+                  <>
+                    <span aria-hidden="true">·</span>
+                    <form
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        const target = parseInt(pageJumpInput, 10);
+                        if (Number.isFinite(target) && target >= 1) {
+                          setCurrentPage(Math.min(totalPages, target));
+                          setPageJumpInput('');
+                        }
+                      }}
+                      className="inline-flex items-center gap-1"
+                    >
+                      <input
+                        type="number"
+                        min={1}
+                        max={totalPages}
+                        value={pageJumpInput}
+                        onChange={(e) => setPageJumpInput(e.target.value)}
+                        placeholder="Go to #"
+                        aria-label="Jump to page number"
+                        className="w-20 bg-slate-950 border border-slate-800 rounded px-2 py-1 text-white placeholder-slate-500 focus:outline-none focus:border-amber-400"
+                      />
+                      <button
+                        type="submit"
+                        className="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium"
+                      >
+                        Go
+                      </button>
+                    </form>
+                  </>
+                )}
               </div>
 
-              <div className="flex items-center gap-1.5">
-                <button
-                  type="button"
-                  disabled={currentPage <= 1}
-                  onClick={() => setCurrentPage(1)}
-                  className="px-2.5 py-1.5 rounded-lg bg-slate-950 border border-slate-800 text-slate-300 hover:text-white disabled:opacity-40 whitespace-nowrap"
-                >
-                  First
-                </button>
+              <div className="flex flex-wrap items-center gap-1">
                 <button
                   type="button"
                   disabled={currentPage <= 1}
                   onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                  className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-white disabled:opacity-40 whitespace-nowrap"
+                  className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-white disabled:opacity-40 whitespace-nowrap"
                 >
                   Previous
                 </button>
+                {getPaginationRange(Math.min(currentPage, totalPages), totalPages).map(
+                  (entry, idx) =>
+                    entry === 'ellipsis' ? (
+                      <span key={`el-${idx}`} className="px-1.5 text-slate-500 select-none">
+                        …
+                      </span>
+                    ) : (
+                      <button
+                        key={entry}
+                        type="button"
+                        onClick={() => setCurrentPage(entry)}
+                        className={`min-w-[30px] px-2 py-1.5 rounded-lg tabular-nums font-medium transition-colors whitespace-nowrap ${
+                          Math.min(currentPage, totalPages) === entry
+                            ? 'bg-amber-500 text-slate-950 font-semibold'
+                            : 'bg-slate-950 border border-slate-800 text-slate-300 hover:text-white'
+                        }`}
+                      >
+                        {entry}
+                      </button>
+                    )
+                )}
                 <button
                   type="button"
                   disabled={currentPage >= totalPages}
                   onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                  className="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold disabled:opacity-40 whitespace-nowrap"
+                  className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-white disabled:opacity-40 whitespace-nowrap"
                 >
                   Next
-                </button>
-                <button
-                  type="button"
-                  disabled={currentPage >= totalPages}
-                  onClick={() => setCurrentPage(totalPages)}
-                  className="px-2.5 py-1.5 rounded-lg bg-slate-950 border border-slate-800 text-slate-300 hover:text-white disabled:opacity-40 whitespace-nowrap"
-                >
-                  Last
                 </button>
               </div>
             </div>
@@ -1903,13 +2377,7 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
               <div className="flex items-center justify-center gap-2 pt-1">
                 <button
                   type="button"
-                  onClick={() => {
-                    setSelectedType('all');
-                    setSelectedRegion('all');
-                    setSelectedLocation('all');
-                    setActiveBoqStagePreset(null);
-                    setSearchQuery('');
-                  }}
+                  onClick={handleResetDirectoryFilters}
                   className="px-3.5 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-white text-xs font-medium transition-colors"
                 >
                   Reset Filters
@@ -2246,104 +2714,176 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
             </div>
           ) : enquiriesViewMode === 'compare' ? (
             /* Bid Leveling & Quote Comparison Table */
-            <div className="rounded-xl bg-slate-900 border border-slate-800 overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full text-xs text-left">
-                  <thead>
-                    <tr className="border-b border-slate-800 bg-slate-950/60 text-slate-400">
-                      <th className="py-3 pl-4 pr-3 font-medium whitespace-nowrap">RFQ / Scope</th>
-                      <th className="py-3 px-3 font-medium whitespace-nowrap">Vendor</th>
-                      <th className="py-3 px-3 font-medium whitespace-nowrap">Indicative Budget</th>
-                      <th className="py-3 px-3 font-medium whitespace-nowrap">Quoted Amount</th>
-                      <th className="py-3 px-3 font-medium whitespace-nowrap">Delivery / Timeline</th>
-                      <th className="py-3 px-3 font-medium whitespace-nowrap">Status</th>
-                      <th className="py-3 pl-3 pr-4 font-medium text-right whitespace-nowrap">
-                        Action
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-800/80">
-                    {displayedEnquiries.map((enq) => {
-                      const hasQuote = Boolean(enq.quotedAmount || enq.responseMessage);
-                      const isSynced = syncedBoqEnquiryIds.includes(enq.id);
-                      const isRequestingThis = requestingQuoteId === enq.id;
+            <div className="space-y-3">
+              {bidLevelingMetrics.lowestAmountLabel && (
+                <div className="p-3.5 rounded-xl bg-slate-900 border border-slate-800 flex flex-wrap items-center justify-between gap-3 text-xs">
+                  <div className="flex flex-wrap items-center gap-3 tabular-nums">
+                    <span>
+                      <span className="text-slate-400">Lowest Quoted Bid: </span>
+                      <strong className="text-emerald-400">
+                        {bidLevelingMetrics.lowestAmountLabel}
+                      </strong>
+                      <span className="text-slate-400"> ({bidLevelingMetrics.lowestVendor})</span>
+                    </span>
+                    <span aria-hidden="true" className="text-slate-700">
+                      ·
+                    </span>
+                    <span>
+                      <span className="text-slate-400">Quotations Logged: </span>
+                      <strong className="text-white">{bidLevelingMetrics.quotedCount}</strong>
+                    </span>
+                    {bidLevelingMetrics.syncedValueINR > 0 && (
+                      <>
+                        <span aria-hidden="true" className="text-slate-700">
+                          ·
+                        </span>
+                        <span>
+                          <span className="text-slate-400">Awarded to BOQ: </span>
+                          <strong className="text-amber-400">
+                            {formatCurrency(bidLevelingMetrics.syncedValueINR, currency)}
+                          </strong>
+                        </span>
+                      </>
+                    )}
+                  </div>
+                </div>
+              )}
 
-                      return (
-                        <tr key={enq.id} className="hover:bg-slate-800/35 transition-colors">
-                          <td className="py-3 pl-4 pr-3 min-w-[200px]">
-                            <div className="font-semibold text-white">{enq.projectTitle}</div>
-                            <div className="text-[11px] text-slate-400 tabular-nums">
-                              {new Date(enq.createdAt).toLocaleDateString()}
-                            </div>
-                          </td>
-                          <td className="py-3 px-3 whitespace-nowrap">
-                            <div className="text-slate-200 font-medium">
-                              {enq.company || enq.professionalName}
-                            </div>
-                            <div className="text-[11px] text-slate-400">
-                              {enq.professionalType
-                                ? getDisciplineLabel(enq.professionalType)
-                                : 'Vendor'}
-                            </div>
-                          </td>
-                          <td className="py-3 px-3 text-slate-300 tabular-nums whitespace-nowrap">
-                            {enq.budget || 'Open'}
-                          </td>
-                          <td className="py-3 px-3 tabular-nums whitespace-nowrap">
-                            {enq.quotedAmount ? (
-                              <span className="font-bold text-emerald-400">{enq.quotedAmount}</span>
-                            ) : (
-                              <span className="text-slate-500">Awaiting quote</span>
-                            )}
-                          </td>
-                          <td className="py-3 px-3 text-slate-300 max-w-[220px]">
-                            <div className="truncate">{enq.estimatedDelivery || '—'}</div>
-                          </td>
-                          <td className="py-3 px-3 whitespace-nowrap">
-                            <span
-                              className={`text-xs font-medium ${
-                                enq.status === 'accepted'
-                                  ? 'text-emerald-400'
-                                  : enq.status === 'quoted'
-                                  ? 'text-amber-300'
-                                  : 'text-slate-400'
-                              }`}
-                            >
-                              {getStatusLabel(enq.status)}
-                            </span>
-                          </td>
-                          <td className="py-3 pl-3 pr-4 text-right whitespace-nowrap">
-                            {hasQuote ? (
-                              <button
-                                type="button"
-                                onClick={() => handleAcceptAndSyncQuoteToBOQ(enq)}
-                                disabled={isSynced}
-                                className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-                                  isSynced
-                                    ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
-                                    : 'bg-emerald-600 hover:bg-emerald-500 text-white'
+              <div className="rounded-xl bg-slate-900 border border-slate-800 overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs text-left">
+                    <thead>
+                      <tr className="border-b border-slate-800 bg-slate-950/60 text-slate-400">
+                        <th className="py-3 pl-4 pr-3 font-medium whitespace-nowrap">RFQ / Scope</th>
+                        <th className="py-3 px-3 font-medium whitespace-nowrap">Vendor</th>
+                        <th className="py-3 px-3 font-medium whitespace-nowrap">
+                          Indicative Budget
+                        </th>
+                        <th className="py-3 px-3 font-medium whitespace-nowrap">Quoted Amount</th>
+                        <th className="py-3 px-3 font-medium whitespace-nowrap">
+                          Delivery / Timeline
+                        </th>
+                        <th className="py-3 px-3 font-medium whitespace-nowrap">Status</th>
+                        <th className="py-3 pl-3 pr-4 font-medium text-right whitespace-nowrap">
+                          Action
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-800/80">
+                      {displayedEnquiries.map((enq) => {
+                        const hasQuote = Boolean(enq.quotedAmount || enq.responseMessage);
+                        const isSynced = syncedBoqEnquiryIds.includes(enq.id);
+                        const isRequestingThis = requestingQuoteId === enq.id;
+                        const isLowestBid = bidLevelingMetrics.lowestId === enq.id;
+
+                        return (
+                          <tr
+                            key={enq.id}
+                            className={`hover:bg-slate-800/35 transition-colors ${
+                              isLowestBid ? 'bg-emerald-500/5' : ''
+                            }`}
+                          >
+                            <td className="py-3 pl-4 pr-3 min-w-[200px]">
+                              <div className="font-semibold text-white">{enq.projectTitle}</div>
+                              <div className="text-[11px] text-slate-400 tabular-nums">
+                                {new Date(enq.createdAt).toLocaleDateString()}
+                              </div>
+                            </td>
+                            <td className="py-3 px-3 whitespace-nowrap">
+                              <div className="text-slate-200 font-medium">
+                                {enq.company || enq.professionalName}
+                              </div>
+                              <div className="text-[11px] text-slate-400">
+                                {enq.professionalType
+                                  ? getDisciplineLabel(enq.professionalType)
+                                  : 'Vendor'}
+                              </div>
+                            </td>
+                            <td className="py-3 px-3 text-slate-300 tabular-nums whitespace-nowrap">
+                              {enq.budget || 'Open'}
+                            </td>
+                            <td className="py-3 px-3 tabular-nums whitespace-nowrap">
+                              {enq.quotedAmount ? (
+                                <div className="flex items-center gap-2">
+                                  <span className="font-bold text-emerald-400">
+                                    {enq.quotedAmount}
+                                  </span>
+                                  {isLowestBid && (
+                                    <span className="text-[11px] text-emerald-300 font-semibold">
+                                      · Lowest Bid
+                                    </span>
+                                  )}
+                                </div>
+                              ) : (
+                                <span className="text-slate-500">Awaiting quote</span>
+                              )}
+                            </td>
+                            <td className="py-3 px-3 text-slate-300 max-w-[220px]">
+                              <div className="truncate">{enq.estimatedDelivery || '—'}</div>
+                            </td>
+                            <td className="py-3 px-3 whitespace-nowrap">
+                              <span
+                                className={`text-xs font-medium ${
+                                  enq.status === 'accepted'
+                                    ? 'text-emerald-400'
+                                    : enq.status === 'quoted'
+                                    ? 'text-amber-300'
+                                    : 'text-slate-400'
                                 }`}
                               >
-                                <CheckCircle2 className="w-3.5 h-3.5" />
-                                <span>{isSynced ? 'Synced to BOQ' : 'Accept & Sync to BOQ'}</span>
-                              </button>
-                            ) : (
-                              <button
-                                type="button"
-                                onClick={() => handleRequestLiveQuote(enq)}
-                                disabled={isRequestingThis}
-                                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold text-xs transition-colors disabled:opacity-50"
-                              >
-                                <Zap className="w-3 h-3" />
-                                <span>{isRequestingThis ? 'Generating...' : 'Get Quote'}</span>
-                              </button>
-                            )}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+                                {getStatusLabel(enq.status)}
+                              </span>
+                            </td>
+                            <td className="py-3 pl-3 pr-4 text-right whitespace-nowrap">
+                              {!isEnquiryPassedToPartner(enq) ? (
+                                isOwnerCoordinator ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => handlePassEnquiryToPartner(enq)}
+                                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs transition-colors"
+                                  >
+                                    <ArrowRight className="w-3.5 h-3.5" />
+                                    <span>Pass to Partner</span>
+                                  </button>
+                                ) : (
+                                  <span className="text-[11px] font-mono text-amber-300">
+                                    With Gouse AI First
+                                  </span>
+                                )
+                              ) : hasQuote ? (
+                                <button
+                                  type="button"
+                                  onClick={() => handleAcceptAndSyncQuoteToBOQ(enq)}
+                                  disabled={isSynced}
+                                  className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                                    isSynced
+                                      ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                                      : 'bg-emerald-600 hover:bg-emerald-500 text-white'
+                                  }`}
+                                >
+                                  <CheckCircle2 className="w-3.5 h-3.5" />
+                                  <span>
+                                    {isSynced ? 'Synced to BOQ' : 'Accept & Sync to BOQ'}
+                                  </span>
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => handleRequestLiveQuote(enq)}
+                                  disabled={isRequestingThis}
+                                  className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold text-xs transition-colors disabled:opacity-50"
+                                >
+                                  <Zap className="w-3 h-3" />
+                                  <span>{isRequestingThis ? 'Generating...' : 'Get Quote'}</span>
+                                </button>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
           ) : (
@@ -2353,6 +2893,7 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
                 const isRequestingThis = requestingQuoteId === enq.id;
                 const hasQuote = Boolean(enq.quotedAmount || enq.responseMessage);
                 const isSynced = syncedBoqEnquiryIds.includes(enq.id);
+                const isEditingManual = editingQuoteEnquiryId === enq.id;
 
                 return (
                   <div
@@ -2368,7 +2909,17 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
                               : 'Vendor'}
                           </span>
                           <span aria-hidden="true">·</span>
-                          <span>{enq.company || enq.professionalName}</span>
+                          {targetProf ? (
+                            <button
+                              type="button"
+                              onClick={() => setInspectedVendor(targetProf)}
+                              className="hover:text-white transition-colors"
+                            >
+                              {enq.company || enq.professionalName}
+                            </button>
+                          ) : (
+                            <span>{enq.company || enq.professionalName}</span>
+                          )}
                           {enq.budget && (
                             <>
                               <span aria-hidden="true">·</span>
@@ -2406,11 +2957,12 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
                       {enq.message}
                     </p>
 
-                    {hasQuote && (
+                    {hasQuote && !isEditingManual && (
                       <div className="p-4 rounded-xl bg-slate-950 border border-emerald-500/30 space-y-2 text-xs">
                         <div className="flex flex-wrap items-center justify-between gap-2">
                           <span className="font-semibold text-emerald-400">
                             Vendor Quotation Summary
+                            {bidLevelingMetrics.lowestId === enq.id ? ' · Lowest Bid' : ''}
                           </span>
                           {enq.quotedAmount && (
                             <span className="font-bold text-white tabular-nums">
@@ -2429,69 +2981,212 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
                       </div>
                     )}
 
+                    {isEditingManual && (
+                      <div className="p-4 rounded-xl bg-slate-950 border border-amber-500/40 space-y-3 text-xs">
+                        <div className="font-semibold text-amber-300">
+                          Log or Update Vendor Commercial Quotation
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-slate-400 mb-1">Quoted Amount *</label>
+                            <input
+                              type="text"
+                              value={manualQuoteAmount}
+                              onChange={(e) => setManualQuoteAmount(e.target.value)}
+                              placeholder="e.g. ₹ 16,40,000 (incl. GST)"
+                              className="w-full px-3 py-2 rounded-lg bg-slate-900 border border-slate-800 text-white placeholder-slate-500 focus:outline-none focus:border-amber-400"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-slate-400 mb-1">
+                              Delivery / Lead Time
+                            </label>
+                            <input
+                              type="text"
+                              value={manualQuoteDelivery}
+                              onChange={(e) => setManualQuoteDelivery(e.target.value)}
+                              placeholder="e.g. 12 working days mobilization"
+                              className="w-full px-3 py-2 rounded-lg bg-slate-900 border border-slate-800 text-white placeholder-slate-500 focus:outline-none focus:border-amber-400"
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="block text-slate-400 mb-1">
+                            Commercial Terms &amp; Inclusions
+                          </label>
+                          <textarea
+                            rows={2}
+                            value={manualQuoteNotes}
+                            onChange={(e) => setManualQuoteNotes(e.target.value)}
+                            placeholder="Payment milestones, warranty, brand specs, or exclusions..."
+                            className="w-full px-3 py-2 rounded-lg bg-slate-900 border border-slate-800 text-white placeholder-slate-500 focus:outline-none focus:border-amber-400"
+                          />
+                        </div>
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setEditingQuoteEnquiryId(null)}
+                            className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleSaveManualQuote(enq)}
+                            className="px-3.5 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold"
+                          >
+                            Save Quote
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* 2-Step Routing Status Strip */}
+                    {!isEnquiryPassedToPartner(enq) ? (
+                      <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/35 flex flex-wrap items-center justify-between gap-2 text-xs">
+                        <div className="flex items-center gap-2 text-amber-200">
+                          <Clock className="w-4 h-4 text-amber-400 shrink-0" />
+                          <span>
+                            <strong>Step 1: Connected to Gouse AI First</strong> ({GOUSE_COORDINATOR.phone}) · Awaiting pass to{' '}
+                            <strong>{enq.company || enq.professionalName}</strong>
+                          </span>
+                        </div>
+                        {isOwnerCoordinator ? (
+                          <button
+                            id={`btn-pass-to-partner-${enq.id}`}
+                            type="button"
+                            onClick={() => handlePassEnquiryToPartner(enq)}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold transition-colors whitespace-nowrap"
+                          >
+                            <ArrowRight className="w-3.5 h-3.5" />
+                            <span>Pass to Partner Now</span>
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => quickSignIn('user-gouse-01')}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-emerald-300 font-medium transition-colors whitespace-nowrap"
+                          >
+                            <ShieldCheck className="w-3.5 h-3.5" />
+                            <span>Gouse AI Sign In to Pass</span>
+                          </button>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="px-3 py-2 rounded-lg bg-emerald-950/30 border border-emerald-500/30 text-[11px] text-emerald-300 flex items-center gap-2">
+                        <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                        <span>
+                          <strong>Step 2 Complete:</strong> Connected via Gouse AI and passed to{' '}
+                          <strong>{enq.company || enq.professionalName}</strong>
+                          {enq.passedToPartnerAt
+                            ? ` on ${new Date(enq.passedToPartnerAt).toLocaleDateString()}`
+                            : ''}
+                          .
+                        </span>
+                      </div>
+                    )}
+
                     <div className="pt-2 border-t border-slate-800 flex flex-wrap items-center justify-between gap-2 text-xs">
                       <div className="flex flex-wrap items-center gap-2">
-                        {hasQuote && (
-                          <button
-                            type="button"
-                            onClick={() => handleAcceptAndSyncQuoteToBOQ(enq)}
-                            disabled={isSynced}
-                            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-semibold transition-colors whitespace-nowrap shrink-0 ${
-                              isSynced
-                                ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
-                                : 'bg-emerald-600 hover:bg-emerald-500 text-white'
-                            }`}
-                          >
-                            <CheckCircle2 className="w-3.5 h-3.5" />
-                            <span>
-                              {isSynced ? 'Accepted & Synced to BOQ' : 'Accept Quote & Sync to BOQ'}
-                            </span>
-                          </button>
-                        )}
+                        {isEnquiryPassedToPartner(enq) ? (
+                          <>
+                            {hasQuote && (
+                              <button
+                                type="button"
+                                onClick={() => handleAcceptAndSyncQuoteToBOQ(enq)}
+                                disabled={isSynced}
+                                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-semibold transition-colors whitespace-nowrap shrink-0 ${
+                                  isSynced
+                                    ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                                    : 'bg-emerald-600 hover:bg-emerald-500 text-white'
+                                }`}
+                              >
+                                <CheckCircle2 className="w-3.5 h-3.5" />
+                                <span>
+                                  {isSynced ? 'Accepted & Synced to BOQ' : 'Accept Quote & Sync to BOQ'}
+                                </span>
+                              </button>
+                            )}
 
-                        <button
-                          type="button"
-                          onClick={() => handleRequestLiveQuote(enq)}
-                          disabled={isRequestingThis}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold transition-colors disabled:opacity-50"
-                        >
-                          {isRequestingThis ? (
-                            <>
-                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                              <span>Generating Quote...</span>
-                            </>
-                          ) : (
-                            <>
-                              <Zap className="w-3.5 h-3.5" />
-                              <span>{hasQuote ? 'Refresh Quote' : 'Request Vendor Quote'}</span>
-                            </>
-                          )}
-                        </button>
+                            <button
+                              type="button"
+                              onClick={() => handleRequestLiveQuote(enq)}
+                              disabled={isRequestingThis}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold transition-colors disabled:opacity-50 whitespace-nowrap shrink-0"
+                            >
+                              {isRequestingThis ? (
+                                <>
+                                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                  <span>Generating Quote...</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Zap className="w-3.5 h-3.5" />
+                                  <span>{hasQuote ? 'Refresh Quote' : 'Request Vendor Quote'}</span>
+                                </>
+                              )}
+                            </button>
 
-                        {targetProf && (
-                          <button
-                            type="button"
-                            onClick={() =>
-                              handleOpenWhatsAppRFQ(
-                                targetProf,
-                                `Regarding RFQ: ${enq.projectTitle}\nBudget: ${enq.budget || 'Negotiable'}`
-                              )
-                            }
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-emerald-400 font-medium transition-colors"
-                          >
-                            <MessageCircle className="w-3.5 h-3.5" />
-                            <span>WhatsApp</span>
-                          </button>
-                        )}
+                            <button
+                              type="button"
+                              onClick={() => handleOpenManualQuoteEditor(enq)}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium transition-colors whitespace-nowrap shrink-0"
+                            >
+                              <Edit3 className="w-3.5 h-3.5 text-amber-400" />
+                              <span>{hasQuote ? 'Edit Quote' : 'Log Quote'}</span>
+                            </button>
 
-                        {targetProf?.phone && (
-                          <a
-                            href={`tel:${targetProf.phone.replace(/[^0-9+]/g, '')}`}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium transition-colors"
-                          >
-                            <Phone className="w-3.5 h-3.5 text-amber-400" />
-                            <span>{targetProf.phone}</span>
-                          </a>
+                            {targetProf && (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  handleOpenWhatsAppRFQ(
+                                    targetProf,
+                                    `Regarding RFQ: ${enq.projectTitle}\nBudget: ${enq.budget || 'Negotiable'}`
+                                  )
+                                }
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-emerald-400 font-medium transition-colors whitespace-nowrap shrink-0"
+                              >
+                                <MessageCircle className="w-3.5 h-3.5" />
+                                <span>WhatsApp Partner</span>
+                              </button>
+                            )}
+
+                            {targetProf?.phone && (
+                              <a
+                                href={`tel:${targetProf.phone.replace(/[^0-9+]/g, '')}`}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium transition-colors whitespace-nowrap shrink-0"
+                              >
+                                <Phone className="w-3.5 h-3.5 text-amber-400" />
+                                <span>{targetProf.phone}</span>
+                              </a>
+                            )}
+                          </>
+                        ) : (
+                          <>
+                            <a
+                              href={`tel:${GOUSE_COORDINATOR.phone.replace(/[^0-9+]/g, '')}`}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold transition-colors whitespace-nowrap shrink-0"
+                            >
+                              <Phone className="w-3.5 h-3.5" />
+                              <span>Call Gouse AI ({GOUSE_COORDINATOR.phone})</span>
+                            </a>
+                            {targetProf && (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  handleOpenCoordinatorWhatsApp(
+                                    targetProf,
+                                    `Regarding RFQ: ${enq.projectTitle}`
+                                  )
+                                }
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-emerald-400 font-medium transition-colors whitespace-nowrap shrink-0"
+                              >
+                                <MessageCircle className="w-3.5 h-3.5" />
+                                <span>WhatsApp Gouse AI</span>
+                              </button>
+                            )}
+                          </>
                         )}
                       </div>
 
@@ -2921,8 +3616,21 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
                     <td className="py-3 pr-4 text-slate-400 font-medium">Direct Contact</td>
                     {selectedCompareVendors.map((v) => (
                       <td key={v.id} className="py-3 px-4 text-slate-300 tabular-nums">
-                        <div>{v.phone}</div>
-                        <div className="text-[11px] text-slate-400">{v.email}</div>
+                        {canDirectContactPartner(v.id) ? (
+                          <>
+                            <div>{v.phone}</div>
+                            <div className="text-[11px] text-slate-400">{v.email}</div>
+                          </>
+                        ) : (
+                          <>
+                            <div className="text-amber-300 font-medium text-[11px]">
+                              Connect to Gouse AI First
+                            </div>
+                            <div className="text-[11px] text-slate-400">
+                              {GOUSE_COORDINATOR.phone}
+                            </div>
+                          </>
+                        )}
                       </td>
                     ))}
                   </tr>
@@ -2939,7 +3647,11 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
                           className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-amber-300 font-medium transition-colors"
                         >
                           <Send className="w-3 h-3" />
-                          <span>Send Individual RFQ</span>
+                          <span>
+                            {canDirectContactPartner(v.id)
+                              ? 'Send Individual RFQ'
+                              : 'Connect to Gouse AI & Pass'}
+                          </span>
                         </button>
                       </td>
                     ))}
@@ -2976,13 +3688,14 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
             </div>
 
             {broadcastSuccessCount !== null ? (
-              <div className="py-8 text-center space-y-3">
+              <div className="py-6 text-center space-y-3">
                 <CheckCircle className="w-10 h-10 text-emerald-400 mx-auto" />
                 <h4 className="text-sm font-bold text-white">
-                  RFQ Broadcasted to {broadcastSuccessCount} Vendors
+                  Step 1 Complete: Connected to Gouse AI First ({broadcastSuccessCount} Partners Queued)
                 </h4>
-                <p className="text-xs text-slate-400 max-w-sm mx-auto">
-                  All vendor RFQs and initial responses are ready in RFQs &amp; Quotations for side-by-side quote comparison.
+                <p className="text-xs text-slate-300 max-w-md mx-auto leading-relaxed">
+                  All {broadcastSuccessCount} partner requests have been sent to{' '}
+                  <strong>{GOUSE_COORDINATOR.name}</strong> ({GOUSE_COORDINATOR.phone} · {GOUSE_COORDINATOR.email}) first and will be passed to each partner from RFQs &amp; Quotations.
                 </p>
                 <div className="pt-2 flex items-center justify-center gap-2">
                   <button
@@ -2997,19 +3710,28 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
                     onClick={() => {
                       setIsBroadcastModalOpen(false);
                       setActiveTab('enquiries');
-                      setEnquiriesViewMode('compare');
+                      setEnquiriesViewMode('cards');
                     }}
                     className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-semibold"
                   >
-                    <span>Compare Quotes Now</span>
+                    <span>Open RFQs &amp; Pass to Partners</span>
                     <ArrowRight className="w-3.5 h-3.5" />
                   </button>
                 </div>
               </div>
             ) : (
               <form onSubmit={handleSendBroadcastSubmit} className="space-y-3 text-xs">
+                <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/35 text-amber-200 space-y-1">
+                  <div className="font-semibold text-amber-300">
+                    1. Connect to Gouse AI First → 2. Pass to Shortlisted Partners
+                  </div>
+                  <p className="text-[11px] text-slate-300">
+                    Broadcast requests connect first to <strong>{GOUSE_COORDINATOR.name}</strong> ({GOUSE_COORDINATOR.phone}) before forwarding to the selected firms.
+                  </p>
+                </div>
+
                 <div className="p-3 rounded-lg bg-slate-950 border border-slate-800 space-y-1">
-                  <div className="text-[11px] text-slate-400">Recipients:</div>
+                  <div className="text-[11px] text-slate-400">Target Partners (After Gouse AI Review):</div>
                   <div className="text-slate-200 font-medium">
                     {selectedCompareVendors.map((v) => v.company || v.name).join(' · ')}
                   </div>
@@ -3078,16 +3800,6 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
                   />
                 </div>
 
-                <label className="flex items-center gap-2 cursor-pointer text-slate-300 pt-1">
-                  <input
-                    type="checkbox"
-                    checked={broadcastAutoQuote}
-                    onChange={(e) => setBroadcastAutoQuote(e.target.checked)}
-                    className="rounded bg-slate-950 border-slate-700 text-amber-500"
-                  />
-                  <span>Request immediate indicative quotes from all selected vendors</span>
-                </label>
-
                 <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-800">
                   <button
                     type="button"
@@ -3105,12 +3817,12 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
                     {isSubmittingBroadcast ? (
                       <>
                         <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                        <span>Dispatching...</span>
+                        <span>Connecting...</span>
                       </>
                     ) : (
                       <>
                         <Send className="w-3.5 h-3.5" />
-                        <span>Send to {selectedCompareVendors.length} Vendors</span>
+                        <span>Connect via Gouse AI ({selectedCompareVendors.length})</span>
                       </>
                     )}
                   </button>
@@ -3122,7 +3834,7 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
       )}
 
       {/* ===================================================================== */}
-      {/* SEND SINGLE RFQ MODAL                                                 */}
+      {/* SEND SINGLE RFQ MODAL (CONNECT TO GOUSE AI FIRST -> PASS TO PARTNER)  */}
       {/* ===================================================================== */}
       {selectedProfessional && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
@@ -3130,11 +3842,10 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
             <div className="flex items-start justify-between border-b border-slate-800 pb-3">
               <div>
                 <h3 className="text-base font-bold text-white">
-                  Send Project RFQ to {selectedProfessional.name}
+                  Contact {selectedProfessional.company || selectedProfessional.name}
                 </h3>
-                <p className="text-xs text-slate-400">
-                  {selectedProfessional.company}
-                  {selectedProfessional.phone ? ` · ${selectedProfessional.phone}` : ''}
+                <p className="text-xs text-amber-300 font-medium mt-0.5">
+                  Step 1: Connect to Gouse AI First → Step 2: Passed to Partner
                 </p>
               </div>
               <button
@@ -3146,16 +3857,137 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
               </button>
             </div>
 
-            {enquirySentSuccess ? (
-              <div className="py-8 text-center space-y-2">
-                <CheckCircle className="w-10 h-10 text-emerald-400 mx-auto" />
-                <h4 className="text-sm font-bold text-white">RFQ Sent Successfully</h4>
-                <p className="text-xs text-slate-400 max-w-sm mx-auto">
-                  Your request has been logged in RFQs &amp; Quotations.
-                </p>
+            {enquirySentSuccess && submittedStep1Enquiry ? (
+              <div className="py-5 space-y-4 text-xs">
+                <div className="text-center space-y-2">
+                  <CheckCircle className="w-10 h-10 text-emerald-400 mx-auto" />
+                  <h4 className="text-sm font-bold text-white">
+                    {isEnquiryPassedToPartner(submittedStep1Enquiry)
+                      ? `Passed to Partner: ${selectedProfessional.company || selectedProfessional.name}`
+                      : 'Step 1 Complete: Connected to Gouse AI First'}
+                  </h4>
+                  <p className="text-slate-300 max-w-md mx-auto leading-relaxed">
+                    {isEnquiryPassedToPartner(submittedStep1Enquiry)
+                      ? `Your request has been reviewed by Gouse AI and passed directly to ${selectedProfessional.name} (${selectedProfessional.company}).`
+                      : `First connect with ${GOUSE_COORDINATOR.name} (${GOUSE_COORDINATOR.phone} · ${GOUSE_COORDINATOR.email}). Once aligned with Gouse AI, your enquiry is passed to ${selectedProfessional.company || selectedProfessional.name}.`}
+                  </p>
+                </div>
+
+                <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
+                  <div className="text-[11px] font-semibold text-amber-300 uppercase">
+                    Direct Connection to Gouse AI
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <a
+                      href={`tel:${GOUSE_COORDINATOR.phone.replace(/[^0-9+]/g, '')}`}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold transition-colors"
+                    >
+                      <Phone className="w-3.5 h-3.5" />
+                      <span>Call {GOUSE_COORDINATOR.phone}</span>
+                    </a>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        handleOpenCoordinatorWhatsApp(
+                          selectedProfessional,
+                          submittedStep1Enquiry.projectTitle
+                        )
+                      }
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-emerald-300 font-medium transition-colors"
+                    >
+                      <MessageCircle className="w-3.5 h-3.5" />
+                      <span>WhatsApp Gouse AI</span>
+                    </button>
+                    <a
+                      href={`mailto:${GOUSE_COORDINATOR.email}?subject=${encodeURIComponent(
+                        `Marketplace Partner Enquiry: ${selectedProfessional.company || selectedProfessional.name}`
+                      )}`}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium transition-colors"
+                    >
+                      <Mail className="w-3.5 h-3.5" />
+                      <span>{GOUSE_COORDINATOR.email}</span>
+                    </a>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap items-center justify-end gap-2 pt-2 border-t border-slate-800">
+                  {!isEnquiryPassedToPartner(submittedStep1Enquiry) && isOwnerCoordinator && (
+                    <button
+                      id="btn-modal-pass-to-partner"
+                      type="button"
+                      onClick={() => handlePassEnquiryToPartner(submittedStep1Enquiry)}
+                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold transition-colors"
+                    >
+                      <ArrowRight className="w-3.5 h-3.5" />
+                      <span>Pass to {selectedProfessional.name} Now</span>
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEnquirySentSuccess(false);
+                      setSubmittedStep1Enquiry(null);
+                      setSelectedProfessional(null);
+                      setEnquiryProjectTitle('');
+                      setEnquiryMessage('');
+                      setEnquiryBudget('');
+                      setActiveTab('enquiries');
+                    }}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold transition-colors"
+                  >
+                    <span>View in RFQs &amp; Quotations</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEnquirySentSuccess(false);
+                      setSubmittedStep1Enquiry(null);
+                      setSelectedProfessional(null);
+                      setEnquiryProjectTitle('');
+                      setEnquiryMessage('');
+                      setEnquiryBudget('');
+                    }}
+                    className="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium transition-colors"
+                  >
+                    Done
+                  </button>
+                </div>
               </div>
             ) : (
               <form onSubmit={handleSendEnquirySubmit} className="space-y-3 text-xs">
+                {/* Step 1 Banner: First Tell / Connect to Gouse AI -> Then Pass to Partner */}
+                <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/35 space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-bold text-amber-300">
+                      1. First Connect to Gouse AI · 2. Then Pass to Partner
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-300 leading-relaxed">
+                    Before passing to <strong>{selectedProfessional.name} ({selectedProfessional.company})</strong>, connect with{' '}
+                    <strong>{GOUSE_COORDINATOR.name}</strong> first or submit your scope below for Gouse AI review and partner handoff.
+                  </p>
+                  <div className="flex flex-wrap items-center gap-2 pt-0.5">
+                    <a
+                      href={`tel:${GOUSE_COORDINATOR.phone.replace(/[^0-9+]/g, '')}`}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold transition-colors"
+                    >
+                      <Phone className="w-3 h-3" />
+                      <span>Call {GOUSE_COORDINATOR.phone}</span>
+                    </a>
+                    <button
+                      type="button"
+                      onClick={() => handleOpenCoordinatorWhatsApp(selectedProfessional)}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-950 border border-slate-800 hover:border-emerald-500/50 text-emerald-300 font-medium transition-colors"
+                    >
+                      <MessageCircle className="w-3 h-3" />
+                      <span>WhatsApp Gouse AI</span>
+                    </button>
+                    <span className="text-[11px] font-mono text-slate-400">
+                      {GOUSE_COORDINATOR.email}
+                    </span>
+                  </div>
+                </div>
+
                 {/* Project BOQ Quick Fill */}
                 {boqItems.length > 0 && (
                   <div className="space-y-1.5">
@@ -3398,21 +4230,11 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
                   <label className="flex items-center gap-2 cursor-pointer text-slate-300">
                     <input
                       type="checkbox"
-                      checked={autoRequestQuoteOnSubmit}
-                      onChange={(e) => setAutoRequestQuoteOnSubmit(e.target.checked)}
-                      className="rounded bg-slate-950 border-slate-700 text-amber-500"
-                    />
-                    <span>Request immediate indicative quote on submit</span>
-                  </label>
-
-                  <label className="flex items-center gap-2 cursor-pointer text-slate-300">
-                    <input
-                      type="checkbox"
                       checked={sendViaWhatsApp}
                       onChange={(e) => setSendViaWhatsApp(e.target.checked)}
                       className="rounded bg-slate-950 border-slate-700 text-emerald-500"
                     />
-                    <span>Also open pre-filled RFQ in WhatsApp</span>
+                    <span>Also open pre-filled request on Gouse AI WhatsApp ({GOUSE_COORDINATOR.phone})</span>
                   </label>
                 </div>
 
@@ -3426,6 +4248,7 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
                     Cancel
                   </button>
                   <button
+                    id="btn-submit-connect-gouse-first"
                     type="submit"
                     disabled={isSubmittingEnquiry}
                     className="inline-flex items-center gap-1.5 px-5 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold disabled:opacity-50"
@@ -3433,18 +4256,282 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
                     {isSubmittingEnquiry ? (
                       <>
                         <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                        <span>Sending RFQ...</span>
+                        <span>Connecting...</span>
                       </>
                     ) : (
                       <>
                         <Send className="w-3.5 h-3.5" />
-                        <span>Send RFQ</span>
+                        <span>Connect to Gouse AI First</span>
                       </>
                     )}
                   </button>
                 </div>
               </form>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* ===================================================================== */}
+      {/* VENDOR COMMERCIAL DOSSIER MODAL                                       */}
+      {/* ===================================================================== */}
+      {inspectedVendor && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+          <div className="w-full max-w-2xl rounded-2xl bg-slate-900 border border-slate-800 p-6 space-y-5 shadow-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-start justify-between gap-4 border-b border-slate-800 pb-4">
+              <div className="space-y-1 min-w-0">
+                <div className="flex flex-wrap items-center gap-2 text-xs text-slate-400">
+                  <span className="text-amber-400 font-medium">
+                    {getDisciplineLabel(inspectedVendor.professionalType)}
+                  </span>
+                  {inspectedVendor.verified && (
+                    <>
+                      <span aria-hidden="true">·</span>
+                      <span className="inline-flex items-center gap-1 text-emerald-400 font-medium">
+                        <ShieldCheck className="w-3.5 h-3.5" />
+                        <span>Verified Partner</span>
+                      </span>
+                    </>
+                  )}
+                  <span aria-hidden="true">·</span>
+                  <span className="tabular-nums text-slate-300">
+                    {inspectedVendor.rating} ★ Client Rating
+                  </span>
+                </div>
+                <h3 className="text-lg font-bold text-white truncate">
+                  {inspectedVendor.company || inspectedVendor.name}
+                </h3>
+                <div className="text-xs text-slate-300">
+                  Principal / Contact: <strong className="text-white">{inspectedVendor.name}</strong>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setInspectedVendor(null)}
+                aria-label="Close vendor profile"
+                className="p-1.5 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white shrink-0"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Key Commercial Metrics */}
+            <div className="grid grid-cols-3 gap-3 text-xs">
+              <div className="p-3 rounded-xl bg-slate-950 border border-slate-800">
+                <div className="text-slate-400">Experience</div>
+                <div className="text-base font-bold text-white tabular-nums mt-0.5">
+                  {inspectedVendor.experienceYears} Years
+                </div>
+              </div>
+              <div className="p-3 rounded-xl bg-slate-950 border border-slate-800">
+                <div className="text-slate-400">Completed Projects</div>
+                <div className="text-base font-bold text-white tabular-nums mt-0.5">
+                  {inspectedVendor.completedProjects.toLocaleString()}
+                </div>
+              </div>
+              <div className="p-3 rounded-xl bg-slate-950 border border-slate-800">
+                <div className="text-slate-400">Response SLA</div>
+                <div className="text-base font-bold text-amber-400 tabular-nums mt-0.5 inline-flex items-center gap-1">
+                  <Clock className="w-3.5 h-3.5" />
+                  <span>
+                    {inspectedVendor.leadTimeDays
+                      ? `~${inspectedVendor.leadTimeDays} days`
+                      : '5–7 days'}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Overview & Capabilities */}
+            <div className="space-y-3 text-xs">
+              <div>
+                <h4 className="font-semibold text-white mb-1">Practice Overview</h4>
+                <p className="text-slate-300 leading-relaxed">{inspectedVendor.bio}</p>
+              </div>
+              <div>
+                <h4 className="font-semibold text-white mb-1">Core Capabilities &amp; Scope</h4>
+                <p className="text-slate-300 leading-relaxed">{inspectedVendor.services}</p>
+              </div>
+            </div>
+
+            {/* Location, Coverage & Direct Contact */}
+            <div className="pt-3 border-t border-slate-800 space-y-2.5 text-xs">
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <div className="space-y-0.5">
+                  <div className="text-slate-400 flex items-center gap-1.5">
+                    <MapPin className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                    <span className="text-white font-medium">{inspectedVendor.location}</span>
+                  </div>
+                  {inspectedVendor.address && (
+                    <div className="text-slate-400 pl-5">{inspectedVendor.address}</div>
+                  )}
+                  {inspectedVendor.deliveryCoverage && (
+                    <div className="text-slate-400 pl-5">
+                      Coverage: {inspectedVendor.deliveryCoverage}
+                    </div>
+                  )}
+                </div>
+                {(inspectedVendor.address || inspectedVendor.location) && (
+                  <a
+                    href={`https://maps.google.com/?q=${encodeURIComponent(
+                      `${inspectedVendor.company} ${inspectedVendor.address || inspectedVendor.location}`
+                    )}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-slate-950 border border-slate-800 hover:border-slate-700 text-amber-300 font-medium whitespace-nowrap"
+                  >
+                    <ExternalLink className="w-3 h-3" />
+                    <span>Open Maps</span>
+                  </a>
+                )}
+              </div>
+
+              {canDirectContactPartner(inspectedVendor.id) ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
+                  {inspectedVendor.phone && (
+                    <div className="p-2.5 rounded-lg bg-slate-950 border border-slate-800 flex items-center justify-between gap-2">
+                      <a
+                        href={`tel:${inspectedVendor.phone.replace(/[^0-9+]/g, '')}`}
+                        className="inline-flex items-center gap-1.5 text-slate-200 hover:text-amber-300 tabular-nums truncate"
+                      >
+                        <Phone className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                        <span>{inspectedVendor.phone}</span>
+                      </a>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          handleCopyText(
+                            inspectedVendor.phone,
+                            `modal-phone-${inspectedVendor.id}`,
+                            'phone number'
+                          )
+                        }
+                        className="inline-flex items-center gap-1 text-[11px] text-slate-400 hover:text-white shrink-0"
+                      >
+                        {copiedField === `modal-phone-${inspectedVendor.id}` ? (
+                          <Check className="w-3.5 h-3.5 text-emerald-400" />
+                        ) : (
+                          <Copy className="w-3.5 h-3.5" />
+                        )}
+                        <span>Copy</span>
+                      </button>
+                    </div>
+                  )}
+
+                  {inspectedVendor.email && (
+                    <div className="p-2.5 rounded-lg bg-slate-950 border border-slate-800 flex items-center justify-between gap-2">
+                      <a
+                        href={`mailto:${inspectedVendor.email}?subject=Project%20Enquiry`}
+                        className="inline-flex items-center gap-1.5 text-slate-200 hover:text-amber-300 truncate min-w-0"
+                      >
+                        <Mail className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                        <span className="truncate">{inspectedVendor.email}</span>
+                      </a>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          handleCopyText(
+                            inspectedVendor.email,
+                            `modal-email-${inspectedVendor.id}`,
+                            'email address'
+                          )
+                        }
+                        className="inline-flex items-center gap-1 text-[11px] text-slate-400 hover:text-white shrink-0"
+                      >
+                        {copiedField === `modal-email-${inspectedVendor.id}` ? (
+                          <Check className="w-3.5 h-3.5 text-emerald-400" />
+                        ) : (
+                          <Copy className="w-3.5 h-3.5" />
+                        )}
+                        <span>Copy</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/35 space-y-2">
+                  <div className="font-semibold text-amber-300 flex items-center gap-1.5">
+                    <Lock className="w-3.5 h-3.5 shrink-0" />
+                    <span>Connect to Gouse AI First — Then Pass to Partner</span>
+                  </div>
+                  <p className="text-[11px] text-slate-300 leading-relaxed">
+                    Direct partner contact for <strong>{inspectedVendor.company || inspectedVendor.name}</strong> unlocks after you connect with <strong>{GOUSE_COORDINATOR.name}</strong> ({GOUSE_COORDINATOR.phone} · {GOUSE_COORDINATOR.email}) and we pass your request forward.
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Footer Actions */}
+            <div className="pt-4 border-t border-slate-800 flex flex-wrap items-center justify-between gap-2 text-xs">
+              <div className="flex flex-wrap items-center gap-2">
+                {canDirectContactPartner(inspectedVendor.id) ? (
+                  (inspectedVendor.whatsapp || inspectedVendor.phone) && (
+                    <button
+                      type="button"
+                      onClick={() => handleOpenWhatsAppRFQ(inspectedVendor)}
+                      className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-emerald-400 font-medium whitespace-nowrap"
+                    >
+                      <MessageCircle className="w-3.5 h-3.5" />
+                      <span>WhatsApp Partner</span>
+                    </button>
+                  )
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => handleOpenCoordinatorWhatsApp(inspectedVendor)}
+                    className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-emerald-400 font-medium whitespace-nowrap"
+                  >
+                    <MessageCircle className="w-3.5 h-3.5" />
+                    <span>WhatsApp Gouse AI First</span>
+                  </button>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => toggleVendorCompare(inspectedVendor.id)}
+                  className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-lg font-medium border transition-colors whitespace-nowrap ${
+                    selectedCompareIds.includes(inspectedVendor.id)
+                      ? 'bg-amber-500/15 border-amber-400/60 text-amber-300'
+                      : 'bg-slate-800 border-slate-700 text-slate-200 hover:bg-slate-700'
+                  }`}
+                >
+                  <GitCompare className="w-3.5 h-3.5" />
+                  <span>
+                    {selectedCompareIds.includes(inspectedVendor.id)
+                      ? 'Selected for Compare'
+                      : 'Add to Compare'}
+                  </span>
+                </button>
+
+                {!(inspectedVendor.isMyPractice || inspectedVendor.id.startsWith('prof-custom-')) && (
+                  <button
+                    type="button"
+                    onClick={() => handleAddToMyPractice(inspectedVendor)}
+                    className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium whitespace-nowrap"
+                  >
+                    <BookmarkPlus className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Shortlist</span>
+                  </button>
+                )}
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  const target = inspectedVendor;
+                  setInspectedVendor(null);
+                  openSingleRfqModal(target);
+                }}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold transition-colors whitespace-nowrap"
+              >
+                <Send className="w-3.5 h-3.5" />
+                <span>
+                  {canDirectContactPartner(inspectedVendor.id)
+                    ? 'Send Project RFQ'
+                    : 'Connect to Gouse AI & Pass'}
+                </span>
+              </button>
+            </div>
           </div>
         </div>
       )}

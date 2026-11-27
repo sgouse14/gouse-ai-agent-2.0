@@ -459,7 +459,7 @@ export const AutonomousAgentExecutionCenter: React.FC<AutonomousAgentExecutionCe
                   <Bot className="w-9 h-9 stroke-[2.2]" />
                 </div>
                 <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-emerald-500 border-2 border-slate-950 flex items-center justify-center" title="Agent Online & Autonomous">
-                  <span className="w-2 h-2 rounded-full bg-white animate-ping" />
+                  <span className="w-2 h-2 rounded-full bg-white" />
                 </div>
               </div>
 
@@ -487,7 +487,7 @@ export const AutonomousAgentExecutionCenter: React.FC<AutonomousAgentExecutionCe
                     onClick={handleSpeakAgentStatus}
                     className={`px-2.5 py-1 rounded-lg border font-mono text-[11px] font-bold flex items-center gap-1.5 transition shadow-sm ${
                       isSpeaking
-                        ? 'bg-cyan-500 text-slate-950 border-cyan-400 animate-pulse'
+                        ? 'bg-cyan-500 text-slate-950 border-cyan-400'
                         : 'bg-slate-950/80 hover:bg-slate-800 text-cyan-300 border-cyan-500/40'
                     }`}
                     title="Listen to Autonomous Agent Voice Directive"
@@ -571,7 +571,7 @@ export const AutonomousAgentExecutionCenter: React.FC<AutonomousAgentExecutionCe
               >
                 <Truck className="w-3.5 h-3.5" />
                 <span>Daily Material Update</span>
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
               </button>
             </div>
           </div>
@@ -579,7 +579,7 @@ export const AutonomousAgentExecutionCenter: React.FC<AutonomousAgentExecutionCe
           {/* THE MANDATE STATEMENT BANNER (EXPLICIT USER MANDATE) */}
           <div className="p-4 sm:p-5 rounded-2xl bg-cyan-950/40 border border-cyan-500/40 space-y-2">
             <div className="flex items-center gap-2 text-cyan-300 font-mono text-xs font-bold uppercase tracking-wider">
-              <Cpu className="w-4 h-4 text-cyan-400 animate-pulse" />
+              <Cpu className="w-4 h-4 text-cyan-400" />
               <span>Autonomous Agent Core Mandate:</span>
             </div>
             <p className="text-sm sm:text-base font-semibold text-white leading-relaxed tracking-wide italic">
@@ -592,7 +592,7 @@ export const AutonomousAgentExecutionCenter: React.FC<AutonomousAgentExecutionCe
             <div className="bg-slate-950/90 p-2.5 rounded-xl border border-cyan-800/50 flex flex-col justify-between">
               <span className="text-slate-400 text-[10px]">NEURAL KERNEL</span>
               <span className="text-cyan-300 font-bold flex items-center gap-1.5 mt-0.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-ping" />
+                <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
                 ACTIVE v4.2
               </span>
             </div>
@@ -1399,7 +1399,7 @@ export const AutonomousAgentExecutionCenter: React.FC<AutonomousAgentExecutionCe
                   <Truck className="w-4 h-4" />
                 </span>
                 <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 font-bold flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
                   MANDI LIVE
                 </span>
               </div>

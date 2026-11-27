@@ -320,10 +320,10 @@ export const SmartHomeSkaAgent: React.FC<SmartHomeSkaAgentProps> = ({
         <div className="flex items-center gap-4">
           <div className="relative">
             <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-cyan-500 via-sky-600 to-blue-700 flex items-center justify-center text-white shadow-xl shadow-cyan-500/20">
-              <Cpu className="w-7 h-7 animate-pulse" />
+              <Cpu className="w-7 h-7" />
             </div>
             <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-emerald-500 border-2 border-slate-950 flex items-center justify-center" title="Edge IoT Node Online">
-              <span className="w-2 h-2 rounded-full bg-white animate-ping" />
+              <span className="w-2 h-2 rounded-full bg-white" />
             </div>
           </div>
 

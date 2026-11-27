@@ -19,8 +19,8 @@ import { SocialMediaHubPage } from './components/SocialMediaHubPage';
 import { StudioToolkitModal, StudioToolkitTab } from './components/StudioToolkitModal';
 import { BimBoqSubscriptionModal } from './components/BimBoqSubscriptionModal';
 import { NaturalVoiceChatDrawer } from './components/NaturalVoiceChatDrawer';
-import { AudioWaveform } from 'lucide-react';
-import { useAuth } from './context/AuthContext';
+import { AudioWaveform, X, Lock, Crown, ShieldCheck, Calculator } from 'lucide-react';
+import { useAuth, isZeroBrokerRole } from './context/AuthContext';
 import { useTheme } from './context/ThemeContext';
 import { AVATARS } from './utils/mediaAssets';
 import {
@@ -42,7 +42,14 @@ import { CurrencyCode } from './utils/formatters';
 import { ensureItemFloorBreakdown, DEFAULT_BUILDING_FLOORS } from './utils/floorTakeoffEngine';
 
 export function App() {
-  const { user } = useAuth();
+  const {
+    user,
+    hasBoqAccess,
+    getTrialStatus,
+    quickSignIn,
+    isSubscriptionModalOpen,
+    setIsSubscriptionModalOpen,
+  } = useAuth();
   const { gridIntensity } = useTheme();
 
   // Optional overlay / sub-portal views
@@ -407,8 +414,26 @@ export function App() {
   const [isWorkflowEngineOpen, setIsWorkflowEngineOpen] = useState(false);
   const [isStudioToolkitOpen, setIsStudioToolkitOpen] = useState(false);
   const [studioToolkitTab, setStudioToolkitTab] = useState<StudioToolkitTab>('feasibility');
-  const [isBimSubscriptionOpen, setIsBimSubscriptionOpen] = useState(false);
   const [isVoiceChatOpen, setIsVoiceChatOpen] = useState(false);
+  const [isFloatingVoiceLauncherEnabled, setIsFloatingVoiceLauncherEnabled] = useState<boolean>(() => {
+    try {
+      const saved = window.localStorage.getItem('gouse_voice_launcher_enabled');
+      return saved === null ? true : saved === 'true';
+    } catch {
+      return true;
+    }
+  });
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(
+        'gouse_voice_launcher_enabled',
+        String(isFloatingVoiceLauncherEnabled)
+      );
+    } catch {
+      // ignore storage errors
+    }
+  }, [isFloatingVoiceLauncherEnabled]);
 
   const handleOpenStudioToolkit = (tab: StudioToolkitTab = 'feasibility') => {
     setStudioToolkitTab(tab);
@@ -470,6 +495,20 @@ export function App() {
     setEnquiries((prev) => [newEnquiry, ...prev]);
   };
 
+  const handleSelectUnauthView = (view: 'client_page' | 'client_dashboard' | 'broker') => {
+    if (view === 'broker') {
+      setIsShowingClientPortal(false);
+      setClientActiveView('workspace');
+      setActiveTab('broker');
+    } else if (view === 'client_dashboard' && user?.role === 'client') {
+      setIsShowingClientPortal(true);
+      setClientActiveView('dashboard');
+    } else {
+      setIsShowingClientPortal(true);
+      setClientActiveView('portal');
+    }
+  };
+
   // Dedicated Full-Page Social & Media Hub
   if (isShowingSocialHub) {
     return (
@@ -483,26 +522,36 @@ export function App() {
     );
   }
 
-  // Dedicated Client Portal / Client Workspace view (when toggled from sidebar or signed in as client)
-  if (isShowingClientPortal || (user?.role === 'client' && clientActiveView !== 'workspace')) {
-    if (clientActiveView === 'portal') {
+  // Dedicated Client Portal / Client Workspace view (ONLY role === 'client' can enter ClientView; others see Separate Client Login Gate)
+  if (isShowingClientPortal || user?.role === 'client') {
+    const isClientOnlyUser = user?.role === 'client';
+    if (!isClientOnlyUser || clientActiveView === 'portal') {
       return (
         <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-amber-500 selection:text-slate-950">
           <ClientPortal
             projects={projects}
             currency={currency}
-            isClientRestricted={user?.role === 'client'}
-            onReturnToWorkspace={() => {
-              setIsShowingClientPortal(false);
-              setClientActiveView('workspace');
-            }}
+            isClientRestricted={isClientOnlyUser}
+            onReturnToWorkspace={
+              isClientOnlyUser
+                ? undefined
+                : () => {
+                    setIsShowingClientPortal(false);
+                    setClientActiveView('workspace');
+                  }
+            }
             onOpenClientDashboard={() => {
               setIsShowingClientPortal(true);
               setClientActiveView('dashboard');
             }}
             onEnquirySubmitted={handleClientPageEnquiry}
           />
-          <AuthModal />
+          <AuthModal onSelectUnauthView={handleSelectUnauthView} />
+          <BimBoqSubscriptionModal
+            isOpen={isSubscriptionModalOpen}
+            onClose={() => setIsSubscriptionModalOpen(false)}
+            currency={currency}
+          />
         </div>
       );
     }
@@ -517,23 +566,56 @@ export function App() {
           boqItems={boqItems}
           contingencyPercent={contingencyPercent}
           onUpdateBOQItems={setBoqItems}
-          onReturnToPlatform={() => {
-            setIsShowingClientPortal(false);
-            setClientActiveView('workspace');
-          }}
+          onReturnToPlatform={
+            isClientOnlyUser
+              ? undefined
+              : () => {
+                  setIsShowingClientPortal(false);
+                  setClientActiveView('workspace');
+                }
+          }
           onViewPublicPortal={() => {
             setIsShowingClientPortal(true);
             setClientActiveView('portal');
           }}
-          onOpenStudioTab={(tab) => {
-            setIsShowingClientPortal(false);
-            setClientActiveView('workspace');
-            setActiveTab(tab);
-          }}
+          onOpenStudioTab={
+            isClientOnlyUser
+              ? undefined
+              : (tab) => {
+                  setIsShowingClientPortal(false);
+                  setClientActiveView('workspace');
+                  setActiveTab(tab);
+                }
+          }
           currency={currency}
-          isStaffPreview={user?.role !== 'client'}
+          isStaffPreview={!isClientOnlyUser}
         />
-        <AuthModal />
+        <AuthModal onSelectUnauthView={handleSelectUnauthView} />
+        <BimBoqSubscriptionModal
+          isOpen={isSubscriptionModalOpen}
+          onClose={() => setIsSubscriptionModalOpen(false)}
+          currency={currency}
+        />
+      </div>
+    );
+  }
+
+  // Dedicated Zero-Broker Portal isolation (signed-in Zero-Broker users cannot access Studio Workspace or Client Access)
+  if (isZeroBrokerRole(user?.role)) {
+    return (
+      <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-amber-500 selection:text-slate-950">
+        <GouseAiAgentBrokerView
+          project={activeProject}
+          onUpdateProject={handleUpdateProject}
+          currency={currency}
+          isOutsidePlatform
+        />
+        <AuthModal onSelectUnauthView={handleSelectUnauthView} />
+        <BimBoqSubscriptionModal
+          isOpen={isSubscriptionModalOpen}
+          onClose={() => setIsSubscriptionModalOpen(false)}
+          currency={currency}
+        />
       </div>
     );
   }
@@ -559,7 +641,7 @@ export function App() {
       {/* Subtle architectural drafting grid backdrop */}
       {gridIntensity !== 'off' && (
         <div
-          className="fixed inset-0 pointer-events-none blueprint-grid z-0 transition-opacity duration-200"
+          className="fixed inset-0 pointer-events-none blueprint-grid z-0 transition-opacity duration-200 print:hidden"
           style={{
             opacity: gridIntensity === 'prominent' ? 1 : gridIntensity === 'moderate' ? 0.7 : 0.4,
           }}
@@ -582,7 +664,7 @@ export function App() {
         onOpenSiteCamera={() => setIsSiteCameraOpen(true)}
         onOpenClientWorkspace={() => {
           setIsShowingClientPortal(true);
-          setClientActiveView('dashboard');
+          setClientActiveView(user?.role === 'client' ? 'dashboard' : 'portal');
         }}
         onOpenClientPortal={() => {
           setIsShowingClientPortal(true);
@@ -637,22 +719,94 @@ export function App() {
               initialSubTab={
                 activeTab === 'rent_house' ? 'rent_house' : activeTab === 'pg_coliving' ? 'pg' : 'all'
               }
+              onReturnToWorkspace={() => setActiveTab('projects')}
             />
           )}
 
-          {activeTab === 'boq' && (
-            <BOQView
-              items={boqItems}
-              contingencyPercent={contingencyPercent}
-              currency={currency}
-              activeProject={activeProject}
-              onUpdateItems={setBoqItems}
-              onChangeContingency={handleChangeContingency}
-              onUpdateProject={handleUpdateProject}
-              onAddEnquiry={handleAddEnquiry}
-              onOpenWorkflowEngine={() => setIsWorkflowEngineOpen(true)}
-            />
-          )}
+          {activeTab === 'boq' &&
+            (hasBoqAccess(user) ? (
+              <BOQView
+                items={boqItems}
+                contingencyPercent={contingencyPercent}
+                currency={currency}
+                activeProject={activeProject}
+                onUpdateItems={setBoqItems}
+                onChangeContingency={handleChangeContingency}
+                onUpdateProject={handleUpdateProject}
+                onAddEnquiry={handleAddEnquiry}
+                onOpenWorkflowEngine={() => setIsWorkflowEngineOpen(true)}
+              />
+            ) : (
+              <div id="boq-pro-license-gate" className="max-w-3xl mx-auto px-4 lg:px-8 py-12">
+                <div className="rounded-2xl bg-slate-900 border border-amber-500/40 p-6 sm:p-8 space-y-6">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-lg bg-amber-500/15 border border-amber-500/35 text-amber-300 text-xs font-mono font-semibold">
+                      <Lock className="w-3.5 h-3.5 shrink-0" />
+                      <span>BOQ &amp; ESTIMATION · PRO LICENSE REQUIRED</span>
+                    </div>
+                    <span className="text-xs font-mono text-slate-400">
+                      {user ? `${user.name} · ${getTrialStatus(user).statusLabel}` : 'Guest Session'}
+                    </span>
+                  </div>
+
+                  <div className="space-y-2.5">
+                    <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight flex items-center gap-2.5">
+                      <Calculator className="w-6 h-6 text-amber-400 shrink-0" />
+                      <span>BOQ &amp; Cost Estimation Is Not Included in the 6-Month Free Trial</span>
+                    </h2>
+                    <p className="text-sm text-slate-300 leading-relaxed">
+                      Other studio accounts receive a <strong>6-Month Free Trial</strong> across Projects, Interior, Materials &amp; Rates, Marketplace, Realstate Media, and Super Agent.{' '}
+                      <strong className="text-white">BOQ &amp; Estimation</strong> requires an active Pro License (₹1,500/yr) — while <strong className="text-emerald-400">Gouse AI (sgouse14@gmail.com)</strong> retains <strong>Lifetime Free</strong> access.
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                    <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-1">
+                      <div className="font-semibold text-emerald-400">Gouse AI (sgouse14@gmail.com)</div>
+                      <p className="text-slate-400">
+                        Lifetime Free (₹0 forever) across BOQ &amp; Estimation, BIM takeoffs, and all workspace tools.
+                      </p>
+                    </div>
+                    <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-1">
+                      <div className="font-semibold text-sky-400">Other Studio Roles</div>
+                      <p className="text-slate-400">
+                        6 Months Free on general workspace modules. Unlock BOQ &amp; Estimation anytime for ₹1,500/yr.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-3 pt-1">
+                    <button
+                      id="btn-boq-gate-unlock"
+                      type="button"
+                      onClick={() => setIsSubscriptionModalOpen(true)}
+                      className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold text-xs transition-colors whitespace-nowrap"
+                    >
+                      <Crown className="w-4 h-4 shrink-0" />
+                      <span>Unlock BOQ &amp; Estimation (₹1,500/yr)</span>
+                    </button>
+
+                    <button
+                      id="btn-boq-gate-gouse-login"
+                      type="button"
+                      onClick={() => quickSignIn('user-gouse-01')}
+                      className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs transition-colors whitespace-nowrap"
+                    >
+                      <ShieldCheck className="w-4 h-4 shrink-0" />
+                      <span>Sign in as Gouse AI (Lifetime Free)</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab('projects')}
+                      className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium text-xs transition-colors whitespace-nowrap"
+                    >
+                      <span>Back to Projects</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
 
           {activeTab === 'interior' && (
             <InteriorView
@@ -714,7 +868,7 @@ export function App() {
           )}
         </main>
 
-        <footer className="border-t border-slate-800/80 bg-slate-950/90 px-4 lg:px-8 py-4 text-xs text-slate-500">
+        <footer className="border-t border-slate-800/80 bg-slate-950/90 px-4 lg:px-8 py-4 text-xs text-slate-500 print:hidden">
           <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
             <span>Gouse AI · Architecture &amp; Construction Cost Intelligence</span>
             <span>Bangalore, India · Ar. S. Gouse · Gemini 4 Hydrogen</span>
@@ -754,13 +908,13 @@ export function App() {
         onUpdateProject={handleUpdateProject}
         onUpdateBOQItems={setBoqItems}
         onNavigateTab={setActiveTab}
-        onOpenBimLicense={() => setIsBimSubscriptionOpen(true)}
+        onOpenBimLicense={() => setIsSubscriptionModalOpen(true)}
       />
 
       {/* BIM & BOQ Studio License Modal */}
       <BimBoqSubscriptionModal
-        isOpen={isBimSubscriptionOpen}
-        onClose={() => setIsBimSubscriptionOpen(false)}
+        isOpen={isSubscriptionModalOpen}
+        onClose={() => setIsSubscriptionModalOpen(false)}
         currency={currency}
       />
 
@@ -778,24 +932,42 @@ export function App() {
         onUpdateBOQItems={setBoqItems}
         onChangeContingency={handleChangeContingency}
         onChangeCurrency={setCurrency}
+        isFloatingLauncherEnabled={isFloatingVoiceLauncherEnabled}
+        onToggleFloatingLauncher={setIsFloatingVoiceLauncherEnabled}
       />
 
-      {/* Global Quick Voice Chat Launcher */}
-      {!isVoiceChatOpen && !isStudioToolkitOpen && !isWorkflowEngineOpen && !isSiteCameraOpen && (
-        <button
-          id="btn-global-voice-chat"
-          type="button"
-          onClick={() => setIsVoiceChatOpen(true)}
-          className="fixed bottom-5 right-5 z-40 inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold text-xs shadow-lg border border-amber-400 transition-colors"
-          title="Open Natural Two-Way Voice Chat"
-        >
-          <AudioWaveform className="w-4 h-4 shrink-0" />
-          <span>Voice Chat</span>
-        </button>
-      )}
+      {/* Global Quick Voice Chat Launcher (can be removed/hidden or re-pinned anytime) */}
+      {isFloatingVoiceLauncherEnabled &&
+        !isVoiceChatOpen &&
+        !isStudioToolkitOpen &&
+        !isWorkflowEngineOpen &&
+        !isSiteCameraOpen && (
+          <div className="fixed bottom-5 right-5 z-40 inline-flex items-center rounded-xl bg-amber-500 shadow-lg border border-amber-400 overflow-hidden print:hidden">
+            <button
+              id="btn-global-voice-chat"
+              type="button"
+              onClick={() => setIsVoiceChatOpen(true)}
+              className="inline-flex items-center gap-2 pl-3.5 pr-2.5 py-2.5 text-slate-950 hover:bg-amber-400 font-semibold text-xs transition-colors whitespace-nowrap shrink-0"
+              title="Open Natural Two-Way Voice Chat"
+            >
+              <AudioWaveform className="w-4 h-4 shrink-0" />
+              <span>Voice Chat</span>
+            </button>
+            <button
+              id="btn-remove-global-voice-chat"
+              type="button"
+              onClick={() => setIsFloatingVoiceLauncherEnabled(false)}
+              title="Remove floating Voice Chat button (still available in left sidebar)"
+              aria-label="Remove floating Voice Chat button"
+              className="px-2 py-2.5 text-slate-950/75 hover:text-slate-950 hover:bg-amber-400 border-l border-slate-950/15 transition-colors shrink-0"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
 
       {/* Authentication Modal */}
-      <AuthModal />
+      <AuthModal onSelectUnauthView={handleSelectUnauthView} />
     </div>
   );
 }

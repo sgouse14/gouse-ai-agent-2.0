@@ -518,7 +518,7 @@ export const DailyMaterialUpdateAgentPanel: React.FC<DailyMaterialUpdateAgentPan
                 DAILY MATERIAL INTELLIGENCE
               </span>
               <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
                 SPOT MANDI FEEDS LIVE
               </span>
               <span className="text-[10px] font-mono text-slate-400">
@@ -542,7 +542,7 @@ export const DailyMaterialUpdateAgentPanel: React.FC<DailyMaterialUpdateAgentPan
               onClick={handleSpeakBriefing}
               className={`px-3.5 py-2.5 rounded-xl text-xs font-bold font-mono flex items-center gap-2 transition border ${
                 isSpeakingBriefing
-                  ? 'bg-amber-400 text-slate-950 border-amber-300 shadow-lg shadow-amber-400/25 animate-pulse'
+                  ? 'bg-amber-400 text-slate-950 border-amber-300 shadow-lg shadow-amber-400/25'
                   : 'bg-slate-900 hover:bg-slate-800 text-amber-300 border-amber-500/40'
               }`}
             >

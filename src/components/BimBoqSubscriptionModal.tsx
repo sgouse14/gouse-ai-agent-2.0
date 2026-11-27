@@ -63,6 +63,7 @@ export const setBimBoqSubscription = (info: SubscriptionInfo) => {
   if (typeof window === 'undefined') return;
   try {
     window.localStorage.setItem('gouse_bim_boq_subscription', JSON.stringify(info));
+    window.dispatchEvent(new Event('gouse_subscription_updated'));
   } catch (e) {
     console.error('Error saving subscription to storage', e);
   }
@@ -85,6 +86,15 @@ export const BimBoqSubscriptionModal: React.FC<BimBoqSubscriptionModalProps> = (
   useEffect(() => {
     setSubInfo(getBimBoqSubscription());
   }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 
@@ -159,8 +169,18 @@ Thank you for trusting Gouse AI Autonomous Execution Agent.`;
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-6 overflow-y-auto animate-in fade-in duration-200">
-      <div className="relative w-full max-w-2xl rounded-3xl bg-slate-950 border-2 border-amber-500/50 p-6 sm:p-8 shadow-2xl shadow-amber-500/10 space-y-6 max-h-[92vh] overflow-y-auto">
+    <div
+      role="dialog"
+      aria-modal="true"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+      className="fixed inset-0 z-[60] bg-black/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-6 overflow-y-auto"
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="relative w-full max-w-2xl rounded-3xl bg-slate-950 border-2 border-amber-500/50 p-6 sm:p-8 shadow-2xl shadow-amber-500/10 space-y-6 max-h-[92vh] overflow-y-auto"
+      >
         {/* Cyber Corner Crosshairs */}
         <div className="absolute top-2 left-2 w-3.5 h-3.5 border-t-2 border-l-2 border-amber-400 pointer-events-none" />
         <div className="absolute top-2 right-2 w-3.5 h-3.5 border-t-2 border-r-2 border-amber-400 pointer-events-none" />

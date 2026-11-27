@@ -924,8 +924,8 @@ export async function generateChatResponse(
       : engine === 'hydrogen'
       ? 'Google Gemini 4 Hydrogen Engine (gemini-4-hydrogen)'
       : engine === 'hybrid'
-      ? 'Dual AI Ensemble (Google Gemini 3.8 + OpenAI ChatGPT)'
-      : 'Google Gemini 3.8 Flash Engine'
+      ? 'Dual AI Ensemble (Google Gemini 4 + OpenAI ChatGPT)'
+      : 'Google Gemini 4 Spatial Engine'
   }.
 Role & Directive: ${instruction}
 
@@ -995,7 +995,7 @@ Respond ONLY with valid JSON (no markdown code fence outside):
     }
   }
 
-  // Google Gemini execution (Gemini 4 Hydrogen or Gemini 3.8 Flash)
+  // Google Gemini execution (Gemini 4 Hydrogen / Spatial)
   const client = getAiClient();
   if (client && !isQuotaCooldownActive() && engine !== 'chatgpt') {
     try {
@@ -1023,8 +1023,8 @@ Respond ONLY with valid JSON (no markdown code fence outside):
           const modelLabel = isHydrogen
             ? 'Google Gemini 4 Hydrogen'
             : engine === 'hybrid'
-            ? 'Gemini 3.8 + ChatGPT Dual Ensemble'
-            : 'Google Gemini 3.8 Flash';
+            ? 'Gemini 4 + ChatGPT Dual Ensemble'
+            : 'Google Gemini 4 Spatial';
           return {
             response: parsed.response,
             thought: parsed.thought || 'Audited active project parameters, building codes, and construction benchmarks.',
@@ -1662,13 +1662,13 @@ export function getDomainFallbackAgentResponse(
         description: 'Synchronized Google Gemini 4 Hydrogen reasoning across active architectural & BOQ proposal',
       });
     } else {
-      thought = `Orchestrated Dual-Brain AI architecture: Google Gemini 3.8 Flash (multi-modal spatial takeoffs) + OpenAI ChatGPT (GPT-4o structural & building code logic).`;
-      toolsUsed = ['Google Gemini 3.8 Flash Engine', 'OpenAI ChatGPT-4o Logic Engine', 'Dual AI Ensemble Validator'];
+      thought = `Orchestrated Dual-Brain AI architecture: Google Gemini 4 Spatial (multi-modal spatial takeoffs) + OpenAI ChatGPT (GPT-4o structural & building code logic).`;
+      toolsUsed = ['Google Gemini 4 Spatial Engine', 'OpenAI ChatGPT-4o Logic Engine', 'Dual AI Ensemble Validator'];
       actions.push({
         id: `act-engine-toggle-${Date.now()}`,
         type: 'run_audit',
         title: 'Dual AI Verification Complete',
-        description: 'Synchronized Google Gemini 3.8 Flash and OpenAI ChatGPT models across active project proposal',
+        description: 'Synchronized Google Gemini 4 Spatial and OpenAI ChatGPT models across active project proposal',
       });
     }
   } else if (
@@ -1874,8 +1874,8 @@ export function getDomainFallbackAgentResponse(
       : engine === 'hydrogen'
       ? 'Google Gemini 4 Hydrogen'
       : engine === 'hybrid'
-      ? 'Gemini 3.8 + ChatGPT Dual Ensemble'
-      : 'Google Gemini 3.8 Flash';
+      ? 'Gemini 4 + ChatGPT Dual Ensemble'
+      : 'Google Gemini 4 Spatial';
 
   return {
     response: responseText,
@@ -2175,7 +2175,7 @@ Gouse AI Specialist is now operating with **Full Autonomous Agent Authority**, e
 *Status: Gouse AI Specialist is ready for natural voice conversation and live architectural guidance.*`;
   }
 
-  // AI Integration inquiries (Gemini 4 Hydrogen / Gemini 3.8 + ChatGPT / OpenAI)
+  // AI Integration inquiries (Gemini 4 Hydrogen / Spatial + ChatGPT / OpenAI)
   if (
     lower.includes('gemini') ||
     lower.includes('hydrogen') ||
@@ -2186,9 +2186,9 @@ Gouse AI Specialist is now operating with **Full Autonomous Agent Authority**, e
     lower.includes('gpt') ||
     lower.includes('integration')
   ) {
-    return `### ⚡ Gouse AI Specialist: Gemini 4 Hydrogen, Gemini 3.8 Flash & ChatGPT Engine Integration
+    return `### ⚡ Gouse AI Specialist: Gemini 4 Hydrogen, Spatial & ChatGPT Engine Integration
 
-Gouse AI Specialist operates on an advanced **Multi-Model Hybrid Architectural Intelligence Architecture**, unifying **Google Gemini 4 Hydrogen (\`gemini-4-hydrogen\`)**, **Google Gemini 3.8 Flash**, and **OpenAI ChatGPT (GPT-4o)**:
+Gouse AI Specialist operates on an advanced **Multi-Model Hybrid Architectural Intelligence Architecture**, unifying **Google Gemini 4 Hydrogen (\`gemini-4-hydrogen\`)**, **Gemini 4 Spatial**, and **OpenAI ChatGPT (GPT-4o)**:
 
 ---
 
@@ -2196,7 +2196,7 @@ Gouse AI Specialist operates on an advanced **Multi-Model Hybrid Architectural I
 - **Role**: High-speed next-generation reasoning, rapid multimodal floor-plan & CAD vector interpretation, dynamic BOQ auto-calculation, and low-latency architectural synthesis.
 - **Adaptive Thinking**: Supports calibrated reasoning depth (\`ThinkingLevel\`) for complex IS 456, NBC 2016, and Nambike Nakshe 2.0 compliance checks.
 
-#### 2. Google Gemini 3.8 Flash (Spatial & Multi-Modal Engine)
+#### 2. Google Gemini 4 Spatial (CAD & Multi-Modal Engine)
 - **Role**: Real-time visual parsing of AutoCAD blueprints (\`.dwg\`, \`.dxf\`, SVG), vector area takeoffs, room perimeter geometry, and cardinal Vastu orientation.
 - **Multilingual Native Audio**: Powers real-time bi-directional voice chat across English, Kannada, Telugu, Hindi, Tamil, and Malayalam with low-latency Gemini Speech synthesis.
 
@@ -2206,7 +2206,7 @@ Gouse AI Specialist operates on an advanced **Multi-Model Hybrid Architectural I
 #### 4. Dual AI Ensemble Mode (Co-Pilot Consensus)
 - Cross-verifies spatial geometry and material takeoffs with structural calculations and building codes for zero-error consensus.
 
-*You can toggle between **⚛ Gemini 4 Hydrogen**, **✦ Gemini 3.8**, **⚡ ChatGPT (GPT-4o)**, and **★ Dual Ensemble** directly in the specialist toolbar above!*`;
+*You can toggle between **⚛ Gemini 4 Hydrogen**, **✦ Gemini 4 Spatial**, **⚡ ChatGPT (GPT-4o)**, and **★ Dual Ensemble** directly in the specialist toolbar above!*`;
   }
 
   // Steel & Rebar inquiries including A-One Gold
@@ -4844,6 +4844,7 @@ export interface NaturalVoiceChatResult {
   spokenReply: string;
   displayText: string;
   detectedLanguage: string;
+  modelUsed?: string;
   audioBase64?: string | null;
   mimeType?: string;
   workspaceAction?: {
@@ -4870,10 +4871,45 @@ export interface NaturalVoiceChatResult {
   };
 }
 
+function normalizeGeminiChatHistory(
+  rawHistory: Array<{ role: 'user' | 'assistant'; text: string }>
+): Array<{ role: 'user' | 'model'; parts: Array<{ text: string }> }> {
+  const cleaned = (Array.isArray(rawHistory) ? rawHistory : [])
+    .filter((h) => h && typeof h.text === 'string' && h.text.trim().length > 0)
+    .slice(-16)
+    .map((h) => ({
+      role: (h.role === 'user' ? 'user' : 'model') as 'user' | 'model',
+      text: h.text.trim(),
+    }));
+
+  // Multi-turn Chat history must begin with a 'user' entry and strictly alternate roles.
+  const firstUserIdx = cleaned.findIndex((h) => h.role === 'user');
+  if (firstUserIdx === -1) return [];
+
+  const alternating: Array<{ role: 'user' | 'model'; parts: Array<{ text: string }> }> = [];
+  for (let i = firstUserIdx; i < cleaned.length; i++) {
+    const entry = cleaned[i];
+    const last = alternating[alternating.length - 1];
+    if (last && last.role === entry.role) {
+      last.parts.push({ text: entry.text });
+    } else {
+      alternating.push({
+        role: entry.role,
+        parts: [{ text: entry.text }],
+      });
+    }
+  }
+
+  // Ensure history ends on 'model' so the next chat.sendMessage() provides the 'user' turn.
+  if (alternating.length > 0 && alternating[alternating.length - 1].role === 'user') {
+    alternating.pop();
+  }
+  return alternating;
+}
+
 /**
- * Natural Conversational Voice Chat powered by Gemini 4 Hydrogen + Gemini 3.8 Flash Lite TTS.
- * Listens to live recorded audio or text turns, maintains conversational memory,
- * replies in warm human spoken language, and quietly updates workspace state if requested.
+ * Natural Multi-Turn Conversational Voice Chat powered by Gemini Chats API + Gemini 3.8 Flash Lite TTS.
+ * Uses ai.chats.create() with normalized multi-turn history and role-specific systemInstruction.
  */
 export async function processNaturalVoiceChat(payload: {
   audioBase64?: string;
@@ -4888,6 +4924,10 @@ export async function processNaturalVoiceChat(payload: {
   language?: string;
   voiceName?: string;
   specialist?: string;
+  model?: string;
+  roleId?: string;
+  roleTitle?: string;
+  roleInstruction?: string;
 }): Promise<NaturalVoiceChatResult> {
   const {
     audioBase64,
@@ -4902,7 +4942,13 @@ export async function processNaturalVoiceChat(payload: {
     language = 'auto',
     voiceName = 'Zephyr',
     specialist = 'general',
+    model = 'gemini-4-hydrogen',
+    roleTitle = 'Studio Lead Architect',
+    roleInstruction = 'You guide architectural design, spatial planning, client walkthroughs, and project approvals with clarity.',
   } = payload;
+
+  const selectedModel =
+    model === 'gemini-3.1-flash-lite' ? 'gemini-3.1-flash-lite' : 'gemini-4-hydrogen';
 
   const projectName = activeProject?.name || 'Studio Project';
   const projectArea = activeProject?.builtUpAreaSqFt || 3200;
@@ -4912,23 +4958,19 @@ export async function processNaturalVoiceChat(payload: {
   const subtotalText = boqSummary?.subtotal ? `${currency} ${Math.round(boqSummary.subtotal).toLocaleString()}` : 'not calculated yet';
   const grandTotalText = boqSummary?.grandTotal ? `${currency} ${Math.round(boqSummary.grandTotal).toLocaleString()}` : subtotalText;
 
-  const recentHistory = (Array.isArray(history) ? history : [])
-    .slice(-8)
-    .map((h) => `${h.role === 'user' ? 'Client/User' : 'Gouse AI'}: ${h.text}`)
-    .join('\n');
-
   const client = getAiClient();
   if (client && !isQuotaCooldownActive() && (audioBase64 || text.trim())) {
     try {
-      const systemPrompt = `You are Gouse AI — a warm, attentive, senior architectural & construction advisor having a natural spoken phone/voice conversation with the user.
+      const systemInstruction = `You are Gouse AI acting in the specific role of "${roleTitle}": ${roleInstruction}
+You are having a natural, multi-turn spoken phone/voice conversation with the user.
 
 STRICT CONVERSATIONAL STYLE RULES:
-- Talk like a real human studio partner sitting at the drafting table, NOT a robot or command parser.
+- Stay true to your assigned role ("${roleTitle}") while talking like a real human studio partner at the drafting table, NOT a robot or command parser.
 - Use natural spoken phrasing, contractions ("I've", "we're", "let's"), and warm pacing.
 - NEVER say "Executing command", "Navigation confirmed", or read out markdown symbols, bullet points, or asterisks.
 - Keep "spokenReply" concise and easy to listen to: 2 to 4 natural sentences (~25 to 60 words max).
 - If the user asks in Hindi, Kannada, Telugu, Tamil, Malayalam, Marathi, Urdu, Arabic, or any regional language (or if language preference "${language}" is specified and not "auto"), reply naturally in that exact language.
-- If the user casually asks to look at a section (like BOQ, Materials, Projects, Realstate Media, Marketplace, Property) or asks to add a BOQ item / adjust project area / contingency / currency, fulfill it naturally in "workspaceAction" while answering conversationally!
+- If the user casually asks to open a workspace section (like BOQ, Materials, Projects, Realstate Media, Marketplace, Property) or asks to add a BOQ item / adjust project area / contingency / currency, fulfill it naturally in "workspaceAction" while answering conversationally.
 
 WORKSPACE CONTEXT:
 - Current Screen: "${activeTab}"
@@ -4937,8 +4979,6 @@ WORKSPACE CONTEXT:
 - Top BOQ Items: ${(boqSummary?.topItems || []).join(', ') || 'Concrete, TMT Steel, Masonry, MEP'}
 - Currency: ${currency}
 - Specialist Focus: ${specialist}
-${recentHistory ? `\nRECENT CONVERSATION:\n${recentHistory}\n` : ''}
-${text.trim() ? `\nUSER'S MESSAGE: "${text.trim()}"\n` : '\nListen carefully to the attached audio message from the user.\n'}
 
 Output strictly valid JSON matching this schema:
 {
@@ -4956,6 +4996,19 @@ Output strictly valid JSON matching this schema:
   }
 }`;
 
+      const chatHistory = normalizeGeminiChatHistory(history);
+      const chat = client.chats.create({
+        model: selectedModel,
+        history: chatHistory,
+        config: {
+          systemInstruction,
+          responseMimeType: 'application/json',
+          ...(selectedModel === 'gemini-4-hydrogen'
+            ? { thinkingConfig: { thinkingLevel: ThinkingLevel.LOW } }
+            : {}),
+        },
+      });
+
       const parts: any[] = [];
       if (audioBase64) {
         const normalizedMime = mimeType.split(';')[0].trim() || 'audio/webm';
@@ -4966,16 +5019,13 @@ Output strictly valid JSON matching this schema:
           },
         });
       }
-      parts.push({ text: systemPrompt });
-
-      const res = await client.models.generateContent({
-        model: 'gemini-4-hydrogen',
-        contents: [{ role: 'user', parts }],
-        config: {
-          responseMimeType: 'application/json',
-          thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
-        },
+      parts.push({
+        text: text.trim()
+          ? text.trim()
+          : 'Listen carefully to the attached audio message and respond naturally in JSON.',
       });
+
+      const res = await chat.sendMessage({ message: parts });
 
       const raw = res.text?.trim() || '';
       if (raw) {
@@ -4991,7 +5041,7 @@ Output strictly valid JSON matching this schema:
             spokenReply,
             voiceName,
             detectedLanguage,
-            'Warm, friendly, natural conversational architectural studio advisor'
+            `Warm, natural conversational ${roleTitle}`
           );
         }
 
@@ -5000,6 +5050,7 @@ Output strictly valid JSON matching this schema:
           spokenReply,
           displayText,
           detectedLanguage,
+          modelUsed: selectedModel,
           audioBase64: audioOut?.audioBase64 || null,
           mimeType: audioOut?.mimeType || 'audio/wav',
           workspaceAction: parsed.workspaceAction || { type: 'none' },
@@ -5013,7 +5064,7 @@ Output strictly valid JSON matching this schema:
   // Natural conversational fallback
   const fallbackText = text.trim() || 'Could you walk me through our active project estimate?';
   const lower = fallbackText.toLowerCase();
-  let spokenReply = `We're currently looking at ${projectName} in ${projectLocation}, around ${projectArea.toLocaleString()} square feet. Your BOQ estimate with ${contingencyPercent}% contingency stands at ${grandTotalText}. What part would you like to talk through next?`;
+  let spokenReply = `As your ${roleTitle}, I'm reviewing ${projectName} in ${projectLocation}, around ${projectArea.toLocaleString()} square feet. Your BOQ estimate with ${contingencyPercent}% contingency stands at ${grandTotalText}. What part would you like to talk through next?`;
   let workspaceAction: NaturalVoiceChatResult['workspaceAction'] = { type: 'none' };
 
   if (lower.includes('boq') || lower.includes('estimate') || lower.includes('cost') || lower.includes('budget')) {
@@ -5034,7 +5085,7 @@ Output strictly valid JSON matching this schema:
     spokenReply,
     voiceName,
     language === 'auto' ? 'en-IN' : language,
-    'Warm, natural conversational architectural consultant'
+    `Warm, natural conversational ${roleTitle}`
   ).catch(() => null);
 
   return {
@@ -5042,6 +5093,7 @@ Output strictly valid JSON matching this schema:
     spokenReply,
     displayText: spokenReply,
     detectedLanguage: language === 'auto' ? 'en-IN' : language,
+    modelUsed: selectedModel,
     audioBase64: audioOut?.audioBase64 || null,
     mimeType: audioOut?.mimeType || 'audio/wav',
     workspaceAction,

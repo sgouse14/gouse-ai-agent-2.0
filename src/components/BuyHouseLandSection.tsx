@@ -569,7 +569,7 @@ export const BuyHouseLandSection: React.FC<BuyHouseLandSectionProps> = ({
     }
 
     setListingSuccessMessage(
-      `Property "${sellTitle}" published successfully to Gouse AI Agent Broker portal with 0% brokerage!`
+      `Property "${sellTitle}" published successfully to Zero-Broker Direct Hub with 0% brokerage!`
     );
     setTimeout(() => setListingSuccessMessage(null), 8000);
 
@@ -1009,7 +1009,7 @@ export const BuyHouseLandSection: React.FC<BuyHouseLandSectionProps> = ({
               {/* Direct Booking Action Buttons */}
               <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-slate-800">
                 <div className="text-xs text-slate-400">
-                  <span>Contact Broker Desk: </span>
+                  <span>Direct Owner Desk: </span>
                   <span className="text-white font-bold">{selectedHouse.contactPhone}</span>
                   <span className="text-emerald-400 ml-2 font-mono">(0% Brokerage)</span>
                 </div>

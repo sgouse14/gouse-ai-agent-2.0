@@ -407,6 +407,11 @@ export interface MarketplaceEnquiry {
   budget?: string;
   status: EnquiryStatus;
   createdAt: string;
+  routingStage?: 'connected_to_gouse' | 'passed_to_partner';
+  coordinatorName?: string;
+  coordinatorEmail?: string;
+  coordinatorPhone?: string;
+  passedToPartnerAt?: string;
   responseMessage?: string;
   quotedAmount?: string;
   estimatedDelivery?: string;

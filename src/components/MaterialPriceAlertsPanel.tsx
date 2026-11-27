@@ -115,7 +115,7 @@ export const MaterialPriceAlertsPanel: React.FC<MaterialPriceAlertsPanelProps> =
                 : 'bg-slate-800 text-slate-400 border-slate-700'
             }`}
           >
-            {isMasterEnabled ? <BellRing className="w-5 h-5 text-amber-400 animate-pulse" /> : <BellOff className="w-5 h-5" />}
+            {isMasterEnabled ? <BellRing className="w-5 h-5 text-amber-400" /> : <BellOff className="w-5 h-5" />}
           </div>
 
           <div className="space-y-0.5">

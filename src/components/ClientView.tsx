@@ -256,7 +256,7 @@ export const ClientView: React.FC<ClientViewProps> = ({
   isStaffPreview = false,
   isUnauthenticatedOutside = false,
 }) => {
-  const { user, logout, openLoginModal } = useAuth();
+  const { user, logout } = useAuth();
 
   const assignedProjects = useMemo(() => {
     if (user && user.role === 'client') {
@@ -939,6 +939,44 @@ Open Change Orders / RFIs: ${projectFieldItems.filter((i) => i.status !== 'appro
     URL.revokeObjectURL(url);
   };
 
+  if (user?.role !== 'client') {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-6 bg-slate-950 text-slate-100">
+        <div className="max-w-md w-full p-8 rounded-2xl bg-slate-900 border border-amber-500/40 text-center space-y-5">
+          <div className="w-12 h-12 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-400 flex items-center justify-center mx-auto">
+            <Lock className="w-6 h-6" />
+          </div>
+          <div className="space-y-2">
+            <h3 className="text-lg font-bold text-white">Client Access Only — Separate Login Required</h3>
+            <p className="text-xs text-slate-400 leading-relaxed">
+              Only verified <strong>Client</strong> accounts can enter Client Access. Architects, Engineers, Contractors, Gouse AI, and guests cannot open Client Workspace without Client Login.
+            </p>
+          </div>
+          <div className="flex flex-col gap-2">
+            {onViewPublicPortal && (
+              <button
+                type="button"
+                onClick={onViewPublicPortal}
+                className="w-full py-2.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold text-xs transition-colors"
+              >
+                Open Separate Client Login
+              </button>
+            )}
+            {onReturnToPlatform && (
+              <button
+                type="button"
+                onClick={onReturnToPlatform}
+                className="w-full py-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium text-xs transition-colors"
+              >
+                Return to Studio Workspace
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (!activeProject || assignedProjects.length === 0) {
     return (
       <div className="min-h-[500px] flex items-center justify-center p-6 bg-slate-950 text-slate-100">
@@ -1006,26 +1044,19 @@ Open Change Orders / RFIs: ${projectFieldItems.filter((i) => i.status !== 'appro
       {(!user || isUnauthenticatedOutside) && (
         <div className="bg-slate-900 border-b border-slate-800 px-4 py-2 text-xs flex items-center justify-between flex-wrap gap-2">
           <span className="text-slate-300">
-            Viewing client project workspace · Sign in with your project email for private approvals.
+            Viewing client project workspace · Sign in through Separate Client Login for private approvals.
           </span>
           <div className="flex items-center gap-2 shrink-0">
             {onViewPublicPortal && (
               <button
                 type="button"
                 onClick={onViewPublicPortal}
-                className="px-3 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium transition-colors whitespace-nowrap shrink-0"
+                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold text-xs transition-colors whitespace-nowrap shrink-0"
               >
-                Client Intake
+                <LogIn className="w-3.5 h-3.5" />
+                <span>Client Sign In</span>
               </button>
             )}
-            <button
-              type="button"
-              onClick={openLoginModal}
-              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold text-xs transition-colors whitespace-nowrap shrink-0"
-            >
-              <LogIn className="w-3.5 h-3.5" />
-              <span>Sign In</span>
-            </button>
           </div>
         </div>
       )}
@@ -1099,14 +1130,14 @@ Open Change Orders / RFIs: ${projectFieldItems.filter((i) => i.status !== 'appro
                 </button>
               )}
 
-              {!user && (
+              {!user && onViewPublicPortal && (
                 <button
                   type="button"
-                  onClick={openLoginModal}
+                  onClick={onViewPublicPortal}
                   className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold text-xs transition-colors whitespace-nowrap shrink-0"
                 >
                   <LogIn className="w-3.5 h-3.5" />
-                  <span>Sign In</span>
+                  <span>Client Sign In</span>
                 </button>
               )}
             </div>

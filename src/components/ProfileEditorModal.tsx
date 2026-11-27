@@ -39,6 +39,15 @@ export const ProfileEditorModal: React.FC = () => {
     }
   }, [user, isProfileEditorOpen]);
 
+  useEffect(() => {
+    if (!isProfileEditorOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setIsProfileEditorOpen(false);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [isProfileEditorOpen, setIsProfileEditorOpen]);
+
   if (!isProfileEditorOpen || !user) return null;
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -63,7 +72,9 @@ export const ProfileEditorModal: React.FC = () => {
   return (
     <div
       id="profile-editor-modal-backdrop"
-      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 md:p-6 bg-slate-950/80 backdrop-blur-md overflow-y-auto animate-in fade-in duration-200"
+      role="dialog"
+      aria-modal="true"
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 md:p-6 bg-slate-950/80 backdrop-blur-md overflow-y-auto"
       onClick={(e) => {
         if (e.target === e.currentTarget) setIsProfileEditorOpen(false);
       }}
@@ -89,15 +100,17 @@ export const ProfileEditorModal: React.FC = () => {
                 Edit Professional Profile
               </h2>
               <p className="text-xs text-slate-400">
-                Update your credentials, license &amp; architectural metadata
+                Update your credentials, license &amp; workspace role
               </p>
             </div>
           </div>
 
           <button
             id="btn-close-profile-editor"
+            type="button"
             onClick={() => setIsProfileEditorOpen(false)}
             className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition"
+            aria-label="Close profile editor"
           >
             <X className="w-5 h-5" />
           </button>
@@ -159,7 +172,6 @@ export const ProfileEditorModal: React.FC = () => {
                 <option value="structural_engineer">Structural Engineer</option>
                 <option value="quantity_surveyor">Quantity Surveyor</option>
                 <option value="contractor">Turnkey Contractor</option>
-                <option value="client">Client / Developer</option>
                 <option value="mep_engineer">MEP Consultant</option>
               </select>
             </div>

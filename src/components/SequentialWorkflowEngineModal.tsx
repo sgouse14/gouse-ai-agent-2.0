@@ -628,7 +628,7 @@ export const SequentialWorkflowEngineModal: React.FC<SequentialWorkflowEngineMod
   const handleCopyArchitecturePrompt = () => {
     const promptText = `GOUSE AI AGENT PLATFORM SPECIFICATION
 Document Title: Gouse AI Agent • Integrated Municipal Compliance & Automated CAD Analysis Engine
-AI Agent: Gouse AI Agent (Gemini 3.8 Flash Autonomous Specialist)
+AI Agent: Gouse AI Agent (Gemini 4 Hydrogen Autonomous Specialist)
 Target System: Automated CAD Analysis & BOQ Engine
 Compliance Gate: Local Government Rules (Nambike Nakshe 2.0 / GBA)
 Overall Rating: 9.8 / 10 (Production Ready)

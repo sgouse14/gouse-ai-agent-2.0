@@ -1052,7 +1052,7 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
                 id="btn-toggle-add-member"
                 type="button"
                 onClick={() => setIsAddingMember(!isAddingMember)}
-                className="inline-flex items-center gap-2 text-xs px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold transition shadow-lg shadow-amber-500/20"
+                className="inline-flex items-center gap-2 text-xs px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold transition-colors whitespace-nowrap shrink-0"
               >
                 <Plus className="w-4 h-4" />
                 <span>{isAddingMember ? 'Close Form' : 'Add Employee (Photo ID)'}</span>
@@ -1605,13 +1605,10 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
                 <button
                   type="button"
                   onClick={onOpenSiteCamera}
-                  className="px-5 py-3 rounded-xl bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-300 text-slate-950 font-bold text-xs hover:scale-105 active:scale-95 transition shadow-lg shadow-amber-500/20 flex items-center gap-2"
+                  className="px-4 py-2.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold text-xs transition-colors flex items-center gap-2 whitespace-nowrap shrink-0"
                 >
-                  <Camera className="w-4 h-4 stroke-[2.5]" />
+                  <Camera className="w-4 h-4" />
                   <span>Snap New Site Photo</span>
-                  <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-slate-950/20 border border-slate-950/30 font-bold">
-                    AI AUDIT
-                  </span>
                 </button>
               )}
             </div>
